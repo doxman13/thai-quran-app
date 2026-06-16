@@ -6,16 +6,19 @@ import '../models/verse.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/bookmark_provider.dart';
+import '../providers/progress_provider.dart';
 
 class VerseCard extends StatefulWidget {
   final Verse verse;
   final bool useThaiV3;
   final QuranRepository repository;
+  final int index;
 
   const VerseCard({
     Key? key,
     required this.verse,
     required this.repository,
+    required this.index,
     this.useThaiV3 = true,
   }) : super(key: key);
 
@@ -64,30 +67,112 @@ class _VerseCardState extends State<VerseCard> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final progress = Provider.of<ProgressProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isHighlighted = widget.index == progress.lastVerseIndex;
+
+    TextStyle arabicStyle;
+    switch (settings.arabicFontFamily) {
+      case 'UthmanicHafs':
+        arabicStyle = TextStyle(
+          fontFamily: 'UthmanicHafs',
+          fontSize: settings.arabicFontSize,
+          height: 2.0,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'AmiriQuran':
+        arabicStyle = GoogleFonts.amiriQuran(
+          fontSize: settings.arabicFontSize,
+          height: 2.0,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'ScheherazadeNew':
+        arabicStyle = GoogleFonts.scheherazadeNew(
+          fontSize: settings.arabicFontSize,
+          height: 2.0,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'Amiri':
+        arabicStyle = GoogleFonts.amiri(
+          fontSize: settings.arabicFontSize,
+          height: 2.0,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      default:
+        arabicStyle = TextStyle(
+          fontFamily: 'UthmanicHafs',
+          fontSize: settings.arabicFontSize,
+          height: 2.0,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+    }
 
     // Force show if global setting is on
     if (settings.alwaysShowArabic && !_isArabicVisible && widget.verse.arabic.isEmpty && !widget.verse.isArabicLoading) {
       _loadArabic();
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return AnimatedScale(
+      scale: isHighlighted ? 1.025 : 1.0,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Stack(
+          children: [
+            // Base Card Background (Normal)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Highlighted Card Background (Fades in/out)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                opacity: isHighlighted ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOut,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E2E3E) : const Color(0xFFF0FDFA),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.teal.shade400,
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.teal.withOpacity(isDark ? 0.35 : 0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // Content Layer
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
           // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -172,11 +257,7 @@ class _VerseCardState extends State<VerseCard> {
                 textDirection: TextDirection.rtl,
                 child: Text(
                   widget.verse.arabic,
-                  style: GoogleFonts.amiriQuran(
-                    fontSize: 26,
-                    height: 2.0,
-                    color: isDark ? Colors.white : const Color(0xFF1E293B),
-                  ),
+                  style: arabicStyle,
                 ),
               ),
             const SizedBox(height: 12),
@@ -197,6 +278,10 @@ class _VerseCardState extends State<VerseCard> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  ],
+),
+),
+);
+}
 }

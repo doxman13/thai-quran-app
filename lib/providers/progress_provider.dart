@@ -9,6 +9,7 @@ class ProgressProvider extends ChangeNotifier {
 
   String _currentSurahId = '1';
   int _lastVerseIndex = 0;
+  int _totalVerses = 0;
   bool _isInitialized = false;
 
   String get currentSurahId => _currentSurahId;
@@ -18,6 +19,10 @@ class ProgressProvider extends ChangeNotifier {
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
 
+  void setTotalVerses(int count) {
+    _totalVerses = count;
+  }
+
   ProgressProvider() {
     _init();
     
@@ -25,18 +30,33 @@ class ProgressProvider extends ChangeNotifier {
     itemPositionsListener.itemPositions.addListener(() {
       final positions = itemPositionsListener.itemPositions.value;
       if (positions.isNotEmpty) {
-        // Find the item that is at the top/center of the viewport
-        // item.itemLeadingEdge represents the top edge of the item relative to the viewport.
-        // We pick the first item whose leading edge is <= 0.5 (meaning it's in the top half)
-        // or just the absolute top item.
         int topIndex = 0;
-        double minDistance = double.infinity;
         
+        // Check if the last item is visible and fully/mostly inside the viewport
+        bool isLastVisible = false;
+        double lastTrailing = 2.0;
         for (var pos in positions) {
-          double dist = pos.itemLeadingEdge.abs();
-          if (dist < minDistance) {
-            minDistance = dist;
-            topIndex = pos.index;
+          if (pos.index == _totalVerses - 1) {
+            isLastVisible = true;
+            lastTrailing = pos.itemTrailingEdge;
+            break;
+          }
+        }
+        
+        if (isLastVisible && lastTrailing <= 1.05) {
+          topIndex = _totalVerses - 1;
+        } else {
+          // Find the item that covers or is closest to targetY (e.g. 30% from top)
+          double targetY = 0.3;
+          double minDistance = double.infinity;
+          
+          for (var pos in positions) {
+            double itemCenter = (pos.itemLeadingEdge + pos.itemTrailingEdge) / 2;
+            double dist = (itemCenter - targetY).abs();
+            if (dist < minDistance) {
+              minDistance = dist;
+              topIndex = pos.index;
+            }
           }
         }
 
@@ -58,9 +78,8 @@ class ProgressProvider extends ChangeNotifier {
 
     _currentSurahId = surahId;
     _lastVerseIndex = verseIndex;
+    notifyListeners();
     
-    // Do not notifyListeners() here to avoid rebuilding UI on every scroll tick.
-    // We just silently save to SharedPreferences.
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_surahKey, surahId);
     await prefs.setInt(_verseKey, verseIndex);
@@ -76,6 +95,7 @@ class ProgressProvider extends ChangeNotifier {
     if (_currentSurahId != surahId) {
       _currentSurahId = surahId;
       _lastVerseIndex = 0; // Reset index when changing surahs manually
+      notifyListeners();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_surahKey, surahId);
       await prefs.setInt(_verseKey, 0);

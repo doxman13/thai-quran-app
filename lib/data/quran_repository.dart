@@ -32,7 +32,8 @@ class QuranRepository {
   }
 
   String getSurahName(String surahId) {
-    return surahNames[surahId] ?? 'Surah $surahId';
+    final name = surahNames[surahId] ?? 'Surah $surahId';
+    return '$surahId. $name';
   }
 
   // Gets the verses for a specific Surah
