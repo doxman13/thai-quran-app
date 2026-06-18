@@ -4,17 +4,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 class ProgressProvider extends ChangeNotifier {
-  final String _surahKey = 'last_surah_id';
-  final String _verseKey = 'last_verse_index';
+  static const List<String> profiles = [
+    'Main Daily Read',
+    'Special Read',
+    'Search',
+    'Read from Bookmark',
+    'Last Read'
+  ];
 
-  String _currentSurahId = '1';
-  int _lastVerseIndex = 0;
+  String _currentProfile = 'Main Daily Read';
+  
+  // Profile progress state maps
+  final Map<String, String> _profileSurahs = {};
+  final Map<String, int> _profileVerses = {};
+  
   int _totalVerses = 0;
   bool _isInitialized = false;
+  bool _isChangingSurah = false; // Flag to disable scroll listener during load
 
-  String get currentSurahId => _currentSurahId;
-  int get lastVerseIndex => _lastVerseIndex;
+  int _completedReadCount = 0;
+  int _completedCheckCount = 0;
+
+  String get currentProfile => _currentProfile;
+  String get currentSurahId => _profileSurahs[_currentProfile] ?? '1';
+  int get lastVerseIndex => _profileVerses[_currentProfile] ?? 0;
   bool get isInitialized => _isInitialized;
+  bool get isChangingSurah => _isChangingSurah;
+  int get completedReadCount => _completedReadCount;
+  int get completedCheckCount => _completedCheckCount;
 
   final ItemScrollController itemScrollController = ItemScrollController();
   final ItemPositionsListener itemPositionsListener = ItemPositionsListener.create();
@@ -23,11 +40,18 @@ class ProgressProvider extends ChangeNotifier {
     _totalVerses = count;
   }
 
+  void setChangingSurah(bool value) {
+    _isChangingSurah = value;
+  }
+
   ProgressProvider() {
     _init();
+
     
     // Listen to scrolling to automatically update progress
     itemPositionsListener.itemPositions.addListener(() {
+      if (_isChangingSurah) return; // Skip updates when changing surah to avoid overwriting reset
+
       final positions = itemPositionsListener.itemPositions.value;
       if (positions.isNotEmpty) {
         int topIndex = 0;
@@ -60,45 +84,101 @@ class ProgressProvider extends ChangeNotifier {
           }
         }
 
-        _saveProgress(_currentSurahId, topIndex);
+        _saveProgress(currentSurahId, topIndex);
       }
     });
   }
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
-    _currentSurahId = prefs.getString(_surahKey) ?? '1';
-    _lastVerseIndex = prefs.getInt(_verseKey) ?? 0;
+    
+    // Load active profile
+    _currentProfile = prefs.getString('active_reading_profile') ?? 'Main Daily Read';
+
+    // Load progress state for all profiles
+    for (var profile in profiles) {
+      _profileSurahs[profile] = prefs.getString('profile_${profile}_surah_id') ?? '1';
+      _profileVerses[profile] = prefs.getInt('profile_${profile}_verse_index') ?? 0;
+    }
+
+    _completedReadCount = prefs.getInt('completed_read_count') ?? 0;
+    _completedCheckCount = prefs.getInt('completed_check_count') ?? 0;
+
     _isInitialized = true;
     notifyListeners();
   }
 
-  Future<void> _saveProgress(String surahId, int verseIndex) async {
-    if (_currentSurahId == surahId && _lastVerseIndex == verseIndex) return;
+  Future<void> switchProfile(String newProfile) async {
+    if (!profiles.contains(newProfile)) return;
+    _currentProfile = newProfile;
+    notifyListeners();
 
-    _currentSurahId = surahId;
-    _lastVerseIndex = verseIndex;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('active_reading_profile', newProfile);
+  }
+
+  Future<void> _saveProgress(String surahId, int verseIndex) async {
+    final currentSurah = currentSurahId;
+    final currentVerse = lastVerseIndex;
+    
+    if (currentSurah == surahId && currentVerse == verseIndex) return;
+
+    _profileSurahs[_currentProfile] = surahId;
+    _profileVerses[_currentProfile] = verseIndex;
     notifyListeners();
     
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_surahKey, surahId);
-    await prefs.setInt(_verseKey, verseIndex);
+    await prefs.setString('profile_${_currentProfile}_surah_id', surahId);
+    await prefs.setInt('profile_${_currentProfile}_verse_index', verseIndex);
   }
 
   void jumpToSavedPosition() {
     if (itemScrollController.isAttached) {
-      itemScrollController.jumpTo(index: _lastVerseIndex);
+      itemScrollController.jumpTo(index: lastVerseIndex);
     }
   }
 
   Future<void> setCurrentSurah(String surahId) async {
-    if (_currentSurahId != surahId) {
-      _currentSurahId = surahId;
-      _lastVerseIndex = 0; // Reset index when changing surahs manually
+    if (currentSurahId != surahId) {
+      _profileSurahs[_currentProfile] = surahId;
+      _profileVerses[_currentProfile] = 0; // Reset index when changing surahs manually
       notifyListeners();
+      
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_surahKey, surahId);
-      await prefs.setInt(_verseKey, 0);
+      await prefs.setString('profile_${_currentProfile}_surah_id', surahId);
+      await prefs.setInt('profile_${_currentProfile}_verse_index', 0);
     }
   }
+
+  // Smooth scroll and set index manually
+  Future<void> setVerseIndexAndScroll(int index) async {
+    _profileVerses[_currentProfile] = index;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('profile_${_currentProfile}_verse_index', index);
+
+    if (itemScrollController.isAttached) {
+      await itemScrollController.scrollTo(
+        index: index,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  Future<void> incrementCompletedRead() async {
+    _completedReadCount++;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('completed_read_count', _completedReadCount);
+  }
+
+  Future<void> incrementCompletedCheck() async {
+    _completedCheckCount++;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('completed_check_count', _completedCheckCount);
+  }
 }
+

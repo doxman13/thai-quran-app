@@ -64,6 +64,7 @@ flutter:
 
   assets:
     - assets/thai_v3.json
+    - assets/merged_quran.json
 
   fonts:
     - family: UthmanicHafs

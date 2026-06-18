@@ -5,6 +5,7 @@ class Verse {
   String arabic;
   final String thaiV3;
   final String thaiV2;
+  final String english;
   bool isArabicLoading;
 
   Verse({
@@ -13,6 +14,7 @@ class Verse {
     required this.arabic,
     required this.thaiV3,
     required this.thaiV2,
+    required this.english,
     this.isArabicLoading = false,
   });
 }
