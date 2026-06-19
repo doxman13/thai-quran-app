@@ -479,12 +479,9 @@ class _VerseCardState extends State<VerseCard> {
                       _buildTranslationBlock(
                         label: 'Thai V3 (Revised)',
                         text: widget.verse.thaiV3,
-                        labelBg: isDark
-                            ? const Color(0xFF042F2E)
-                            : Colors.teal.shade50,
                         labelFg: isDark
-                            ? Colors.teal.shade200
-                            : Colors.teal.shade800,
+                            ? Colors.blueGrey.shade400
+                            : Colors.blueGrey.shade500,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 16,
                           height: 1.65,
@@ -493,7 +490,7 @@ class _VerseCardState extends State<VerseCard> {
                               : (settings.themeColor == 'sepia'
                                     ? const Color(0xFF2E1705)
                                     : const Color(0xFF0F172A)),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -502,12 +499,9 @@ class _VerseCardState extends State<VerseCard> {
                       _buildTranslationBlock(
                         label: 'Thai V2 (Original)',
                         text: widget.verse.thaiV2,
-                        labelBg: isDark
-                            ? Colors.amber.shade900
-                            : Colors.amber.shade50,
                         labelFg: isDark
-                            ? Colors.amber.shade200
-                            : Colors.amber.shade800,
+                            ? Colors.blueGrey.shade500
+                            : Colors.blueGrey.shade400,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 15,
                           height: 1.65,
@@ -516,7 +510,7 @@ class _VerseCardState extends State<VerseCard> {
                               : (settings.themeColor == 'sepia'
                                     ? const Color(0xFF2E1705)
                                     : const Color(0xFF334155)),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -525,19 +519,16 @@ class _VerseCardState extends State<VerseCard> {
                       _buildTranslationBlock(
                         label: 'English Translation',
                         text: widget.verse.english,
-                        labelBg: isDark
-                            ? Colors.blue.shade900
-                            : Colors.blue.shade50,
                         labelFg: isDark
-                            ? Colors.blue.shade200
-                            : Colors.blue.shade800,
+                            ? Colors.blueGrey.shade500
+                            : Colors.blueGrey.shade400,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 14,
                           height: 1.6,
                           color: isDark
                               ? const Color(0xFFE2E8F0)
                               : const Color(0xFF334155),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -890,30 +881,25 @@ class _VerseCardState extends State<VerseCard> {
   Widget _buildTranslationBlock({
     required String label,
     required String text,
-    required Color labelBg,
     required Color labelFg,
     required TextStyle textStyle,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: labelBg,
-            borderRadius: BorderRadius.circular(6),
-          ),
+        Text(text, style: textStyle),
+        const SizedBox(height: 5),
+        Align(
+          alignment: Alignment.centerRight,
           child: Text(
             label,
             style: GoogleFonts.prompt(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
               color: labelFg,
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(text, style: textStyle),
       ],
     );
   }
