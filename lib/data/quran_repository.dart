@@ -4,10 +4,12 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/verse.dart';
+import '../shared/quran_contract.dart';
 
 class QuranRepository {
   Map<String, dynamic>? _quranData;
   Map<String, dynamic>? _mergedQuranData;
+  Map<String, dynamic>? _tafsirData;
   final Map<String, String> surahNames = {};
 
   // Loads all Surahs from the local JSON asset and fetches Surah Names
@@ -24,6 +26,15 @@ class QuranRepository {
       _mergedQuranData = json.decode(mergedResponse);
     } catch (e) {
       print('Error loading merged_quran.json: $e');
+    }
+
+    try {
+      final String tafsirResponse = await rootBundle.loadString(
+        'assets/tafsir_thai_mokhtasar.json',
+      );
+      _tafsirData = json.decode(tafsirResponse);
+    } catch (e) {
+      print('Error loading tafsir_thai_mokhtasar.json: $e');
     }
 
     // Fetch surah names
@@ -63,8 +74,9 @@ class QuranRepository {
       ..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
 
     for (var key in sortedKeys) {
-      final verseKey = '$surahId:$key';
+      final verseKey = createVerseKey(surahId, key);
       final mergedVerse = _mergedQuranData?[verseKey];
+      final shortTafsir = _tafsirData?[surahId]?[key]?.toString();
 
       versesList.add(
         Verse(
@@ -76,6 +88,10 @@ class QuranRepository {
               mergedVerse?['thai_v1']?.toString() ??
               versesMap[key].toString(),
           english: mergedVerse?['english']?.toString() ?? 'N/A',
+          shortTafsir: shortTafsir?.trim().isEmpty == true ? null : shortTafsir,
+          shortTafsirSource: shortTafsir == null
+              ? null
+              : 'QuranEnc Thai Mokhtasar',
           arabic: '', // Initially empty, will be fetched via API
         ),
       );

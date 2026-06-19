@@ -1,6 +1,7 @@
 // lib/widgets/verse_card.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,8 @@ import '../providers/bookmark_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
+import '../providers/local_reading_provider.dart';
+import '../shared/shared.dart';
 
 class VerseCard extends StatefulWidget {
   final Verse verse;
@@ -33,16 +36,18 @@ class VerseCard extends StatefulWidget {
 class _VerseCardState extends State<VerseCard> {
   bool _isArabicVisible = false;
   bool? _lastGlobalArabicState;
-  
+
   // Audit and personal notes states
   bool _showAuditBox = false;
   bool _showNotesBox = false;
-  
+  bool _showTafsirBox = false;
+
   final TextEditingController _auditController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  
+
   bool _isSavingAudit = false;
   bool _auditSaved = false;
+  String _shareStatus = '';
 
   @override
   void initState() {
@@ -52,10 +57,13 @@ class _VerseCardState extends State<VerseCard> {
       if (settings.alwaysShowArabic) {
         _loadArabic();
       }
-      
+
       // Load initial personal note
       final notesProv = Provider.of<NotesProvider>(context, listen: false);
-      _notesController.text = notesProv.getNoteForVerse(widget.verse.surahId, widget.verse.id);
+      _notesController.text = notesProv.getNoteForVerse(
+        widget.verse.surahId,
+        widget.verse.id,
+      );
     });
   }
 
@@ -79,8 +87,11 @@ class _VerseCardState extends State<VerseCard> {
       _isArabicVisible = true;
     });
 
-    final fetched = await widget.repository.fetchArabicVerse(widget.verse.surahId, widget.verse.id);
-    
+    final fetched = await widget.repository.fetchArabicVerse(
+      widget.verse.surahId,
+      widget.verse.id,
+    );
+
     if (mounted) {
       setState(() {
         widget.verse.arabic = fetched;
@@ -103,13 +114,13 @@ class _VerseCardState extends State<VerseCard> {
       'verseId': widget.verse.id,
       'comment': comment,
       'auditorName': prefs.getString('auditorName') ?? 'Mobile User',
-      'source': 'Mobile App'
+      'source': 'Mobile App',
     };
 
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final userHost = settings.webHostUrl;
     bool success = false;
-    
+
     // Attempt API save
     try {
       final List<Uri> urls = [];
@@ -118,11 +129,13 @@ class _VerseCardState extends State<VerseCard> {
 
       for (var url in urls) {
         try {
-          final res = await http.post(
-            url,
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode(auditData),
-          ).timeout(const Duration(seconds: 2));
+          final res = await http
+              .post(
+                url,
+                headers: {'Content-Type': 'application/json'},
+                body: json.encode(auditData),
+              )
+              .timeout(const Duration(seconds: 2));
 
           if (res.statusCode == 200 || res.statusCode == 201) {
             success = true;
@@ -138,15 +151,17 @@ class _VerseCardState extends State<VerseCard> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedAudits = prefs.getStringList('local_audits') ?? [];
-      cachedAudits.add(json.encode({
-        'timestamp': DateTime.now().toIso8601String(),
-        'surahId': widget.verse.surahId,
-        'verseId': widget.verse.id,
-        'comment': comment,
-        'synced': success,
-        'auditorName': prefs.getString('auditorName') ?? 'Mobile User',
-        'source': 'Mobile App',
-      }));
+      cachedAudits.add(
+        json.encode({
+          'timestamp': DateTime.now().toIso8601String(),
+          'surahId': widget.verse.surahId,
+          'verseId': widget.verse.id,
+          'comment': comment,
+          'synced': success,
+          'auditorName': prefs.getString('auditorName') ?? 'Mobile User',
+          'source': 'Mobile App',
+        }),
+      );
       await prefs.setStringList('local_audits', cachedAudits);
     } catch (e) {
       debugPrint('Error caching audit: $e');
@@ -158,10 +173,14 @@ class _VerseCardState extends State<VerseCard> {
         _auditSaved = true;
         _auditController.clear();
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Audit submitted successfully!' : 'Audit saved locally offline!'),
+          content: Text(
+            success
+                ? 'Audit submitted successfully!'
+                : 'Audit saved locally offline!',
+          ),
           backgroundColor: success ? Colors.teal : Colors.amber.shade800,
         ),
       );
@@ -177,15 +196,49 @@ class _VerseCardState extends State<VerseCard> {
   }
 
   void _savePersonalNote(NotesProvider notesProv) {
-    notesProv.saveNote(widget.verse.surahId, widget.verse.id, _notesController.text);
+    notesProv.saveNote(
+      widget.verse.surahId,
+      widget.verse.id,
+      _notesController.text,
+    );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Personal note saved!'),
+        content: Text('Tadabbur note saved!'),
         duration: Duration(seconds: 1),
       ),
     );
     setState(() {
       _showNotesBox = false;
+    });
+  }
+
+  Future<void> _copyShareText(NotesProvider notesProv) async {
+    final note = notesProv.getNoteForVerse(
+      widget.verse.surahId,
+      widget.verse.id,
+    );
+    final payload = SharePayload(
+      surahId: widget.verse.surahId,
+      verseId: widget.verse.id,
+      verseKey: widget.verse.verseKey,
+      surahName: widget.repository.getSurahName(widget.verse.surahId),
+      arabic: widget.verse.arabic,
+      translation: widget.verse.thaiV3,
+      translationVersion: 'thai_v3',
+      quickNote: note,
+      url:
+          'thai-quran-app://surah/${widget.verse.surahId}#v-${widget.verse.id}',
+    );
+    final text = formatVerseShareText(
+      payload,
+      note.trim().isEmpty ? 'translation_only' : 'translation_with_quick_note',
+    );
+
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    setState(() => _shareStatus = 'Copied');
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _shareStatus = '');
     });
   }
 
@@ -202,7 +255,8 @@ class _VerseCardState extends State<VerseCard> {
 
     // Auto-reset check for individual Arabic toggle when global setting changes
     final alwaysShow = settings.alwaysShowArabic;
-    if (_lastGlobalArabicState != null && _lastGlobalArabicState != alwaysShow) {
+    if (_lastGlobalArabicState != null &&
+        _lastGlobalArabicState != alwaysShow) {
       _isArabicVisible = alwaysShow;
     }
     _lastGlobalArabicState = alwaysShow;
@@ -211,6 +265,20 @@ class _VerseCardState extends State<VerseCard> {
       // Log reading stat
       WidgetsBinding.instance.addPostFrameCallback((_) {
         statsProv.logVerseRead(widget.verse.surahId, widget.verse.id);
+        final localReading = Provider.of<LocalReadingProvider>(
+          context,
+          listen: false,
+        );
+        final activeProfile = localReading.activeProfile;
+        final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
+        if (activeProfile != null &&
+            activeProfile.current.verseKey != verseRef.verseKey) {
+          localReading.updateProfileProgress(activeProfile.id, verseRef);
+          localReading.addRecentReading(
+            verse: verseRef,
+            profileId: activeProfile.id,
+          );
+        }
       });
     }
 
@@ -255,11 +323,16 @@ class _VerseCardState extends State<VerseCard> {
     }
 
     // Force load if global is on
-    if (settings.alwaysShowArabic && !_isArabicVisible && widget.verse.arabic.isEmpty && !widget.verse.isArabicLoading) {
+    if (settings.alwaysShowArabic &&
+        !_isArabicVisible &&
+        widget.verse.arabic.isEmpty &&
+        !widget.verse.isArabicLoading) {
       _loadArabic();
     }
 
-    final hasNote = notesProv.getNoteForVerse(widget.verse.surahId, widget.verse.id).isNotEmpty;
+    final hasNote = notesProv
+        .getNoteForVerse(widget.verse.surahId, widget.verse.id)
+        .isNotEmpty;
 
     return GestureDetector(
       onTap: () {
@@ -280,7 +353,9 @@ class _VerseCardState extends State<VerseCard> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark
-                        ? (settings.themeColor == 'sepia' ? const Color(0xFF261D17) : const Color(0xFF1E293B))
+                        ? (settings.themeColor == 'sepia'
+                              ? const Color(0xFF261D17)
+                              : const Color(0xFF1E293B))
                         : Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
@@ -293,7 +368,7 @@ class _VerseCardState extends State<VerseCard> {
                   ),
                 ),
               ),
-              
+
               // Highlighted Card Background (Fades in/out)
               Positioned.fill(
                 child: AnimatedOpacity(
@@ -303,13 +378,14 @@ class _VerseCardState extends State<VerseCard> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isDark
-                          ? (settings.themeColor == 'sepia' ? const Color(0xFF33251D) : const Color(0xFF1E2E3E))
-                          : (settings.themeColor == 'sepia' ? const Color(0xFFF6E6C3) : const Color(0xFFF0FDFA)),
+                          ? (settings.themeColor == 'sepia'
+                                ? const Color(0xFF33251D)
+                                : const Color(0xFF1E2E3E))
+                          : (settings.themeColor == 'sepia'
+                                ? const Color(0xFFF6E6C3)
+                                : const Color(0xFFF0FDFA)),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: highlightColor,
-                        width: 2.5,
-                      ),
+                      border: Border.all(color: highlightColor, width: 2.5),
                       boxShadow: [
                         BoxShadow(
                           color: themeColor.withOpacity(isDark ? 0.35 : 0.12),
@@ -321,7 +397,7 @@ class _VerseCardState extends State<VerseCard> {
                   ),
                 ),
               ),
-              
+
               // Content Layer
               Padding(
                 padding: const EdgeInsets.all(18),
@@ -333,7 +409,10 @@ class _VerseCardState extends State<VerseCard> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: isDark
                                 ? themeColor.withOpacity(0.25)
@@ -349,52 +428,19 @@ class _VerseCardState extends State<VerseCard> {
                             ),
                           ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Bookmark Button
-                            Consumer<BookmarkProvider>(
-                              builder: (context, bookmarkProvider, child) {
-                                final isBookmarked = bookmarkProvider.isBookmarked(widget.verse.surahId, widget.verse.id);
-                                return IconButton(
-                                  iconSize: 20,
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  icon: Icon(
-                                    isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                    color: isBookmarked ? Colors.amber.shade600 : (isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade500),
-                                  ),
-                                  onPressed: () {
-                                    bookmarkProvider.toggleBookmark(widget.verse.surahId, widget.verse.id);
-                                  },
-                                );
-                              },
-                            ),
-                            // Visibility Button
-                            if (!settings.alwaysShowArabic)
-                              IconButton(
-                                iconSize: 20,
-                                constraints: const BoxConstraints(),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                icon: Icon(
-                                  _isArabicVisible ? Icons.visibility_off : Icons.visibility,
-                                  color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade500,
-                                ),
-                                onPressed: () {
-                                  if (!_isArabicVisible) {
-                                    _loadArabic();
-                                  } else {
-                                    setState(() {
-                                      _isArabicVisible = false;
-                                    });
-                                  }
-                                },
-                              ),
-                          ],
+                        Text(
+                          _shareStatus,
+                          style: GoogleFonts.prompt(
+                            color: isDark
+                                ? Colors.blueGrey.shade300
+                                : Colors.blueGrey.shade500,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
-                    
+
                     // Arabic Text Area
                     if (_isArabicVisible || settings.alwaysShowArabic) ...[
                       const SizedBox(height: 14),
@@ -405,36 +451,48 @@ class _VerseCardState extends State<VerseCard> {
                             child: SizedBox(
                               width: 24,
                               height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.teal),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.teal,
+                              ),
                             ),
                           ),
                         )
                       else
                         Directionality(
                           textDirection: TextDirection.rtl,
-                          child: Text(
-                            widget.verse.arabic,
-                            style: arabicStyle,
-                          ),
+                          child: Text(widget.verse.arabic, style: arabicStyle),
                         ),
                       const SizedBox(height: 14),
-                      Divider(color: isDark ? Colors.blueGrey.shade800 : const Color(0xFFE2E8F0)),
+                      Divider(
+                        color: isDark
+                            ? Colors.blueGrey.shade800
+                            : const Color(0xFFE2E8F0),
+                      ),
                     ],
-                    
+
                     const SizedBox(height: 14),
-                    
+
                     // Translations Container
                     if (settings.showThaiV3) ...[
                       const SizedBox(height: 8),
                       _buildTranslationBlock(
                         label: 'Thai V3 (Revised)',
                         text: widget.verse.thaiV3,
-                        labelBg: isDark ? const Color(0xFF042F2E) : Colors.teal.shade50,
-                        labelFg: isDark ? Colors.teal.shade200 : Colors.teal.shade800,
+                        labelBg: isDark
+                            ? const Color(0xFF042F2E)
+                            : Colors.teal.shade50,
+                        labelFg: isDark
+                            ? Colors.teal.shade200
+                            : Colors.teal.shade800,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 16,
                           height: 1.65,
-                          color: isDark ? Colors.white : (settings.themeColor == 'sepia' ? const Color(0xFF2E1705) : const Color(0xFF0F172A)),
+                          color: isDark
+                              ? Colors.white
+                              : (settings.themeColor == 'sepia'
+                                    ? const Color(0xFF2E1705)
+                                    : const Color(0xFF0F172A)),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -444,12 +502,20 @@ class _VerseCardState extends State<VerseCard> {
                       _buildTranslationBlock(
                         label: 'Thai V2 (Original)',
                         text: widget.verse.thaiV2,
-                        labelBg: isDark ? Colors.amber.shade900 : Colors.amber.shade50,
-                        labelFg: isDark ? Colors.amber.shade200 : Colors.amber.shade800,
+                        labelBg: isDark
+                            ? Colors.amber.shade900
+                            : Colors.amber.shade50,
+                        labelFg: isDark
+                            ? Colors.amber.shade200
+                            : Colors.amber.shade800,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 15,
                           height: 1.65,
-                          color: isDark ? const Color(0xFFE2E8F0) : (settings.themeColor == 'sepia' ? const Color(0xFF2E1705) : const Color(0xFF334155)),
+                          color: isDark
+                              ? const Color(0xFFE2E8F0)
+                              : (settings.themeColor == 'sepia'
+                                    ? const Color(0xFF2E1705)
+                                    : const Color(0xFF334155)),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -459,39 +525,61 @@ class _VerseCardState extends State<VerseCard> {
                       _buildTranslationBlock(
                         label: 'English Translation',
                         text: widget.verse.english,
-                        labelBg: isDark ? Colors.blue.shade900 : Colors.blue.shade50,
-                        labelFg: isDark ? Colors.blue.shade200 : Colors.blue.shade800,
+                        labelBg: isDark
+                            ? Colors.blue.shade900
+                            : Colors.blue.shade50,
+                        labelFg: isDark
+                            ? Colors.blue.shade200
+                            : Colors.blue.shade800,
                         textStyle: GoogleFonts.prompt(
                           fontSize: 14,
                           height: 1.6,
-                          color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                          color: isDark
+                              ? const Color(0xFFE2E8F0)
+                              : const Color(0xFF334155),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
-
 
                     if (hasNote) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.brown.withOpacity(0.2) : Colors.amber.shade50,
+                          color: isDark
+                              ? Colors.brown.withOpacity(0.2)
+                              : Colors.amber.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isDark ? Colors.brown.withOpacity(0.4) : Colors.amber.shade200),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.brown.withOpacity(0.4)
+                                : Colors.amber.shade200,
+                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.edit_note, size: 18, color: isDark ? Colors.amber.shade200 : Colors.amber.shade800),
+                            Icon(
+                              Icons.edit_note,
+                              size: 18,
+                              color: isDark
+                                  ? Colors.amber.shade200
+                                  : Colors.amber.shade800,
+                            ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                notesProv.getNoteForVerse(widget.verse.surahId, widget.verse.id),
+                                notesProv.getNoteForVerse(
+                                  widget.verse.surahId,
+                                  widget.verse.id,
+                                ),
                                 style: GoogleFonts.prompt(
                                   fontSize: 13,
                                   fontStyle: FontStyle.italic,
-                                  color: isDark ? Colors.amber.shade100 : Colors.amber.shade900,
+                                  color: isDark
+                                      ? Colors.amber.shade100
+                                      : Colors.amber.shade900,
                                 ),
                               ),
                             ),
@@ -500,40 +588,157 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ],
 
-                    // Action buttons (Audit and Personal Notes)
+                    // Action buttons
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _showNotesBox = !_showNotesBox;
-                              _showAuditBox = false;
-                            });
-                          },
-                          icon: Icon(Icons.edit_note, size: 16, color: themeColor),
-                          label: Text('Note', style: GoogleFonts.prompt(fontSize: 12, color: themeColor)),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _showAuditBox = !_showAuditBox;
-                              _showNotesBox = false;
-                            });
-                          },
-                          icon: Icon(Icons.bug_report_outlined, size: 16, color: Colors.blueGrey),
-                          label: Text('Audit', style: GoogleFonts.prompt(fontSize: 12, color: Colors.blueGrey)),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          ),
-                        ),
-                      ],
+                    Consumer<BookmarkProvider>(
+                      builder: (context, bookmarkProvider, child) {
+                        final isBookmarked = bookmarkProvider.isBookmarked(
+                          widget.verse.surahId,
+                          widget.verse.id,
+                        );
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            _buildActionIcon(
+                              tooltip: 'Tadabbur note',
+                              icon: Icons.edit_outlined,
+                              active: _showNotesBox || hasNote,
+                              color: themeColor,
+                              onPressed: () {
+                                setState(() {
+                                  _showNotesBox = !_showNotesBox;
+                                  _showAuditBox = false;
+                                  _showTafsirBox = false;
+                                });
+                              },
+                            ),
+                            _buildActionIcon(
+                              tooltip: 'Bookmark',
+                              icon: isBookmarked
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              active: isBookmarked,
+                              color: Colors.amber.shade700,
+                              onPressed: () {
+                                bookmarkProvider.toggleBookmark(
+                                  widget.verse.surahId,
+                                  widget.verse.id,
+                                );
+                              },
+                            ),
+                            _buildActionIcon(
+                              tooltip: 'Share',
+                              icon: Icons.ios_share_outlined,
+                              color: themeColor,
+                              onPressed: () => _copyShareText(notesProv),
+                            ),
+                            if (widget.verse.shortTafsir != null)
+                              _buildActionIcon(
+                                tooltip: 'Short tafsir',
+                                icon: Icons.menu_book_outlined,
+                                active: _showTafsirBox,
+                                color: themeColor,
+                                onPressed: () {
+                                  setState(() {
+                                    _showTafsirBox = !_showTafsirBox;
+                                    _showNotesBox = false;
+                                    _showAuditBox = false;
+                                  });
+                                },
+                              ),
+                            _buildActionIcon(
+                              tooltip: 'Report translation error',
+                              icon: Icons.report_problem_outlined,
+                              active: _showAuditBox,
+                              color: Colors.blueGrey,
+                              onPressed: () {
+                                setState(() {
+                                  _showAuditBox = !_showAuditBox;
+                                  _showNotesBox = false;
+                                  _showTafsirBox = false;
+                                });
+                              },
+                            ),
+                            _buildActionIcon(
+                              tooltip: _isArabicVisible
+                                  ? 'Hide Arabic'
+                                  : 'Show Arabic',
+                              icon: _isArabicVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off_outlined,
+                              color: themeColor,
+                              onPressed: () {
+                                if (!_isArabicVisible) {
+                                  _loadArabic();
+                                } else {
+                                  setState(() => _isArabicVisible = false);
+                                }
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
+
+                    // Collapsible Short Tafsir
+                    if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.blueGrey.shade800
+                                : Colors.grey.shade200,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Short tafsir',
+                                  style: GoogleFonts.prompt(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: themeColor,
+                                  ),
+                                ),
+                                Text(
+                                  widget.verse.shortTafsirSource ??
+                                      'QuranEnc Thai Mokhtasar',
+                                  style: GoogleFonts.prompt(
+                                    fontSize: 10,
+                                    color: isDark
+                                        ? Colors.blueGrey.shade300
+                                        : Colors.blueGrey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.verse.shortTafsir!,
+                              style: GoogleFonts.prompt(
+                                fontSize: 14,
+                                height: 1.7,
+                                color: isDark
+                                    ? const Color(0xFFE2E8F0)
+                                    : const Color(0xFF334155),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
 
                     // Collapsible Personal Note Input
                     if (_showNotesBox) ...[
@@ -564,17 +769,27 @@ class _VerseCardState extends State<VerseCard> {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 TextButton(
-                                  onPressed: () => setState(() => _showNotesBox = false),
-                                  child: Text('Cancel', style: GoogleFonts.prompt(fontSize: 12)),
+                                  onPressed: () =>
+                                      setState(() => _showNotesBox = false),
+                                  child: Text(
+                                    'Cancel',
+                                    style: GoogleFonts.prompt(fontSize: 12),
+                                  ),
                                 ),
                                 ElevatedButton(
                                   onPressed: () => _savePersonalNote(notesProv),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: themeColor,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
                                   ),
-                                  child: Text('Save', style: GoogleFonts.prompt(fontSize: 12)),
+                                  child: Text(
+                                    'Save',
+                                    style: GoogleFonts.prompt(fontSize: 12),
+                                  ),
                                 ),
                               ],
                             ),
@@ -591,7 +806,9 @@ class _VerseCardState extends State<VerseCard> {
                         decoration: BoxDecoration(
                           color: isDark ? Colors.black26 : Colors.red.shade50,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.red.withOpacity(0.1)),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.1),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
@@ -600,7 +817,8 @@ class _VerseCardState extends State<VerseCard> {
                               controller: _auditController,
                               style: GoogleFonts.prompt(fontSize: 14),
                               decoration: InputDecoration(
-                                hintText: 'Enter audit error report/fix details...',
+                                hintText:
+                                    'Enter audit error report/fix details...',
                                 hintStyle: GoogleFonts.prompt(fontSize: 13),
                                 border: const OutlineInputBorder(),
                                 contentPadding: const EdgeInsets.all(10),
@@ -613,23 +831,45 @@ class _VerseCardState extends State<VerseCard> {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 TextButton(
-                                  onPressed: () => setState(() => _showAuditBox = false),
-                                  child: Text('Cancel', style: GoogleFonts.prompt(fontSize: 12, color: Colors.grey)),
+                                  onPressed: () =>
+                                      setState(() => _showAuditBox = false),
+                                  child: Text(
+                                    'Cancel',
+                                    style: GoogleFonts.prompt(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ),
                                 ElevatedButton(
-                                  onPressed: _isSavingAudit ? null : _submitAuditComment,
+                                  onPressed: _isSavingAudit
+                                      ? null
+                                      : _submitAuditComment,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.red.shade700,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 6,
+                                    ),
                                   ),
                                   child: _isSavingAudit
                                       ? const SizedBox(
                                           width: 14,
                                           height: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
                                         )
-                                      : Text(_auditSaved ? 'Saved ✓' : 'Submit Audit', style: GoogleFonts.prompt(fontSize: 12)),
+                                      : Text(
+                                          _auditSaved
+                                              ? 'Saved ✓'
+                                              : 'Submit Audit',
+                                          style: GoogleFonts.prompt(
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                 ),
                               ],
                             ),
@@ -673,11 +913,29 @@ class _VerseCardState extends State<VerseCard> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          text,
-          style: textStyle,
-        ),
+        Text(text, style: textStyle),
       ],
+    );
+  }
+
+  Widget _buildActionIcon({
+    required String tooltip,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    bool active = false,
+  }) {
+    return IconButton(
+      tooltip: tooltip,
+      iconSize: 20,
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        backgroundColor: active ? color.withOpacity(0.12) : Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      icon: Icon(icon, color: active ? color : Colors.blueGrey),
+      onPressed: onPressed,
     );
   }
 }

@@ -253,6 +253,7 @@ class LocalReadingProvider extends ChangeNotifier {
   List<LocalBookmarkCategory> _categories = [];
   List<LocalBookmark> _bookmarks = [];
   List<LocalRecentReading> _recentReadings = [];
+  String? _activeProfileId;
 
   List<LocalReadingProfile> get profiles => List.unmodifiable(_profiles);
   List<LocalReadingProfile> get activeProfiles =>
@@ -263,6 +264,13 @@ class LocalReadingProvider extends ChangeNotifier {
   List<LocalBookmark> get bookmarks => List.unmodifiable(_bookmarks);
   List<LocalRecentReading> get recentReadings =>
       List.unmodifiable(_recentReadings);
+  String? get activeProfileId => _activeProfileId;
+  LocalReadingProfile? get activeProfile {
+    if (_profiles.isEmpty) return null;
+    final active = _profiles.where((profile) => profile.id == _activeProfileId);
+    if (active.isNotEmpty) return active.first;
+    return activeProfiles.isNotEmpty ? activeProfiles.first : _profiles.first;
+  }
 
   bool get canCreateProfile =>
       canCreateActiveReadingProfile(activeProfiles.length);
@@ -306,9 +314,17 @@ class LocalReadingProvider extends ChangeNotifier {
     );
 
     _profiles.add(profile);
+    _activeProfileId = profile.id;
     await _save();
     notifyListeners();
     return profile;
+  }
+
+  Future<void> setActiveProfile(String profileId) async {
+    if (!_profiles.any((profile) => profile.id == profileId)) return;
+    _activeProfileId = profileId;
+    await _save();
+    notifyListeners();
   }
 
   Future<void> updateProfileProgress(String profileId, VerseRef current) async {
@@ -460,7 +476,12 @@ class LocalReadingProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_storageKey);
-      if (raw == null) return;
+      if (raw == null) {
+        _ensureDefaultProfile();
+        await _save();
+        notifyListeners();
+        return;
+      }
 
       final decoded = json.decode(raw) as Map<String, dynamic>;
       _profiles = _decodeList(
@@ -476,9 +497,18 @@ class LocalReadingProvider extends ChangeNotifier {
         decoded['recentReadings'],
         LocalRecentReading.fromJson,
       );
+      _activeProfileId = decoded['activeProfileId']?.toString();
+      _ensureDefaultProfile();
+      if (activeProfile == null) {
+        _activeProfileId = activeProfiles.isNotEmpty
+            ? activeProfiles.first.id
+            : null;
+      }
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading local reading store: $e');
+      _ensureDefaultProfile();
+      notifyListeners();
     }
   }
 
@@ -487,6 +517,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await prefs.setString(
       _storageKey,
       json.encode({
+        'activeProfileId': _activeProfileId,
         'profiles': _profiles.map((profile) => profile.toJson()).toList(),
         'categories': _categories.map((category) => category.toJson()).toList(),
         'bookmarks': _bookmarks.map((bookmark) => bookmark.toJson()).toList(),
@@ -523,6 +554,27 @@ class LocalReadingProvider extends ChangeNotifier {
 
   String _createLocalId() =>
       '${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}_${_bookmarks.length}';
+
+  void _ensureDefaultProfile() {
+    if (_profiles.any(isFreeReadProfile)) return;
+
+    final now = DateTime.now();
+    final profile = LocalReadingProfile(
+      id: _createLocalId(),
+      userId: _localUserId,
+      name: 'Free Read',
+      slug: 'free_read',
+      start: toVerseRef(1, 1),
+      current: toVerseRef(1, 1),
+      sortOrder: 0,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _profiles.insert(0, profile);
+    _activeProfileId ??= profile.id;
+  }
 }
 
 bool isFreeReadProfile(LocalReadingProfile profile) {

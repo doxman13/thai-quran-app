@@ -1,4 +1,6 @@
 // lib/models/verse.dart
+import '../shared/quran_contract.dart';
+
 class Verse {
   final String id;
   final String surahId;
@@ -6,7 +8,11 @@ class Verse {
   final String thaiV3;
   final String thaiV2;
   final String english;
+  final String? shortTafsir;
+  final String? shortTafsirSource;
   bool isArabicLoading;
+
+  String get verseKey => createVerseKey(surahId, id);
 
   Verse({
     required this.id,
@@ -15,6 +21,8 @@ class Verse {
     required this.thaiV3,
     required this.thaiV2,
     required this.english,
+    this.shortTafsir,
+    this.shortTafsirSource,
     this.isArabicLoading = false,
   });
 }

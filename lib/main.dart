@@ -7,18 +7,20 @@ import 'providers/settings_provider.dart';
 import 'providers/bookmark_provider.dart';
 import 'providers/notes_provider.dart';
 import 'providers/stats_provider.dart';
+import 'providers/local_reading_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/home_screen.dart';
 
 void main() {
   final repository = QuranRepository();
-  
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => BookmarkProvider()),
+        ChangeNotifierProvider(create: (_) => LocalReadingProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),
       ],
@@ -49,7 +51,9 @@ class ThaiQuranApp extends StatelessWidget {
             scaffoldBg = const Color(0xFF0F172A);
           }
         } else {
-          scaffoldBg = isSepia ? const Color(0xFFFBF0D9) : const Color(0xFFF8FAFC);
+          scaffoldBg = isSepia
+              ? const Color(0xFFFBF0D9)
+              : const Color(0xFFF8FAFC);
         }
 
         return MaterialApp(
@@ -74,12 +78,12 @@ class ThaiQuranApp extends StatelessWidget {
             appBarTheme: AppBarTheme(
               backgroundColor: settings.isDarkMode
                   ? (isSepia
-                      ? const Color(0xFF2E241D)
-                      : (settings.themeColor == 'emerald'
-                          ? const Color(0xFF022C22)
-                          : (settings.themeColor == 'grey'
-                              ? const Color(0xFF1A202C)
-                              : primaryColor)))
+                        ? const Color(0xFF2E241D)
+                        : (settings.themeColor == 'emerald'
+                              ? const Color(0xFF022C22)
+                              : (settings.themeColor == 'grey'
+                                    ? const Color(0xFF1A202C)
+                                    : primaryColor)))
                   : primaryColor,
               foregroundColor: Colors.white,
             ),
