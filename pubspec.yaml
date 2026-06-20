@@ -39,6 +39,7 @@ dependencies:
   scrollable_positioned_list: ^0.3.8
   google_fonts: ^8.1.0
   http: ^1.6.0
+  supabase_flutter: ^2.8.0
 
 dev_dependencies:
   flutter_test:

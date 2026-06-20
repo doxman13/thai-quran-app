@@ -130,35 +130,74 @@ class QuranRepository {
     return verses;
   }
 
-  // Fetches Arabic text from the Quran Foundation API
-  // https://api.quran.com/api/v4/verses/by_key/{chapter}:{verse}?fields=text_uthmani
+  // Fetches Arabic text from the Quran Foundation API.
+  // Prefers text_qpc_hafs from word data to ensure correct sukun rendering with UthmanicHafs font.
+  String _normalizeArabicText(String text) {
+    // Replace ARABIC SMALL HIGH ROUNDED ZERO (U+06DF) with standard ARABIC SUKUN (U+0652)
+    // to fix combining character black circle rendering bugs in the Flutter text engine.
+    return text.replaceAll('\u06DF', '\u0652');
+  }
+
   Future<String> fetchArabicVerse(String surahId, String verseId) async {
-    final cacheKey = 'arabic_${surahId}_$verseId';
+    final cacheKey = 'arabic_qpc_v2_${surahId}_$verseId';
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. Check local cache first
+    // 1. Check local cache first (using new cache key to avoid old text_uthmani cache)
     final cached = prefs.getString(cacheKey);
     if (cached != null && cached.isNotEmpty) {
-      return cached;
+      return _normalizeArabicText(cached);
     }
 
     // 2. Fetch from internet if not cached
     try {
+      // Try to load QPC Hafs word-by-word data first
       final url = Uri.parse(
-        'https://api.quran.com/api/v4/verses/by_key/$surahId:$verseId?fields=text_uthmani',
+        'https://api.quran.com/api/v4/verses/by_key/$surahId:$verseId?words=true&word_fields=text_qpc_hafs,text_uthmani',
       );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final arabicText = data['verse']['text_uthmani'] as String;
+        final words = data['verse']?['words'] as List?;
+        if (words != null && words.isNotEmpty) {
+          final wordsList = words
+              .map((w) {
+                final qpc = w['text_qpc_hafs']?.toString();
+                final uthmani = w['text_uthmani']?.toString();
+                return (qpc != null && qpc.isNotEmpty) ? qpc : (uthmani ?? '');
+              })
+              .where((text) => text.isNotEmpty)
+              .toList();
 
-        // Save to cache
-        await prefs.setString(cacheKey, arabicText);
-        return arabicText;
+          if (wordsList.isNotEmpty) {
+            final qpcText = wordsList.join(' ');
+            await prefs.setString(cacheKey, qpcText);
+            return _normalizeArabicText(qpcText);
+          }
+        }
       }
     } catch (e) {
-      // Return empty if offline or error
+      // Fallback to text_uthmani below if QPC Hafs fetching fails
+    }
+
+    // 3. Fallback: load Uthmani text if QPC Hafs loading failed
+    try {
+      final fallbackUrl = Uri.parse(
+        'https://api.quran.com/api/v4/verses/by_key/$surahId:$verseId?fields=text_uthmani',
+      );
+      final response = await http.get(fallbackUrl);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final arabicText = data['verse']?['text_uthmani'] as String?;
+
+        if (arabicText != null && arabicText.isNotEmpty) {
+          await prefs.setString(cacheKey, arabicText);
+          return _normalizeArabicText(arabicText);
+        }
+      }
+    } catch (e) {
+      // Return empty if completely offline or error
       return '';
     }
     return '';

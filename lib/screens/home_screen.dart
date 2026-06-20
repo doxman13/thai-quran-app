@@ -13,6 +13,7 @@ import '../shared/shared.dart';
 import 'reading_screen.dart';
 import 'bookmarks_screen.dart';
 import 'notes_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -336,7 +337,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final localReading = Provider.of<LocalReadingProvider>(context);
 
     final themeColor = settings.getPrimaryColor();
-    final highlightColor = settings.getHighlightColor();
     final activeProfile = localReading.activeProfile;
     final continueSurahId =
         activeProfile?.current.surahId ?? progress.currentSurahId;
@@ -386,14 +386,33 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  IconButton(
-                    icon: Icon(
-                      settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: themeColor,
-                    ),
-                    onPressed: () {
-                      settings.toggleDarkMode(!settings.isDarkMode);
-                    },
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.account_circle,
+                          color: themeColor,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ProfileScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                          color: themeColor,
+                        ),
+                        onPressed: () {
+                          settings.toggleDarkMode(!settings.isDarkMode);
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -827,11 +846,15 @@ class _HomeScreenState extends State<HomeScreen> {
     int min = 1,
     required ValueChanged<int> onChanged,
   }) {
+    final effectiveMin = min;
+    final effectiveMax = max < min ? min : max;
+    final safeValue = value < effectiveMin ? effectiveMin : (value > effectiveMax ? effectiveMax : value);
     return DropdownButtonFormField<int>(
-      value: value.clamp(min, max),
+      key: ValueKey('number_dropdown_${label}_${effectiveMin}_$effectiveMax'),
+      value: safeValue,
       decoration: InputDecoration(labelText: label),
       items: [
-        for (var number = min; number <= max; number++)
+        for (var number = effectiveMin; number <= effectiveMax; number++)
           DropdownMenuItem(value: number, child: Text(number.toString())),
       ],
       onChanged: (next) {
@@ -846,12 +869,15 @@ class _HomeScreenState extends State<HomeScreen> {
     int min = 1,
     required ValueChanged<String> onChanged,
   }) {
-    final normalizedValue = int.parse(value).clamp(min, 114).toString();
+    final parsed = int.tryParse(value) ?? 1;
+    final effectiveMin = min < 1 ? 1 : (min > 114 ? 114 : min);
+    final safeValue = parsed < effectiveMin ? effectiveMin : (parsed > 114 ? 114 : parsed);
     return DropdownButtonFormField<String>(
-      value: normalizedValue,
+      key: ValueKey('surah_dropdown_${label}_$effectiveMin'),
+      value: safeValue.toString(),
       decoration: InputDecoration(labelText: label),
       items: [
-        for (var surah = min; surah <= 114; surah++)
+        for (var surah = effectiveMin; surah <= 114; surah++)
           DropdownMenuItem(
             value: surah.toString(),
             child: Text(widget.repository.getSurahName(surah.toString())),
@@ -870,11 +896,13 @@ class _HomeScreenState extends State<HomeScreen> {
     required ValueChanged<String> onChanged,
   }) {
     final normalizedValue = _clampAyah(value, max);
+    final effectiveMax = max < 1 ? 1 : max;
     return DropdownButtonFormField<String>(
+      key: ValueKey('ayah_dropdown_${label}_$effectiveMax'),
       value: normalizedValue,
       decoration: InputDecoration(labelText: label),
       items: [
-        for (var ayah = 1; ayah <= max; ayah++)
+        for (var ayah = 1; ayah <= effectiveMax; ayah++)
           DropdownMenuItem(
             value: ayah.toString(),
             child: Text(ayah.toString()),
@@ -887,8 +915,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _clampAyah(String value, int max) {
+    if (max < 1) return '1';
     final ayah = int.tryParse(value) ?? 1;
-    return ayah.clamp(1, max).toString();
+    if (ayah < 1) return '1';
+    if (ayah > max) return max.toString();
+    return ayah.toString();
   }
 
   VerseRef _juzStartRef(int juz) {

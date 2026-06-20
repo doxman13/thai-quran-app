@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../providers/bookmark_provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/local_reading_provider.dart';
 import '../providers/progress_provider.dart';
 import '../data/quran_repository.dart';
 
@@ -14,13 +15,15 @@ class BookmarksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = Provider.of<ProgressProvider>(context);
-    final bookmarksProv = Provider.of<BookmarkProvider>(context);
+    final settings = Provider.of<SettingsProvider>(context);
+    final localReading = Provider.of<LocalReadingProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = settings.getPrimaryColor();
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bookmarks', style: GoogleFonts.prompt()),
-        backgroundColor: Colors.teal.shade800,
+        title: Text('บุ๊กมาร์ก (Bookmarks)', style: GoogleFonts.prompt()),
+        backgroundColor: primaryColor,
         elevation: 0,
       ),
       body: ListView(
@@ -28,11 +31,11 @@ class BookmarksScreen extends StatelessWidget {
         children: [
           // Auto-Save Section
           Text(
-            'Continue Reading',
+            'อ่านล่าสุด (Continue Reading)',
             style: GoogleFonts.prompt(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.teal.shade200 : Colors.teal.shade700,
+              color: isDark ? settings.getHighlightColor() : primaryColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -40,13 +43,13 @@ class BookmarksScreen extends StatelessWidget {
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              leading: const Icon(Icons.history, color: Colors.teal),
+              leading: Icon(Icons.history, color: primaryColor),
               title: Text(
                 repository.getSurahName(progress.currentSurahId),
                 style: GoogleFonts.prompt(fontWeight: FontWeight.w500),
               ),
               subtitle: Text(
-                'Verse Index: ${progress.lastVerseIndex}',
+                'อายะฮฺที่ (Verse Index): ${progress.lastVerseIndex}',
                 style: GoogleFonts.prompt(fontSize: 12),
               ),
               trailing: const Icon(Icons.chevron_right),
@@ -66,29 +69,28 @@ class BookmarksScreen extends StatelessWidget {
 
           // Manual Bookmarks Section
           Text(
-            'Saved Verses',
+            'อายะฮฺที่บันทึกไว้ (Saved Verses)',
             style: GoogleFonts.prompt(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.teal.shade200 : Colors.teal.shade700,
+              color: isDark ? settings.getHighlightColor() : primaryColor,
             ),
           ),
           const SizedBox(height: 8),
           
-          if (bookmarksProv.bookmarks.isEmpty)
+          if (localReading.bookmarks.isEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Text(
-                'No verses saved yet. Tap the bookmark icon on any verse to save it here.',
+                'ยังไม่มีอายะฮฺที่บันทึกไว้ กดปุ่มบุ๊กมาร์กที่อายะฮฺเพื่อบันทึกที่นี่',
                 style: GoogleFonts.prompt(color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             )
           else
-            ...bookmarksProv.bookmarks.map((bKey) {
-              final parts = bKey.split(':');
-              final surahId = parts[0];
-              final verseId = parts[1];
+            ...localReading.bookmarks.map((bookmark) {
+              final surahId = bookmark.verse.surahId;
+              final verseId = bookmark.verse.verseId;
               
               return Card(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -97,13 +99,13 @@ class BookmarksScreen extends StatelessWidget {
                 child: ListTile(
                   leading: Icon(Icons.bookmark, color: Colors.amber.shade600),
                   title: Text(
-                    '${repository.getSurahName(surahId)}, Ayat $verseId',
+                    '${repository.getSurahName(surahId)}, อายะฮฺที่ $verseId',
                     style: GoogleFonts.prompt(fontWeight: FontWeight.w500),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                     onPressed: () {
-                      bookmarksProv.toggleBookmark(surahId, verseId);
+                      localReading.removeBookmark(bookmark.id);
                     },
                   ),
                   onTap: () {

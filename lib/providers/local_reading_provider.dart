@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../shared/shared.dart';
 
@@ -255,6 +257,9 @@ class LocalReadingProvider extends ChangeNotifier {
   List<LocalRecentReading> _recentReadings = [];
   String? _activeProfileId;
 
+  StreamSubscription<AuthState>? _authSubscription;
+  Timer? _saveTimer;
+
   List<LocalReadingProfile> get profiles => List.unmodifiable(_profiles);
   List<LocalReadingProfile> get activeProfiles =>
       _profiles.where((profile) => !profile.isArchived).toList(growable: false);
@@ -277,6 +282,139 @@ class LocalReadingProvider extends ChangeNotifier {
 
   LocalReadingProvider() {
     _load();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final user = data.session?.user;
+      if (user != null) {
+        await syncBookmarksAndProfilesWithSupabase(user.id);
+      } else {
+        await _load();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    if (_saveTimer != null) {
+      _saveTimer!.cancel();
+      _executeSave();
+    }
+    super.dispose();
+  }
+
+  Future<void> syncBookmarksAndProfilesWithSupabase(String userId) async {
+    try {
+      final client = Supabase.instance.client;
+      // Get the default category ID
+      final catQuery = await client
+          .from('bookmark_categories')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('slug', 'saved_verses')
+          .maybeSingle();
+
+      String? serverCatId = catQuery?['id']?.toString();
+      if (serverCatId == null) {
+        final upserted = await client
+            .from('bookmark_categories')
+            .upsert({
+              'user_id': userId,
+              'name': 'Saved Verses',
+              'slug': 'saved_verses',
+              'max_items': 5,
+              'sort_order': 0,
+            })
+            .select('id')
+            .single();
+        serverCatId = upserted['id']?.toString();
+      }
+
+      if (serverCatId != null) {
+        // Push any local unsynced bookmarks
+        final unsyncedLocalBookmarks = _bookmarks.where((b) => b.userId == 'local').toList();
+        for (final b in unsyncedLocalBookmarks) {
+          try {
+            await client.from('bookmarks').upsert({
+              'user_id': userId,
+              'category_id': serverCatId,
+              'surah_id': b.verse.surahId,
+              'verse_id': b.verse.verseId,
+              'label': b.label,
+              'note': b.note,
+              'sort_order': b.sortOrder,
+            });
+          } catch (e) {
+            debugPrint('Error pushing unsynced bookmark: $e');
+          }
+        }
+
+        // Fetch remote bookmarks
+        final response = await client
+            .from('bookmarks')
+            .select('id, surah_id, verse_id, label, note, sort_order, created_at, category_id')
+            .eq('user_id', userId);
+
+        final List<dynamic> dbBookmarks = response;
+        final List<LocalBookmark> syncedBookmarks = [];
+
+        for (final dbB in dbBookmarks) {
+          syncedBookmarks.add(LocalBookmark(
+            id: dbB['id'].toString(),
+            userId: userId,
+            categoryId: dbB['category_id'].toString(),
+            verse: toVerseRef(dbB['surah_id'], dbB['verse_id']),
+            label: dbB['label']?.toString(),
+            note: dbB['note']?.toString(),
+            sortOrder: int.tryParse(dbB['sort_order']?.toString() ?? '') ?? 0,
+            createdAt: DateTime.tryParse(dbB['created_at']?.toString() ?? '') ?? DateTime.now(),
+          ));
+        }
+
+        _bookmarks = syncedBookmarks;
+        _categories = [
+          LocalBookmarkCategory(
+            id: serverCatId,
+            userId: userId,
+            name: 'Saved Verses',
+            slug: 'saved_verses',
+            maxItems: 5,
+            sortOrder: 0,
+          )
+        ];
+
+        // Update profiles userId
+        _profiles = _profiles.map((p) {
+          if (p.userId == 'local') {
+            return LocalReadingProfile(
+              id: p.id,
+              userId: userId,
+              name: p.name,
+              slug: p.slug,
+              planMode: p.planMode,
+              startJuz: p.startJuz,
+              targetJuz: p.targetJuz,
+              start: p.start,
+              target: p.target,
+              current: p.current,
+              sortOrder: p.sortOrder,
+              isArchived: p.isArchived,
+              createdAt: p.createdAt,
+              updatedAt: p.updatedAt,
+            );
+          }
+          return p;
+        }).toList();
+
+        await _save(immediate: true);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error syncing bookmarks/profiles with Supabase: $e');
+    }
   }
 
   Future<LocalReadingProfile> createProfile({
@@ -315,7 +453,7 @@ class LocalReadingProvider extends ChangeNotifier {
 
     _profiles.add(profile);
     _activeProfileId = profile.id;
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
     return profile;
   }
@@ -323,7 +461,7 @@ class LocalReadingProvider extends ChangeNotifier {
   Future<void> setActiveProfile(String profileId) async {
     if (!_profiles.any((profile) => profile.id == profileId)) return;
     _activeProfileId = profileId;
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
   }
 
@@ -350,7 +488,7 @@ class LocalReadingProvider extends ChangeNotifier {
               : profile,
         )
         .toList();
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
   }
 
@@ -368,7 +506,7 @@ class LocalReadingProvider extends ChangeNotifier {
               : profile,
         )
         .toList();
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
   }
 
@@ -392,9 +530,27 @@ class LocalReadingProvider extends ChangeNotifier {
     );
 
     _categories.add(category);
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
     return category;
+  }
+
+  bool isBookmarked(String surahId, String verseId) {
+    return _bookmarks.any((b) => b.verse.surahId == surahId && b.verse.verseId == verseId);
+  }
+
+  Future<void> toggleBookmark(String surahId, String verseId) async {
+    final existing = _bookmarks.where(
+      (b) => b.verse.surahId == surahId && b.verse.verseId == verseId
+    ).firstOrNull;
+
+    if (existing != null) {
+      await removeBookmark(existing.id);
+    } else {
+      await addBookmark(
+        verse: toVerseRef(surahId, verseId),
+      );
+    }
   }
 
   Future<LocalBookmark> addBookmark({
@@ -421,6 +577,40 @@ class LocalReadingProvider extends ChangeNotifier {
       );
     }
 
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user != null) {
+      try {
+        final inserted = await client.from('bookmarks').insert({
+          'user_id': user.id,
+          'category_id': category.id,
+          'surah_id': verse.surahId,
+          'verse_id': verse.verseId,
+          if (label != null) 'label': label,
+          if (note != null) 'note': note,
+          'sort_order': categoryBookmarks.length,
+        }).select('id').single();
+
+        final bookmark = LocalBookmark(
+          id: inserted['id'].toString(),
+          userId: user.id,
+          categoryId: category.id,
+          verse: verse,
+          label: label,
+          note: note,
+          sortOrder: categoryBookmarks.length,
+          createdAt: DateTime.now(),
+        );
+
+        _bookmarks.add(bookmark);
+        await _save(immediate: true);
+        notifyListeners();
+        return bookmark;
+      } catch (e) {
+        debugPrint('Error adding bookmark to Supabase: $e');
+      }
+    }
+
     final bookmark = LocalBookmark(
       id: _createLocalId(),
       userId: _localUserId,
@@ -433,16 +623,29 @@ class LocalReadingProvider extends ChangeNotifier {
     );
 
     _bookmarks.add(bookmark);
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
     return bookmark;
   }
 
   Future<void> removeBookmark(String bookmarkId) async {
+    final bookmark = _bookmarks.where((bookmark) => bookmark.id == bookmarkId).firstOrNull;
+    if (bookmark == null) return;
+
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user != null && bookmark.userId != 'local') {
+      try {
+        await client.from('bookmarks').delete().eq('id', bookmarkId);
+      } catch (e) {
+        debugPrint('Error removing bookmark from Supabase: $e');
+      }
+    }
+
     _bookmarks = _bookmarks
         .where((bookmark) => bookmark.id != bookmarkId)
         .toList();
-    await _save();
+    await _save(immediate: true);
     notifyListeners();
   }
 
@@ -478,7 +681,8 @@ class LocalReadingProvider extends ChangeNotifier {
       final raw = prefs.getString(_storageKey);
       if (raw == null) {
         _ensureDefaultProfile();
-        await _save();
+        await _migrateLegacyBookmarks();
+        await _save(immediate: true);
         notifyListeners();
         return;
       }
@@ -504,6 +708,7 @@ class LocalReadingProvider extends ChangeNotifier {
             ? activeProfiles.first.id
             : null;
       }
+      await _migrateLegacyBookmarks();
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading local reading store: $e');
@@ -512,7 +717,51 @@ class LocalReadingProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _save() async {
+  Future<void> _migrateLegacyBookmarks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final legacy = prefs.getStringList('manual_bookmarks');
+      if (legacy != null && legacy.isNotEmpty) {
+        final category = await ensureBookmarkCategory();
+        for (final item in legacy) {
+          final parts = item.split(':');
+          if (parts.length == 2) {
+            final verse = toVerseRef(parts[0], parts[1]);
+            if (!_bookmarks.any((b) => b.verse.verseKey == verse.verseKey)) {
+              final bookmark = LocalBookmark(
+                id: _createLocalId(),
+                userId: _localUserId,
+                categoryId: category.id,
+                verse: verse,
+                sortOrder: _bookmarks.length,
+                createdAt: DateTime.now(),
+              );
+              _bookmarks.add(bookmark);
+            }
+          }
+        }
+        await prefs.remove('manual_bookmarks');
+        await _save(immediate: true);
+      }
+    } catch (e) {
+      debugPrint('Error migrating legacy bookmarks: $e');
+    }
+  }
+
+  Future<void> _save({bool immediate = false}) async {
+    if (immediate) {
+      _saveTimer?.cancel();
+      _saveTimer = null;
+      await _executeSave();
+    } else {
+      _saveTimer?.cancel();
+      _saveTimer = Timer(const Duration(seconds: 1), () {
+        _executeSave();
+      });
+    }
+  }
+
+  Future<void> _executeSave() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _storageKey,

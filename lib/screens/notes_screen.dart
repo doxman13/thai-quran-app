@@ -18,7 +18,6 @@ class NotesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final notesProv = Provider.of<NotesProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
-    final progress = Provider.of<ProgressProvider>(context);
     
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = settings.getPrimaryColor();

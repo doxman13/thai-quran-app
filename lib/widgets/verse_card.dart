@@ -10,7 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/verse.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
-import '../providers/bookmark_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
@@ -41,6 +40,7 @@ class _VerseCardState extends State<VerseCard> {
   bool _showAuditBox = false;
   bool _showNotesBox = false;
   bool _showTafsirBox = false;
+  bool _showMoreTools = false;
 
   final TextEditingController _auditController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -117,8 +117,6 @@ class _VerseCardState extends State<VerseCard> {
       'source': 'Mobile App',
     };
 
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final userHost = settings.webHostUrl;
     bool success = false;
 
     // Attempt API save
@@ -340,14 +338,10 @@ class _VerseCardState extends State<VerseCard> {
           progress.setVerseIndexAndScroll(widget.index);
         }
       },
-      child: AnimatedScale(
-        scale: isHighlighted ? 1.015 : 1.0,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Stack(
-            children: [
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Stack(
+          children: [
               // Base Card Background (Normal)
               Positioned.fill(
                 child: Container(
@@ -581,92 +575,161 @@ class _VerseCardState extends State<VerseCard> {
 
                     // Action buttons
                     const SizedBox(height: 16),
-                    Consumer<BookmarkProvider>(
-                      builder: (context, bookmarkProvider, child) {
-                        final isBookmarked = bookmarkProvider.isBookmarked(
+                    Consumer<LocalReadingProvider>(
+                      builder: (context, localReading, child) {
+                        final isBookmarked = localReading.isBookmarked(
                           widget.verse.surahId,
                           widget.verse.id,
                         );
 
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            _buildActionIcon(
-                              tooltip: 'Tadabbur note',
-                              icon: Icons.edit_outlined,
-                              active: _showNotesBox || hasNote,
-                              color: themeColor,
-                              onPressed: () {
-                                setState(() {
-                                  _showNotesBox = !_showNotesBox;
-                                  _showAuditBox = false;
-                                  _showTafsirBox = false;
-                                });
-                              },
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // 1. Bookmark
+                                _buildActionIcon(
+                                  tooltip: 'Bookmark',
+                                  icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                                  active: isBookmarked,
+                                  color: Colors.amber.shade700,
+                                  onPressed: () {
+                                    localReading.toggleBookmark(
+                                      widget.verse.surahId,
+                                      widget.verse.id,
+                                    );
+                                  },
+                                ),
+                                // 2. Short Tafsir
+                                if (widget.verse.shortTafsir != null)
+                                  _buildActionIcon(
+                                    tooltip: 'Short tafsir',
+                                    icon: Icons.menu_book_outlined,
+                                    active: _showTafsirBox,
+                                    color: themeColor,
+                                    onPressed: () {
+                                      setState(() {
+                                        _showTafsirBox = !_showTafsirBox;
+                                        _showNotesBox = false;
+                                        _showAuditBox = false;
+                                        _showMoreTools = false;
+                                      });
+                                    },
+                                  ),
+                                // 3. Arabic toggle with custom "ع" icon
+                                Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Tooltip(
+                                    message: _isArabicVisible ? 'Hide Arabic' : 'Show Arabic',
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () {
+                                          if (!_isArabicVisible) {
+                                            _loadArabic();
+                                          } else {
+                                            setState(() => _isArabicVisible = false);
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          width: 34,
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            color: _isArabicVisible ? themeColor.withOpacity(0.12) : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: _isArabicVisible ? themeColor.withOpacity(0.3) : Colors.transparent,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            'ع',
+                                            style: GoogleFonts.amiri(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: _isArabicVisible ? themeColor : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // 4. More tools (three dots)
+                                _buildActionIcon(
+                                  tooltip: 'More verse tools',
+                                  icon: Icons.more_horiz,
+                                  active: _showMoreTools,
+                                  color: themeColor,
+                                  onPressed: () {
+                                    setState(() {
+                                      _showMoreTools = !_showMoreTools;
+                                    });
+                                  },
+                                ),
+                              ],
                             ),
-                            _buildActionIcon(
-                              tooltip: 'Bookmark',
-                              icon: isBookmarked
-                                  ? Icons.bookmark
-                                  : Icons.bookmark_border,
-                              active: isBookmarked,
-                              color: Colors.amber.shade700,
-                              onPressed: () {
-                                bookmarkProvider.toggleBookmark(
-                                  widget.verse.surahId,
-                                  widget.verse.id,
-                                );
-                              },
-                            ),
-                            _buildActionIcon(
-                              tooltip: 'Share',
-                              icon: Icons.ios_share_outlined,
-                              color: themeColor,
-                              onPressed: () => _copyShareText(notesProv),
-                            ),
-                            if (widget.verse.shortTafsir != null)
-                              _buildActionIcon(
-                                tooltip: 'Short tafsir',
-                                icon: Icons.menu_book_outlined,
-                                active: _showTafsirBox,
-                                color: themeColor,
-                                onPressed: () {
-                                  setState(() {
-                                    _showTafsirBox = !_showTafsirBox;
-                                    _showNotesBox = false;
-                                    _showAuditBox = false;
-                                  });
-                                },
+                            if (_showMoreTools) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF0F172A).withOpacity(0.3) : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark ? Colors.blueGrey.shade800.withOpacity(0.5) : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildPanelButton(
+                                      label: 'Tadabbur note',
+                                      icon: Icons.edit_note_outlined,
+                                      active: _showNotesBox || hasNote,
+                                      color: themeColor,
+                                      onPressed: () {
+                                        setState(() {
+                                          _showNotesBox = !_showNotesBox;
+                                          _showAuditBox = false;
+                                          _showTafsirBox = false;
+                                          _showMoreTools = false;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _buildPanelButton(
+                                      label: 'Share',
+                                      icon: Icons.ios_share_outlined,
+                                      color: themeColor,
+                                      onPressed: () {
+                                        setState(() => _showMoreTools = false);
+                                        _copyShareText(notesProv);
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _buildPanelButton(
+                                      label: 'Report error',
+                                      icon: Icons.report_problem_outlined,
+                                      active: _showAuditBox,
+                                      color: Colors.blueGrey,
+                                      onPressed: () {
+                                        setState(() {
+                                          _showAuditBox = !_showAuditBox;
+                                          _showNotesBox = false;
+                                          _showTafsirBox = false;
+                                          _showMoreTools = false;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
-                            _buildActionIcon(
-                              tooltip: 'Report translation error',
-                              icon: Icons.report_problem_outlined,
-                              active: _showAuditBox,
-                              color: Colors.blueGrey,
-                              onPressed: () {
-                                setState(() {
-                                  _showAuditBox = !_showAuditBox;
-                                  _showNotesBox = false;
-                                  _showTafsirBox = false;
-                                });
-                              },
-                            ),
-                            _buildActionIcon(
-                              tooltip: _isArabicVisible
-                                  ? 'Hide Arabic'
-                                  : 'Show Arabic',
-                              icon: _isArabicVisible
-                                  ? Icons.visibility
-                                  : Icons.visibility_off_outlined,
-                              color: themeColor,
-                              onPressed: () {
-                                if (!_isArabicVisible) {
-                                  _loadArabic();
-                                } else {
-                                  setState(() => _isArabicVisible = false);
-                                }
-                              },
-                            ),
+                            ],
                           ],
                         );
                       },
@@ -874,8 +937,7 @@ class _VerseCardState extends State<VerseCard> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildTranslationBlock({
@@ -911,6 +973,7 @@ class _VerseCardState extends State<VerseCard> {
     required VoidCallback onPressed,
     bool active = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return IconButton(
       tooltip: tooltip,
       iconSize: 20,
@@ -918,10 +981,40 @@ class _VerseCardState extends State<VerseCard> {
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
         backgroundColor: active ? color.withOpacity(0.12) : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: active ? color.withOpacity(0.3) : Colors.transparent,
+            width: 1,
+          ),
+        ),
+      ),
+      icon: Icon(
+        icon,
+        color: active ? color : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600),
+      ),
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildPanelButton({
+    required String label,
+    required IconData icon,
+    bool active = false,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return TextButton.icon(
+      style: TextButton.styleFrom(
+        foregroundColor: active ? Colors.white : (isDark ? Colors.blueGrey.shade200 : Colors.blueGrey.shade700),
+        backgroundColor: active ? color : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      icon: Icon(icon, color: active ? color : Colors.blueGrey),
       onPressed: onPressed,
+      icon: Icon(icon, size: 16, color: active ? Colors.white : color),
+      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
     );
   }
 }

@@ -1,4 +1,5 @@
 // lib/providers/progress_provider.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -21,6 +22,7 @@ class ProgressProvider extends ChangeNotifier {
   int _totalVerses = 0;
   bool _isInitialized = false;
   bool _isChangingSurah = false; // Flag to disable scroll listener during load
+  Timer? _saveTimer;
 
   int _completedReadCount = 0;
   int _completedCheckCount = 0;
@@ -117,6 +119,15 @@ class ProgressProvider extends ChangeNotifier {
     await prefs.setString('active_reading_profile', newProfile);
   }
 
+  void _debouncedSave(String profile, String surahId, int verseIndex) {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 1), () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profile_${profile}_surah_id', surahId);
+      await prefs.setInt('profile_${profile}_verse_index', verseIndex);
+    });
+  }
+
   Future<void> _saveProgress(String surahId, int verseIndex) async {
     final currentSurah = currentSurahId;
     final currentVerse = lastVerseIndex;
@@ -127,9 +138,7 @@ class ProgressProvider extends ChangeNotifier {
     _profileVerses[_currentProfile] = verseIndex;
     notifyListeners();
     
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('profile_${_currentProfile}_surah_id', surahId);
-    await prefs.setInt('profile_${_currentProfile}_verse_index', verseIndex);
+    _debouncedSave(_currentProfile, surahId, verseIndex);
   }
 
   void jumpToSavedPosition() {
@@ -144,6 +153,7 @@ class ProgressProvider extends ChangeNotifier {
       _profileVerses[_currentProfile] = 0; // Reset index when changing surahs manually
       notifyListeners();
       
+      _saveTimer?.cancel();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('profile_${_currentProfile}_surah_id', surahId);
       await prefs.setInt('profile_${_currentProfile}_verse_index', 0);
@@ -155,6 +165,7 @@ class ProgressProvider extends ChangeNotifier {
     _profileVerses[_currentProfile] = index;
     notifyListeners();
 
+    _saveTimer?.cancel();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('profile_${_currentProfile}_verse_index', index);
 
@@ -179,6 +190,17 @@ class ProgressProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('completed_check_count', _completedCheckCount);
+  }
+  @override
+  void dispose() {
+    if (_saveTimer != null && _saveTimer!.isActive) {
+      _saveTimer!.cancel();
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('profile_${_currentProfile}_surah_id', currentSurahId);
+        prefs.setInt('profile_${_currentProfile}_verse_index', lastVerseIndex);
+      });
+    }
+    super.dispose();
   }
 }
 

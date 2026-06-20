@@ -1,6 +1,8 @@
 // lib/providers/settings_provider.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsProvider extends ChangeNotifier {
   bool _isDarkMode = false;
@@ -15,6 +17,8 @@ class SettingsProvider extends ChangeNotifier {
   bool _showThaiV2 = false;
   bool _showEnglish = false;
 
+  StreamSubscription<AuthState>? _authSubscription;
+
   bool get isDarkMode => _isDarkMode;
   bool get alwaysShowArabic => _alwaysShowArabic;
   String get arabicFontFamily => _arabicFontFamily;
@@ -28,6 +32,81 @@ class SettingsProvider extends ChangeNotifier {
 
   SettingsProvider() {
     _loadSettings();
+    _listenToAuthChanges();
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final user = data.session?.user;
+      if (user != null) {
+        await loadAndApplySyncedSettings(user.id);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _syncToSupabase() async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId != null) {
+      try {
+        await client.from('user_settings').upsert({
+          'user_id': userId,
+          'theme_color': _themeColor,
+          'is_dark_mode': _isDarkMode,
+          'always_show_arabic': _alwaysShowArabic,
+          'arabic_font_family': _arabicFontFamily,
+          'arabic_font_size': _arabicFontSize,
+          'show_thai_v3': _showThaiV3,
+          'show_thai_v2': _showThaiV2,
+          'show_english': _showEnglish,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Error syncing settings to Supabase: $e');
+      }
+    }
+  }
+
+  Future<void> loadAndApplySyncedSettings(String userId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response != null) {
+        _themeColor = response['theme_color']?.toString() ?? _themeColor;
+        _isDarkMode = response['is_dark_mode'] == true;
+        _alwaysShowArabic = response['always_show_arabic'] == true;
+        _arabicFontFamily = response['arabic_font_family']?.toString() ?? _arabicFontFamily;
+        _arabicFontSize = double.tryParse(response['arabic_font_size']?.toString() ?? '') ?? _arabicFontSize;
+        _showThaiV3 = response['show_thai_v3'] == true;
+        _showThaiV2 = response['show_thai_v2'] == true;
+        _showEnglish = response['show_english'] == true;
+
+        notifyListeners();
+
+        // Save to local SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('themeColor', _themeColor);
+        await prefs.setBool('isDarkMode', _isDarkMode);
+        await prefs.setBool('alwaysShowArabic', _alwaysShowArabic);
+        await prefs.setString('arabicFontFamily', _arabicFontFamily);
+        await prefs.setDouble('arabicFontSize', _arabicFontSize);
+        await prefs.setBool('showThaiV3', _showThaiV3);
+        await prefs.setBool('showThaiV2', _showThaiV2);
+        await prefs.setBool('showEnglish', _showEnglish);
+      }
+    } catch (e) {
+      debugPrint('Error loading/applying user settings: $e');
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -50,6 +129,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
+    await _syncToSupabase();
   }
 
   void toggleAlwaysShowArabic(bool value) async {
@@ -57,6 +137,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('alwaysShowArabic', value);
+    await _syncToSupabase();
   }
 
   void setArabicFontFamily(String value) async {
@@ -64,6 +145,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('arabicFontFamily', value);
+    await _syncToSupabase();
   }
 
   void setArabicFontSize(double value) async {
@@ -71,6 +153,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('arabicFontSize', value);
+    await _syncToSupabase();
   }
 
   void setThemeColor(String value) async {
@@ -79,6 +162,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeColor', value);
+    await _syncToSupabase();
   }
 
   void setWebHostUrl(String value) async {
@@ -93,6 +177,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showThaiV3', value);
+    await _syncToSupabase();
   }
 
   void setShowThaiV2(bool value) async {
@@ -100,6 +185,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showThaiV2', value);
+    await _syncToSupabase();
   }
 
   void setShowEnglish(bool value) async {
@@ -107,6 +193,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showEnglish', value);
+    await _syncToSupabase();
   }
 
   // Helper method to get theme colors

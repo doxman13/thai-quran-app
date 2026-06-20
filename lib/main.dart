@@ -1,25 +1,33 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/progress_provider.dart';
 import 'providers/settings_provider.dart';
-import 'providers/bookmark_provider.dart';
 import 'providers/notes_provider.dart';
 import 'providers/stats_provider.dart';
 import 'providers/local_reading_provider.dart';
+import 'providers/supabase_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://qeciqdjidugdipgqxysm.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlY2lxZGppZHVnZGlwZ3F4eXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MzQxMzcsImV4cCI6MjA5NzUxMDEzN30.HtEVA3me06ShjtTRe6KdjV6qd3hPkiJTC9GAW0xDGuY',
+  );
+
   final repository = QuranRepository();
 
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => SupabaseProvider()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProvider(create: (_) => BookmarkProvider()),
         ChangeNotifierProvider(create: (_) => LocalReadingProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/local_reading_provider.dart';
 import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
@@ -646,147 +647,49 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = settings.getPrimaryColor();
 
-    final surahList = List.generate(114, (i) => (i + 1).toString());
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
         elevation: 0,
         centerTitle: true,
-        title: Row(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Surah Dropdown with custom modern style
-            Expanded(
-              child: Theme(
-                data: Theme.of(context).copyWith(
-                  canvasColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _currentSurah,
-                    icon: const Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white70,
-                    ),
-                    style: GoogleFonts.prompt(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    items: surahList.map((String id) {
-                      return DropdownMenuItem<String>(
-                        value: id,
-                        child: Text(
-                          widget.repository.getSurahName(id),
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    selectedItemBuilder: (BuildContext context) {
-                      return surahList.map<Widget>((String id) {
-                        return Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            widget.repository.getSurahName(id),
-                            style: GoogleFonts.prompt(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList();
-                    },
-                    onChanged: (String? newValue) {
-                      if (newValue != null && newValue != _currentSurah) {
-                        _loadSurah(newValue);
-                      }
-                    },
-                  ),
-                ),
+            Text(
+              widget.repository.getSurahName(_currentSurah),
+              style: GoogleFonts.prompt(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
-            const SizedBox(width: 8),
-            // Ayat Dropdown
-            if (!_isLoading && verses.isNotEmpty)
-              Consumer<ProgressProvider>(
-                builder: (context, progressProv, child) {
-                  // Safely compute active dropdown value to avoid errors during layout updates
-                  String activeVerseId = '1';
-                  if (progressProv.lastVerseIndex >= 0 &&
-                      progressProv.lastVerseIndex < verses.length) {
-                    activeVerseId = verses[progressProv.lastVerseIndex].id;
-                  } else if (verses.isNotEmpty) {
-                    activeVerseId = verses[0].id;
-                  }
-
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      canvasColor: isDark
-                          ? const Color(0xFF1E293B)
-                          : Colors.white,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: activeVerseId,
-                        icon: const Icon(
-                          Icons.unfold_more,
-                          color: Colors.white70,
-                          size: 18,
-                        ),
-                        style: GoogleFonts.prompt(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        items: verses.map((verse) {
-                          return DropdownMenuItem<String>(
-                            value: verse.id,
-                            child: Text(
-                              verse.id,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                        selectedItemBuilder: (BuildContext context) {
-                          return verses.map<Widget>((v) {
-                            return Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                v.id,
-                                style: GoogleFonts.prompt(
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            );
-                          }).toList();
-                        },
-                        onChanged: (String? ayatId) {
-                          if (ayatId != null) {
-                            final index = verses.indexWhere(
-                              (v) => v.id == ayatId,
-                            );
-                            if (index != -1) {
-                              progressProv.setVerseIndexAndScroll(index);
-                            }
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                },
-              ),
+            Consumer2<LocalReadingProvider, ProgressProvider>(
+              builder: (context, localReading, progressProv, child) {
+                final activeProfile = localReading.activeProfile;
+                final profileName = activeProfile?.name ?? 'Free Read';
+                final activeVerseId = (progressProv.lastVerseIndex >= 0 &&
+                        progressProv.lastVerseIndex < verses.length)
+                    ? verses[progressProv.lastVerseIndex].id
+                    : '1';
+                return Text(
+                  '$profileName · $_currentSurah:$activeVerseId',
+                  style: GoogleFonts.prompt(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                );
+              },
+            ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bookmarks_outlined),
+            icon: const Icon(Icons.bookmarks_outlined, color: Colors.white),
             tooltip: 'Bookmarks',
             onPressed: () async {
               final result = await Navigator.push(
@@ -827,7 +730,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.palette_outlined),
+            icon: Text(
+              'Aa',
+              style: GoogleFonts.prompt(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
             tooltip: 'Appearance',
             onPressed: _showSettingsSheet,
           ),
@@ -868,8 +778,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               decoration: BoxDecoration(
                 color: isDark
-                    ? const Color(0xFF1E293B).withOpacity(0.95)
-                    : Colors.white.withOpacity(0.95),
+                    ? const Color(0xFF1E293B)
+                    : Colors.white,
                 border: Border(
                   top: BorderSide(
                     color: isDark
@@ -886,93 +796,106 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Previous Surah Button
-                  ElevatedButton(
-                    onPressed: int.parse(_currentSurah) > 1
-                        ? () {
-                            final prev = (int.parse(_currentSurah) - 1)
-                                .toString();
-                            _loadSurah(prev);
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor.withOpacity(0.1),
-                      foregroundColor: primaryColor,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              child: Consumer2<LocalReadingProvider, ProgressProvider>(
+                builder: (context, localReading, progressProv, child) {
+                  final currentIndex = progressProv.lastVerseIndex;
+                  final totalCount = verses.length;
+                  final hasPrev = currentIndex > 0;
+                  final hasNext = currentIndex < totalCount - 1;
+
+                  final dropdownItems = List.generate(totalCount, (index) {
+                    final verseId = verses[index].id;
+                    return DropdownMenuItem<int>(
+                      value: index,
+                      child: Text(
+                        '$_currentSurah:$verseId',
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                    );
+                  });
+
+                  final safeValue = (currentIndex >= 0 && currentIndex < totalCount) ? currentIndex : 0;
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: hasPrev
+                            ? () {
+                                progressProv.setVerseIndexAndScroll(currentIndex - 1);
+                              }
+                            : null,
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                        style: IconButton.styleFrom(
+                          disabledForegroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
+                          foregroundColor: primaryColor,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.arrow_back_ios_rounded, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Prev Surah',
-                          style: GoogleFonts.prompt(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Container(
+                          height: 40,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isDark ? Colors.blueGrey.shade800.withOpacity(0.5) : Colors.grey.shade300,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              key: ValueKey('reading_ayah_dropdown_${_currentSurah}_$totalCount'),
+                              value: safeValue,
+                              isExpanded: true,
+                              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                              items: dropdownItems,
+                              onChanged: (index) {
+                                if (index != null) {
+                                  progressProv.setVerseIndexAndScroll(index);
+                                }
+                              },
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  // Current Surah Info / Page indicator or similar
-                  Text(
-                    'Surah $_currentSurah / 114',
-                    style: GoogleFonts.prompt(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? Colors.blueGrey.shade300
-                          : Colors.blueGrey.shade700,
-                    ),
-                  ),
-                  // Next Surah Button
-                  ElevatedButton(
-                    onPressed: int.parse(_currentSurah) < 114
-                        ? () {
-                            final next = (int.parse(_currentSurah) + 1)
-                                .toString();
-                            _loadSurah(next);
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor.withOpacity(0.1),
-                      foregroundColor: primaryColor,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Next Surah',
-                          style: GoogleFonts.prompt(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                      IconButton(
+                        onPressed: _showSettingsSheet,
+                        icon: Text(
+                          'ع',
+                          style: GoogleFonts.amiri(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-                      ],
-                    ),
-                  ),
-                ],
+                        style: IconButton.styleFrom(
+                          backgroundColor: primaryColor.withOpacity(0.12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: primaryColor.withOpacity(0.3)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: hasNext
+                            ? () {
+                                progressProv.setVerseIndexAndScroll(currentIndex + 1);
+                              }
+                            : null,
+                        icon: const Icon(Icons.arrow_forward_ios_rounded),
+                        style: IconButton.styleFrom(
+                          disabledForegroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
+                          foregroundColor: primaryColor,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
     );

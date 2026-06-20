@@ -1,4 +1,5 @@
 // lib/providers/stats_provider.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ class StatsProvider extends ChangeNotifier {
   
   // Date string YYYY-MM-DD -> Set of "surahId:verseId"
   Map<String, Set<String>> _history = {};
+  Timer? _saveTimer;
 
   StatsProvider() {
     _loadHistory();
@@ -44,14 +46,17 @@ class StatsProvider extends ChangeNotifier {
     _history[dateStr]!.add(verseKey);
     notifyListeners();
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      // Serialize map of sets to map of lists
-      final mapToSave = _history.map((date, set) => MapEntry(date, set.toList()));
-      await prefs.setString(_historyKey, json.encode(mapToSave));
-    } catch (e) {
-      debugPrint('Error saving stats history: $e');
-    }
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(seconds: 1), () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        // Serialize map of sets to map of lists
+        final mapToSave = _history.map((date, set) => MapEntry(date, set.toList()));
+        await prefs.setString(_historyKey, json.encode(mapToSave));
+      } catch (e) {
+        debugPrint('Error saving stats history: $e');
+      }
+    });
   }
 
   int get todayReadCount {
@@ -112,5 +117,21 @@ class StatsProvider extends ChangeNotifier {
     }
 
     return streak;
+  }
+
+  @override
+  void dispose() {
+    if (_saveTimer != null && _saveTimer!.isActive) {
+      _saveTimer!.cancel();
+      try {
+        final mapToSave = _history.map((date, set) => MapEntry(date, set.toList()));
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.setString(_historyKey, json.encode(mapToSave));
+        });
+      } catch (e) {
+        debugPrint('Error saving stats history on dispose: $e');
+      }
+    }
+    super.dispose();
   }
 }
