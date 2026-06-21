@@ -616,7 +616,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    await _syncProfileToSupabase(profile);
+    _syncProfileToSupabase(profile);
 
     return profile;
   }
@@ -651,7 +651,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    await _syncProfileToSupabase(updated);
+    _syncProfileToSupabase(updated);
   }
 
   Future<void> deleteProfile(String profileId) async {
@@ -710,7 +710,7 @@ class LocalReadingProvider extends ChangeNotifier {
 
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
     if (profile != null) {
-      await _syncProfileToSupabase(profile);
+      _syncProfileToSupabase(profile);
     }
 
     final user = Supabase.instance.client.auth.currentUser;
@@ -732,7 +732,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    await _syncProfileToSupabase(updated);
+    _syncProfileToSupabase(updated);
   }
 
   Future<void> restoreProfile(String profileId) async {
@@ -752,7 +752,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    await _syncProfileToSupabase(updated);
+    _syncProfileToSupabase(updated);
   }
 
   Future<LocalBookmarkCategory> ensureBookmarkCategory({

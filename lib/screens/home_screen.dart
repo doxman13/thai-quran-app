@@ -433,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: colors.primary,
                   ),
-                  onPressed: () async {
+                  onPressed: () {
                     final name = nameController.text.trim();
                     if (name.isEmpty) {
                       setDialogState(
@@ -468,8 +468,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       return;
                     }
 
+                    Navigator.pop(dialogContext);
+
                     if (profile == null) {
-                      await provider.createProfile(
+                      provider.createProfile(
                         name: name,
                         planMode: planMode,
                         startJuz: planMode == 'by_juz' ? startJuz : null,
@@ -478,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         target: target,
                       );
                     } else {
-                      await provider.updateProfile(
+                      provider.updateProfile(
                         profileId: profile.id,
                         name: name,
                         planMode: planMode,
@@ -488,8 +490,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         target: target,
                       );
                     }
-
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
                   },
                   child: Text(profile == null ? 'Create' : 'Save'),
                 ),
