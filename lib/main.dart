@@ -17,6 +17,7 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppTheme.prewarmFonts();
 
   await Supabase.initialize(
     url: 'https://qeciqdjidugdipgqxysm.supabase.co',

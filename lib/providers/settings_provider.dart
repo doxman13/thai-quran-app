@@ -125,9 +125,27 @@ class SettingsProvider extends ChangeNotifier {
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'sage');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
 
-    _showThaiV3 = prefs.getBool('showThaiV3') ?? true;
-    _showThaiV2 = prefs.getBool('showThaiV2') ?? false;
-    _showEnglish = prefs.getBool('showEnglish') ?? false;
+    final bool hasShowThaiV3 = prefs.containsKey('showThaiV3');
+    if (!hasShowThaiV3) {
+      final String nativeLang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+      if (nativeLang == 'th') {
+        _showThaiV3 = true;
+        _showThaiV2 = false;
+        _showEnglish = false;
+      } else {
+        _showThaiV3 = false;
+        _showThaiV2 = false;
+        _showEnglish = true;
+      }
+      // Save initial defaults to avoid re-triggering this logic if settings are changed
+      await prefs.setBool('showThaiV3', _showThaiV3);
+      await prefs.setBool('showThaiV2', _showThaiV2);
+      await prefs.setBool('showEnglish', _showEnglish);
+    } else {
+      _showThaiV3 = prefs.getBool('showThaiV3') ?? true;
+      _showThaiV2 = prefs.getBool('showThaiV2') ?? false;
+      _showEnglish = prefs.getBool('showEnglish') ?? false;
+    }
     notifyListeners();
   }
 

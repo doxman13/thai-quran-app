@@ -272,6 +272,11 @@ class LocalReadingProvider extends ChangeNotifier {
   String? _pendingSyncVerseId;
   String? _pendingSyncUserId;
 
+  Timer? _readingStateSyncTimer;
+  int? _pendingReadingStateSurahId;
+  int? _pendingReadingStateVerseId;
+  String? _pendingReadingStateUserId;
+
   List<LocalReadingProfile> get profiles => List.unmodifiable(_profiles);
   List<LocalReadingProfile> get activeProfiles =>
       _profiles.where((profile) => !profile.isArchived).toList(growable: false);
@@ -304,6 +309,7 @@ class LocalReadingProvider extends ChangeNotifier {
       final user = data.session?.user;
       if (user != null) {
         await syncBookmarksAndProfilesWithSupabase(user.id);
+        await syncReadingStateWithSupabase(user.id);
       } else {
         await _load();
       }
@@ -314,6 +320,7 @@ class LocalReadingProvider extends ChangeNotifier {
   void dispose() {
     _authSubscription?.cancel();
     _recentReadingSyncTimer?.cancel();
+    _readingStateSyncTimer?.cancel();
     if (_saveTimer != null) {
       _saveTimer!.cancel();
       _executeSave();
@@ -567,15 +574,31 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   Future<void> updateProfileProgress(String profileId, VerseRef current) async {
+    final now = DateTime.now();
     _profiles = _profiles
         .map(
           (profile) => profile.id == profileId
-              ? profile.copyWith(current: current, updatedAt: DateTime.now())
+              ? profile.copyWith(current: current, updatedAt: now)
               : profile,
         )
         .toList();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_reading_state_updated_at', now.toIso8601String());
+    } catch (e) {
+      debugPrint('Error saving reading state timestamp: $e');
+    }
+
     await _save();
     notifyListeners();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final surahInt = int.tryParse(current.surahId) ?? 1;
+      final verseInt = int.tryParse(current.verseId) ?? 1;
+      _debounceReadingStateSync(user.id, surahInt, verseInt);
+    }
   }
 
   Future<void> archiveProfile(String profileId) async {
@@ -818,6 +841,79 @@ class LocalReadingProvider extends ChangeNotifier {
 
     if (currentUser != null) {
       _debounceRecentReadingSync(currentUser.id, verse.surahId, verse.verseId);
+    }
+  }
+
+  void _debounceReadingStateSync(String userId, int surahId, int verseId) {
+    _pendingReadingStateUserId = userId;
+    _pendingReadingStateSurahId = surahId;
+    _pendingReadingStateVerseId = verseId;
+
+    _readingStateSyncTimer?.cancel();
+    _readingStateSyncTimer = Timer(const Duration(seconds: 2), () async {
+      final uId = _pendingReadingStateUserId;
+      final sId = _pendingReadingStateSurahId;
+      final vId = _pendingReadingStateVerseId;
+      if (uId == null || sId == null || vId == null) return;
+
+      try {
+        final client = Supabase.instance.client;
+        await client.from('user_reading_state').upsert({
+          'user_id': uId,
+          'surah_id': sId,
+          'verse_id': vId,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'user_id');
+      } catch (e) {
+        debugPrint('Error syncing reading state to Supabase: $e');
+      }
+    });
+  }
+
+  Future<void> syncReadingStateWithSupabase(String userId) async {
+    try {
+      final client = Supabase.instance.client;
+      final response = await client
+          .from('user_reading_state')
+          .select('surah_id, verse_id, updated_at')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response != null) {
+        final int remoteSurahId = int.parse(response['surah_id'].toString());
+        final int remoteVerseId = int.parse(response['verse_id'].toString());
+        final DateTime remoteUpdatedAt = DateTime.parse(response['updated_at'].toString());
+
+        final prefs = await SharedPreferences.getInstance();
+        final localUpdatedAtStr = prefs.getString('user_reading_state_updated_at');
+        final localUpdatedAt = localUpdatedAtStr != null
+            ? DateTime.tryParse(localUpdatedAtStr) ?? DateTime.fromMillisecondsSinceEpoch(0)
+            : DateTime.fromMillisecondsSinceEpoch(0);
+
+        if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
+          final remoteVerseRef = toVerseRef(remoteSurahId.toString(), remoteVerseId.toString());
+
+          final targetProfile = _profiles.where(isFreeReadProfile).firstOrNull ?? _profiles.firstOrNull;
+          if (targetProfile != null) {
+            final targetProfileId = _activeProfileId ?? targetProfile.id;
+            _profiles = _profiles.map((p) {
+              if (p.id == targetProfileId) {
+                return p.copyWith(
+                  current: remoteVerseRef,
+                  updatedAt: remoteUpdatedAt,
+                );
+              }
+              return p;
+            }).toList();
+          }
+
+          await prefs.setString('user_reading_state_updated_at', remoteUpdatedAt.toIso8601String());
+          await _save(immediate: true);
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing reading state with Supabase: $e');
     }
   }
 

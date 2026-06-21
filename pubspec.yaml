@@ -40,6 +40,7 @@ dependencies:
   google_fonts: ^8.1.0
   http: ^1.6.0
   supabase_flutter: ^2.8.0
+  flutter_svg: ^2.0.10
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,8 @@ flutter:
     - assets/merged_quran.json
     - assets/tafsir_thai_mokhtasar.json
     - assets/icons/playstore-icon.png
+    - assets/quran_arabic.json
+    - assets/Bismillah_Calligraphy6.svg
 
   fonts:
     - family: UthmanicHafs

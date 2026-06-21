@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
@@ -410,41 +411,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {
-    TextStyle bismillahStyle;
-    switch (settings.arabicFontFamily) {
-      case 'UthmanicHafs':
-        bismillahStyle = TextStyle(
-          fontFamily: 'UthmanicHafs',
-          fontSize: 28,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
-        );
-        break;
-      case 'AmiriQuran':
-        bismillahStyle = GoogleFonts.amiriQuran(
-          fontSize: 28,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
-        );
-        break;
-      case 'ScheherazadeNew':
-        bismillahStyle = GoogleFonts.scheherazadeNew(
-          fontSize: 28,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
-        );
-        break;
-      case 'Amiri':
-        bismillahStyle = GoogleFonts.amiri(
-          fontSize: 28,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
-        );
-        break;
-      default:
-        bismillahStyle = TextStyle(
-          fontFamily: 'UthmanicHafs',
-          fontSize: 28,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
-        );
-    }
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
@@ -460,12 +426,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ),
       ),
       child: Center(
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: Text(
-            '\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064e\u0647\u0650 \u0627\u0644\u0631\u0651\u064e\u062d\u0652\u0645\u064e\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064e\u062d\u065\u064a\u0645\u0650',
-            style: bismillahStyle,
-            textAlign: TextAlign.center,
+        child: SvgPicture.asset(
+          'assets/Bismillah_Calligraphy6.svg',
+          height: 60,
+          colorFilter: ColorFilter.mode(
+            isDark ? Colors.white : const Color(0xFF1E293B),
+            BlendMode.srcIn,
           ),
         ),
       ),

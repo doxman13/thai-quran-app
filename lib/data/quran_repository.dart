@@ -1,5 +1,6 @@
 // lib/data/quran_repository.dart
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -10,34 +11,45 @@ class QuranRepository {
   Map<String, dynamic>? _quranData;
   Map<String, dynamic>? _mergedQuranData;
   Map<String, dynamic>? _tafsirData;
+  Map<String, String> _offlineArabicData = {};
   final Map<String, String> surahNames = {};
 
   // Loads all Surahs from the local JSON asset and fetches Surah Names
   Future<void> init() async {
-    if (_quranData != null) return; // already initialized
+    if (_quranData != null) {
+      if (_mergedQuranData == null) {
+        try {
+          final String mergedResponse = await rootBundle.loadString(
+            'assets/merged_quran.json',
+          );
+          _mergedQuranData = json.decode(mergedResponse);
+        } catch (e) {
+          print('Error loading merged_quran.json: $e');
+        }
+      }
 
-    final String response = await rootBundle.loadString('assets/thai_v3.json');
-    _quranData = json.decode(response);
+      if (_tafsirData == null) {
+        try {
+          final String tafsirResponse = await rootBundle.loadString(
+            'assets/tafsir_thai_mokhtasar.json',
+          );
+          _tafsirData = json.decode(tafsirResponse);
+        } catch (e) {
+          print('Error loading tafsir_thai_mokhtasar.json: $e');
+        }
+      }
 
-    try {
-      final String mergedResponse = await rootBundle.loadString(
-        'assets/merged_quran.json',
-      );
-      _mergedQuranData = json.decode(mergedResponse);
-    } catch (e) {
-      print('Error loading merged_quran.json: $e');
+      if (surahNames.isEmpty) {
+        await _loadSurahNames();
+      }
+      return;
     }
 
-    try {
-      final String tafsirResponse = await rootBundle.loadString(
-        'assets/tafsir_thai_mokhtasar.json',
-      );
-      _tafsirData = json.decode(tafsirResponse);
-    } catch (e) {
-      print('Error loading tafsir_thai_mokhtasar.json: $e');
-    }
+    // If init() is called directly without initOfflineMushaf, call initOfflineMushaf() to handle everything.
+    await initOfflineMushaf();
+  }
 
-    // Fetch surah names
+  Future<void> _loadSurahNames() async {
     try {
       final res = await http.get(
         Uri.parse('https://api.quran.com/api/v4/chapters'),
@@ -49,10 +61,59 @@ class QuranRepository {
         }
       }
     } catch (e) {
-      // Fallback if offline
       for (int i = 1; i <= 114; i++) {
         surahNames[i.toString()] = 'Surah $i';
       }
+    }
+  }
+
+  Future<void> initOfflineMushaf() async {
+    if (_offlineArabicData.isNotEmpty && _quranData != null) return;
+    try {
+      final String arabicJsonStr = await rootBundle.loadString('assets/quran_arabic.json');
+      final String thaiJsonStr = await rootBundle.loadString('assets/thai_v3.json');
+
+      final input = OfflineMushafInput(arabicJsonStr, thaiJsonStr);
+      final result = await compute(_parseAndMergeMushaf, input);
+
+      _offlineArabicData = result.arabicMap;
+      _quranData = result.thaiMap;
+    } catch (e) {
+      print('Error initializing offline Mushaf: $e');
+      if (_quranData == null) {
+        try {
+          final String response = await rootBundle.loadString('assets/thai_v3.json');
+          _quranData = json.decode(response);
+        } catch (err) {
+          print('Error loading fallback thai_v3.json: $err');
+        }
+      }
+    }
+
+    if (_mergedQuranData == null) {
+      try {
+        final String mergedResponse = await rootBundle.loadString(
+          'assets/merged_quran.json',
+        );
+        _mergedQuranData = json.decode(mergedResponse);
+      } catch (e) {
+        print('Error loading merged_quran.json: $e');
+      }
+    }
+
+    if (_tafsirData == null) {
+      try {
+        final String tafsirResponse = await rootBundle.loadString(
+          'assets/tafsir_thai_mokhtasar.json',
+        );
+        _tafsirData = json.decode(tafsirResponse);
+      } catch (e) {
+        print('Error loading tafsir_thai_mokhtasar.json: $e');
+      }
+    }
+
+    if (surahNames.isEmpty) {
+      await _loadSurahNames();
     }
   }
 
@@ -139,6 +200,13 @@ class QuranRepository {
   }
 
   Future<String> fetchArabicVerse(String surahId, String verseId) async {
+    // 0. Check in-memory offline Arabic mushaf data first
+    final offlineKey = '$surahId:$verseId';
+    final offlineText = _offlineArabicData[offlineKey];
+    if (offlineText != null && offlineText.isNotEmpty) {
+      return _normalizeArabicText(offlineText);
+    }
+
     final cacheKey = 'arabic_qpc_v3_${surahId}_$verseId';
     final prefs = await SharedPreferences.getInstance();
 
@@ -209,4 +277,35 @@ class QuranRepository {
     }
     return '';
   }
+}
+
+class OfflineMushafInput {
+  final String arabicJsonStr;
+  final String thaiJsonStr;
+
+  const OfflineMushafInput(this.arabicJsonStr, this.thaiJsonStr);
+}
+
+class OfflineMushafResult {
+  final Map<String, String> arabicMap;
+  final Map<String, dynamic> thaiMap;
+
+  const OfflineMushafResult(this.arabicMap, this.thaiMap);
+}
+
+OfflineMushafResult _parseAndMergeMushaf(OfflineMushafInput input) {
+  final Map<String, dynamic> decodedThai = json.decode(input.thaiJsonStr);
+  final List<dynamic> decodedArabic = json.decode(input.arabicJsonStr);
+
+  final Map<String, String> arabicMap = {};
+  for (var item in decodedArabic) {
+    if (item is Map) {
+      final sId = item['surah_id'].toString();
+      final aNum = item['ayah_number'].toString();
+      final text = item['uthmani_text'].toString();
+      arabicMap['$sId:$aNum'] = text;
+    }
+  }
+
+  return OfflineMushafResult(arabicMap, decodedThai);
 }

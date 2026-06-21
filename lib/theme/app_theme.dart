@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/services.dart';
+
 class AppThemeColors {
   final Color background;
   final Color surface;
@@ -32,6 +34,16 @@ class AppThemeColors {
 
 class AppTheme {
   static const radius = 8.0;
+
+  static Future<void> prewarmFonts() async {
+    try {
+      final fontLoader = FontLoader('UthmanicHafs');
+      fontLoader.addFont(rootBundle.load('assets/fonts/UthmanicHafs.ttf'));
+      await fontLoader.load();
+    } catch (e) {
+      debugPrint('Error pre-warming UthmanicHafs font: $e');
+    }
+  }
 
   static AppThemeColors colors({
     required bool isDark,
