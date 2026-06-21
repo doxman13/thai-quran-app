@@ -510,6 +510,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                        if (readingProv.archivedProfiles.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'แผนการอ่านที่เก็บถาวร (Archived Plans)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...readingProv.archivedProfiles.map((profile) {
+                            return Card(
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(
+                                  color: isDark
+                                      ? Colors.blueGrey.shade800.withOpacity(0.5)
+                                      : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: ListTile(
+                                leading: Icon(
+                                  Icons.archive_outlined,
+                                  color: primaryColor,
+                                ),
+                                title: Text(
+                                  profile.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    TextButton(
+                                      onPressed: () => readingProv.restoreProfile(profile.id),
+                                      child: const Text('Restore'),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('ลบแผนการอ่าน?'),
+                                            content: Text('คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('ยกเลิก'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  readingProv.deleteProfile(profile.id);
+                                                  Navigator.pop(context);
+                                                },
+                                                child: const Text('ลบ', style: TextStyle(color: Colors.redAccent)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                         if (readingProv.recentReadings.isNotEmpty) ...[
                           const SizedBox(height: 24),
                           const Align(

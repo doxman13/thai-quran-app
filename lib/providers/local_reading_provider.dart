@@ -1169,12 +1169,12 @@ class LocalReadingProvider extends ChangeNotifier {
       '${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}_${_bookmarks.length}';
 
   void _ensureDefaultProfile() {
-    if (_profiles.any(isFreeReadProfile)) return;
+    if (_profiles.any((p) => isFreeReadProfile(p) && p.userId == currentUserId)) return;
 
     final now = DateTime.now();
     final profile = LocalReadingProfile(
       id: _createLocalId(),
-      userId: _localUserId,
+      userId: currentUserId,
       name: 'Free Read',
       slug: 'free_read',
       start: toVerseRef(1, 1),

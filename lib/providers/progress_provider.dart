@@ -52,18 +52,19 @@ class ProgressProvider extends ChangeNotifier {
 
     // Listen to scrolling to automatically update progress
     itemPositionsListener.itemPositions.addListener(() {
-      if (_isChangingSurah)
+      if (_isChangingSurah) {
         return; // Skip updates when changing surah to avoid overwriting reset
+      }
 
       final positions = itemPositionsListener.itemPositions.value;
       if (positions.isNotEmpty) {
         int topIndex = 0;
 
-        // Check if the last item is visible and fully/mostly inside the viewport
+        // Check if the completion card (index _totalVerses) is visible and fully/mostly inside the viewport
         bool isLastVisible = false;
         double lastTrailing = 2.0;
         for (var pos in positions) {
-          if (pos.index == _totalVerses - 1) {
+          if (pos.index == _totalVerses) {
             isLastVisible = true;
             lastTrailing = pos.itemTrailingEdge;
             break;
@@ -78,6 +79,10 @@ class ProgressProvider extends ChangeNotifier {
           double minDistance = double.infinity;
 
           for (var pos in positions) {
+            if (pos.index >= _totalVerses) {
+              continue; // Skip the completion card index so it is not highlighted or saved as progress
+            }
+
             double itemCenter =
                 (pos.itemLeadingEdge + pos.itemTrailingEdge) / 2;
             double dist = (itemCenter - targetY).abs();
