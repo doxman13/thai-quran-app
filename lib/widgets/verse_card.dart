@@ -470,7 +470,40 @@ class _VerseCardState extends State<VerseCard> {
                       else
                         Directionality(
                           textDirection: TextDirection.rtl,
-                          child: Text(widget.verse.arabic, style: arabicStyle),
+                          child: RichText(
+                            text: TextSpan(
+                              style: arabicStyle,
+                              children: [
+                                TextSpan(text: widget.verse.arabic),
+                                if (settings.arabicFontFamily != 'UthmanicHafs')
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.middle,
+                                    child: Container(
+                                      margin: const EdgeInsets.only(right: 8),
+                                      width: 24,
+                                      height: 24,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
+                                          width: 1,
+                                        ),
+                                        color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        widget.verse.id,
+                                        style: GoogleFonts.prompt(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 14),
                       Divider(
