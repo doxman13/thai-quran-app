@@ -139,10 +139,10 @@ class QuranRepository {
   }
 
   Future<String> fetchArabicVerse(String surahId, String verseId) async {
-    final cacheKey = 'arabic_qpc_v2_${surahId}_$verseId';
+    final cacheKey = 'arabic_qpc_v3_${surahId}_$verseId';
     final prefs = await SharedPreferences.getInstance();
 
-    // 1. Check local cache first (using new cache key to avoid old text_uthmani cache)
+    // 1. Check local cache first (using new cache key to avoid old cache)
     final cached = prefs.getString(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       return _normalizeArabicText(cached);
@@ -160,17 +160,24 @@ class QuranRepository {
         final data = json.decode(response.body);
         final words = data['verse']?['words'] as List?;
         if (words != null && words.isNotEmpty) {
-          final wordsList = words
-              .map((w) {
-                final qpc = w['text_qpc_hafs']?.toString();
-                final uthmani = w['text_uthmani']?.toString();
-                return (qpc != null && qpc.isNotEmpty) ? qpc : (uthmani ?? '');
-              })
-              .where((text) => text.isNotEmpty)
-              .toList();
+          final List<String> mainWords = [];
+          String endGlyph = '';
+          
+          for (var w in words) {
+            final qpc = w['text_qpc_hafs']?.toString();
+            final uthmani = w['text_uthmani']?.toString();
+            final text = (qpc != null && qpc.isNotEmpty) ? qpc : (uthmani ?? '');
+            if (text.isNotEmpty) {
+              if (w['char_type_name'] == 'end') {
+                endGlyph = text;
+              } else {
+                mainWords.add(text);
+              }
+            }
+          }
 
-          if (wordsList.isNotEmpty) {
-            final qpcText = wordsList.join(' ');
+          if (mainWords.isNotEmpty) {
+            final qpcText = endGlyph.isNotEmpty ? '${mainWords.join(' ')} | $endGlyph' : mainWords.join(' ');
             await prefs.setString(cacheKey, qpcText);
             return _normalizeArabicText(qpcText);
           }

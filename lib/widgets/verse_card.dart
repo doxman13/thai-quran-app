@@ -474,7 +474,14 @@ class _VerseCardState extends State<VerseCard> {
                             text: TextSpan(
                               style: arabicStyle,
                               children: [
-                                TextSpan(text: widget.verse.arabic),
+                                TextSpan(
+                                  text: (() {
+                                    final parts = widget.verse.arabic.split(' | ');
+                                    return settings.arabicFontFamily == 'UthmanicHafs'
+                                        ? parts.join(' ')
+                                        : parts[0];
+                                  })(),
+                                ),
                                 if (settings.arabicFontFamily != 'UthmanicHafs')
                                   WidgetSpan(
                                     alignment: PlaceholderAlignment.middle,
