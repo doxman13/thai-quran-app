@@ -41,6 +41,14 @@ class LocalReadingProfile {
   });
 
   LocalReadingProfile copyWith({
+    String? name,
+    String? slug,
+    String? planMode,
+    int? startJuz,
+    int? targetJuz,
+    VerseRef? start,
+    VerseRef? target,
+    bool clearTarget = false,
     VerseRef? current,
     bool? isArchived,
     DateTime? updatedAt,
@@ -48,13 +56,13 @@ class LocalReadingProfile {
     return LocalReadingProfile(
       id: id,
       userId: userId,
-      name: name,
-      slug: slug,
-      planMode: planMode,
-      startJuz: startJuz,
-      targetJuz: targetJuz,
-      start: start,
-      target: target,
+      name: name ?? this.name,
+      slug: slug ?? this.slug,
+      planMode: planMode ?? this.planMode,
+      startJuz: startJuz ?? this.startJuz,
+      targetJuz: targetJuz ?? this.targetJuz,
+      start: start ?? this.start,
+      target: clearTarget ? null : target ?? this.target,
       current: current ?? this.current,
       sortOrder: sortOrder,
       isArchived: isArchived ?? this.isArchived,
@@ -286,7 +294,9 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   void _listenToAuthChanges() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) async {
       final user = data.session?.user;
       if (user != null) {
         await syncBookmarksAndProfilesWithSupabase(user.id);
@@ -335,7 +345,9 @@ class LocalReadingProvider extends ChangeNotifier {
 
       if (serverCatId != null) {
         // Push any local unsynced bookmarks
-        final unsyncedLocalBookmarks = _bookmarks.where((b) => b.userId == 'local').toList();
+        final unsyncedLocalBookmarks = _bookmarks
+            .where((b) => b.userId == 'local')
+            .toList();
         for (final b in unsyncedLocalBookmarks) {
           try {
             await client.from('bookmarks').upsert({
@@ -355,23 +367,29 @@ class LocalReadingProvider extends ChangeNotifier {
         // Fetch remote bookmarks
         final response = await client
             .from('bookmarks')
-            .select('id, surah_id, verse_id, label, note, sort_order, created_at, category_id')
+            .select(
+              'id, surah_id, verse_id, label, note, sort_order, created_at, category_id',
+            )
             .eq('user_id', userId);
 
         final List<dynamic> dbBookmarks = response;
         final List<LocalBookmark> syncedBookmarks = [];
 
         for (final dbB in dbBookmarks) {
-          syncedBookmarks.add(LocalBookmark(
-            id: dbB['id'].toString(),
-            userId: userId,
-            categoryId: dbB['category_id'].toString(),
-            verse: toVerseRef(dbB['surah_id'], dbB['verse_id']),
-            label: dbB['label']?.toString(),
-            note: dbB['note']?.toString(),
-            sortOrder: int.tryParse(dbB['sort_order']?.toString() ?? '') ?? 0,
-            createdAt: DateTime.tryParse(dbB['created_at']?.toString() ?? '') ?? DateTime.now(),
-          ));
+          syncedBookmarks.add(
+            LocalBookmark(
+              id: dbB['id'].toString(),
+              userId: userId,
+              categoryId: dbB['category_id'].toString(),
+              verse: toVerseRef(dbB['surah_id'], dbB['verse_id']),
+              label: dbB['label']?.toString(),
+              note: dbB['note']?.toString(),
+              sortOrder: int.tryParse(dbB['sort_order']?.toString() ?? '') ?? 0,
+              createdAt:
+                  DateTime.tryParse(dbB['created_at']?.toString() ?? '') ??
+                  DateTime.now(),
+            ),
+          );
         }
 
         _bookmarks = syncedBookmarks;
@@ -383,7 +401,7 @@ class LocalReadingProvider extends ChangeNotifier {
             slug: 'saved_verses',
             maxItems: 5,
             sortOrder: 0,
-          )
+          ),
         ];
 
         // Update profiles userId
@@ -456,6 +474,53 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
     return profile;
+  }
+
+  Future<void> updateProfile({
+    required String profileId,
+    required String name,
+    required VerseRef start,
+    VerseRef? target,
+    String? planMode,
+    int? startJuz,
+    int? targetJuz,
+  }) async {
+    final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
+    if (profile == null || isFreeReadProfile(profile)) return;
+
+    _profiles = _profiles
+        .map(
+          (item) => item.id == profileId
+              ? item.copyWith(
+                  name: name,
+                  planMode: planMode,
+                  startJuz: startJuz,
+                  targetJuz: targetJuz,
+                  start: start,
+                  target: target,
+                  clearTarget: target == null,
+                  current: start,
+                  updatedAt: DateTime.now(),
+                )
+              : item,
+        )
+        .toList();
+    await _save(immediate: true);
+    notifyListeners();
+  }
+
+  Future<void> deleteProfile(String profileId) async {
+    final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
+    if (profile == null || isFreeReadProfile(profile)) return;
+
+    _profiles = _profiles.where((item) => item.id != profileId).toList();
+    if (_activeProfileId == profileId) {
+      _activeProfileId = activeProfiles.isNotEmpty
+          ? activeProfiles.first.id
+          : _profiles.firstOrNull?.id;
+    }
+    await _save(immediate: true);
+    notifyListeners();
   }
 
   Future<void> setActiveProfile(String profileId) async {
@@ -536,20 +601,20 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   bool isBookmarked(String surahId, String verseId) {
-    return _bookmarks.any((b) => b.verse.surahId == surahId && b.verse.verseId == verseId);
+    return _bookmarks.any(
+      (b) => b.verse.surahId == surahId && b.verse.verseId == verseId,
+    );
   }
 
   Future<void> toggleBookmark(String surahId, String verseId) async {
-    final existing = _bookmarks.where(
-      (b) => b.verse.surahId == surahId && b.verse.verseId == verseId
-    ).firstOrNull;
+    final existing = _bookmarks
+        .where((b) => b.verse.surahId == surahId && b.verse.verseId == verseId)
+        .firstOrNull;
 
     if (existing != null) {
       await removeBookmark(existing.id);
     } else {
-      await addBookmark(
-        verse: toVerseRef(surahId, verseId),
-      );
+      await addBookmark(verse: toVerseRef(surahId, verseId));
     }
   }
 
@@ -581,15 +646,19 @@ class LocalReadingProvider extends ChangeNotifier {
     final user = client.auth.currentUser;
     if (user != null) {
       try {
-        final inserted = await client.from('bookmarks').insert({
-          'user_id': user.id,
-          'category_id': category.id,
-          'surah_id': verse.surahId,
-          'verse_id': verse.verseId,
-          if (label != null) 'label': label,
-          if (note != null) 'note': note,
-          'sort_order': categoryBookmarks.length,
-        }).select('id').single();
+        final inserted = await client
+            .from('bookmarks')
+            .insert({
+              'user_id': user.id,
+              'category_id': category.id,
+              'surah_id': verse.surahId,
+              'verse_id': verse.verseId,
+              if (label != null) 'label': label,
+              if (note != null) 'note': note,
+              'sort_order': categoryBookmarks.length,
+            })
+            .select('id')
+            .single();
 
         final bookmark = LocalBookmark(
           id: inserted['id'].toString(),
@@ -629,7 +698,9 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   Future<void> removeBookmark(String bookmarkId) async {
-    final bookmark = _bookmarks.where((bookmark) => bookmark.id == bookmarkId).firstOrNull;
+    final bookmark = _bookmarks
+        .where((bookmark) => bookmark.id == bookmarkId)
+        .firstOrNull;
     if (bookmark == null) return;
 
     final client = Supabase.instance.client;

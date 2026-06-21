@@ -11,13 +11,15 @@ import 'providers/local_reading_provider.dart';
 import 'providers/supabase_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://qeciqdjidugdipgqxysm.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlY2lxZGppZHVnZGlwZ3F4eXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MzQxMzcsImV4cCI6MjA5NzUxMDEzN30.HtEVA3me06ShjtTRe6KdjV6qd3hPkiJTC9GAW0xDGuY',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlY2lxZGppZHVnZGlwZ3F4eXNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MzQxMzcsImV4cCI6MjA5NzUxMDEzN30.HtEVA3me06ShjtTRe6KdjV6qd3hPkiJTC9GAW0xDGuY',
   );
 
   final repository = QuranRepository();
@@ -46,23 +48,14 @@ class ThaiQuranApp extends StatelessWidget {
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
         final swatch = settings.getThemeSwatch();
-        final primaryColor = settings.getPrimaryColor();
-        final isSepia = settings.themeColor == 'sepia';
-
-        Color scaffoldBg;
-        if (settings.isDarkMode) {
-          if (isSepia) {
-            scaffoldBg = const Color(0xFF1E1712);
-          } else if (settings.themeColor == 'grey') {
-            scaffoldBg = const Color(0xFF2D3748); // Soft grey
-          } else {
-            scaffoldBg = const Color(0xFF0F172A);
-          }
-        } else {
-          scaffoldBg = isSepia
-              ? const Color(0xFFFBF0D9)
-              : const Color(0xFFF8FAFC);
-        }
+        final lightColors = AppTheme.colors(
+          isDark: false,
+          palette: settings.themeColor,
+        );
+        final darkColors = AppTheme.colors(
+          isDark: true,
+          palette: settings.themeColor,
+        );
 
         return MaterialApp(
           title: 'Thai Quran',
@@ -70,30 +63,50 @@ class ThaiQuranApp extends StatelessWidget {
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(
             primarySwatch: swatch,
-            primaryColor: primaryColor,
-            scaffoldBackgroundColor: scaffoldBg,
+            primaryColor: lightColors.primary,
+            scaffoldBackgroundColor: lightColors.background,
             brightness: Brightness.light,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: lightColors.primary,
+              brightness: Brightness.light,
+              surface: lightColors.surface,
+            ),
             appBarTheme: AppBarTheme(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
+              backgroundColor: lightColors.surfaceMuted,
+              foregroundColor: lightColors.textStrong,
+              elevation: 0,
+            ),
+            cardTheme: CardThemeData(
+              color: lightColors.surface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+                side: BorderSide(color: lightColors.borderSoft),
+              ),
             ),
           ),
           darkTheme: ThemeData(
             primarySwatch: swatch,
-            primaryColor: primaryColor,
-            scaffoldBackgroundColor: scaffoldBg,
+            primaryColor: darkColors.primary,
+            scaffoldBackgroundColor: darkColors.background,
             brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: darkColors.primary,
+              brightness: Brightness.dark,
+              surface: darkColors.surface,
+            ),
             appBarTheme: AppBarTheme(
-              backgroundColor: settings.isDarkMode
-                  ? (isSepia
-                        ? const Color(0xFF2E241D)
-                        : (settings.themeColor == 'emerald'
-                              ? const Color(0xFF022C22)
-                              : (settings.themeColor == 'grey'
-                                    ? const Color(0xFF1A202C)
-                                    : primaryColor)))
-                  : primaryColor,
-              foregroundColor: Colors.white,
+              backgroundColor: darkColors.surfaceMuted,
+              foregroundColor: darkColors.textStrong,
+              elevation: 0,
+            ),
+            cardTheme: CardThemeData(
+              color: darkColors.surface,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+                side: BorderSide(color: darkColors.borderSoft),
+              ),
             ),
           ),
           home: HomeScreen(repository: repository),

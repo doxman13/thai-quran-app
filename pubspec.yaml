@@ -67,6 +67,7 @@ flutter:
     - assets/thai_v3.json
     - assets/merged_quran.json
     - assets/tafsir_thai_mokhtasar.json
+    - assets/icons/playstore-icon.png
 
   fonts:
     - family: UthmanicHafs

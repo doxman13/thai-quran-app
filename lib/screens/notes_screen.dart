@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
-import '../providers/progress_provider.dart';
 import '../data/quran_repository.dart';
 import 'reading_screen.dart';
 
@@ -18,10 +17,10 @@ class NotesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final notesProv = Provider.of<NotesProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
-    
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = settings.getPrimaryColor();
-    
+
     // Convert notes map into a sorted list of entries
     final noteEntries = notesProv.notes.entries.toList()
       ..sort((a, b) {
@@ -48,14 +47,18 @@ class NotesScreen extends StatelessWidget {
                   Icon(
                     Icons.edit_note,
                     size: 80,
-                    color: isDark ? Colors.blueGrey.shade700 : Colors.blueGrey.shade200,
+                    color: isDark
+                        ? Colors.blueGrey.shade700
+                        : Colors.blueGrey.shade200,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No personal notes yet.',
                     style: GoogleFonts.prompt(
                       fontSize: 18,
-                      color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade500,
+                      color: isDark
+                          ? Colors.blueGrey.shade400
+                          : Colors.blueGrey.shade500,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -67,7 +70,9 @@ class NotesScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.prompt(
                         fontSize: 14,
-                        color: isDark ? Colors.blueGrey.shade500 : Colors.blueGrey.shade400,
+                        color: isDark
+                            ? Colors.blueGrey.shade500
+                            : Colors.blueGrey.shade400,
                       ),
                     ),
                   ),
@@ -83,15 +88,19 @@ class NotesScreen extends StatelessWidget {
                 final surahId = keyParts[0];
                 final verseId = keyParts[1];
                 final noteContent = entry.value;
-                
+
                 final surahName = repository.getSurahName(surahId);
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 2,
                   color: isDark
-                      ? (settings.themeColor == 'sepia' ? const Color(0xFF261D17) : const Color(0xFF1E293B))
+                      ? (settings.themeColor == 'sepia'
+                            ? const Color(0xFF261D17)
+                            : const Color(0xFF1E293B))
                       : Colors.white,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
@@ -132,31 +141,56 @@ class NotesScreen extends StatelessWidget {
                                     'Verse $verseId',
                                     style: GoogleFonts.prompt(
                                       fontSize: 12,
-                                      color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade500,
+                                      color: isDark
+                                          ? Colors.blueGrey.shade400
+                                          : Colors.blueGrey.shade500,
                                     ),
                                   ),
                                 ],
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: Colors.redAccent,
+                                ),
                                 onPressed: () {
                                   // Confirm delete
                                   showDialog(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
-                                      title: Text('Delete Note', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
-                                      content: Text('Are you sure you want to delete this personal note?', style: GoogleFonts.prompt()),
+                                      title: Text(
+                                        'Delete Note',
+                                        style: GoogleFonts.prompt(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      content: Text(
+                                        'Are you sure you want to delete this personal note?',
+                                        style: GoogleFonts.prompt(),
+                                      ),
                                       actions: [
                                         TextButton(
                                           onPressed: () => Navigator.pop(ctx),
-                                          child: Text('Cancel', style: GoogleFonts.prompt()),
+                                          child: Text(
+                                            'Cancel',
+                                            style: GoogleFonts.prompt(),
+                                          ),
                                         ),
                                         TextButton(
                                           onPressed: () {
-                                            notesProv.deleteNote(surahId, verseId);
+                                            notesProv.deleteNote(
+                                              surahId,
+                                              verseId,
+                                            );
                                             Navigator.pop(ctx);
                                           },
-                                          child: Text('Delete', style: GoogleFonts.prompt(color: Colors.redAccent)),
+                                          child: Text(
+                                            'Delete',
+                                            style: GoogleFonts.prompt(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -169,14 +203,20 @@ class NotesScreen extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.edit_note, color: Colors.amber.shade700, size: 20),
+                              Icon(
+                                Icons.edit_note,
+                                color: Colors.amber.shade700,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   noteContent,
                                   style: GoogleFonts.prompt(
                                     fontSize: 14,
-                                    color: isDark ? Colors.blueGrey.shade200 : const Color(0xFF334155),
+                                    color: isDark
+                                        ? Colors.blueGrey.shade200
+                                        : const Color(0xFF334155),
                                   ),
                                 ),
                               ),
@@ -192,7 +232,9 @@ class NotesScreen extends StatelessWidget {
                                   'Tap to read verse',
                                   style: GoogleFonts.prompt(
                                     fontSize: 11,
-                                    color: isDark ? Colors.teal.shade300 : Colors.teal.shade700,
+                                    color: isDark
+                                        ? Colors.teal.shade300
+                                        : Colors.teal.shade700,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -200,7 +242,9 @@ class NotesScreen extends StatelessWidget {
                                 Icon(
                                   Icons.arrow_forward_rounded,
                                   size: 12,
-                                  color: isDark ? Colors.teal.shade300 : Colors.teal.shade700,
+                                  color: isDark
+                                      ? Colors.teal.shade300
+                                      : Colors.teal.shade700,
                                 ),
                               ],
                             ),

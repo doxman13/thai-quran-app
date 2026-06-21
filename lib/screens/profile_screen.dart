@@ -6,9 +6,15 @@ import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
+import '../data/quran_repository.dart';
+import 'bookmarks_screen.dart';
+import 'notes_screen.dart';
+import 'reading_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  final QuranRepository? repository;
+
+  const ProfileScreen({Key? key, this.repository}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -18,7 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  
+
   bool _otpSent = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -33,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleSendOtp(SupabaseProvider supabaseProv) async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -44,7 +50,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await supabaseProv.signInWithOtp(_emailController.text);
       setState(() {
         _otpSent = true;
-        _successMessage = 'Magic link and verification code sent to your email!';
+        _successMessage =
+            'Magic link and verification code sent to your email!';
       });
     } catch (e) {
       setState(() {
@@ -113,6 +120,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _openReading(String surahId, String verseId) {
+    final repository = widget.repository;
+    if (repository == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReadingScreen(
+          repository: repository,
+          initialSurah: surahId,
+          initialVerseId: verseId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openBookmarks() async {
+    final repository = widget.repository;
+    if (repository == null) return;
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BookmarksScreen(repository: repository),
+      ),
+    );
+    if (!mounted || result == null) return;
+
+    _openReading(
+      result['surahId'].toString(),
+      result['verseId']?.toString() ??
+          ((result['verseIndex'] as int? ?? 0) + 1).toString(),
+    );
+  }
+
+  void _openNotes() {
+    final repository = widget.repository;
+    if (repository == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => NotesScreen(repository: repository)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -120,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final readingProv = Provider.of<LocalReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context);
-    
+
     final primaryColor = settings.getPrimaryColor();
     final isDark = settings.isDarkMode;
 
@@ -146,7 +198,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               if (_successMessage != null)
@@ -160,14 +215,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Text(
                     _successMessage!,
-                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              
+
               if (!supabaseProv.isLoggedIn) ...[
                 // Auth form
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -180,22 +240,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 16),
                           Text(
                             'ซิงค์ข้อมูลกับคลาวด์',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.teal.shade900,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? Colors.white
+                                      : Colors.teal.shade900,
+                                ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'เข้าสู่ระบบเพื่อสำรองข้อมูลและซิงค์การตั้งค่า บุ๊กมาร์ก และบันทึกต่าง ๆ ไปยังเว็บและอุปกรณ์อื่น ๆ',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
+                                ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
-                          
+
                           if (!_otpSent) ...[
                             TextFormField(
                               controller: _emailController,
@@ -203,11 +269,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: InputDecoration(
                                 labelText: 'อีเมล (Email)',
                                 prefixIcon: const Icon(Icons.email),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
                               validator: (val) {
-                                if (val == null || val.trim().isEmpty) return 'กรุณากรอกอีเมล';
-                                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val.trim())) {
+                                if (val == null || val.trim().isEmpty)
+                                  return 'กรุณากรอกอีเมล';
+                                if (!RegExp(
+                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                ).hasMatch(val.trim())) {
                                   return 'รูปแบบอีเมลไม่ถูกต้อง';
                                 }
                                 return null;
@@ -218,22 +289,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                              onPressed: _isLoading ? null : () => _handleSendOtp(supabaseProv),
-                              child: _isLoading 
-                                ? const SizedBox(
-                                    height: 20, 
-                                    width: 20, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                  ) 
-                                : const Text('ขอรหัสเข้าสู่ระบบ (Send OTP)', style: TextStyle(fontWeight: FontWeight.bold)),
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _handleSendOtp(supabaseProv),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'ขอรหัสเข้าสู่ระบบ (Send OTP)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ] else ...[
                             Text(
                               'รหัสยืนยัน 6 หลักถูกส่งไปยัง ${_emailController.text} แล้ว',
-                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
@@ -244,7 +331,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: InputDecoration(
                                 labelText: 'รหัสยืนยัน 6 หลัก (OTP Code)',
                                 prefixIcon: const Icon(Icons.lock_open),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 counterText: "",
                               ),
                             ),
@@ -253,26 +342,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                               ),
-                              onPressed: _isLoading ? null : () => _handleVerifyOtp(supabaseProv),
-                              child: _isLoading 
-                                ? const SizedBox(
-                                    height: 20, 
-                                    width: 20, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                  ) 
-                                : const Text('ยืนยันรหัส (Verify Code)', style: TextStyle(fontWeight: FontWeight.bold)),
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _handleVerifyOtp(supabaseProv),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'ยืนยันรหัส (Verify Code)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                             const SizedBox(height: 10),
                             TextButton(
-                              onPressed: _isLoading ? null : () {
-                                setState(() {
-                                  _otpSent = false;
-                                  _otpController.clear();
-                                });
-                              },
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _otpSent = false;
+                                        _otpController.clear();
+                                      });
+                                    },
                               child: const Text('เปลี่ยนอีเมล (Change Email)'),
                             ),
                           ],
@@ -284,7 +389,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ] else ...[
                 // Logged in UI
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -293,34 +400,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         CircleAvatar(
                           radius: 40,
                           backgroundColor: primaryColor.withOpacity(0.2),
-                          child: Icon(Icons.person, size: 50, color: primaryColor),
+                          child: Icon(
+                            Icons.person,
+                            size: 50,
+                            color: primaryColor,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           supabaseProv.displayName,
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           supabaseProv.userEmail,
-                          style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.green.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.3),
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.cloud_done, color: Colors.green, size: 16),
+                              Icon(
+                                Icons.cloud_done,
+                                color: Colors.green,
+                                size: 16,
+                              ),
                               SizedBox(width: 6),
                               Text(
                                 'ซิงค์กับคลาวด์แล้ว',
-                                style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                                style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ),
@@ -328,17 +458,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 8),
-                        
+
                         // Statistics Header
                         const Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'สถิติการอ่านของคุณ (Your Reading Stats)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Statistics Grid
                         GridView.count(
                           shrinkWrap: true,
@@ -353,18 +486,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               title: 'แผนการอ่าน',
                               value: '${readingProv.activeProfiles.length} / 5',
                               color: Colors.blue,
+                              onTap: () => Navigator.pop(context),
                             ),
                             _buildStatCard(
                               icon: Icons.bookmark,
                               title: 'บุ๊กมาร์ก',
                               value: '${readingProv.bookmarks.length}',
                               color: Colors.orange,
+                              onTap: _openBookmarks,
                             ),
                             _buildStatCard(
                               icon: Icons.note_alt,
                               title: 'บันทึกส่วนตัว',
                               value: '${notesProv.notes.length}',
                               color: Colors.purple,
+                              onTap: _openNotes,
                             ),
                             _buildStatCard(
                               icon: Icons.local_fire_department,
@@ -374,27 +510,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                        
+                        if (readingProv.recentReadings.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Recent Readings',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ...readingProv.recentReadings.take(5).map((reading) {
+                            return Card(
+                              elevation: 0,
+                              child: ListTile(
+                                leading: Icon(
+                                  Icons.history,
+                                  color: primaryColor,
+                                ),
+                                title: Text(
+                                  '${reading.verse.surahId}:${reading.verse.verseId}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: const Text('Continue from this ayah'),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => _openReading(
+                                  reading.verse.surahId,
+                                  reading.verse.verseId,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 16),
-                        
+
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.redAccent,
                             foregroundColor: Colors.white,
                             minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          onPressed: _isLoading ? null : () => _handleSignOut(supabaseProv),
+                          onPressed: _isLoading
+                              ? null
+                              : () => _handleSignOut(supabaseProv),
                           icon: const Icon(Icons.logout),
                           label: _isLoading
-                            ? const SizedBox(
-                                height: 20, 
-                                width: 20, 
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                              )
-                            : const Text('ออกจากระบบ (Sign Out)', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'ออกจากระบบ (Sign Out)',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ],
                     ),
@@ -413,9 +596,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String title,
     required String value,
     required Color color,
+    VoidCallback? onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(isDark ? 0.15 : 0.08),
@@ -434,7 +618,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 12, 
+                    fontSize: 12,
                     color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
                     fontWeight: FontWeight.w500,
                   ),
@@ -447,12 +631,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 20, 
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: color,
             ),
           ),
         ],
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: card,
       ),
     );
   }

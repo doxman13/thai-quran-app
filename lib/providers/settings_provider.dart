@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../theme/app_theme.dart';
+
 class SettingsProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   bool _alwaysShowArabic = false;
   String _arabicFontFamily = 'UthmanicHafs';
   double _arabicFontSize = 28.0;
-  String _themeColor = 'teal'; // teal, emerald, blue, purple, sepia, grey
+  String _themeColor = 'sage'; // sage, emerald, blue, purple, sepia
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
 
   // Translation display toggles
@@ -36,7 +38,9 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _listenToAuthChanges() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) async {
       final user = data.session?.user;
       if (user != null) {
         await loadAndApplySyncedSettings(user.id);
@@ -85,8 +89,11 @@ class SettingsProvider extends ChangeNotifier {
         _themeColor = response['theme_color']?.toString() ?? _themeColor;
         _isDarkMode = response['is_dark_mode'] == true;
         _alwaysShowArabic = response['always_show_arabic'] == true;
-        _arabicFontFamily = response['arabic_font_family']?.toString() ?? _arabicFontFamily;
-        _arabicFontSize = double.tryParse(response['arabic_font_size']?.toString() ?? '') ?? _arabicFontSize;
+        _arabicFontFamily =
+            response['arabic_font_family']?.toString() ?? _arabicFontFamily;
+        _arabicFontSize =
+            double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
+            _arabicFontSize;
         _showThaiV3 = response['show_thai_v3'] == true;
         _showThaiV2 = response['show_thai_v2'] == true;
         _showEnglish = response['show_english'] == true;
@@ -115,7 +122,7 @@ class SettingsProvider extends ChangeNotifier {
     _alwaysShowArabic = prefs.getBool('alwaysShowArabic') ?? false;
     _arabicFontFamily = prefs.getString('arabicFontFamily') ?? 'UthmanicHafs';
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
-    _themeColor = prefs.getString('themeColor') ?? 'teal';
+    _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'sage');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
 
     _showThaiV3 = prefs.getBool('showThaiV3') ?? true;
@@ -157,11 +164,13 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void setThemeColor(String value) async {
-    if (!['teal', 'emerald', 'blue', 'purple', 'sepia', 'grey'].contains(value)) return;
-    _themeColor = value;
+    final normalized = _normalizeThemeColor(value);
+    if (!['sage', 'emerald', 'blue', 'purple', 'sepia'].contains(normalized))
+      return;
+    _themeColor = normalized;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeColor', value);
+    await prefs.setString('themeColor', normalized);
     await _syncToSupabase();
   }
 
@@ -207,47 +216,31 @@ class SettingsProvider extends ChangeNotifier {
         return Colors.purple;
       case 'sepia':
         return Colors.amber;
-      case 'grey':
-        return Colors.blueGrey;
-      case 'teal':
+      case 'sage':
       default:
-        return Colors.teal;
+        return Colors.green;
     }
+  }
+
+  AppThemeColors getAppColors() {
+    return AppTheme.colors(isDark: _isDarkMode, palette: _themeColor);
   }
 
   Color getPrimaryColor() {
-    switch (_themeColor) {
-      case 'emerald':
-        return const Color(0xFF047857); // emerald.shade700
-      case 'blue':
-        return Colors.blue.shade700;
-      case 'purple':
-        return Colors.purple.shade700;
-      case 'sepia':
-        return Colors.amber.shade800;
-      case 'grey':
-        return Colors.blueGrey.shade700;
-      case 'teal':
-      default:
-        return Colors.teal.shade700;
-    }
+    return getAppColors().primary;
   }
 
   Color getHighlightColor() {
-    switch (_themeColor) {
-      case 'emerald':
-        return const Color(0xFF34D399); // emerald.shade400
-      case 'blue':
-        return Colors.blue.shade400;
-      case 'purple':
-        return Colors.purple.shade400;
-      case 'sepia':
-        return Colors.amber.shade600;
-      case 'grey':
-        return Colors.blueGrey.shade400;
+    return getAppColors().accent;
+  }
+
+  String _normalizeThemeColor(String value) {
+    switch (value) {
       case 'teal':
+      case 'grey':
+        return 'sage';
       default:
-        return Colors.teal.shade400;
+        return value;
     }
   }
 }

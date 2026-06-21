@@ -13,6 +13,7 @@ import '../providers/local_reading_provider.dart';
 import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
+import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
@@ -50,23 +51,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
     await widget.repository.init();
 
     if (widget.initialSurah != null) {
-      if (widget.initialVerseId != null) {
-        _loadSurah(widget.initialSurah!);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final index = verses.indexWhere((v) => v.id == widget.initialVerseId);
-          if (index != -1) {
-            Provider.of<ProgressProvider>(
-              context,
-              listen: false,
-            ).setVerseIndexAndScroll(index);
-          }
-        });
-      } else {
-        _loadSurah(
-          widget.initialSurah!,
-          jumpToIndex: widget.initialVerseIndex ?? 0,
-        );
-      }
+      _loadSurah(
+        widget.initialSurah!,
+        jumpToIndex: widget.initialVerseIndex ?? 0,
+        jumpToVerseId: widget.initialVerseId,
+      );
 
       if (widget.openSettingsPanel) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -82,7 +71,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
     }
   }
 
-  void _loadSurah(String surahId, {int jumpToIndex = 0}) {
+  void _loadSurah(
+    String surahId, {
+    int jumpToIndex = 0,
+    String? jumpToVerseId,
+  }) {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
     provider.setChangingSurah(true); // Disable listener
 
@@ -94,6 +87,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
     provider.setCurrentSurah(surahId);
 
     final loadedVerses = widget.repository.getSurahVerses(surahId);
+    final targetIndex = jumpToVerseId == null
+        ? jumpToIndex
+        : loadedVerses.indexWhere((verse) => verse.id == jumpToVerseId);
+    final safeTargetIndex = targetIndex < 0
+        ? 0
+        : targetIndex.clamp(
+            0,
+            loadedVerses.isEmpty ? 0 : loadedVerses.length - 1,
+          );
     provider.setTotalVerses(loadedVerses.length);
 
     setState(() {
@@ -104,14 +106,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 150), () {
         if (verses.isNotEmpty && provider.itemScrollController.isAttached) {
-          provider.itemScrollController.jumpTo(index: jumpToIndex);
+          provider.setVerseIndexAndScroll(safeTargetIndex);
         }
         // Safely re-enable listener after jump finishes
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(const Duration(milliseconds: 420), () {
           provider.setChangingSurah(false);
         });
       });
     });
+  }
+
+  void _selectVerseIndex(int index) {
+    final provider = Provider.of<ProgressProvider>(context, listen: false);
+    provider.setVerseIndexAndScroll(index);
   }
 
   void _showSettingsSheet() {
@@ -646,24 +653,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = settings.getPrimaryColor();
+    final colors = settings.getAppColors();
+    final surahIds = List.generate(114, (index) => (index + 1).toString());
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: primaryColor,
+        backgroundColor: colors.surfaceMuted,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colors.textStrong),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               widget.repository.getSurahName(_currentSurah),
-              style: GoogleFonts.prompt(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: colors.textStrong,
+                fontWeight: FontWeight.w900,
                 fontSize: 16,
               ),
             ),
@@ -671,16 +683,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
               builder: (context, localReading, progressProv, child) {
                 final activeProfile = localReading.activeProfile;
                 final profileName = activeProfile?.name ?? 'Free Read';
-                final activeVerseId = (progressProv.lastVerseIndex >= 0 &&
+                final activeVerseId =
+                    (progressProv.lastVerseIndex >= 0 &&
                         progressProv.lastVerseIndex < verses.length)
                     ? verses[progressProv.lastVerseIndex].id
                     : '1';
                 return Text(
-                  '$profileName · $_currentSurah:$activeVerseId',
-                  style: GoogleFonts.prompt(
-                    color: Colors.white70,
+                  '$profileName - $_currentSurah:$activeVerseId',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: colors.foreground,
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                   ),
                 );
               },
@@ -689,7 +704,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bookmarks_outlined, color: Colors.white),
+            icon: Icon(Icons.bookmarks_outlined, color: colors.primary),
             tooltip: 'Bookmarks',
             onPressed: () async {
               final result = await Navigator.push(
@@ -714,16 +729,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   if (result.containsKey('verseIndex')) {
                     _loadSurah(targetSurah, jumpToIndex: result['verseIndex']);
                   } else if (result.containsKey('verseId')) {
-                    final targetVerseId = result['verseId'];
-                    _loadSurah(targetSurah);
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      final index = verses.indexWhere(
-                        (v) => v.id == targetVerseId,
-                      );
-                      if (index != -1) {
-                        provider.setVerseIndexAndScroll(index);
-                      }
-                    });
+                    _loadSurah(
+                      targetSurah,
+                      jumpToVerseId: result['verseId']?.toString(),
+                    );
                   }
                 }
               }
@@ -732,8 +741,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
           IconButton(
             icon: Text(
               'Aa',
-              style: GoogleFonts.prompt(
-                color: Colors.white,
+              style: GoogleFonts.inter(
+                color: colors.primary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -742,9 +751,107 @@ class _ReadingScreenState extends State<ReadingScreen> {
             onPressed: _showSettingsSheet,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: colors.borderSoft)),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      border: Border.all(color: colors.borderSoft),
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _currentSurah,
+                        isExpanded: true,
+                        dropdownColor: colors.surface,
+                        iconEnabledColor: colors.primary,
+                        style: GoogleFonts.inter(
+                          color: colors.textStrong,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                        items: surahIds
+                            .map(
+                              (id) => DropdownMenuItem(
+                                value: id,
+                                child: Text(
+                                  widget.repository.getSurahName(id),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (surahId) {
+                          if (surahId != null && surahId != _currentSurah) {
+                            _loadSurah(surahId);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 96,
+                  child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      border: Border.all(color: colors.borderSoft),
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    child: Consumer<ProgressProvider>(
+                      builder: (context, progressProv, child) {
+                        final currentIndex = progressProv.lastVerseIndex;
+                        final safeIndex = verses.isEmpty
+                            ? 0
+                            : currentIndex.clamp(0, verses.length - 1);
+                        return DropdownButtonHideUnderline(
+                          child: DropdownButton<int>(
+                            value: verses.isEmpty ? null : safeIndex,
+                            isExpanded: true,
+                            dropdownColor: colors.surface,
+                            iconEnabledColor: colors.primary,
+                            style: GoogleFonts.inter(
+                              color: colors.textStrong,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                            hint: const Text('Ayah'),
+                            items: List.generate(
+                              verses.length,
+                              (index) => DropdownMenuItem(
+                                value: index,
+                                child: Text(verses[index].id),
+                              ),
+                            ),
+                            onChanged: (index) {
+                              if (index != null) _selectVerseIndex(index);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : ScrollablePositionedList.builder(
               itemCount: verses.length + 1,
               itemBuilder: (context, index) {
@@ -777,9 +884,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 bottom: MediaQuery.of(context).padding.bottom + 10,
               ),
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xFF1E293B)
-                    : Colors.white,
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
                 border: Border(
                   top: BorderSide(
                     color: isDark
@@ -817,7 +922,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     );
                   });
 
-                  final safeValue = (currentIndex >= 0 && currentIndex < totalCount) ? currentIndex : 0;
+                  final safeValue =
+                      (currentIndex >= 0 && currentIndex < totalCount)
+                      ? currentIndex
+                      : 0;
 
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -825,12 +933,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       IconButton(
                         onPressed: hasPrev
                             ? () {
-                                progressProv.setVerseIndexAndScroll(currentIndex - 1);
+                                progressProv.setVerseIndexAndScroll(
+                                  currentIndex - 1,
+                                );
                               }
                             : null,
                         icon: const Icon(Icons.arrow_back_ios_new_rounded),
                         style: IconButton.styleFrom(
-                          disabledForegroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
+                          disabledForegroundColor: isDark
+                              ? Colors.blueGrey.shade800
+                              : Colors.grey.shade300,
                           foregroundColor: primaryColor,
                         ),
                       ),
@@ -841,17 +953,25 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: isDark ? Colors.blueGrey.shade800.withOpacity(0.5) : Colors.grey.shade300,
+                              color: isDark
+                                  ? Colors.blueGrey.shade800.withOpacity(0.5)
+                                  : Colors.grey.shade300,
                             ),
                             borderRadius: BorderRadius.circular(8),
-                            color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                            color: isDark
+                                ? const Color(0xFF0F172A)
+                                : Colors.grey.shade50,
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<int>(
-                              key: ValueKey('reading_ayah_dropdown_${_currentSurah}_$totalCount'),
+                              key: ValueKey(
+                                'reading_ayah_dropdown_${_currentSurah}_$totalCount',
+                              ),
                               value: safeValue,
                               isExpanded: true,
-                              dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                              dropdownColor: isDark
+                                  ? const Color(0xFF1E293B)
+                                  : Colors.white,
                               items: dropdownItems,
                               onChanged: (index) {
                                 if (index != null) {
@@ -876,7 +996,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           backgroundColor: primaryColor.withOpacity(0.12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: primaryColor.withOpacity(0.3)),
+                            side: BorderSide(
+                              color: primaryColor.withOpacity(0.3),
+                            ),
                           ),
                         ),
                       ),
@@ -884,12 +1006,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       IconButton(
                         onPressed: hasNext
                             ? () {
-                                progressProv.setVerseIndexAndScroll(currentIndex + 1);
+                                progressProv.setVerseIndexAndScroll(
+                                  currentIndex + 1,
+                                );
                               }
                             : null,
                         icon: const Icon(Icons.arrow_forward_ios_rounded),
                         style: IconButton.styleFrom(
-                          disabledForegroundColor: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
+                          disabledForegroundColor: isDark
+                              ? Colors.blueGrey.shade800
+                              : Colors.grey.shade300,
                           foregroundColor: primaryColor,
                         ),
                       ),
