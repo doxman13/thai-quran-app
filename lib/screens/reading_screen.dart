@@ -1,11 +1,9 @@
 // lib/screens/reading_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
@@ -124,26 +122,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
   void _showSettingsSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
         return Consumer<SettingsProvider>(
           builder: (context, settings, child) {
             final isDark = settings.isDarkMode;
             final primaryColor = settings.getPrimaryColor();
+            final colors = settings.getAppColors();
 
-            return Padding(
-              padding: EdgeInsets.only(
-                top: 24.0,
-                left: 24.0,
-                right: 24.0,
-                bottom: 24.0 + MediaQuery.of(context).viewInsets.bottom,
+            return Container(
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              child: SingleChildScrollView(
-                child: Column(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: 24.0,
+                  left: 24.0,
+                  right: 24.0,
+                  bottom: 24.0 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -195,8 +196,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     const SizedBox(height: 8),
                     CheckboxListTile(
                       title: Text(
-                        'Thai V3 (Revised)',
-                        style: GoogleFonts.prompt(),
+                        'Thai 3',
+                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'Society of Institutes and Universities (ฉบับปรับปรุงภาษา)',
+                        style: GoogleFonts.prompt(fontSize: 11),
                       ),
                       value: settings.showThaiV3,
                       activeColor: primaryColor,
@@ -206,8 +211,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     ),
                     CheckboxListTile(
                       title: Text(
-                        'Thai V2 (Original)',
-                        style: GoogleFonts.prompt(),
+                        'Thai 2',
+                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'Society of Institutes and Universities',
+                        style: GoogleFonts.prompt(fontSize: 11),
                       ),
                       value: settings.showThaiV2,
                       activeColor: primaryColor,
@@ -216,7 +225,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       },
                     ),
                     CheckboxListTile(
-                      title: Text('English', style: GoogleFonts.prompt()),
+                      title: Text(
+                        'English',
+                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'Saheeh International',
+                        style: GoogleFonts.prompt(fontSize: 11),
+                      ),
                       value: settings.showEnglish,
                       activeColor: primaryColor,
                       onChanged: (val) {
@@ -347,264 +363,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           inactiveColor: primaryColor.withOpacity(0.2),
                           onChanged: (val) => settings.setArabicFontSize(val),
                         ),
-                        const Divider(height: 32),
-                        Text(
-                          'Web Sync Settings',
-                          style: GoogleFonts.prompt(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: TextEditingController(
-                            text: settings.webHostUrl,
-                          ),
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (val) {
-                            settings.setWebHostUrl(val);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Web host URL updated!'),
-                                duration: Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                          style: GoogleFonts.prompt(fontSize: 14),
-                          decoration: InputDecoration(
-                            labelText: 'Web Server URL',
-                            labelStyle: GoogleFonts.prompt(
-                              color: primaryColor,
-                              fontSize: 13,
-                            ),
-                            hintText: 'e.g. https://your-quran-web.com',
-                            border: const OutlineInputBorder(),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            suffixIcon: const Icon(Icons.sync),
-                          ),
-                        ),
-                        const Divider(height: 32),
-                        Text(
-                          'Offline Audits Cache',
-                          style: GoogleFonts.prompt(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: primaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        FutureBuilder<int>(
-                          future: SharedPreferences.getInstance().then(
-                            (prefs) =>
-                                (prefs.getStringList('local_audits') ?? [])
-                                    .length,
-                          ),
-                          builder: (context, snapshot) {
-                            final count = snapshot.data ?? 0;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'You have $count unsynced audit reports saved locally.',
-                                  style: GoogleFonts.prompt(
-                                    fontSize: 13,
-                                    color: isDark
-                                        ? Colors.blueGrey.shade300
-                                        : Colors.blueGrey.shade600,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        onPressed: count > 0
-                                            ? () async {
-                                                final prefs =
-                                                    await SharedPreferences.getInstance();
-                                                final cached =
-                                                    prefs.getStringList(
-                                                      'local_audits',
-                                                    ) ??
-                                                    [];
-                                                final jsonl = cached
-                                                    .map((e) {
-                                                      try {
-                                                        final Map<
-                                                          String,
-                                                          dynamic
-                                                        >
-                                                        data = json.decode(e);
-                                                        return json.encode({
-                                                          'timestamp':
-                                                              data['timestamp'] ??
-                                                              DateTime.now()
-                                                                  .toIso8601String(),
-                                                          'surahId':
-                                                              data['surahId'],
-                                                          'verseId':
-                                                              data['verseId'],
-                                                          'comment':
-                                                              data['comment'],
-                                                        });
-                                                      } catch (_) {
-                                                        return e;
-                                                      }
-                                                    })
-                                                    .join('\n');
-
-                                                await Clipboard.setData(
-                                                  ClipboardData(text: jsonl),
-                                                );
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'Copied audits in JSONL format to clipboard!',
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                              }
-                                            : null,
-                                        icon: const Icon(
-                                          Icons.copy_all,
-                                          size: 18,
-                                        ),
-                                        label: Text(
-                                          'Copy JSONL',
-                                          style: GoogleFonts.prompt(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: primaryColor,
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        onPressed: count > 0
-                                            ? () async {
-                                                final confirm = await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (ctx) => AlertDialog(
-                                                    title: Text(
-                                                      'Clear Cache?',
-                                                      style: GoogleFonts.prompt(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    content: Text(
-                                                      'Are you sure you want to clear all locally cached audit logs?',
-                                                      style:
-                                                          GoogleFonts.prompt(),
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              ctx,
-                                                              false,
-                                                            ),
-                                                        child: Text(
-                                                          'Cancel',
-                                                          style:
-                                                              GoogleFonts.prompt(),
-                                                        ),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              ctx,
-                                                              true,
-                                                            ),
-                                                        child: Text(
-                                                          'Clear',
-                                                          style:
-                                                              GoogleFonts.prompt(
-                                                                color:
-                                                                    Colors.red,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                                if (confirm == true) {
-                                                  final prefs =
-                                                      await SharedPreferences.getInstance();
-                                                  await prefs.remove(
-                                                    'local_audits',
-                                                  );
-                                                  if (context.mounted) {
-                                                    Navigator.pop(
-                                                      context,
-                                                    ); // close sheet to refresh
-                                                    _showSettingsSheet(); // reopen sheet
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      const SnackBar(
-                                                        content: Text(
-                                                          'Local audit cache cleared.',
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }
-                                                }
-                                              }
-                                            : null,
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 18,
-                                          color: Colors.red,
-                                        ),
-                                        label: Text(
-                                          'Clear Cache',
-                                          style: GoogleFonts.prompt(
-                                            fontSize: 12,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: Colors.red,
-                                          side: const BorderSide(
-                                            color: Colors.red,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -737,6 +499,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 }
               }
             },
+          ),
+          IconButton(
+            icon: Text(
+              'ع',
+              style: GoogleFonts.amiri(
+                color: settings.alwaysShowArabic ? colors.primary : colors.textStrong.withOpacity(0.4),
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+            tooltip: 'Toggle Arabic text globally',
+            onPressed: () => settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
           ),
           IconButton(
             icon: Text(
@@ -983,17 +757,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: _showSettingsSheet,
+                        onPressed: () => settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
                         icon: Text(
                           'ع',
                           style: GoogleFonts.amiri(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: primaryColor,
+                            color: settings.alwaysShowArabic
+                                ? Colors.white
+                                : primaryColor,
                           ),
                         ),
                         style: IconButton.styleFrom(
-                          backgroundColor: primaryColor.withOpacity(0.12),
+                          backgroundColor: settings.alwaysShowArabic
+                              ? primaryColor
+                              : primaryColor.withOpacity(0.12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                             side: BorderSide(
@@ -1074,76 +852,91 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    progressProv.incrementCompletedRead();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'บันทึกการอ่านซูเราะฮฺที่จบแล้ว!',
-                          style: GoogleFonts.prompt(color: Colors.white),
-                        ),
-                        backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                progressProv.incrementCompletedRead();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'บันทึกการอ่านซูเราะฮฺที่จบแล้ว!',
+                      style: GoogleFonts.prompt(color: Colors.white),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
                   ),
-                  child: Text(
-                    '📖 อ่านจบแล้ว',
-                    style: GoogleFonts.prompt(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                elevation: 0,
+              ),
+              child: Text(
+                '📖 อ่านจบแล้ว',
+                style: GoogleFonts.prompt(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    progressProv.incrementCompletedCheck();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'บันทึกการตรวจสอบซูเราะฮฺที่จบแล้ว!',
-                          style: GoogleFonts.prompt(color: Colors.white),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Builder(
+            builder: (context) {
+              final int currentSurahInt = int.tryParse(_currentSurah) ?? 1;
+              final bool hasPrevSurah = currentSurahInt > 1;
+              final bool hasNextSurah = currentSurahInt < 114;
+
+              if (!hasPrevSurah && !hasNextSurah) return const SizedBox.shrink();
+
+              return Row(
+                children: [
+                  if (hasPrevSurah)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _loadSurah((currentSurahInt - 1).toString()),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withOpacity(0.5)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        backgroundColor: const Color(0xFFF43F5E), // Rose 500
-                        duration: const Duration(seconds: 2),
+                        child: Text(
+                          '⬅️ ซูเราะฮฺก่อนหน้า',
+                          style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFBE123C), // Rose 700
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    '🔍 ตรวจสอบจบแล้ว',
-                    style: GoogleFonts.prompt(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+                  if (hasPrevSurah && hasNextSurah) const SizedBox(width: 12),
+                  if (hasNextSurah)
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _loadSurah((currentSurahInt + 1).toString()),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withOpacity(0.5)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          'ซูเราะฮฺถัดไป ➡️',
+                          style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),

@@ -247,7 +247,7 @@ class BookmarkInput extends VerseRef {
 class RecentReadingInput extends VerseRef {
   final String userId;
   final String? profileId;
-  final DateTime? readAt;
+  final DateTime? updatedAt;
 
   const RecentReadingInput({
     required this.userId,
@@ -255,16 +255,16 @@ class RecentReadingInput extends VerseRef {
     required super.verseId,
     required super.verseKey,
     this.profileId,
-    this.readAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toDbRow() {
     return {
       'user_id': userId,
       'surah_id': surahId,
-      'verse_id': verseId,
+      'last_read_verse': verseId,
       if (profileId != null) 'profile_id': profileId,
-      if (readAt != null) 'read_at': readAt!.toIso8601String(),
+      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
   }
 }

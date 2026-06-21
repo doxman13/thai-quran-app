@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'providers/progress_provider.dart';
 import 'providers/settings_provider.dart';
@@ -11,6 +12,7 @@ import 'providers/local_reading_provider.dart';
 import 'providers/supabase_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/home_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -41,7 +43,10 @@ void main() async {
 
 class ThaiQuranApp extends StatelessWidget {
   final QuranRepository repository;
-  const ThaiQuranApp({Key? key, required this.repository}) : super(key: key);
+  const ThaiQuranApp({
+    Key? key,
+    required this.repository,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +114,7 @@ class ThaiQuranApp extends StatelessWidget {
               ),
             ),
           ),
-          home: HomeScreen(repository: repository),
+          home: WelcomeScreen(repository: repository),
         );
       },
     );

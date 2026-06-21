@@ -11,6 +11,7 @@ class Verse {
   final String? shortTafsir;
   final String? shortTafsirSource;
   bool isArabicLoading;
+  bool isArabicVisible;
 
   String get verseKey => createVerseKey(surahId, id);
 
@@ -24,5 +25,6 @@ class Verse {
     this.shortTafsir,
     this.shortTafsirSource,
     this.isArabicLoading = false,
+    this.isArabicVisible = false,
   });
 }

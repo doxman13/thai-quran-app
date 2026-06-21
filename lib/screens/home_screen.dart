@@ -360,34 +360,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       )
                     else ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _surahDropdown(
-                              label: 'Start Surah',
-                              value: startSurah,
-                              onChanged: (value) {
-                                setDialogState(() {
-                                  startSurah = value;
-                                  if (int.parse(endSurah) <
-                                      int.parse(startSurah)) {
-                                    endSurah = startSurah;
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _surahDropdown(
-                              label: 'End Surah',
-                              value: endSurah,
-                              min: int.parse(startSurah),
-                              onChanged: (value) =>
-                                  setDialogState(() => endSurah = value),
-                            ),
-                          ),
-                        ],
+                      _surahDropdown(
+                        label: 'Start Surah',
+                        value: startSurah,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            startSurah = value;
+                            if (int.parse(endSurah) <
+                                int.parse(startSurah)) {
+                              endSurah = startSurah;
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _surahDropdown(
+                        label: 'End Surah',
+                        value: endSurah,
+                        min: int.parse(startSurah),
+                        onChanged: (value) =>
+                            setDialogState(() => endSurah = value),
                       ),
                       const SizedBox(height: 12),
                       Row(

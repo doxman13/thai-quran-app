@@ -267,6 +267,10 @@ class LocalReadingProvider extends ChangeNotifier {
 
   StreamSubscription<AuthState>? _authSubscription;
   Timer? _saveTimer;
+  Timer? _recentReadingSyncTimer;
+  String? _pendingSyncSurahId;
+  String? _pendingSyncVerseId;
+  String? _pendingSyncUserId;
 
   List<LocalReadingProfile> get profiles => List.unmodifiable(_profiles);
   List<LocalReadingProfile> get activeProfiles =>
@@ -309,6 +313,7 @@ class LocalReadingProvider extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _recentReadingSyncTimer?.cancel();
     if (_saveTimer != null) {
       _saveTimer!.cancel();
       _executeSave();
@@ -403,6 +408,37 @@ class LocalReadingProvider extends ChangeNotifier {
             sortOrder: 0,
           ),
         ];
+
+        // Fetch remote recent readings
+        try {
+          final recentResponse = await client
+              .from('recent_readings')
+              .select('id, surah_id, last_read_verse, updated_at, profile_id')
+              .eq('user_id', userId)
+              .order('updated_at', ascending: false)
+              .limit(20);
+
+          final List<dynamic> dbRecent = recentResponse;
+          final List<LocalRecentReading> syncedRecent = [];
+
+          for (final dbR in dbRecent) {
+            syncedRecent.add(
+              LocalRecentReading(
+                id: dbR['id'].toString(),
+                userId: userId,
+                verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
+                profileId: dbR['profile_id']?.toString(),
+                readAt: DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.now(),
+              ),
+            );
+          }
+
+          if (syncedRecent.isNotEmpty) {
+            _recentReadings = syncedRecent;
+          }
+        } catch (e) {
+          debugPrint('Error syncing recent readings: $e');
+        }
 
         // Update profiles userId
         _profiles = _profiles.map((p) {
@@ -720,30 +756,69 @@ class LocalReadingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _debounceRecentReadingSync(String userId, String surahId, String verseId) {
+    _pendingSyncUserId = userId;
+    _pendingSyncSurahId = surahId;
+    _pendingSyncVerseId = verseId;
+
+    _recentReadingSyncTimer?.cancel();
+    _recentReadingSyncTimer = Timer(const Duration(seconds: 2), () async {
+      final uId = _pendingSyncUserId;
+      final sId = _pendingSyncSurahId;
+      final vId = _pendingSyncVerseId;
+      if (uId == null || sId == null || vId == null) return;
+
+      try {
+        final client = Supabase.instance.client;
+        await client.from('recent_readings').upsert({
+          'user_id': uId,
+          'surah_id': sId,
+          'last_read_verse': vId,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'user_id,surah_id');
+      } catch (e) {
+        debugPrint('Error syncing recent reading to Supabase: $e');
+      }
+    });
+  }
+
   Future<void> addRecentReading({
     required VerseRef verse,
     String? profileId,
     int limit = defaultRecentReadingsLimit,
   }) async {
-    final reading = LocalRecentReading(
-      id: _createLocalId(),
-      userId: _localUserId,
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+    final String currentUserId = currentUser?.id ?? _localUserId;
+
+    // Local update: find if there is an existing entry for this user_id and surah_id
+    final existingIndex = _recentReadings.indexWhere(
+      (item) => item.userId == currentUserId && item.verse.surahId == verse.surahId,
+    );
+
+    final updatedReading = LocalRecentReading(
+      id: existingIndex != -1 ? _recentReadings[existingIndex].id : _createLocalId(),
+      userId: currentUserId,
       verse: verse,
       profileId: profileId,
       readAt: DateTime.now(),
     );
 
-    _recentReadings = [
-      reading,
-      ..._recentReadings.where(
-        (item) =>
-            item.verse.verseKey != verse.verseKey ||
-            item.profileId != profileId,
-      ),
-    ].take(limit).toList();
+    if (existingIndex != -1) {
+      _recentReadings.removeAt(existingIndex);
+    }
+    _recentReadings.insert(0, updatedReading);
+
+    if (_recentReadings.length > limit) {
+      _recentReadings = _recentReadings.take(limit).toList();
+    }
 
     await _save();
     notifyListeners();
+
+    if (currentUser != null) {
+      _debounceRecentReadingSync(currentUser.id, verse.surahId, verse.verseId);
+    }
   }
 
   Future<void> _load() async {
