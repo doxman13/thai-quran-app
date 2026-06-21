@@ -411,18 +411,17 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {
+    final colors = settings.getAppColors();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: isDark
-            ? (settings.themeColor == 'sepia'
-                ? const Color(0xFF261D17)
-                : const Color(0xFF1E293B))
-            : Colors.white,
+            ? colors.surfaceMuted.withOpacity(0.5)
+            : colors.primaryLight.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade200,
+          color: colors.borderSoft,
         ),
       ),
       child: Center(
@@ -430,7 +429,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           'assets/Bismillah_Calligraphy6.svg',
           height: 60,
           colorFilter: ColorFilter.mode(
-            isDark ? Colors.white : const Color(0xFF1E293B),
+            colors.textStrong,
             BlendMode.srcIn,
           ),
         ),
