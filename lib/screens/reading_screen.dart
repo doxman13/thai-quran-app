@@ -409,6 +409,69 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
+  Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {
+    TextStyle bismillahStyle;
+    switch (settings.arabicFontFamily) {
+      case 'UthmanicHafs':
+        bismillahStyle = TextStyle(
+          fontFamily: 'UthmanicHafs',
+          fontSize: 28,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'AmiriQuran':
+        bismillahStyle = GoogleFonts.amiriQuran(
+          fontSize: 28,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'ScheherazadeNew':
+        bismillahStyle = GoogleFonts.scheherazadeNew(
+          fontSize: 28,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      case 'Amiri':
+        bismillahStyle = GoogleFonts.amiri(
+          fontSize: 28,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+        break;
+      default:
+        bismillahStyle = TextStyle(
+          fontFamily: 'UthmanicHafs',
+          fontSize: 28,
+          color: isDark ? Colors.white : const Color(0xFF1E293B),
+        );
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? (settings.themeColor == 'sepia'
+                ? const Color(0xFF261D17)
+                : const Color(0xFF1E293B))
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade200,
+        ),
+      ),
+      child: Center(
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Text(
+            '\u0628\u0650\u0633\u0652\u0645\u0650 \u0627\u0644\u0644\u0651\u064e\u0647\u0650 \u0627\u0644\u0631\u0651\u064e\u062d\u0652\u0645\u064e\u0670\u0646\u0650 \u0627\u0644\u0631\u0651\u064e\u062d\u065\u064a\u0645\u0650',
+            style: bismillahStyle,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
@@ -637,12 +700,23 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     isDark,
                   );
                 }
-                return VerseCard(
+                
+                final card = VerseCard(
                   key: ValueKey('${verses[index].surahId}_${verses[index].id}'),
                   verse: verses[index],
                   repository: widget.repository,
                   index: index,
                 );
+
+                if (index == 0 && _currentSurah != '9') {
+                  return Column(
+                    children: [
+                      _buildBismillahBanner(settings, isDark),
+                      card,
+                    ],
+                  );
+                }
+                return card;
               },
               itemScrollController: provider.itemScrollController,
               itemPositionsListener: provider.itemPositionsListener,
