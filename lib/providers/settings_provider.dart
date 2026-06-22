@@ -14,10 +14,10 @@ class SettingsProvider extends ChangeNotifier {
   String _themeColor = 'sage'; // sage, emerald, blue, purple, sepia
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
 
-  // Translation display toggles
-  bool _showThaiV3 = true;
-  bool _showThaiV2 = false;
-  bool _showEnglish = false;
+  // Dual-slot translation model
+  // Valid IDs: 'thai_v3', 'thai_v2', 'english'
+  String _primaryTranslationId = 'thai_v3';
+  String? _secondaryTranslationId;
 
   StreamSubscription<AuthState>? _authSubscription;
 
@@ -28,9 +28,17 @@ class SettingsProvider extends ChangeNotifier {
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
 
-  bool get showThaiV3 => _showThaiV3;
-  bool get showThaiV2 => _showThaiV2;
-  bool get showEnglish => _showEnglish;
+  // New dual-slot getters
+  String get primaryTranslationId => _primaryTranslationId;
+  String? get secondaryTranslationId => _secondaryTranslationId;
+
+  // Derived boolean getters (computed from slots — backwards compat for verse_card.dart etc.)
+  bool get showThaiV3 =>
+      _primaryTranslationId == 'thai_v3' || _secondaryTranslationId == 'thai_v3';
+  bool get showThaiV2 =>
+      _primaryTranslationId == 'thai_v2' || _secondaryTranslationId == 'thai_v2';
+  bool get showEnglish =>
+      _primaryTranslationId == 'english' || _secondaryTranslationId == 'english';
 
   SettingsProvider() {
     _loadSettings();
@@ -59,6 +67,7 @@ class SettingsProvider extends ChangeNotifier {
     final userId = client.auth.currentUser?.id;
     if (userId != null) {
       try {
+        // Derive legacy booleans from slots for backward compat with old Supabase rows
         await client.from('user_settings').upsert({
           'user_id': userId,
           'theme_color': _themeColor,
@@ -66,9 +75,13 @@ class SettingsProvider extends ChangeNotifier {
           'always_show_arabic': _alwaysShowArabic,
           'arabic_font_family': _arabicFontFamily,
           'arabic_font_size': _arabicFontSize,
-          'show_thai_v3': _showThaiV3,
-          'show_thai_v2': _showThaiV2,
-          'show_english': _showEnglish,
+          // Legacy boolean columns kept for web backwards compat
+          'show_thai_v3': showThaiV3,
+          'show_thai_v2': showThaiV2,
+          'show_english': showEnglish,
+          // New dual-slot columns
+          'primary_translation_id': _primaryTranslationId,
+          'secondary_translation_id': _secondaryTranslationId,
           'updated_at': DateTime.now().toIso8601String(),
         });
       } catch (e) {
@@ -94,9 +107,22 @@ class SettingsProvider extends ChangeNotifier {
         _arabicFontSize =
             double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
             _arabicFontSize;
-        _showThaiV3 = response['show_thai_v3'] == true;
-        _showThaiV2 = response['show_thai_v2'] == true;
-        _showEnglish = response['show_english'] == true;
+
+        // Prefer new dual-slot columns; fall back to legacy booleans for old rows
+        final rawPrimary = response['primary_translation_id']?.toString();
+        if (rawPrimary != null && rawPrimary.isNotEmpty) {
+          _primaryTranslationId = rawPrimary;
+          _secondaryTranslationId =
+              response['secondary_translation_id']?.toString();
+        } else {
+          // Migrate from legacy boolean columns
+          final v3 = response['show_thai_v3'] == true;
+          final v2 = response['show_thai_v2'] == true;
+          final en = response['show_english'] == true;
+          final ids = _deriveSlotIds(v3: v3, v2: v2, en: en);
+          _primaryTranslationId = ids.$1;
+          _secondaryTranslationId = ids.$2;
+        }
 
         notifyListeners();
 
@@ -107,9 +133,12 @@ class SettingsProvider extends ChangeNotifier {
         await prefs.setBool('alwaysShowArabic', _alwaysShowArabic);
         await prefs.setString('arabicFontFamily', _arabicFontFamily);
         await prefs.setDouble('arabicFontSize', _arabicFontSize);
-        await prefs.setBool('showThaiV3', _showThaiV3);
-        await prefs.setBool('showThaiV2', _showThaiV2);
-        await prefs.setBool('showEnglish', _showEnglish);
+        await prefs.setString('primaryTranslationId', _primaryTranslationId);
+        if (_secondaryTranslationId != null) {
+          await prefs.setString('secondaryTranslationId', _secondaryTranslationId!);
+        } else {
+          await prefs.remove('secondaryTranslationId');
+        }
       }
     } catch (e) {
       debugPrint('Error loading/applying user settings: $e');
@@ -125,28 +154,49 @@ class SettingsProvider extends ChangeNotifier {
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'sage');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
 
-    final bool hasShowThaiV3 = prefs.containsKey('showThaiV3');
-    if (!hasShowThaiV3) {
-      final String nativeLang = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-      if (nativeLang == 'th') {
-        _showThaiV3 = true;
-        _showThaiV2 = false;
-        _showEnglish = false;
-      } else {
-        _showThaiV3 = false;
-        _showThaiV2 = false;
-        _showEnglish = true;
-      }
-      // Save initial defaults to avoid re-triggering this logic if settings are changed
-      await prefs.setBool('showThaiV3', _showThaiV3);
-      await prefs.setBool('showThaiV2', _showThaiV2);
-      await prefs.setBool('showEnglish', _showEnglish);
+    // Load dual-slot translation state — migrate from legacy booleans if absent
+    final storedPrimary = prefs.getString('primaryTranslationId');
+    if (storedPrimary != null && storedPrimary.isNotEmpty) {
+      _primaryTranslationId = storedPrimary;
+      _secondaryTranslationId = prefs.getString('secondaryTranslationId');
     } else {
-      _showThaiV3 = prefs.getBool('showThaiV3') ?? true;
-      _showThaiV2 = prefs.getBool('showThaiV2') ?? false;
-      _showEnglish = prefs.getBool('showEnglish') ?? false;
+      // First-run locale detection with migration from old boolean prefs
+      final bool hasShowThaiV3 = prefs.containsKey('showThaiV3');
+      bool v3, v2, en;
+      if (!hasShowThaiV3) {
+        final String nativeLang =
+            WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+        v3 = nativeLang == 'th';
+        v2 = false;
+        en = nativeLang != 'th';
+      } else {
+        v3 = prefs.getBool('showThaiV3') ?? true;
+        v2 = prefs.getBool('showThaiV2') ?? false;
+        en = prefs.getBool('showEnglish') ?? false;
+      }
+      final ids = _deriveSlotIds(v3: v3, v2: v2, en: en);
+      _primaryTranslationId = ids.$1;
+      _secondaryTranslationId = ids.$2;
+      // Persist migrated values
+      await prefs.setString('primaryTranslationId', _primaryTranslationId);
+      if (_secondaryTranslationId != null) {
+        await prefs.setString('secondaryTranslationId', _secondaryTranslationId!);
+      }
     }
+
     notifyListeners();
+  }
+
+  /// Derive dual-slot IDs from legacy boolean flags.
+  /// Priority: thai_v3 > thai_v2 > english.
+  (String, String?) _deriveSlotIds({required bool v3, required bool v2, required bool en}) {
+    final enabled = [
+      if (v3) 'thai_v3',
+      if (v2) 'thai_v2',
+      if (en) 'english',
+    ];
+    if (enabled.isEmpty) return ('thai_v3', null);
+    return (enabled[0], enabled.length > 1 ? enabled[1] : null);
   }
 
   void toggleDarkMode(bool value) async {
@@ -183,8 +233,9 @@ class SettingsProvider extends ChangeNotifier {
 
   void setThemeColor(String value) async {
     final normalized = _normalizeThemeColor(value);
-    if (!['sage', 'emerald', 'blue', 'purple', 'sepia'].contains(normalized))
+    if (!['sage', 'emerald', 'blue', 'purple', 'sepia'].contains(normalized)) {
       return;
+    }
     _themeColor = normalized;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
@@ -199,28 +250,72 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setString('webHostUrl', _webHostUrl);
   }
 
-  void setShowThaiV3(bool value) async {
-    _showThaiV3 = value;
-    notifyListeners();
+  /// Core dual-slot mutation with Auto-Eviction collision logic.
+  ///
+  /// [slot] must be `'primary'` or `'secondary'`.
+  /// [id] must be one of `'thai_v3'`, `'thai_v2'`, `'english'`, or `null` (secondary only).
+  ///
+  /// Rules:
+  /// - `primary` cannot be null.
+  /// - If new primary == current secondary → secondary is evicted to null.
+  /// - If new secondary == current primary → silently rejected (no-op).
+  void updateTranslationSlot(String slot, String? id) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showThaiV3', value);
+    if (slot == 'primary') {
+      if (id == null) return; // primary must always have a value
+      final newSecondary = _secondaryTranslationId == id ? null : _secondaryTranslationId;
+      _primaryTranslationId = id;
+      _secondaryTranslationId = newSecondary;
+    } else {
+      if (id == _primaryTranslationId) return; // collision — reject
+      _secondaryTranslationId = id;
+    }
+    notifyListeners();
+    await prefs.setString('primaryTranslationId', _primaryTranslationId);
+    if (_secondaryTranslationId != null) {
+      await prefs.setString('secondaryTranslationId', _secondaryTranslationId!);
+    } else {
+      await prefs.remove('secondaryTranslationId');
+    }
     await _syncToSupabase();
   }
 
-  void setShowThaiV2(bool value) async {
-    _showThaiV2 = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showThaiV2', value);
-    await _syncToSupabase();
+  // Legacy adaptor setters — delegate to updateTranslationSlot for backwards compat
+  void setShowThaiV3(bool value) {
+    if (value) {
+      updateTranslationSlot('primary', 'thai_v3');
+    } else if (_primaryTranslationId == 'thai_v3') {
+      final fallback = _secondaryTranslationId ?? 'english';
+      updateTranslationSlot('primary', fallback);
+    } else {
+      updateTranslationSlot('secondary', null);
+    }
   }
 
-  void setShowEnglish(bool value) async {
-    _showEnglish = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('showEnglish', value);
-    await _syncToSupabase();
+  void setShowThaiV2(bool value) {
+    if (value) {
+      if (_primaryTranslationId != 'thai_v2') updateTranslationSlot('secondary', 'thai_v2');
+    } else {
+      if (_primaryTranslationId == 'thai_v2') {
+        final fallback = _secondaryTranslationId ?? 'thai_v3';
+        updateTranslationSlot('primary', fallback);
+      } else {
+        updateTranslationSlot('secondary', null);
+      }
+    }
+  }
+
+  void setShowEnglish(bool value) {
+    if (value) {
+      if (_primaryTranslationId != 'english') updateTranslationSlot('secondary', 'english');
+    } else {
+      if (_primaryTranslationId == 'english') {
+        final fallback = _secondaryTranslationId ?? 'thai_v3';
+        updateTranslationSlot('primary', fallback);
+      } else {
+        updateTranslationSlot('secondary', null);
+      }
+    }
   }
 
   // Helper method to get theme colors
