@@ -37,6 +37,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  void _showEditNameDialog(BuildContext context, SupabaseProvider supabaseProv) {
+    final controller = TextEditingController(text: supabaseProv.displayName);
+    final dialogFormKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        final primaryColor = settings.getPrimaryColor();
+
+        return AlertDialog(
+          title: const Text('แก้ไขชื่อ (Edit Name)'),
+          content: Form(
+            key: dialogFormKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'ชื่อ (Name)',
+                border: OutlineInputBorder(),
+              ),
+              validator: (val) {
+                if (val == null || val.trim().isEmpty) {
+                  return 'กรุณากรอกชื่อ';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก (Cancel)'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                if (!dialogFormKey.currentState!.validate()) return;
+                try {
+                  await supabaseProv.updateDisplayName(controller.text);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('อัปเดตชื่อสำเร็จ (Name updated successfully)')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('บันทึก (Save)'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _handleSendOtp(SupabaseProvider supabaseProv) async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -223,6 +287,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
               if (!supabaseProv.isLoggedIn) ...[
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: primaryColor.withOpacity(0.2),
+                          child: Icon(Icons.person, color: primaryColor),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ผู้อ่านทั่วไป (Guest Reader)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              Text(
+                                supabaseProv.displayName,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _showEditNameDialog(context, supabaseProv),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Auth form
                 Card(
                   shape: RoundedRectangleBorder(
@@ -407,12 +516,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Text(
-                          supabaseProv.displayName,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              supabaseProv.displayName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () => _showEditNameDialog(context, supabaseProv),
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(

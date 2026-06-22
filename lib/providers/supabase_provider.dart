@@ -2,20 +2,31 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SupabaseProvider extends ChangeNotifier {
   final _client = Supabase.instance.client;
   User? _user;
   StreamSubscription<AuthState>? _authSubscription;
+  String _guestName = 'Reader';
 
   User? get user => _user;
   bool get isLoggedIn => _user != null;
   String get userEmail => _user?.email ?? '';
   String get userId => _user?.id ?? '';
-  String get displayName => _user?.email?.split('@')[0] ?? 'Reader';
+  
+  String get displayName {
+    if (_user != null) {
+      final metaName = _user?.userMetadata?['full_name']?.toString() ?? '';
+      if (metaName.trim().isNotEmpty) return metaName.trim();
+      return _user?.email?.split('@')[0] ?? 'Reader';
+    }
+    return _guestName;
+  }
 
   SupabaseProvider() {
     _user = _client.auth.currentUser;
+    _loadGuestName();
     _authSubscription = _client.auth.onAuthStateChange.listen((data) {
       final oldUser = _user;
       _user = data.session?.user;
@@ -26,6 +37,16 @@ class SupabaseProvider extends ChangeNotifier {
         }
       }
     });
+  }
+
+  Future<void> _loadGuestName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _guestName = prefs.getString('guest_display_name') ?? 'Reader';
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error loading guest name: $e');
+    }
   }
 
   @override
@@ -230,6 +251,30 @@ class SupabaseProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error getting default category ID: $e');
       return null;
+    }
+  }
+
+  Future<void> updateDisplayName(String newName) async {
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+
+    if (_user != null) {
+      await _client.auth.updateUser(
+        UserAttributes(
+          data: {'full_name': trimmed},
+        ),
+      );
+      _user = _client.auth.currentUser;
+      notifyListeners();
+    } else {
+      _guestName = trimmed;
+      notifyListeners();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('guest_display_name', trimmed);
+      } catch (e) {
+        debugPrint('Error saving guest name: $e');
+      }
     }
   }
 }
