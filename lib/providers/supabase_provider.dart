@@ -34,11 +34,7 @@ class SupabaseProvider extends ChangeNotifier {
       if (oldUser?.id != _user?.id) {
         notifyListeners();
         if (_user != null) {
-          bootstrapUser(_user!.id).then((_) {
-            TadabburRepository().syncFromSupabase().catchError((e) {
-              debugPrint('SupabaseProvider: failed to sync notes on login: $e');
-            });
-          });
+          bootstrapUser(_user!.id);
         }
       }
     });

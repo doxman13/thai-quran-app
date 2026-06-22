@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'tadabbur_accordion.dart';
 
 import '../models/verse.dart';
 import '../data/quran_repository.dart';
@@ -45,7 +46,6 @@ class _VerseCardState extends State<VerseCard> {
   bool _showMoreTools = false;
 
   final TextEditingController _auditController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
 
   bool _isSavingAudit = false;
   bool _auditSaved = false;
@@ -60,20 +60,12 @@ class _VerseCardState extends State<VerseCard> {
       if (settings.alwaysShowArabic || widget.verse.isArabicVisible) {
         _loadArabic();
       }
-
-      // Load initial personal note
-      final notesProv = Provider.of<NotesProvider>(context, listen: false);
-      _notesController.text = notesProv.getNoteForVerse(
-        widget.verse.surahId,
-        widget.verse.id,
-      );
     });
   }
 
   @override
   void dispose() {
     _auditController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -196,52 +188,7 @@ class _VerseCardState extends State<VerseCard> {
     }
   }
 
-  void _savePersonalNote(NotesProvider notesProv) {
-    notesProv.saveNote(
-      widget.verse.surahId,
-      widget.verse.id,
-      _notesController.text,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Tadabbur note saved!'),
-        duration: Duration(seconds: 1),
-      ),
-    );
-    setState(() {
-      _showNotesBox = false;
-    });
-  }
 
-  Future<void> _copyShareText(NotesProvider notesProv) async {
-    final note = notesProv.getNoteForVerse(
-      widget.verse.surahId,
-      widget.verse.id,
-    );
-    final payload = SharePayload(
-      surahId: widget.verse.surahId,
-      verseId: widget.verse.id,
-      verseKey: widget.verse.verseKey,
-      surahName: widget.repository.getSurahName(widget.verse.surahId),
-      arabic: widget.verse.arabic,
-      translation: widget.verse.thaiV3,
-      translationVersion: 'thai_v3',
-      quickNote: note,
-      url:
-          'thai-quran-app://surah/${widget.verse.surahId}#v-${widget.verse.id}',
-    );
-    final text = formatVerseShareText(
-      payload,
-      note.trim().isEmpty ? 'translation_only' : 'translation_with_quick_note',
-    );
-
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    setState(() => _shareStatus = 'Copied');
-    Future.delayed(const Duration(milliseconds: 1400), () {
-      if (mounted) setState(() => _shareStatus = '');
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -533,7 +480,7 @@ class _VerseCardState extends State<VerseCard> {
                             ? Colors.blueGrey.shade400
                             : Colors.blueGrey.shade500,
                         textStyle: GoogleFonts.prompt(
-                          fontSize: 16,
+                          fontSize: settings.translationFontSize + 1.0,
                           height: 1.65,
                           color: isDark
                               ? Colors.white
@@ -553,7 +500,7 @@ class _VerseCardState extends State<VerseCard> {
                             ? Colors.blueGrey.shade500
                             : Colors.blueGrey.shade400,
                         textStyle: GoogleFonts.prompt(
-                          fontSize: 15,
+                          fontSize: settings.translationFontSize,
                           height: 1.65,
                           color: isDark
                               ? const Color(0xFFE2E8F0)
@@ -573,7 +520,7 @@ class _VerseCardState extends State<VerseCard> {
                             ? Colors.blueGrey.shade500
                             : Colors.blueGrey.shade400,
                         textStyle: GoogleFonts.prompt(
-                          fontSize: 14,
+                          fontSize: settings.translationFontSize - 1.0,
                           height: 1.6,
                           color: isDark
                               ? const Color(0xFFE2E8F0)
@@ -829,59 +776,10 @@ class _VerseCardState extends State<VerseCard> {
 
                     // Collapsible Personal Note Input
                     if (isHighlighted && _showNotesBox) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black26 : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            TextField(
-                              controller: _notesController,
-                              style: GoogleFonts.prompt(fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText: 'Enter personal notes/thoughts...',
-                                hintStyle: GoogleFonts.prompt(fontSize: 13),
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.all(10),
-                                isDense: true,
-                              ),
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      setState(() => _showNotesBox = false),
-                                  child: Text(
-                                    'Cancel',
-                                    style: GoogleFonts.prompt(fontSize: 12),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => _savePersonalNote(notesProv),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: themeColor,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Save',
-                                    style: GoogleFonts.prompt(fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      TadabburAccordion(
+                        surahId: widget.verse.surahId,
+                        verseId: widget.verse.id,
+                        onCancel: () => setState(() => _showNotesBox = false),
                       ),
                     ],
 

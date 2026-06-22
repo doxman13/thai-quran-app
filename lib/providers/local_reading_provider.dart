@@ -1299,10 +1299,19 @@ class LocalReadingProvider extends ChangeNotifier {
       }
 
       final decoded = json.decode(raw) as Map<String, dynamic>;
-      _profiles = _decodeList(
+      var loadedProfiles = _decodeList(
         decoded['profiles'],
         LocalReadingProfile.fromJson,
       );
+
+      // Deduplicate "Free Read" profiles (keep the oldest/first one)
+      final freeReads = loadedProfiles.where((p) => p.name == 'Free Read').toList();
+      if (freeReads.length > 1) {
+        freeReads.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        final toKeep = freeReads.first;
+        loadedProfiles = loadedProfiles.where((p) => p.name != 'Free Read' || p.id == toKeep.id).toList();
+      }
+      _profiles = loadedProfiles;
       _categories = _decodeList(
         decoded['categories'],
         LocalBookmarkCategory.fromJson,

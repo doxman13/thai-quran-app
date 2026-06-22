@@ -11,6 +11,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _alwaysShowArabic = false;
   String _arabicFontFamily = 'UthmanicHafs';
   double _arabicFontSize = 28.0;
+  double _translationFontSize = 15.0;
   String _themeColor = 'sage'; // sage, emerald, blue, purple, sepia
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
 
@@ -25,6 +26,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get alwaysShowArabic => _alwaysShowArabic;
   String get arabicFontFamily => _arabicFontFamily;
   double get arabicFontSize => _arabicFontSize;
+  double get translationFontSize => _translationFontSize;
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
 
@@ -151,6 +153,7 @@ class SettingsProvider extends ChangeNotifier {
     _alwaysShowArabic = prefs.getBool('alwaysShowArabic') ?? false;
     _arabicFontFamily = prefs.getString('arabicFontFamily') ?? 'UthmanicHafs';
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
+    _translationFontSize = prefs.getDouble('translationFontSize') ?? 15.0;
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'sage');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
 
@@ -229,6 +232,13 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('arabicFontSize', value);
     await _syncToSupabase();
+  }
+
+  void setTranslationFontSize(double value) async {
+    _translationFontSize = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('translationFontSize', value);
   }
 
   void setThemeColor(String value) async {

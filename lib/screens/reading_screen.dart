@@ -366,6 +366,42 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         ],
                       ),
+                    
+                    const SizedBox(height: 16),
+
+                    // Translation Font Size Choice
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Translation Font Size',
+                              style: GoogleFonts.prompt(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              '${settings.translationFontSize.round()} px',
+                              style: GoogleFonts.prompt(
+                                color: primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: settings.translationFontSize,
+                          min: 12.0,
+                          max: 24.0,
+                          divisions: 12,
+                          activeColor: primaryColor,
+                          inactiveColor: primaryColor.withOpacity(0.2),
+                          onChanged: (val) => settings.setTranslationFontSize(val),
+                        ),
+                      ],
+                    ),
                     ],
                   ),
                 ),

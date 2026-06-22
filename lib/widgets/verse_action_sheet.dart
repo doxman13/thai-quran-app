@@ -125,6 +125,28 @@ class VerseActionSheet extends StatelessWidget {
           ),
 
           ListTile(
+            leading: Icon(Icons.people_outline, color: primaryColor),
+            title: Text(
+              'Community Reflections',
+              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+            ),
+            onTap: () async {
+              Navigator.pop(context);
+              final urlString = 'https://quran.salamthailand.com/tadabbur/community?surah=${verse.surahId}&ayah=${verse.id}';
+              final uri = Uri.parse(urlString);
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  debugPrint('Could not launch $urlString');
+                }
+              } catch (e) {
+                debugPrint('Error launching url: $e');
+              }
+            },
+          ),
+
+          ListTile(
             leading: const Icon(Icons.report_problem_outlined, color: Colors.blueGrey),
             title: Text(
               'Report Error',

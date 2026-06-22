@@ -22,7 +22,7 @@ class NotesScreen extends StatelessWidget {
     final primaryColor = settings.getPrimaryColor();
 
     // Convert notes map into a sorted list of entries
-    final noteEntries = notesProv.notes.entries.toList()
+    final noteEntries = notesProv.personalNotes.entries.toList()
       ..sort((a, b) {
         final aParts = a.key.split(':');
         final bParts = b.key.split(':');
@@ -87,7 +87,7 @@ class NotesScreen extends StatelessWidget {
                 final keyParts = entry.key.split(':');
                 final surahId = keyParts[0];
                 final verseId = keyParts[1];
-                final noteContent = entry.value;
+                final noteContent = entry.value.noteText;
 
                 final surahName = repository.getSurahName(surahId);
 

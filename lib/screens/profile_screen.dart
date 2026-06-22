@@ -629,7 +629,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _buildStatCard(
                               icon: Icons.note_alt,
                               title: 'บันทึกส่วนตัว',
-                              value: '${notesProv.notes.length}',
+                              value: '${notesProv.personalNotes.length}',
                               color: Colors.purple,
                               onTap: _openNotes,
                             ),

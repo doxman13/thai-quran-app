@@ -6,7 +6,6 @@ import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
-import '../providers/stats_provider.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
@@ -762,36 +761,93 @@ class _WorkspacePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stats = Provider.of<StatsProvider>(context);
     final progress = Provider.of<ProgressProvider>(context);
     final localReading = Provider.of<LocalReadingProvider>(context);
+    final settings = Provider.of<SettingsProvider>(context);
     final active = localReading.activeProfile;
     final continueSurah = active?.current.surahId ?? progress.currentSurahId;
     final continueVerse =
         active?.current.verseId ?? (progress.lastVerseIndex + 1).toString();
 
+    // Fetch the verse translation for the active card
+    final verses = repository.getSurahVerses(continueSurah);
+    String translationText = '';
+    if (verses.isNotEmpty) {
+      final verseObj = verses.firstWhere(
+        (v) => v.id == continueVerse,
+        orElse: () => verses.first,
+      );
+      if (settings.primaryTranslationId == 'thai_v2') {
+        translationText = verseObj.thaiV2;
+      } else if (settings.primaryTranslationId == 'english') {
+        translationText = verseObj.english;
+      } else {
+        translationText = verseObj.thaiV3;
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _SectionCard(
-          colors: colors,
+        // Outstanding Active Profile Card with Gradient
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [colors.primary, colors.primaryHover],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radius * 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: colors.primary.withOpacity(0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                active?.name ?? 'Free Read',
-                style: GoogleFonts.inter(
-                  color: colors.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colors.textInverse.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_stories,
+                          size: 12,
+                          color: colors.textInverse.withOpacity(0.9),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          (active?.name ?? 'Free Read').toUpperCase(),
+                          style: GoogleFonts.inter(
+                            color: colors.textInverse.withOpacity(0.9),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 repository.getSurahName(continueSurah),
                 style: GoogleFonts.inter(
-                  color: colors.textStrong,
-                  fontSize: 23,
+                  color: colors.textInverse,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -799,54 +855,87 @@ class _WorkspacePage extends StatelessWidget {
               Text(
                 'Current ayah $continueSurah:$continueVerse',
                 style: GoogleFonts.inter(
-                  color: colors.foreground,
+                  color: colors.textInverse.withOpacity(0.85),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 16),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: colors.primary,
-                  foregroundColor: colors.textInverse,
-                  shape: RoundedRectangleBorder(
+              if (translationText.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.textInverse.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border(
+                      left: BorderSide(
+                        color: colors.accent,
+                        width: 3.5,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TRANSLATION',
+                        style: GoogleFonts.inter(
+                          color: colors.textInverse.withOpacity(0.6),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        translationText,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: colors.textInverse.withOpacity(0.95),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          fontStyle: FontStyle.italic,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onPressed: () =>
-                    onContinue(context, continueSurah, verseId: continueVerse),
-                child: const Text('Continue Reading'),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.textInverse,
+                    foregroundColor: colors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    elevation: 0,
+                  ),
+                  onPressed: () =>
+                      onContinue(context, continueSurah, verseId: continueVerse),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Continue Reading',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.arrow_forward, size: 16),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _StatTile(
-                colors: colors,
-                label: 'Today',
-                value: stats.todayReadCount.toString(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StatTile(
-                colors: colors,
-                label: 'Week',
-                value: stats.weekReadCount.toString(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _StatTile(
-                colors: colors,
-                label: 'Month',
-                value: stats.monthReadCount.toString(),
-              ),
-            ),
-          ],
         ),
         const SizedBox(height: 16),
         Row(
@@ -1130,42 +1219,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _StatTile extends StatelessWidget {
-  final AppThemeColors colors;
-  final String label;
-  final String value;
-
-  const _StatTile({
-    required this.colors,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      colors: colors,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.inter(color: colors.foreground, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.inter(
-              color: colors.primary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _ActionButton extends StatelessWidget {
   final AppThemeColors colors;
