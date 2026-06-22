@@ -1,12 +1,11 @@
 // lib/widgets/verse_card.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'tadabbur_accordion.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/verse.dart';
 import '../data/quran_repository.dart';
@@ -17,6 +16,7 @@ import '../providers/stats_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../shared/shared.dart';
 import 'verse_action_sheet.dart';
+import 'tadabbur_panel.dart';
 
 class VerseCard extends StatefulWidget {
   final Verse verse;
@@ -43,7 +43,6 @@ class _VerseCardState extends State<VerseCard> {
   bool _showAuditBox = false;
   bool _showNotesBox = false;
   bool _showTafsirBox = false;
-  bool _showMoreTools = false;
 
   final TextEditingController _auditController = TextEditingController();
 
@@ -577,13 +576,17 @@ class _VerseCardState extends State<VerseCard> {
                     ],
 
                     // Action buttons
-                    if (isHighlighted && _isMenuVisible) ...[
+                    if (isHighlighted) ...[
                       const SizedBox(height: 16),
                       Consumer<LocalReadingProvider>(
                         builder: (context, localReading, child) {
-                          final isBookmarked = localReading.isBookmarked(
+                          final verseRef = toVerseRef(
                             widget.verse.surahId,
                             widget.verse.id,
+                          );
+                          final isBookmarked = localReading.isBookmarked(
+                            verseRef.surahId,
+                            verseRef.verseId,
                           );
 
                           return Column(
@@ -600,8 +603,8 @@ class _VerseCardState extends State<VerseCard> {
                                     color: Colors.amber.shade700,
                                     onPressed: () {
                                       localReading.toggleBookmark(
-                                        widget.verse.surahId,
-                                        widget.verse.id,
+                                        verseRef.surahId,
+                                        verseRef.verseId,
                                       );
                                     },
                                   ),
@@ -617,7 +620,6 @@ class _VerseCardState extends State<VerseCard> {
                                           _showTafsirBox = !_showTafsirBox;
                                           _showNotesBox = false;
                                           _showAuditBox = false;
-                                          _showMoreTools = false;
                                         });
                                       },
                                     ),
@@ -667,46 +669,77 @@ class _VerseCardState extends State<VerseCard> {
                                       ),
                                     ),
                                   ),
-                                  // 4. More tools (three dots)
-                                  _buildActionIcon(
-                                    tooltip: 'More verse tools',
-                                    icon: Icons.more_horiz,
-                                    active: false,
-                                    color: themeColor,
-                                    onPressed: () {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        backgroundColor: Colors.transparent,
-                                        isScrollControlled: true,
-                                        builder: (context) {
-                                          return VerseActionSheet(
-                                            verse: widget.verse,
-                                            onTafsirSelected: () {
-                                              setState(() {
-                                                _showTafsirBox = !_showTafsirBox;
-                                                _showNotesBox = false;
-                                                _showAuditBox = false;
-                                              });
-                                            },
-                                            onEditNoteSelected: () {
-                                              setState(() {
-                                                _showNotesBox = !_showNotesBox;
-                                                _showTafsirBox = false;
-                                                _showAuditBox = false;
-                                              });
-                                            },
-                                            onReportErrorSelected: () {
-                                              setState(() {
-                                                _showAuditBox = !_showAuditBox;
-                                                _showTafsirBox = false;
-                                                _showNotesBox = false;
-                                              });
-                                            },
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
+                                   // 4. Tadabbur button
+                                   _buildActionIcon(
+                                     tooltip: 'Tadabbur',
+                                     icon: Icons.self_improvement,
+                                     active: _showNotesBox,
+                                     color: themeColor,
+                                     onPressed: () {
+                                       setState(() {
+                                         _showNotesBox = !_showNotesBox;
+                                         _showTafsirBox = false;
+                                         _showAuditBox = false;
+                                       });
+                                     },
+                                   ),
+                                   // 5. Share button
+                                   _buildActionIcon(
+                                     tooltip: 'Share verse',
+                                     icon: Icons.share_outlined,
+                                     active: false,
+                                     color: themeColor,
+                                      onPressed: () async {
+                                        final uri = Uri.parse('https://quran.salamthailand.com/surah/${widget.verse.surahId}#v-${widget.verse.id}');
+                                        try {
+                                          if (await canLaunchUrl(uri)) {
+                                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                          }
+                                        } catch (e) {
+                                          debugPrint('Share error: $e');
+                                        }
+                                      },
+                                   ),
+                                   // 6. More tools (three dots)
+                                   _buildActionIcon(
+                                     tooltip: 'More verse tools',
+                                     icon: Icons.more_horiz,
+                                     active: false,
+                                     color: themeColor,
+                                     onPressed: () {
+                                       showModalBottomSheet(
+                                         context: context,
+                                         backgroundColor: Colors.transparent,
+                                         isScrollControlled: true,
+                                         builder: (context) {
+                                           return VerseActionSheet(
+                                             verse: widget.verse,
+                                             onTafsirSelected: () {
+                                               setState(() {
+                                                 _showTafsirBox = !_showTafsirBox;
+                                                 _showNotesBox = false;
+                                                 _showAuditBox = false;
+                                               });
+                                             },
+                                             onEditNoteSelected: () {
+                                               setState(() {
+                                                 _showNotesBox = !_showNotesBox;
+                                                 _showTafsirBox = false;
+                                                 _showAuditBox = false;
+                                               });
+                                             },
+                                             onReportErrorSelected: () {
+                                               setState(() {
+                                                 _showAuditBox = !_showAuditBox;
+                                                 _showTafsirBox = false;
+                                                 _showNotesBox = false;
+                                               });
+                                             },
+                                           );
+                                         },
+                                       );
+                                     },
+                                   ),
                                 ],
                               ),
                             ],
@@ -716,7 +749,7 @@ class _VerseCardState extends State<VerseCard> {
                     ],
 
                     // Collapsible Short Tafsir
-                    if (isHighlighted && _showTafsirBox && widget.verse.shortTafsir != null) ...[
+                    if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -775,16 +808,16 @@ class _VerseCardState extends State<VerseCard> {
                     ],
 
                     // Collapsible Personal Note Input
-                    if (isHighlighted && _showNotesBox) ...[
-                      TadabburAccordion(
+                    if (_showNotesBox) ...[
+                      TadabburPanel(
                         surahId: widget.verse.surahId,
                         verseId: widget.verse.id,
-                        onCancel: () => setState(() => _showNotesBox = false),
+                        onClose: () => setState(() => _showNotesBox = false),
                       ),
                     ],
 
                     // Collapsible Audit Input
-                    if (isHighlighted && _showAuditBox) ...[
+                    if (_showAuditBox) ...[
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(12),

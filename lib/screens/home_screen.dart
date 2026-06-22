@@ -14,6 +14,7 @@ import 'bookmarks_screen.dart';
 import 'notes_screen.dart';
 import 'profile_screen.dart';
 import 'reading_screen.dart';
+import 'tadabbur_private_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -194,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 controller: _pageController,
                 onPageChanged: (index) => setState(() => _pageIndex = index),
                 children: [
-                  _WorkspacePage(
+                   _WorkspacePage(
                     repository: widget.repository,
                     colors: colors,
                     onContinue: _navigateToReading,
@@ -205,6 +206,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         MaterialPageRoute(
                           builder: (_) =>
                               NotesScreen(repository: widget.repository),
+                        ),
+                      );
+                    },
+                    onTadabbur: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TadabburPrivateScreen(
+                            repository: widget.repository,
+                          ),
                         ),
                       );
                     },
@@ -773,6 +784,7 @@ class _WorkspacePage extends StatelessWidget {
   onContinue;
   final Future<void> Function(BuildContext) onBookmarks;
   final VoidCallback onNotes;
+  final VoidCallback onTadabbur;
   final VoidCallback onCreateProfile;
   final ValueChanged<LocalReadingProfile> onEditProfile;
 
@@ -782,6 +794,7 @@ class _WorkspacePage extends StatelessWidget {
     required this.onContinue,
     required this.onBookmarks,
     required this.onNotes,
+    required this.onTadabbur,
     required this.onCreateProfile,
     required this.onEditProfile,
   });
@@ -981,7 +994,7 @@ class _WorkspacePage extends StatelessWidget {
                 colors: colors,
                 icon: Icons.edit_note_outlined,
                 label: 'Tadabbur',
-                onTap: onNotes,
+                onTap: onTadabbur,
               ),
             ),
           ],

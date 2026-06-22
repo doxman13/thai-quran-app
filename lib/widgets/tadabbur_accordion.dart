@@ -29,6 +29,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
   bool _isPublic = false;
   bool _isAnonymous = false;
   bool _isSaving = false;
+  bool _saveSuccess = false;
 
   List<TadabburNote> _communityNotes = [];
   bool _isLoadingCommunity = true;
@@ -86,13 +87,17 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
 
     if (mounted) {
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tadabbur note saved!'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-      widget.onCancel(); // close the accordion
+      if (_notesController.text.trim().isNotEmpty) {
+        setState(() => _saveSuccess = true);
+        Future.delayed(const Duration(milliseconds: 1600), () {
+          if (mounted) {
+            setState(() => _saveSuccess = false);
+            widget.onCancel();
+          }
+        });
+      } else {
+        widget.onCancel();
+      }
     }
   }
 
@@ -195,14 +200,17 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: _isSaving ? null : () => _saveNote(notesProv),
+                onPressed: _isSaving || _saveSuccess ? null : () => _saveNote(notesProv),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
                 ),
                 child: _isSaving
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Save Note', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600)),
+                    : Text(
+                        _saveSuccess ? 'Saved ✓' : 'Save Note',
+                        style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
               ),
             ],
           ),

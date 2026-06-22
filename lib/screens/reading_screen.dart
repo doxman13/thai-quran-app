@@ -125,6 +125,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       builder: (context) {
         return Consumer<SettingsProvider>(
           builder: (context, settings, child) {
@@ -187,58 +189,91 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                     const Divider(height: 24),
                     Text(
-                      'Translation Languages',
+                      'Primary Translation',
                       style: GoogleFonts.prompt(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: primaryColor,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    CheckboxListTile(
-                      title: Text(
-                        'Thai 3',
-                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Society of Institutes and Universities (ฉบับปรับปรุงภาษา)',
-                        style: GoogleFonts.prompt(fontSize: 11),
-                      ),
-                      value: settings.showThaiV3,
-                      activeColor: primaryColor,
-                      onChanged: (val) {
-                        if (val != null) settings.setShowThaiV3(val);
-                      },
-                    ),
-                    CheckboxListTile(
-                      title: Text(
-                        'Thai 2',
-                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Society of Institutes and Universities',
-                        style: GoogleFonts.prompt(fontSize: 11),
-                      ),
-                      value: settings.showThaiV2,
-                      activeColor: primaryColor,
-                      onChanged: (val) {
-                        if (val != null) settings.setShowThaiV2(val);
-                      },
-                    ),
-                    CheckboxListTile(
-                      title: Text(
-                        'English',
-                        style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(
-                        'Saheeh International',
-                        style: GoogleFonts.prompt(fontSize: 11),
-                      ),
-                      value: settings.showEnglish,
-                      activeColor: primaryColor,
-                      onChanged: (val) {
-                        if (val != null) settings.setShowEnglish(val);
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTranslationChip(
+                            context,
+                            label: 'Thai 3',
+                            sublabel: 'Society of Institutes',
+                            slotId: 'thai_v3',
+                            isPrimary: settings.primaryTranslationId == 'thai_v3',
+                            isInSecondary: settings.secondaryTranslationId == 'thai_v3',
+                            primaryColor: primaryColor,
+                            isDark: isDark,
+                            onSelectPrimary: () {
+                              if (settings.primaryTranslationId != 'thai_v3') {
+                                settings.updateTranslationSlot('primary', 'thai_v3');
+                              }
+                            },
+                            onToggleSecondary: () {
+                              final isInSec = settings.secondaryTranslationId == 'thai_v3';
+                              settings.updateTranslationSlot(
+                                'secondary',
+                                isInSec ? null : 'thai_v3',
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTranslationChip(
+                            context,
+                            label: 'Thai 2',
+                            sublabel: 'Society of Institutes',
+                            slotId: 'thai_v2',
+                            isPrimary: settings.primaryTranslationId == 'thai_v2',
+                            isInSecondary: settings.secondaryTranslationId == 'thai_v2',
+                            primaryColor: primaryColor,
+                            isDark: isDark,
+                            onSelectPrimary: () {
+                              if (settings.primaryTranslationId != 'thai_v2') {
+                                settings.updateTranslationSlot('primary', 'thai_v2');
+                              }
+                            },
+                            onToggleSecondary: () {
+                              final isInSec = settings.secondaryTranslationId == 'thai_v2';
+                              settings.updateTranslationSlot(
+                                'secondary',
+                                isInSec ? null : 'thai_v2',
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTranslationChip(
+                            context,
+                            label: 'English',
+                            sublabel: 'Saheeh International',
+                            slotId: 'english',
+                            isPrimary: settings.primaryTranslationId == 'english',
+                            isInSecondary: settings.secondaryTranslationId == 'english',
+                            primaryColor: primaryColor,
+                            isDark: isDark,
+                            onSelectPrimary: () {
+                              if (settings.primaryTranslationId != 'english') {
+                                settings.updateTranslationSlot('primary', 'english');
+                              }
+                            },
+                            onToggleSecondary: () {
+                              final isInSec = settings.secondaryTranslationId == 'english';
+                              settings.updateTranslationSlot(
+                                'secondary',
+                                isInSec ? null : 'english',
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
 
                     const Divider(height: 32),
@@ -441,6 +476,80 @@ class _ReadingScreenState extends State<ReadingScreen> {
           child: isSelected
               ? const Icon(Icons.check, color: Colors.white, size: 18)
               : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTranslationChip(
+    BuildContext context, {
+    required String label,
+    required String sublabel,
+    required String slotId,
+    required bool isPrimary,
+    required bool isInSecondary,
+    required Color primaryColor,
+    required bool isDark,
+    required VoidCallback onSelectPrimary,
+    required VoidCallback onToggleSecondary,
+  }) {
+    final isActive = isPrimary || isInSecondary;
+    return GestureDetector(
+      onTap: onSelectPrimary,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: isPrimary
+              ? primaryColor.withOpacity(0.12)
+              : isInSecondary
+                  ? Colors.blue.withOpacity(0.08)
+                  : isDark
+                      ? const Color(0xFF1E293B)
+                      : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isPrimary
+                ? primaryColor.withOpacity(0.5)
+                : isInSecondary
+                    ? Colors.blue.withOpacity(0.3)
+                    : isDark
+                        ? Colors.blueGrey.shade700
+                        : Colors.grey.shade300,
+            width: isPrimary ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.prompt(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: isPrimary
+                    ? primaryColor
+                    : isInSecondary
+                        ? Colors.blue.shade700
+                        : isDark
+                            ? Colors.blueGrey.shade300
+                            : Colors.blueGrey.shade600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              isPrimary ? 'Primary' : isInSecondary ? 'Secondary' : sublabel,
+              style: GoogleFonts.prompt(
+                fontSize: 9,
+                color: isActive
+                    ? (isPrimary ? primaryColor : Colors.blue.shade600)
+                    : isDark
+                        ? Colors.blueGrey.shade500
+                        : Colors.blueGrey.shade400,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -88,9 +88,9 @@ class BookmarksScreen extends StatelessWidget {
               ),
             )
           else
-            ...localReading.bookmarks.map((bookmark) {
-              final surahId = bookmark.verse.surahId;
-              final verseId = bookmark.verse.verseId;
+           ...localReading.bookmarks.map((bookmark) {
+              final rawSurahId = int.parse(bookmark.verse.surahId).toString();
+              final rawVerseId = bookmark.verse.verseId;
               
               return Card(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -99,7 +99,7 @@ class BookmarksScreen extends StatelessWidget {
                 child: ListTile(
                   leading: Icon(Icons.bookmark, color: Colors.amber.shade600),
                   title: Text(
-                    '${repository.getSurahName(surahId)}, อายะฮฺที่ $verseId',
+                    '${repository.getSurahName(rawSurahId)}, อายะฮฺที่ $rawVerseId',
                     style: GoogleFonts.prompt(fontWeight: FontWeight.w500),
                   ),
                   trailing: IconButton(
@@ -109,10 +109,9 @@ class BookmarksScreen extends StatelessWidget {
                     },
                   ),
                   onTap: () {
-                    // Navigate back with data
                     Navigator.pop(context, {
-                      'surahId': surahId,
-                      'verseId': verseId,
+                      'surahId': rawSurahId,
+                      'verseId': rawVerseId,
                     });
                   },
                 ),

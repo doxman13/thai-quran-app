@@ -81,14 +81,11 @@ class NotesProvider extends ChangeNotifier {
     }
 
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      debugPrint('NotesProvider: Cannot save note offline easily in v2 without a user ID right now.');
-      return;
-    }
+    final isGuest = user == null;
 
     final note = TadabburNote(
       id: existing?.id ?? 'temp-${DateTime.now().millisecondsSinceEpoch}',
-      userId: user.id,
+      userId: user?.id ?? 'guest',
       surahId: surahId,
       verseId: verseId,
       noteText: noteText.trim(),
@@ -99,11 +96,16 @@ class NotesProvider extends ChangeNotifier {
       createdAt: existing?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
       userLiked: existing?.userLiked ?? false,
+      synced: !isGuest,
     );
 
-    // Optimistic UI update
     _personalNotes[key] = note;
     notifyListeners();
+    await _saveLocalCache();
+
+    if (isGuest) {
+      return;
+    }
 
     try {
       final savedNote = await _repo.saveNote(note);
@@ -114,8 +116,6 @@ class NotesProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error saving note to supabase: $e');
-      // If offline, we keep the temp one in memory, but maybe it won't sync well yet.
-      // For a robust implementation, offline sync queue is needed, but we keep it simple here.
       await _saveLocalCache();
     }
   }

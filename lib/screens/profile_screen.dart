@@ -12,6 +12,7 @@ import '../data/quran_repository.dart';
 import 'bookmarks_screen.dart';
 import 'notes_screen.dart';
 import 'reading_screen.dart';
+import 'tadabbur_private_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
@@ -267,6 +268,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => NotesScreen(repository: repository)),
+    );
+  }
+
+  void _openTadabbur() {
+    final repository = widget.repository;
+    if (repository == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TadabburPrivateScreen(repository: repository),
+      ),
     );
   }
 
@@ -686,6 +699,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               value: '${notesProv.personalNotes.length}',
                               color: Colors.purple,
                               onTap: _openNotes,
+                            ),
+                            _buildStatCard(
+                              icon: Icons.self_improvement,
+                              title: 'Reflections',
+                              value: '${notesProv.personalNotes.length}',
+                              color: Colors.teal,
+                              onTap: _openTadabbur,
                             ),
                             _buildStatCard(
                               icon: Icons.local_fire_department,

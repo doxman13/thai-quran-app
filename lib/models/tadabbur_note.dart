@@ -14,6 +14,7 @@ class TadabburNote {
   final DateTime updatedAt;
   final String? userEmail;
   final bool userLiked;
+  final bool synced;
 
   TadabburNote({
     required this.id,
@@ -29,6 +30,7 @@ class TadabburNote {
     required this.updatedAt,
     this.userEmail,
     this.userLiked = false,
+    this.synced = true,
   });
 
   factory TadabburNote.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class TadabburNote {
           : DateTime.parse(json['created_at'] as String),
       userEmail: json['user_email'] as String?,
       userLiked: json['user_liked'] as bool? ?? false,
+      synced: json['synced'] as bool? ?? true,
     );
   }
 
@@ -64,8 +67,6 @@ class TadabburNote {
       'language': language,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      if (userEmail != null) 'user_email': userEmail,
-      'user_liked': userLiked,
     };
   }
 }
