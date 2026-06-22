@@ -385,9 +385,9 @@ class _CommunityNoteCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: isDark ? colors.surface : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.borderSoft),
+        border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade300),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -408,7 +408,7 @@ class _CommunityNoteCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     note.isAnonymous ? 'Anonymous' : (note.userEmail ?? 'Reader'),
-                    style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? colors.textStrong : const Color(0xFF1E293B)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -418,7 +418,7 @@ class _CommunityNoteCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: colors.borderSoft),
+                      border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade400),
                     ),
                     child: Text(
                       '${repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
@@ -431,10 +431,10 @@ class _CommunityNoteCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               timeago.format(note.updatedAt),
-              style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey),
+              style: GoogleFonts.prompt(fontSize: 10, color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade600),
             ),
             const SizedBox(height: 10),
-            Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6)),
+            Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6, color: isDark ? colors.textStrong : const Color(0xFF1E293B))),
             const SizedBox(height: 12),
             Row(
               children: [

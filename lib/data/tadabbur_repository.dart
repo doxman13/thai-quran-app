@@ -36,21 +36,22 @@ class TadabburRepository {
       var query = _client
           .from('tadabbur_notes')
           .select()
-          .eq('surah_id', surahId)
-          .eq('verse_id', verseId)
           .eq('is_public', true);
 
+      if (surahId != '0') {
+        query = query.eq('surah_id', surahId);
+      }
+      if (verseId != '0') {
+        query = query.eq('verse_id', verseId);
+      }
+
       if (user != null) {
-        // Exclude current user's notes from community notes (they have their own tab)
         query = query.neq('user_id', user.id);
       }
 
       final response = await query.order('likes_count', ascending: false).order('created_at', ascending: false);
       final List<dynamic> data = response as List<dynamic>;
       
-      // If we need to know if the user liked the note, we would ideally do a join or separate query.
-      // For simplicity in V2, the RPC toggle_tadabbur_like handles the backend. 
-      // The web app handles user_liked client side based on context.
       return data.map((json) => TadabburNote.fromJson(json as Map<String, dynamic>)).toList();
     } catch (e) {
       debugPrint('TadabburRepository: Error fetching community notes: $e');

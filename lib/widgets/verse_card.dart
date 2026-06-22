@@ -2,10 +2,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/verse.dart';
 import '../data/quran_repository.dart';
@@ -294,11 +294,14 @@ class _VerseCardState extends State<VerseCard> {
         }
       },
       onLongPress: () {
-        if (isHighlighted) {
-          setState(() {
-            _isMenuVisible = !_isMenuVisible;
-          });
-        }
+        final text = widget.verse.thaiV3;
+        Clipboard.setData(ClipboardData(text: text));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Verse text copied to clipboard'),
+            duration: Duration(seconds: 1),
+          ),
+        );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -669,37 +672,36 @@ class _VerseCardState extends State<VerseCard> {
                                       ),
                                     ),
                                   ),
-                                   // 4. Tadabbur button
-                                   _buildActionIcon(
-                                     tooltip: 'Tadabbur',
-                                     icon: Icons.self_improvement,
-                                     active: _showNotesBox,
-                                     color: themeColor,
-                                     onPressed: () {
-                                       setState(() {
-                                         _showNotesBox = !_showNotesBox;
-                                         _showTafsirBox = false;
-                                         _showAuditBox = false;
-                                       });
-                                     },
-                                   ),
-                                   // 5. Share button
-                                   _buildActionIcon(
-                                     tooltip: 'Share verse',
-                                     icon: Icons.share_outlined,
-                                     active: false,
-                                     color: themeColor,
+                                    // 4. Tadabbur button
+                                    _buildActionIcon(
+                                      tooltip: 'Tadabbur',
+                                      icon: Icons.lightbulb_outline,
+                                      active: _showNotesBox,
+                                      color: themeColor,
+                                      onPressed: () {
+                                        setState(() {
+                                          _showNotesBox = !_showNotesBox;
+                                          _showTafsirBox = false;
+                                          _showAuditBox = false;
+                                        });
+                                      },
+                                    ),
+                                    // 5. Share button
+                                    _buildActionIcon(
+                                      tooltip: 'Share verse',
+                                      icon: Icons.share_outlined,
+                                      active: false,
+                                      color: themeColor,
                                       onPressed: () async {
-                                        final uri = Uri.parse('https://quran.salamthailand.com/surah/${widget.verse.surahId}#v-${widget.verse.id}');
+                                        final text = '${widget.verse.thaiV3}\n\n— ${widget.verse.surahId}:${widget.verse.id}';
+                                        final url = 'https://quran.salamthailand.com/surah/${widget.verse.surahId}#v-${widget.verse.id}';
                                         try {
-                                          if (await canLaunchUrl(uri)) {
-                                            await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                          }
+                                          await Share.share('$text\n\n$url');
                                         } catch (e) {
                                           debugPrint('Share error: $e');
                                         }
                                       },
-                                   ),
+                                    ),
                                    // 6. More tools (three dots)
                                    _buildActionIcon(
                                      tooltip: 'More verse tools',

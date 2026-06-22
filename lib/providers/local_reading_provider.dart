@@ -1026,14 +1026,24 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   bool isBookmarked(String surahId, String verseId) {
-    return _bookmarks.any(
-      (b) => b.verse.surahId == surahId && b.verse.verseId == verseId,
-    );
+    final numericSurah = int.tryParse(surahId) ?? 0;
+    final numericVerse = int.tryParse(verseId) ?? 0;
+    return _bookmarks.any((b) {
+      final bSurah = int.tryParse(b.verse.surahId) ?? 0;
+      final bVerse = int.tryParse(b.verse.verseId) ?? 0;
+      return bSurah == numericSurah && bVerse == numericVerse;
+    });
   }
 
   Future<void> toggleBookmark(String surahId, String verseId) async {
+    final numericSurah = int.tryParse(surahId) ?? 0;
+    final numericVerse = int.tryParse(verseId) ?? 0;
     final existing = _bookmarks
-        .where((b) => b.verse.surahId == surahId && b.verse.verseId == verseId)
+        .where((b) {
+          final bSurah = int.tryParse(b.verse.surahId) ?? 0;
+          final bVerse = int.tryParse(b.verse.verseId) ?? 0;
+          return bSurah == numericSurah && bVerse == numericVerse;
+        })
         .firstOrNull;
 
     if (existing != null) {
