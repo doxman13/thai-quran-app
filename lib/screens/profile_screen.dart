@@ -1,6 +1,8 @@
 // lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
@@ -29,6 +31,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _successMessage;
+  Future<List<Map<String, dynamic>>>? _reportsFuture;
+  String? _fetchedUserId;
 
   @override
   void dispose() {
@@ -236,6 +240,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final readingProv = Provider.of<LocalReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context);
+
+    if (supabaseProv.isLoggedIn && (_reportsFuture == null || _fetchedUserId != supabaseProv.userId)) {
+      _fetchedUserId = supabaseProv.userId;
+      _reportsFuture = _fetchUserReports(supabaseProv.userId);
+    }
 
     final primaryColor = settings.getPrimaryColor();
     final isDark = settings.isDarkMode;
@@ -743,6 +752,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           }),
                         ],
 
+                        _buildReportsSection(supabaseProv),
+
                         const SizedBox(height: 24),
                         const Divider(),
                         const SizedBox(height: 16),
@@ -841,6 +852,291 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: card,
+      ),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchUserReports(String userId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('error_reports')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error fetching user reports: $e');
+      return [];
+    }
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color bgColor;
+    Color textColor;
+    String label;
+
+    switch (status) {
+      case 'reviewed_fixed':
+        bgColor = Colors.green.withOpacity(0.15);
+        textColor = Colors.green.shade800;
+        label = 'แก้ไขแล้ว (Fixed)';
+        break;
+      case 'reviewed_not_needed':
+        bgColor = Colors.grey.withOpacity(0.15);
+        textColor = Colors.grey.shade700;
+        label = 'ไม่ต้องแก้ไข (No Action)';
+        break;
+      case 'pending_review':
+      default:
+        bgColor = Colors.amber.withOpacity(0.15);
+        textColor = Colors.amber.shade900;
+        label = 'รอดำเนินการ (Pending)';
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.prompt(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportsSection(SupabaseProvider supabaseProv) {
+    if (!supabaseProv.isLoggedIn) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 2,
+      margin: const EdgeInsets.only(top: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'รายงานข้อผิดพลาด (My Error Reports)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _reportsFuture = _fetchUserReports(supabaseProv.userId);
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _reportsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Text(
+                    'เกิดข้อผิดพลาดในการโหลดข้อมูล (Error loading reports)',
+                    style: GoogleFonts.prompt(color: Colors.redAccent),
+                  );
+                }
+                final reports = snapshot.data ?? [];
+                if (reports.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'ไม่มีประวัติการรายงานข้อผิดพลาด (No error reports submitted yet)',
+                      style: GoogleFonts.prompt(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: reports.length,
+                  separatorBuilder: (context, index) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final report = reports[index];
+                    final surahId = report['surah_id']?.toString() ?? '';
+                    final ayahNum = report['ayah_number']?.toString() ?? '';
+                    final reportedText = report['reported_verse_text']?.toString() ?? '';
+                    final userComment = report['user_comment']?.toString() ?? '';
+                    final status = report['status']?.toString() ?? 'pending_review';
+                    final adminNotes = report['admin_resolution_notes']?.toString() ?? '';
+                    final dateStr = report['created_at']?.toString() ?? '';
+                    
+                    DateTime? parsedDate;
+                    String formattedDate = '';
+                    if (dateStr.isNotEmpty) {
+                      try {
+                        parsedDate = DateTime.parse(dateStr).toLocal();
+                        formattedDate = '${parsedDate.day}/${parsedDate.month}/${parsedDate.year} ${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
+                      } catch (_) {}
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: () => _openReading(surahId, ayahNum),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'อายะฮ์ $surahId:$ayahNum',
+                                        style: GoogleFonts.prompt(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.open_in_new,
+                                        size: 12,
+                                        color: Theme.of(context).primaryColor,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _buildStatusBadge(status),
+                            ],
+                          ),
+                          if (formattedDate.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              formattedDate,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'ข้อความโองการที่รายงาน (Verse text):',
+                            style: GoogleFonts.prompt(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          Text(
+                            reportedText,
+                            style: GoogleFonts.prompt(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'ความคิดเห็นของคุณ (Your comment):',
+                            style: GoogleFonts.prompt(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          Text(
+                            userComment,
+                            style: GoogleFonts.prompt(
+                              fontSize: 13,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          if (adminNotes.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.admin_panel_settings, size: 16, color: Colors.blue),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'บันทึกจากผู้ดูแล (Admin Note):',
+                                        style: GoogleFonts.prompt(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    adminNotes,
+                                    style: GoogleFonts.prompt(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

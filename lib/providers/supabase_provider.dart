@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/tadabbur_repository.dart';
 
 class SupabaseProvider extends ChangeNotifier {
   final _client = Supabase.instance.client;
@@ -33,7 +34,11 @@ class SupabaseProvider extends ChangeNotifier {
       if (oldUser?.id != _user?.id) {
         notifyListeners();
         if (_user != null) {
-          bootstrapUser(_user!.id);
+          bootstrapUser(_user!.id).then((_) {
+            TadabburRepository().syncFromSupabase().catchError((e) {
+              debugPrint('SupabaseProvider: failed to sync notes on login: $e');
+            });
+          });
         }
       }
     });
@@ -80,7 +85,14 @@ class SupabaseProvider extends ChangeNotifier {
   // Bootstraps default rows for user if they don't exist
   Future<void> bootstrapUser(String userId) async {
     try {
-      await Future.wait([
+      final countResult = await _client
+          .from('user_reading_profiles')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+      final List<Future> futures = [
         _client.from('reading_profiles').upsert(
           {
             'user_id': userId,
@@ -114,7 +126,21 @@ class SupabaseProvider extends ChangeNotifier {
           onConflict: 'user_id',
           ignoreDuplicates: true,
         ),
-      ]);
+      ];
+
+      if (countResult == null) {
+        futures.add(
+          _client.from('user_reading_profiles').insert({
+            'user_id': userId,
+            'profile_name': 'Free Read',
+            'current_surah': 1,
+            'current_ayah': 1,
+            'last_read_at': DateTime.now().toIso8601String(),
+          })
+        );
+      }
+
+      await Future.wait(futures);
     } catch (e) {
       debugPrint('Error bootstrapping Supabase user defaults: $e');
     }

@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../data/tadabbur_repository.dart';
 
 class NotesProvider extends ChangeNotifier {
   static const String _notesKey = 'personal_notes_v1';
@@ -11,6 +12,18 @@ class NotesProvider extends ChangeNotifier {
 
   NotesProvider() {
     _loadNotes();
+    // Auto-sync on startup if a user session is active
+    syncWithSupabase();
+  }
+
+  Future<void> syncWithSupabase() async {
+    try {
+      final repo = TadabburRepository();
+      await repo.syncFromSupabase();
+      await _loadNotes();
+    } catch (e) {
+      debugPrint('NotesProvider: Error syncing notes: $e');
+    }
   }
 
   Future<void> _loadNotes() async {

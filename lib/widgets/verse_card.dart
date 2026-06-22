@@ -15,6 +15,7 @@ import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../shared/shared.dart';
+import 'verse_action_sheet.dart';
 
 class VerseCard extends StatefulWidget {
   final Verse verse;
@@ -276,7 +277,7 @@ class _VerseCardState extends State<VerseCard> {
         final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
         if (activeProfile != null &&
             activeProfile.current.verseKey != verseRef.verseKey) {
-          localReading.updateProfileProgress(activeProfile.id, verseRef);
+          localReading.updateProfileProgress(activeProfile.id, verseRef, context: context);
           localReading.addRecentReading(
             verse: verseRef,
             profileId: activeProfile.id,
@@ -723,73 +724,44 @@ class _VerseCardState extends State<VerseCard> {
                                   _buildActionIcon(
                                     tooltip: 'More verse tools',
                                     icon: Icons.more_horiz,
-                                    active: _showMoreTools,
+                                    active: false,
                                     color: themeColor,
                                     onPressed: () {
-                                      setState(() {
-                                        _showMoreTools = !_showMoreTools;
-                                      });
+                                      showModalBottomSheet(
+                                        context: context,
+                                        backgroundColor: Colors.transparent,
+                                        isScrollControlled: true,
+                                        builder: (context) {
+                                          return VerseActionSheet(
+                                            verse: widget.verse,
+                                            onTafsirSelected: () {
+                                              setState(() {
+                                                _showTafsirBox = !_showTafsirBox;
+                                                _showNotesBox = false;
+                                                _showAuditBox = false;
+                                              });
+                                            },
+                                            onEditNoteSelected: () {
+                                              setState(() {
+                                                _showNotesBox = !_showNotesBox;
+                                                _showTafsirBox = false;
+                                                _showAuditBox = false;
+                                              });
+                                            },
+                                            onReportErrorSelected: () {
+                                              setState(() {
+                                                _showAuditBox = !_showAuditBox;
+                                                _showTafsirBox = false;
+                                                _showNotesBox = false;
+                                              });
+                                            },
+                                          );
+                                        },
+                                      );
                                     },
                                   ),
                                 ],
                               ),
-                              if (_showMoreTools) ...[
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF0F172A).withOpacity(0.3) : Colors.grey.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isDark ? Colors.blueGrey.shade800.withOpacity(0.5) : Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _buildActionIcon(
-                                        tooltip: 'Tadabbur note',
-                                        icon: Icons.edit_note_outlined,
-                                        active: _showNotesBox || hasNote,
-                                        color: themeColor,
-                                        onPressed: () {
-                                          setState(() {
-                                            _showNotesBox = !_showNotesBox;
-                                            _showAuditBox = false;
-                                            _showTafsirBox = false;
-                                            _showMoreTools = false;
-                                          });
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _buildActionIcon(
-                                        tooltip: 'Share',
-                                        icon: Icons.ios_share_outlined,
-                                        color: themeColor,
-                                        onPressed: () {
-                                          setState(() => _showMoreTools = false);
-                                          _copyShareText(notesProv);
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      _buildActionIcon(
-                                        tooltip: 'Report error',
-                                        icon: Icons.report_problem_outlined,
-                                        active: _showAuditBox,
-                                        color: Colors.blueGrey,
-                                        onPressed: () {
-                                          setState(() {
-                                            _showAuditBox = !_showAuditBox;
-                                            _showNotesBox = false;
-                                            _showTafsirBox = false;
-                                            _showMoreTools = false;
-                                          });
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
                             ],
                           );
                         },

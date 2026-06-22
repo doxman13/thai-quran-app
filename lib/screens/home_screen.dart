@@ -478,6 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         targetJuz: planMode == 'by_juz' ? endJuz : null,
                         start: start,
                         target: target,
+                        context: context,
                       );
                     } else {
                       provider.updateProfile(
