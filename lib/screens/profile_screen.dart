@@ -29,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _otpSent = false;
   bool _isLoading = false;
+  bool _isSyncing = false;
   String? _errorMessage;
   String? _successMessage;
   Future<List<Map<String, dynamic>>>? _reportsFuture;
@@ -185,6 +186,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleManualSync(
+    SupabaseProvider supabaseProv,
+    LocalReadingProvider readingProv,
+    NotesProvider notesProv,
+  ) async {
+    if (_isSyncing) return;
+    setState(() {
+      _isSyncing = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      await readingProv.syncBookmarksAndProfilesWithSupabase(supabaseProv.userId);
+      await readingProv.syncReadingStateWithSupabase(supabaseProv.userId);
+      await notesProv.syncWithSupabase();
+      if (mounted) {
+        setState(() {
+          _successMessage = 'ซิงค์ข้อมูลสำเร็จแล้ว (Sync completed successfully!)';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'เกิดข้อผิดพลาดในการซิงค์: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
     }
   }
 
@@ -554,36 +591,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
+                        Center(
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.green.withOpacity(0.3),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_done,
-                                color: Colors.green,
-                                size: 16,
+                            onTap: _isSyncing
+                                ? null
+                                : () => _handleManualSync(supabaseProv, readingProv, notesProv),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
                               ),
-                              SizedBox(width: 6),
-                              Text(
-                                'ซิงค์กับคลาวด์แล้ว',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.green.withOpacity(0.3),
                                 ),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _isSyncing
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.sync,
+                                          color: Colors.green,
+                                          size: 16,
+                                        ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isSyncing ? 'กำลังซิงค์ (Syncing...)' : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
+                                    style: const TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 24),

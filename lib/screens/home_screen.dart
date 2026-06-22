@@ -6,6 +6,8 @@ import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/supabase_provider.dart';
+import '../providers/notes_provider.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
@@ -22,7 +24,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   final TextEditingController _searchController = TextEditingController();
   bool _isInit = false;
@@ -65,14 +67,39 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initApp();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _triggerAutoSync();
+    }
+  }
+
+  Future<void> _triggerAutoSync() async {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (supabaseProv.isLoggedIn) {
+      final userId = supabaseProv.userId;
+      final readingProv = Provider.of<LocalReadingProvider>(context, listen: false);
+      final notesProv = Provider.of<NotesProvider>(context, listen: false);
+      try {
+        await readingProv.syncBookmarksAndProfilesWithSupabase(userId);
+        await readingProv.syncReadingStateWithSupabase(userId);
+        await notesProv.syncWithSupabase();
+      } catch (e) {
+        debugPrint('Auto-sync error: $e');
+      }
+    }
   }
 
   Future<void> _initApp() async {
