@@ -601,8 +601,8 @@ class _VerseCardState extends State<VerseCard> {
                                     icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
                                     active: isBookmarked,
                                     color: Colors.amber.shade700,
-                                    onPressed: () {
-                                      localReading.toggleBookmark(
+                                    onPressed: () async {
+                                      await localReading.toggleBookmark(
                                         verseRef.surahId,
                                         verseRef.verseId,
                                       );

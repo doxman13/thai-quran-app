@@ -368,7 +368,7 @@ class LocalReadingProvider extends ChangeNotifier {
               'user_id': userId,
               'name': 'Saved Verses',
               'slug': 'saved_verses',
-              'max_items': 5,
+              'max_items': 9999,
               'sort_order': 0,
             })
             .select('id')
@@ -1028,27 +1028,31 @@ class LocalReadingProvider extends ChangeNotifier {
   bool isBookmarked(String surahId, String verseId) {
     final numericSurah = int.tryParse(surahId) ?? 0;
     final numericVerse = int.tryParse(verseId) ?? 0;
+    final uid = currentUserId;
     return _bookmarks.any((b) {
       final bSurah = int.tryParse(b.verse.surahId) ?? 0;
       final bVerse = int.tryParse(b.verse.verseId) ?? 0;
-      return bSurah == numericSurah && bVerse == numericVerse;
+      return bSurah == numericSurah && bVerse == numericVerse && b.userId == uid;
     });
   }
 
   Future<void> toggleBookmark(String surahId, String verseId) async {
     final numericSurah = int.tryParse(surahId) ?? 0;
     final numericVerse = int.tryParse(verseId) ?? 0;
+    final uid = currentUserId;
     final existing = _bookmarks
         .where((b) {
           final bSurah = int.tryParse(b.verse.surahId) ?? 0;
           final bVerse = int.tryParse(b.verse.verseId) ?? 0;
-          return bSurah == numericSurah && bVerse == numericVerse;
+          // Only consider bookmarks belonging to the current user
+          return bSurah == numericSurah && bVerse == numericVerse && b.userId == uid;
         })
         .firstOrNull;
 
     if (existing != null) {
       await removeBookmark(existing.id);
     } else {
+      // Let StateError (e.g. bookmark limit) propagate so callers can show feedback
       await addBookmark(verse: toVerseRef(surahId, verseId));
     }
   }
@@ -1071,12 +1075,6 @@ class LocalReadingProvider extends ChangeNotifier {
         .where((bookmark) => bookmark.verse.verseKey == verse.verseKey)
         .firstOrNull;
     if (existing != null) return existing;
-
-    if (categoryBookmarks.length >= category.maxItems) {
-      throw StateError(
-        'This bookmark category allows ${category.maxItems} items.',
-      );
-    }
 
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
