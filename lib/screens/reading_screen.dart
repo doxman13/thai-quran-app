@@ -1,4 +1,6 @@
 // lib/screens/reading_screen.dart
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +16,7 @@ import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
+import '../shared/shared.dart';
 
 class ReadingScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -39,6 +42,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
   List<Verse> verses = [];
   String _currentSurah = '1';
   bool _isLoading = true;
+  Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
+  Map<String, _SurahObjective> _surahObjectives = {};
 
   @override
   void initState() {
@@ -47,7 +52,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   Future<void> _initData() async {
-    await widget.repository.init();
+    await Future.wait([
+      widget.repository.init(),
+      _loadThemeSections(),
+      _loadSurahObjectives(),
+    ]);
 
     if (widget.initialSurah != null) {
       _loadSurah(
@@ -68,6 +77,94 @@ class _ReadingScreenState extends State<ReadingScreen> {
       }
       _loadSurah(provider.currentSurahId, jumpToIndex: provider.lastVerseIndex);
     }
+  }
+
+  Future<void> _loadThemeSections() async {
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/reconciled_thai_quran_themes.json',
+      );
+      final decoded = jsonDecode(jsonString);
+      if (decoded is! List) return;
+
+      final sectionsBySurah = <int, Map<int, _ThaiThemeSection>>{};
+      for (final item in decoded) {
+        if (item is! Map<String, dynamic>) continue;
+
+        final surah = _parseFlexibleInt(item['surah']);
+        final verseRange = item['verse_range']?.toString().trim();
+        final themeTh = item['theme_th']?.toString().trim();
+        if (surah == null ||
+            verseRange == null ||
+            verseRange.isEmpty ||
+            themeTh == null ||
+            themeTh.isEmpty) {
+          continue;
+        }
+
+        final startVerse = _parseThemeStartVerse(verseRange);
+        if (startVerse == null) continue;
+
+        sectionsBySurah.putIfAbsent(surah, () => {})[startVerse] =
+            _ThaiThemeSection(themeTh: themeTh, verseRange: verseRange);
+      }
+
+      _themeSectionsBySurah = sectionsBySurah;
+    } catch (error) {
+      debugPrint('Unable to load Thai Quran theme sections: $error');
+    }
+  }
+
+  Future<void> _loadSurahObjectives() async {
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/surah_summary_th_exact.json',
+      );
+      final decoded = jsonDecode(jsonString);
+      if (decoded is! Map<String, dynamic>) return;
+
+      final objectives = <String, _SurahObjective>{};
+      decoded.forEach((surahId, value) {
+        if (value is! Map<String, dynamic>) return;
+
+        final text = value['text']?.toString().trim();
+        final source = value['source']?.toString().trim();
+        if (text == null || text.isEmpty || source == null || source.isEmpty) {
+          return;
+        }
+
+        objectives[surahId] = _SurahObjective(text: text, source: source);
+      });
+
+      _surahObjectives = objectives;
+    } catch (error) {
+      debugPrint('Unable to load Thai surah objectives: $error');
+    }
+  }
+
+  int? _parseFlexibleInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  int? _parseThemeStartVerse(String verseRange) {
+    final match = RegExp(r'\d+').firstMatch(verseRange);
+    return match == null ? null : int.tryParse(match.group(0)!);
+  }
+
+  bool shouldShowHeader(int verseNumber) {
+    final surah = int.tryParse(_currentSurah);
+    if (surah == null) return false;
+    return _themeSectionsBySurah[surah]?.containsKey(verseNumber) ?? false;
+  }
+
+  String getHeaderTitle(int verseNumber) {
+    final surah = int.tryParse(_currentSurah);
+    final section = surah == null
+        ? null
+        : _themeSectionsBySurah[surah]?[verseNumber];
+    if (section == null) return '';
+    return '${section.themeTh} (อายะห์ ${section.verseRange})';
   }
 
   void _loadSurah(
@@ -137,7 +234,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
             return Container(
               decoration: BoxDecoration(
                 color: colors.background,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               child: Padding(
                 padding: EdgeInsets.only(
@@ -148,295 +247,336 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 ),
                 child: SingleChildScrollView(
                   child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Display Settings',
-                      style: GoogleFonts.prompt(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Display Settings',
+                        style: GoogleFonts.prompt(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
 
-                    // Dark Mode Toggle
-                    SwitchListTile(
-                      title: Text(
-                        'Dark Mode',
-                        style: GoogleFonts.prompt(fontWeight: FontWeight.w500),
-                      ),
-                      value: settings.isDarkMode,
-                      activeColor: primaryColor,
-                      onChanged: (val) => settings.toggleDarkMode(val),
-                    ),
-
-                    // Arabic Display Toggle
-                    SwitchListTile(
-                      title: Text(
-                        'Always Show Arabic Text',
-                        style: GoogleFonts.prompt(fontWeight: FontWeight.w500),
-                      ),
-                      subtitle: Text(
-                        'If unchecked, click the eye icon to reveal.',
-                        style: GoogleFonts.prompt(fontSize: 12),
-                      ),
-                      value: settings.alwaysShowArabic,
-                      activeColor: primaryColor,
-                      onChanged: (val) => settings.toggleAlwaysShowArabic(val),
-                    ),
-
-                    const Divider(height: 24),
-                    Text(
-                      'Primary Translation',
-                      style: GoogleFonts.prompt(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTranslationChip(
-                            context,
-                            label: 'Thai 3',
-                            sublabel: 'Society of Institutes',
-                            slotId: 'thai_v3',
-                            isPrimary: settings.primaryTranslationId == 'thai_v3',
-                            isInSecondary: settings.secondaryTranslationId == 'thai_v3',
-                            primaryColor: primaryColor,
-                            isDark: isDark,
-                            onSelectPrimary: () {
-                              if (settings.primaryTranslationId != 'thai_v3') {
-                                settings.updateTranslationSlot('primary', 'thai_v3');
-                              }
-                            },
-                            onToggleSecondary: () {
-                              final isInSec = settings.secondaryTranslationId == 'thai_v3';
-                              settings.updateTranslationSlot(
-                                'secondary',
-                                isInSec ? null : 'thai_v3',
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTranslationChip(
-                            context,
-                            label: 'Thai 2',
-                            sublabel: 'Society of Institutes',
-                            slotId: 'thai_v2',
-                            isPrimary: settings.primaryTranslationId == 'thai_v2',
-                            isInSecondary: settings.secondaryTranslationId == 'thai_v2',
-                            primaryColor: primaryColor,
-                            isDark: isDark,
-                            onSelectPrimary: () {
-                              if (settings.primaryTranslationId != 'thai_v2') {
-                                settings.updateTranslationSlot('primary', 'thai_v2');
-                              }
-                            },
-                            onToggleSecondary: () {
-                              final isInSec = settings.secondaryTranslationId == 'thai_v2';
-                              settings.updateTranslationSlot(
-                                'secondary',
-                                isInSec ? null : 'thai_v2',
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTranslationChip(
-                            context,
-                            label: 'English',
-                            sublabel: 'Saheeh International',
-                            slotId: 'english',
-                            isPrimary: settings.primaryTranslationId == 'english',
-                            isInSecondary: settings.secondaryTranslationId == 'english',
-                            primaryColor: primaryColor,
-                            isDark: isDark,
-                            onSelectPrimary: () {
-                              if (settings.primaryTranslationId != 'english') {
-                                settings.updateTranslationSlot('primary', 'english');
-                              }
-                            },
-                            onToggleSecondary: () {
-                              final isInSec = settings.secondaryTranslationId == 'english';
-                              settings.updateTranslationSlot(
-                                'secondary',
-                                isInSec ? null : 'english',
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const Divider(height: 32),
-
-                    // Color Themes Options
-                    Text(
-                      'Theme Palette',
-                      style: GoogleFonts.prompt(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildColorDot(context, 'teal', Colors.teal, settings),
-                        _buildColorDot(
-                          context,
-                          'emerald',
-                          const Color(0xFF10B981),
-                          settings,
-                        ),
-                        _buildColorDot(context, 'blue', Colors.blue, settings),
-                        _buildColorDot(
-                          context,
-                          'purple',
-                          Colors.purple,
-                          settings,
-                        ),
-                        _buildColorDot(
-                          context,
-                          'sepia',
-                          Colors.amber,
-                          settings,
-                        ),
-                        _buildColorDot(
-                          context,
-                          'grey',
-                          Colors.blueGrey,
-                          settings,
-                        ),
-                      ],
-                    ),
-
-                    const Divider(height: 32),
-
-                    // Arabic Font Family Choice
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Arabic Font Style',
+                      // Dark Mode Toggle
+                      SwitchListTile(
+                        title: Text(
+                          'Dark Mode',
                           style: GoogleFonts.prompt(
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        DropdownButton<String>(
-                          value: settings.arabicFontFamily,
-                          dropdownColor: isDark
-                              ? const Color(0xFF1E293B)
-                              : Colors.white,
+                        value: settings.isDarkMode,
+                        activeColor: primaryColor,
+                        onChanged: (val) => settings.toggleDarkMode(val),
+                      ),
+
+                      // Arabic Display Toggle
+                      SwitchListTile(
+                        title: Text(
+                          'Always Show Arabic Text',
                           style: GoogleFonts.prompt(
-                            color: isDark ? Colors.white : Colors.black87,
                             fontWeight: FontWeight.w500,
                           ),
-                          underline: Container(),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'UthmanicHafs',
-                              child: Text('Uthmanic Hafs'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'AmiriQuran',
-                              child: Text('Amiri Quran'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'ScheherazadeNew',
-                              child: Text('Scheherazade New'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Amiri',
-                              child: Text('Amiri Regular'),
-                            ),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) settings.setArabicFontFamily(val);
-                          },
                         ),
-                      ],
-                    ),
+                        subtitle: Text(
+                          'If unchecked, click the eye icon to reveal.',
+                          style: GoogleFonts.prompt(fontSize: 12),
+                        ),
+                        value: settings.alwaysShowArabic,
+                        activeColor: primaryColor,
+                        onChanged: (val) =>
+                            settings.toggleAlwaysShowArabic(val),
+                      ),
 
-                    const SizedBox(height: 16),
-
-                    // Arabic Font Size Choice
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Arabic Font Size',
-                              style: GoogleFonts.prompt(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              '${settings.arabicFontSize.round()} px',
-                              style: GoogleFonts.prompt(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                      const Divider(height: 24),
+                      Text(
+                        'Primary Translation',
+                        style: GoogleFonts.prompt(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
                         ),
-                        Slider(
-                          value: settings.arabicFontSize,
-                          min: 20.0,
-                          max: 48.0,
-                          divisions: 14,
-                          activeColor: primaryColor,
-                          inactiveColor: primaryColor.withOpacity(0.2),
-                          onChanged: (val) => settings.setArabicFontSize(val),
-                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTranslationChip(
+                              context,
+                              label: 'Thai 3',
+                              sublabel: 'Society of Institutes',
+                              slotId: 'thai_v3',
+                              isPrimary:
+                                  settings.primaryTranslationId == 'thai_v3',
+                              isInSecondary:
+                                  settings.secondaryTranslationId == 'thai_v3',
+                              primaryColor: primaryColor,
+                              isDark: isDark,
+                              onSelectPrimary: () {
+                                if (settings.primaryTranslationId !=
+                                    'thai_v3') {
+                                  settings.updateTranslationSlot(
+                                    'primary',
+                                    'thai_v3',
+                                  );
+                                }
+                              },
+                              onToggleSecondary: () {
+                                final isInSec =
+                                    settings.secondaryTranslationId ==
+                                    'thai_v3';
+                                settings.updateTranslationSlot(
+                                  'secondary',
+                                  isInSec ? null : 'thai_v3',
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTranslationChip(
+                              context,
+                              label: 'Thai 2',
+                              sublabel: 'Society of Institutes',
+                              slotId: 'thai_v2',
+                              isPrimary:
+                                  settings.primaryTranslationId == 'thai_v2',
+                              isInSecondary:
+                                  settings.secondaryTranslationId == 'thai_v2',
+                              primaryColor: primaryColor,
+                              isDark: isDark,
+                              onSelectPrimary: () {
+                                if (settings.primaryTranslationId !=
+                                    'thai_v2') {
+                                  settings.updateTranslationSlot(
+                                    'primary',
+                                    'thai_v2',
+                                  );
+                                }
+                              },
+                              onToggleSecondary: () {
+                                final isInSec =
+                                    settings.secondaryTranslationId ==
+                                    'thai_v2';
+                                settings.updateTranslationSlot(
+                                  'secondary',
+                                  isInSec ? null : 'thai_v2',
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTranslationChip(
+                              context,
+                              label: 'English',
+                              sublabel: 'Saheeh International',
+                              slotId: 'english',
+                              isPrimary:
+                                  settings.primaryTranslationId == 'english',
+                              isInSecondary:
+                                  settings.secondaryTranslationId == 'english',
+                              primaryColor: primaryColor,
+                              isDark: isDark,
+                              onSelectPrimary: () {
+                                if (settings.primaryTranslationId !=
+                                    'english') {
+                                  settings.updateTranslationSlot(
+                                    'primary',
+                                    'english',
+                                  );
+                                }
+                              },
+                              onToggleSecondary: () {
+                                final isInSec =
+                                    settings.secondaryTranslationId ==
+                                    'english';
+                                settings.updateTranslationSlot(
+                                  'secondary',
+                                  isInSec ? null : 'english',
+                                );
+                              },
+                            ),
+                          ),
                         ],
                       ),
-                    
-                    const SizedBox(height: 16),
 
-                    // Translation Font Size Choice
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Translation Font Size',
-                              style: GoogleFonts.prompt(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              '${settings.translationFontSize.round()} px',
-                              style: GoogleFonts.prompt(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                      const Divider(height: 32),
+
+                      // Color Themes Options
+                      Text(
+                        'Theme Palette',
+                        style: GoogleFonts.prompt(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Slider(
-                          value: settings.translationFontSize,
-                          min: 12.0,
-                          max: 24.0,
-                          divisions: 12,
-                          activeColor: primaryColor,
-                          inactiveColor: primaryColor.withOpacity(0.2),
-                          onChanged: (val) => settings.setTranslationFontSize(val),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildColorDot(
+                            context,
+                            'teal',
+                            Colors.teal,
+                            settings,
+                          ),
+                          _buildColorDot(
+                            context,
+                            'emerald',
+                            const Color(0xFF10B981),
+                            settings,
+                          ),
+                          _buildColorDot(
+                            context,
+                            'blue',
+                            Colors.blue,
+                            settings,
+                          ),
+                          _buildColorDot(
+                            context,
+                            'purple',
+                            Colors.purple,
+                            settings,
+                          ),
+                          _buildColorDot(
+                            context,
+                            'sepia',
+                            Colors.amber,
+                            settings,
+                          ),
+                          _buildColorDot(
+                            context,
+                            'grey',
+                            Colors.blueGrey,
+                            settings,
+                          ),
+                        ],
+                      ),
+
+                      const Divider(height: 32),
+
+                      // Arabic Font Family Choice
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Arabic Font Style',
+                            style: GoogleFonts.prompt(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          DropdownButton<String>(
+                            value: settings.arabicFontFamily,
+                            dropdownColor: isDark
+                                ? const Color(0xFF1E293B)
+                                : Colors.white,
+                            style: GoogleFonts.prompt(
+                              color: isDark ? Colors.white : Colors.black87,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            underline: Container(),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'UthmanicHafs',
+                                child: Text('Uthmanic Hafs'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'AmiriQuran',
+                                child: Text('Amiri Quran'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'ScheherazadeNew',
+                                child: Text('Scheherazade New'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Amiri',
+                                child: Text('Amiri Regular'),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null)
+                                settings.setArabicFontFamily(val);
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Arabic Font Size Choice
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Arabic Font Size',
+                                style: GoogleFonts.prompt(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${settings.arabicFontSize.round()} px',
+                                style: GoogleFonts.prompt(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: settings.arabicFontSize,
+                            min: 20.0,
+                            max: 48.0,
+                            divisions: 14,
+                            activeColor: primaryColor,
+                            inactiveColor: primaryColor.withOpacity(0.2),
+                            onChanged: (val) => settings.setArabicFontSize(val),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Translation Font Size Choice
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Translation Font Size',
+                                style: GoogleFonts.prompt(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${settings.translationFontSize.round()} px',
+                                style: GoogleFonts.prompt(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: settings.translationFontSize,
+                            min: 12.0,
+                            max: 24.0,
+                            divisions: 12,
+                            activeColor: primaryColor,
+                            inactiveColor: primaryColor.withOpacity(0.2),
+                            onChanged: (val) =>
+                                settings.setTranslationFontSize(val),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -503,19 +643,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
           color: isPrimary
               ? primaryColor.withOpacity(0.12)
               : isInSecondary
-                  ? Colors.blue.withOpacity(0.08)
-                  : isDark
-                      ? const Color(0xFF1E293B)
-                      : Colors.grey.shade100,
+              ? Colors.blue.withOpacity(0.08)
+              : isDark
+              ? const Color(0xFF1E293B)
+              : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isPrimary
                 ? primaryColor.withOpacity(0.5)
                 : isInSecondary
-                    ? Colors.blue.withOpacity(0.3)
-                    : isDark
-                        ? Colors.blueGrey.shade700
-                        : Colors.grey.shade300,
+                ? Colors.blue.withOpacity(0.3)
+                : isDark
+                ? Colors.blueGrey.shade700
+                : Colors.grey.shade300,
             width: isPrimary ? 2 : 1,
           ),
         ),
@@ -530,22 +670,26 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 color: isPrimary
                     ? primaryColor
                     : isInSecondary
-                        ? Colors.blue.shade700
-                        : isDark
-                            ? Colors.blueGrey.shade300
-                            : Colors.blueGrey.shade600,
+                    ? Colors.blue.shade700
+                    : isDark
+                    ? Colors.blueGrey.shade300
+                    : Colors.blueGrey.shade600,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              isPrimary ? 'Primary' : isInSecondary ? 'Secondary' : sublabel,
+              isPrimary
+                  ? 'Primary'
+                  : isInSecondary
+                  ? 'Secondary'
+                  : sublabel,
               style: GoogleFonts.prompt(
                 fontSize: 9,
                 color: isActive
                     ? (isPrimary ? primaryColor : Colors.blue.shade600)
                     : isDark
-                        ? Colors.blueGrey.shade500
-                        : Colors.blueGrey.shade400,
+                    ? Colors.blueGrey.shade500
+                    : Colors.blueGrey.shade400,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -565,18 +709,102 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ? colors.surfaceMuted.withOpacity(0.5)
             : colors.primaryLight.withOpacity(0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.borderSoft,
-        ),
+        border: Border.all(color: colors.borderSoft),
       ),
       child: Center(
         child: SvgPicture.asset(
           'assets/Bismillah_Calligraphy6.svg',
           height: 60,
-          colorFilter: ColorFilter.mode(
-            colors.textStrong,
-            BlendMode.srcIn,
+          colorFilter: ColorFilter.mode(colors.textStrong, BlendMode.srcIn),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObjectivesBanner(
+    String surahId,
+    SettingsProvider settings,
+    bool isDark,
+  ) {
+    final objective = _surahObjectives[surahId];
+    if (objective == null) return const SizedBox.shrink();
+
+    final colors = settings.getAppColors();
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? colors.surfaceMuted.withOpacity(0.7)
+            : colors.primaryLight.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flag_rounded, color: colors.primary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'เป้าหมายหลักของซูเราะฮ์',
+                  style: GoogleFonts.prompt(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            objective.text,
+            style: GoogleFonts.prompt(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+              color: colors.textStrong,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'ที่มา: ${objective.source}',
+            style: GoogleFonts.prompt(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: colors.foreground.withOpacity(0.72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThemeHeader(
+    SettingsProvider settings,
+    bool isDark,
+    int verseNumber,
+  ) {
+    final colors = settings.getAppColors();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? colors.surfaceMuted.withOpacity(0.85) : colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Text(
+        getHeaderTitle(verseNumber),
+        style: GoogleFonts.prompt(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          height: 1.45,
+          color: colors.textStrong,
         ),
       ),
     );
@@ -677,13 +905,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
             icon: Text(
               'ع',
               style: GoogleFonts.amiri(
-                color: settings.alwaysShowArabic ? colors.primary : colors.textStrong.withOpacity(0.4),
+                color: settings.alwaysShowArabic
+                    ? colors.primary
+                    : colors.textStrong.withOpacity(0.4),
                 fontWeight: FontWeight.bold,
                 fontSize: 22,
               ),
             ),
             tooltip: 'Toggle Arabic text globally',
-            onPressed: () => settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
+            onPressed: () =>
+                settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
           ),
           IconButton(
             icon: Text(
@@ -810,18 +1041,33 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     isDark,
                   );
                 }
-                
+
                 final card = VerseCard(
                   key: ValueKey('${verses[index].surahId}_${verses[index].id}'),
                   verse: verses[index],
                   repository: widget.repository,
                   index: index,
                 );
+                final verseNumber = int.tryParse(verses[index].id);
+                final showThemeHeader =
+                    verseNumber != null && shouldShowHeader(verseNumber);
 
-                if (index == 0 && _currentSurah != '9') {
+                if (index == 0) {
                   return Column(
                     children: [
-                      _buildBismillahBanner(settings, isDark),
+                      if (_currentSurah != '9')
+                        _buildBismillahBanner(settings, isDark),
+                      _buildObjectivesBanner(_currentSurah, settings, isDark),
+                      card,
+                    ],
+                  );
+                }
+
+                if (showThemeHeader) {
+                  return Column(
+                    children: [
+                      if (showThemeHeader)
+                        _buildThemeHeader(settings, isDark, verseNumber),
                       card,
                     ],
                   );
@@ -866,24 +1112,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   final hasPrev = currentIndex > 0;
                   final hasNext = currentIndex < totalCount - 1;
 
-                  final dropdownItems = List.generate(totalCount, (index) {
-                    final verseId = verses[index].id;
-                    return DropdownMenuItem<int>(
-                      value: index,
-                      child: Text(
-                        '$_currentSurah:$verseId',
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
-                  });
-
-                  final safeValue =
-                      (currentIndex >= 0 && currentIndex < totalCount)
-                      ? currentIndex
-                      : 0;
+                  final disabledBg = isDark
+                      ? Colors.blueGrey.shade900.withOpacity(0.3)
+                      : Colors.grey.shade100;
+                  final disabledFg = isDark
+                      ? Colors.blueGrey.shade700
+                      : Colors.grey.shade400;
+                  final disabledBorder = isDark
+                      ? Colors.blueGrey.shade800.withOpacity(0.3)
+                      : Colors.grey.shade200;
 
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -908,58 +1145,124 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         child: Container(
                           height: 40,
                           margin: const EdgeInsets.symmetric(horizontal: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.blueGrey.shade800.withOpacity(0.5)
-                                  : Colors.grey.shade300,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            color: isDark
-                                ? const Color(0xFF0F172A)
-                                : Colors.grey.shade50,
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              key: ValueKey(
-                                'reading_ayah_dropdown_${_currentSurah}_$totalCount',
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              value: safeValue,
-                              isExpanded: true,
-                              dropdownColor: isDark
-                                  ? const Color(0xFF1E293B)
-                                  : Colors.white,
-                              items: dropdownItems,
-                              onChanged: (index) {
-                                if (index != null) {
-                                  progressProv.setVerseIndexAndScroll(index);
-                                }
-                              },
+                              padding: EdgeInsets.zero,
+                              elevation: 0,
+                            ),
+                            onPressed: () async {
+                              final activeProfile = localReading.activeProfile;
+                              final currentIndex = progressProv.lastVerseIndex;
+                              if (activeProfile != null &&
+                                  currentIndex >= 0 &&
+                                  currentIndex < verses.length) {
+                                final currentVerse = verses[currentIndex];
+                                final verseRef = toVerseRef(
+                                  currentVerse.surahId,
+                                  currentVerse.id,
+                                );
+
+                                // Explicitly update progress and recent reading
+                                await localReading.updateProfileProgress(
+                                  activeProfile.id,
+                                  verseRef,
+                                  context: context,
+                                );
+                                await localReading.addRecentReading(
+                                  verse: verseRef,
+                                  profileId: activeProfile.id,
+                                );
+                              }
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.check_circle_outline_rounded,
+                              size: 16,
+                            ),
+                            label: Text(
+                              'Done Reading',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ),
                       ),
                       IconButton(
-                        onPressed: () => settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
+                        onPressed: settings.alwaysShowTranslation
+                            ? () => settings.toggleAlwaysShowArabic(
+                                !settings.alwaysShowArabic,
+                              )
+                            : null,
                         icon: Text(
                           'ع',
                           style: GoogleFonts.amiri(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: settings.alwaysShowArabic
-                                ? Colors.white
-                                : primaryColor,
+                            color: !settings.alwaysShowTranslation
+                                ? disabledFg
+                                : (settings.alwaysShowArabic
+                                      ? Colors.white
+                                      : primaryColor),
                           ),
                         ),
                         style: IconButton.styleFrom(
-                          backgroundColor: settings.alwaysShowArabic
-                              ? primaryColor
-                              : primaryColor.withOpacity(0.12),
+                          backgroundColor: !settings.alwaysShowTranslation
+                              ? disabledBg
+                              : (settings.alwaysShowArabic
+                                    ? primaryColor
+                                    : primaryColor.withOpacity(0.12)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                             side: BorderSide(
-                              color: primaryColor.withOpacity(0.3),
+                              color: !settings.alwaysShowTranslation
+                                  ? disabledBorder
+                                  : primaryColor.withOpacity(0.3),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: settings.alwaysShowArabic
+                            ? () => settings.toggleAlwaysShowTranslation(
+                                !settings.alwaysShowTranslation,
+                              )
+                            : null,
+                        icon: Text(
+                          'ท',
+                          style: GoogleFonts.prompt(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: !settings.alwaysShowArabic
+                                ? disabledFg
+                                : (settings.alwaysShowTranslation
+                                      ? Colors.white
+                                      : primaryColor),
+                          ),
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor: !settings.alwaysShowArabic
+                              ? disabledBg
+                              : (settings.alwaysShowTranslation
+                                    ? primaryColor
+                                    : primaryColor.withOpacity(0.12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(
+                              color: !settings.alwaysShowArabic
+                                  ? disabledBorder
+                                  : primaryColor.withOpacity(0.3),
                             ),
                           ),
                         ),
@@ -1077,17 +1380,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
               final bool hasPrevSurah = currentSurahInt > 1;
               final bool hasNextSurah = currentSurahInt < 114;
 
-              if (!hasPrevSurah && !hasNextSurah) return const SizedBox.shrink();
+              if (!hasPrevSurah && !hasNextSurah)
+                return const SizedBox.shrink();
 
               return Row(
                 children: [
                   if (hasPrevSurah)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _loadSurah((currentSurahInt - 1).toString()),
+                        onPressed: () =>
+                            _loadSurah((currentSurahInt - 1).toString()),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
-                          side: BorderSide(color: primaryColor.withOpacity(0.5)),
+                          side: BorderSide(
+                            color: primaryColor.withOpacity(0.5),
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -1095,7 +1402,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           '⬅️ ซูเราะฮฺก่อนหน้า',
-                          style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.prompt(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -1103,10 +1413,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   if (hasNextSurah)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _loadSurah((currentSurahInt + 1).toString()),
+                        onPressed: () =>
+                            _loadSurah((currentSurahInt + 1).toString()),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
-                          side: BorderSide(color: primaryColor.withOpacity(0.5)),
+                          side: BorderSide(
+                            color: primaryColor.withOpacity(0.5),
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -1114,7 +1427,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           'ซูเราะฮฺถัดไป ➡️',
-                          style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.prompt(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -1126,4 +1442,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
       ),
     );
   }
+}
+
+class _ThaiThemeSection {
+  final String themeTh;
+  final String verseRange;
+
+  const _ThaiThemeSection({required this.themeTh, required this.verseRange});
+}
+
+class _SurahObjective {
+  final String text;
+  final String source;
+
+  const _SurahObjective({required this.text, required this.source});
 }

@@ -73,6 +73,8 @@ flutter:
     - assets/icons/playstore-icon.png
     - assets/quran_arabic.json
     - assets/Bismillah_Calligraphy6.svg
+    - assets/reconciled_thai_quran_themes.json
+    - assets/surah_summary_th_exact.json
 
   fonts:
     - family: UthmanicHafs
