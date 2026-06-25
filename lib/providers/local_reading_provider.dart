@@ -300,7 +300,20 @@ class LocalReadingProvider extends ChangeNotifier {
   List<LocalRecentReading> get recentReadings =>
       _recentReadings.where((r) => r.userId == currentUserId).toList();
   String? get activeProfileId => _activeProfileId;
+  LocalReadingProfile? get freeReadProfile => _profiles
+      .where((profile) => profile.userId == currentUserId)
+      .where(isFreeReadProfile)
+      .firstOrNull;
+
   LocalReadingProfile? get activeProfile {
+    final allUserProfiles = _profiles
+        .where((p) => p.userId == currentUserId && !p.isArchived)
+        .toList();
+    final explicitActive = allUserProfiles
+        .where((profile) => profile.id == _activeProfileId)
+        .firstOrNull;
+    if (explicitActive != null) return explicitActive;
+
     final userProfiles = profiles;
     if (userProfiles.isEmpty) return null;
     final active = userProfiles.where((profile) => profile.id == _activeProfileId);
@@ -311,6 +324,41 @@ class LocalReadingProvider extends ChangeNotifier {
 
   bool get canCreateProfile =>
       canCreateActiveReadingProfile(activeProfiles.length);
+
+  bool isVerseInsideProfile(
+    LocalReadingProfile profile,
+    String surahId,
+    String verseId,
+  ) {
+    if (profile.target == null || isFreeReadProfile(profile)) return true;
+
+    final ref = toVerseRef(surahId, verseId);
+    return _compareVerseRefs(ref, profile.start) >= 0 &&
+        _compareVerseRefs(ref, profile.target!) <= 0;
+  }
+
+  Future<bool> switchToFreeReadIfOutside(String surahId, String verseId) async {
+    final profile = activeProfile;
+    final freeRead = freeReadProfile;
+    if (profile == null ||
+        freeRead == null ||
+        isVerseInsideProfile(profile, surahId, verseId)) {
+      return false;
+    }
+
+    await setActiveProfile(freeRead.id);
+    return true;
+  }
+
+  int _compareVerseRefs(VerseRef left, VerseRef right) {
+    final leftSurah = int.tryParse(left.surahId) ?? 0;
+    final rightSurah = int.tryParse(right.surahId) ?? 0;
+    if (leftSurah != rightSurah) return leftSurah.compareTo(rightSurah);
+
+    final leftVerse = int.tryParse(left.verseId) ?? 0;
+    final rightVerse = int.tryParse(right.verseId) ?? 0;
+    return leftVerse.compareTo(rightVerse);
+  }
 
   LocalReadingProvider() {
     _load();

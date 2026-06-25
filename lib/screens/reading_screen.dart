@@ -71,6 +71,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
         });
       }
     } else {
+      final localReading = Provider.of<LocalReadingProvider>(
+        context,
+        listen: false,
+      );
+      final activeProfile = localReading.activeProfile;
+      if (activeProfile != null) {
+        _loadSurah(
+          activeProfile.current.surahId,
+          jumpToVerseId: activeProfile.current.verseId,
+        );
+        return;
+      }
+
       final provider = Provider.of<ProgressProvider>(context, listen: false);
       while (!provider.isInitialized) {
         await Future.delayed(const Duration(milliseconds: 50));
@@ -167,12 +180,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
     return '${section.themeTh} (อายะห์ ${section.verseRange})';
   }
 
-  void _loadSurah(
+  Future<void> _loadSurah(
     String surahId, {
     int jumpToIndex = 0,
     String? jumpToVerseId,
-  }) {
+  }) async {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
+    final localReading = Provider.of<LocalReadingProvider>(
+      context,
+      listen: false,
+    );
     provider.setChangingSurah(true); // Disable listener
 
     setState(() {
@@ -182,9 +199,23 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     provider.setCurrentSurah(surahId);
 
-    final loadedVerses = widget.repository.getSurahVerses(surahId);
+    final allSurahVerses = widget.repository.getSurahVerses(surahId);
+    final requestedVerseId =
+        jumpToVerseId ??
+        _defaultVisibleVerseIdForSurah(surahId, localReading.activeProfile) ??
+        ((jumpToIndex >= 0 && jumpToIndex < allSurahVerses.length)
+            ? allSurahVerses[jumpToIndex].id
+            : allSurahVerses.firstOrNull?.id ?? '1');
+
+    await localReading.switchToFreeReadIfOutside(surahId, requestedVerseId);
+    if (!mounted) return;
+
+    final loadedVerses = _visibleVersesForActiveProfile(
+      surahId,
+      allSurahVerses,
+    );
     final targetIndex = jumpToVerseId == null
-        ? jumpToIndex
+        ? loadedVerses.indexWhere((verse) => verse.id == requestedVerseId)
         : loadedVerses.indexWhere((verse) => verse.id == jumpToVerseId);
     final safeTargetIndex = targetIndex < 0
         ? 0
@@ -210,6 +241,75 @@ class _ReadingScreenState extends State<ReadingScreen> {
         });
       });
     });
+  }
+
+  List<Verse> _visibleVersesForActiveProfile(
+    String surahId,
+    List<Verse> allSurahVerses,
+  ) {
+    final localReading = Provider.of<LocalReadingProvider>(
+      context,
+      listen: false,
+    );
+    final profile = localReading.activeProfile;
+    if (profile == null ||
+        profile.target == null ||
+        isFreeReadProfile(profile)) {
+      return allSurahVerses;
+    }
+
+    final visible = allSurahVerses
+        .where(
+          (verse) => localReading.isVerseInsideProfile(
+            profile,
+            verse.surahId,
+            verse.id,
+          ),
+        )
+        .toList();
+    return visible.isEmpty ? allSurahVerses : visible;
+  }
+
+  String? _defaultVisibleVerseIdForSurah(
+    String surahId,
+    LocalReadingProfile? profile,
+  ) {
+    if (profile == null ||
+        profile.target == null ||
+        isFreeReadProfile(profile)) {
+      return null;
+    }
+
+    final surah = int.tryParse(surahId);
+    final startSurah = int.tryParse(profile.start.surahId);
+    final targetSurah = int.tryParse(profile.target!.surahId);
+    if (surah == null || startSurah == null || targetSurah == null) {
+      return null;
+    }
+    if (surah < startSurah || surah > targetSurah) return null;
+    if (surah == startSurah) return profile.start.verseId;
+    return '1';
+  }
+
+  bool _activeProfileHasVisibleVersesInSurah(String surahId) {
+    final allVerses = widget.repository.getSurahVerses(surahId);
+    if (allVerses.isEmpty) return false;
+
+    final localReading = Provider.of<LocalReadingProvider>(
+      context,
+      listen: false,
+    );
+    final profile = localReading.activeProfile;
+    if (profile == null ||
+        profile.target == null ||
+        isFreeReadProfile(profile)) {
+      return true;
+    }
+
+    return allVerses.any(
+      (verse) =>
+          localReading.isVerseInsideProfile(profile, verse.surahId, verse.id),
+    );
   }
 
   void _selectVerseIndex(int index) {
@@ -879,23 +979,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
               );
 
               if (result != null) {
-                final targetSurah = result['surahId'];
+                final targetSurah = result['surahId']?.toString();
+                final targetVerse = result['verseId']?.toString();
+                if (targetSurah == null) return;
 
                 if (targetSurah == _currentSurah) {
-                  final targetIndex = result.containsKey('verseIndex')
-                      ? result['verseIndex'] as int
-                      : verses.indexWhere((v) => v.id == result['verseId']);
+                  await Provider.of<LocalReadingProvider>(
+                    context,
+                    listen: false,
+                  ).switchToFreeReadIfOutside(targetSurah, targetVerse ?? '1');
+                  if (!context.mounted) return;
+                  final targetIndex = targetVerse == null
+                      ? -1
+                      : verses.indexWhere((v) => v.id == targetVerse);
                   if (targetIndex != -1) {
                     provider.setVerseIndexAndScroll(targetIndex);
+                  } else if (targetVerse != null) {
+                    _loadSurah(targetSurah, jumpToVerseId: targetVerse);
                   }
                 } else {
-                  if (result.containsKey('verseIndex')) {
+                  if (targetVerse != null) {
+                    _loadSurah(targetSurah, jumpToVerseId: targetVerse);
+                  } else if (result.containsKey('verseIndex')) {
                     _loadSurah(targetSurah, jumpToIndex: result['verseIndex']);
-                  } else if (result.containsKey('verseId')) {
-                    _loadSurah(
-                      targetSurah,
-                      jumpToVerseId: result['verseId']?.toString(),
-                    );
                   }
                 }
               }
@@ -1377,8 +1483,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
           Builder(
             builder: (context) {
               final int currentSurahInt = int.tryParse(_currentSurah) ?? 1;
-              final bool hasPrevSurah = currentSurahInt > 1;
-              final bool hasNextSurah = currentSurahInt < 114;
+              final prevSurahId = (currentSurahInt - 1).toString();
+              final nextSurahId = (currentSurahInt + 1).toString();
+              final bool hasPrevSurah =
+                  currentSurahInt > 1 &&
+                  _activeProfileHasVisibleVersesInSurah(prevSurahId);
+              final bool hasNextSurah =
+                  currentSurahInt < 114 &&
+                  _activeProfileHasVisibleVersesInSurah(nextSurahId);
 
               if (!hasPrevSurah && !hasNextSurah)
                 return const SizedBox.shrink();
@@ -1388,8 +1500,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   if (hasPrevSurah)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            _loadSurah((currentSurahInt - 1).toString()),
+                        onPressed: () => _loadSurah(prevSurahId),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
                           side: BorderSide(
@@ -1413,8 +1524,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   if (hasNextSurah)
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            _loadSurah((currentSurahInt + 1).toString()),
+                        onPressed: () => _loadSurah(nextSurahId),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
                           side: BorderSide(

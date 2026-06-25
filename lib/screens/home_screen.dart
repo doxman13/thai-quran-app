@@ -229,20 +229,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     mode: _browseMode,
                     searchController: _searchController,
                     onModeChanged: (mode) => setState(() => _browseMode = mode),
-                    onOpen: (surahId, verseId) {
+                    onOpen: (surahId, verseId) async {
                       final localReading = Provider.of<LocalReadingProvider>(
                         context,
                         listen: false,
                       );
-                      final freeRead = localReading.activeProfiles
-                          .where(isFreeReadProfile)
-                          .firstOrNull;
-                      final active = localReading.activeProfile;
-                      if (active != null &&
-                          !_isRefInsideProfile(active, surahId, verseId) &&
-                          freeRead != null) {
-                        localReading.setActiveProfile(freeRead.id);
-                      }
+                      await localReading.switchToFreeReadIfOutside(
+                        surahId,
+                        verseId,
+                      );
+                      if (!context.mounted) return;
                       _navigateToReading(context, surahId, verseId: verseId);
                     },
                   ),
@@ -255,18 +251,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  bool _isRefInsideProfile(
-    LocalReadingProfile profile,
-    String surahId,
-    String verseId,
-  ) {
-    if (profile.target == null || isFreeReadProfile(profile)) return true;
-    final ordinal = _verseOrdinal(surahId, verseId);
-    return ordinal >=
-            _verseOrdinal(profile.start.surahId, profile.start.verseId) &&
-        ordinal <=
-            _verseOrdinal(profile.target!.surahId, profile.target!.verseId);
-  }
 
   int _verseOrdinal(String surahId, String verseId) {
     var ordinal = 0;
