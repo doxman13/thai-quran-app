@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/verse.dart';
+import '../models/tadabbur_note.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/progress_provider.dart';
@@ -41,7 +42,6 @@ class _VerseCardState extends State<VerseCard> {
   // Audit and personal notes states
   bool _isMenuVisible = false;
   bool _showAuditBox = false;
-  bool _showNotesBox = false;
   bool _showTafsirBox = false;
 
   final TextEditingController _auditController = TextEditingController();
@@ -66,6 +66,111 @@ class _VerseCardState extends State<VerseCard> {
   void dispose() {
     _auditController.dispose();
     super.dispose();
+  }
+
+  void _openTadabburModal() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          child: TadabburPanel(
+            surahId: widget.verse.surahId,
+            verseId: widget.verse.id,
+            onClose: () => Navigator.pop(ctx),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleFavoriteTap(
+    NotesProvider notesProv,
+    TadabburNote? noteObj,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final hasNoteText = noteObj?.noteText.trim().isNotEmpty ?? false;
+
+    if (noteObj == null) {
+      await notesProv.saveNote(
+        surahId: widget.verse.surahId,
+        verseId: widget.verse.id,
+        noteText: '',
+      );
+      if (!mounted) return;
+
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Verse saved as favorite'),
+            action: SnackBarAction(
+              label: 'Add note',
+              onPressed: _openTadabburModal,
+            ),
+          ),
+        );
+      return;
+    }
+
+    if (!hasNoteText) {
+      await notesProv.deleteNote(widget.verse.surahId, widget.verse.id);
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+      return;
+    }
+
+    final remove = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final settings = Provider.of<SettingsProvider>(ctx, listen: false);
+        final colors = settings.getAppColors();
+        return AlertDialog(
+          title: Text(
+            'Remove favorite?',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+          ),
+          content: Text(
+            'This verse has a note. Removing it will delete the saved note too.',
+            style: GoogleFonts.inter(color: colors.foreground),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'Remove',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.red.shade500,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (remove == true) {
+      await notesProv.deleteNote(widget.verse.surahId, widget.verse.id);
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+    }
   }
 
   Future<void> _loadArabic() async {
@@ -187,8 +292,6 @@ class _VerseCardState extends State<VerseCard> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -197,11 +300,13 @@ class _VerseCardState extends State<VerseCard> {
     final statsProv = Provider.of<StatsProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isHighlighted = widget.index == progress.lastVerseIndex;
-    if (!isHighlighted) {
-      _isMenuVisible = false;
-    }
+    final colors = settings.getAppColors();
     final themeColor = settings.getPrimaryColor();
     final highlightColor = settings.getHighlightColor();
+    final bodyTextColor = colors.textStrong;
+    final arabicTextColor = isDark
+        ? const Color(0xFFD7E0EA)
+        : const Color(0xFF334155);
 
     // Auto-reset check for individual Arabic toggle when global setting changes
     final alwaysShow = settings.alwaysShowArabic;
@@ -223,7 +328,11 @@ class _VerseCardState extends State<VerseCard> {
         final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
         if (activeProfile != null &&
             activeProfile.current.verseKey != verseRef.verseKey) {
-          localReading.updateProfileProgress(activeProfile.id, verseRef, context: context);
+          localReading.updateProfileProgress(
+            activeProfile.id,
+            verseRef,
+            context: context,
+          );
           localReading.addRecentReading(
             verse: verseRef,
             profileId: activeProfile.id,
@@ -239,28 +348,28 @@ class _VerseCardState extends State<VerseCard> {
           fontFamily: 'UthmanicHafs',
           fontSize: settings.arabicFontSize,
           height: 2.0,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          color: arabicTextColor,
         );
         break;
       case 'AmiriQuran':
         arabicStyle = GoogleFonts.amiriQuran(
           fontSize: settings.arabicFontSize,
           height: 2.0,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          color: arabicTextColor,
         );
         break;
       case 'ScheherazadeNew':
         arabicStyle = GoogleFonts.scheherazadeNew(
           fontSize: settings.arabicFontSize,
           height: 2.0,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          color: arabicTextColor,
         );
         break;
       case 'Amiri':
         arabicStyle = GoogleFonts.amiri(
           fontSize: settings.arabicFontSize,
           height: 2.0,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          color: arabicTextColor,
         );
         break;
       default:
@@ -268,7 +377,7 @@ class _VerseCardState extends State<VerseCard> {
           fontFamily: 'UthmanicHafs',
           fontSize: settings.arabicFontSize,
           height: 2.0,
-          color: isDark ? Colors.white : const Color(0xFF1E293B),
+          color: arabicTextColor,
         );
     }
 
@@ -279,9 +388,11 @@ class _VerseCardState extends State<VerseCard> {
       _loadArabic();
     }
 
-    final hasNote = notesProv
-        .getNoteForVerse(widget.verse.surahId, widget.verse.id)
-        .isNotEmpty;
+    final noteObj = notesProv.getNoteObjectForVerse(
+      widget.verse.surahId,
+      widget.verse.id,
+    );
+    final isFavorited = noteObj != null;
 
     return GestureDetector(
       onTap: () {
@@ -304,172 +415,172 @@ class _VerseCardState extends State<VerseCard> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Stack(
           children: [
-              // Base Card Background (Normal)
-              Positioned.fill(
+            // Base Card Background (Normal)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Highlighted Card Background (Fades in/out)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                opacity: isHighlighted ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOut,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? (settings.themeColor == 'sepia'
-                              ? const Color(0xFF261D17)
-                              : const Color(0xFF1E293B))
-                        : Colors.white,
+                    color: colors.primaryLight,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: highlightColor, width: 2.5),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                        color: themeColor.withOpacity(isDark ? 0.35 : 0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
 
-              // Highlighted Card Background (Fades in/out)
-              Positioned.fill(
-                child: AnimatedOpacity(
-                  opacity: isHighlighted ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeInOut,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? (settings.themeColor == 'sepia'
-                                ? const Color(0xFF33251D)
-                                : const Color(0xFF1E2E3E))
-                          : (settings.themeColor == 'sepia'
-                                ? const Color(0xFFF6E6C3)
-                                : const Color(0xFFF0FDFA)),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: highlightColor, width: 2.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: themeColor.withOpacity(isDark ? 0.35 : 0.12),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
+            // Content Layer
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Content Layer
-              Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Header Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? themeColor.withOpacity(0.25)
-                                : themeColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            'Verse ${widget.verse.id}',
-                            style: GoogleFonts.prompt(
-                              color: isDark ? highlightColor : themeColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? themeColor.withOpacity(0.25)
+                              : themeColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        Text(
-                          _shareStatus,
+                        child: Text(
+                          'Verse ${widget.verse.id}',
                           style: GoogleFonts.prompt(
-                            color: isDark
-                                ? Colors.blueGrey.shade300
-                                : Colors.blueGrey.shade500,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            color: isDark ? highlightColor : themeColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      Text(
+                        _shareStatus,
+                        style: GoogleFonts.prompt(
+                          color: isDark
+                              ? Colors.blueGrey.shade300
+                              : Colors.blueGrey.shade500,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
 
-                    // Arabic Text Area
-                    if (_isArabicVisible || settings.alwaysShowArabic) ...[
-                      const SizedBox(height: 14),
-                      if (widget.verse.isArabicLoading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: Colors.teal,
-                              ),
+                  // Arabic Text Area
+                  if (_isArabicVisible || settings.alwaysShowArabic) ...[
+                    const SizedBox(height: 14),
+                    if (widget.verse.isArabicLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.teal,
                             ),
                           ),
-                        )
-                      else
-                        Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: RichText(
-                            text: TextSpan(
-                              style: arabicStyle,
-                              children: [
-                                TextSpan(
-                                  text: (() {
-                                    final parts = widget.verse.arabic.split(' | ');
-                                    return settings.arabicFontFamily == 'UthmanicHafs'
-                                        ? parts.join(' ')
-                                        : parts[0];
-                                  })(),
-                                ),
-                                if (settings.arabicFontFamily != 'UthmanicHafs')
-                                  WidgetSpan(
-                                    alignment: PlaceholderAlignment.middle,
-                                    child: Container(
-                                      margin: const EdgeInsets.only(right: 8),
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
-                                          width: 1,
-                                        ),
-                                        color: isDark ? const Color(0xFF0F172A) : Colors.grey.shade50,
+                        ),
+                      )
+                    else
+                      Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: RichText(
+                          text: TextSpan(
+                            style: arabicStyle,
+                            children: [
+                              TextSpan(
+                                text: (() {
+                                  final parts = widget.verse.arabic.split(
+                                    ' | ',
+                                  );
+                                  return settings.arabicFontFamily ==
+                                          'UthmanicHafs'
+                                      ? parts.join(' ')
+                                      : parts[0];
+                                })(),
+                              ),
+                              if (settings.arabicFontFamily != 'UthmanicHafs')
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isDark
+                                            ? Colors.blueGrey.shade800
+                                            : Colors.grey.shade300,
+                                        width: 1,
                                       ),
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        widget.verse.id,
-                                        style: GoogleFonts.prompt(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600,
-                                        ),
+                                      color: isDark
+                                          ? const Color(0xFF0F172A)
+                                          : Colors.grey.shade50,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      widget.verse.id,
+                                      style: GoogleFonts.prompt(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? Colors.blueGrey.shade300
+                                            : Colors.blueGrey.shade600,
                                       ),
                                     ),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
                         ),
-                      const SizedBox(height: 14),
-                      Divider(
-                        color: isDark
-                            ? Colors.blueGrey.shade800
-                            : const Color(0xFFE2E8F0),
                       ),
-                    ],
-
                     const SizedBox(height: 14),
+                    Divider(
+                      color: isDark
+                          ? Colors.blueGrey.shade800
+                          : const Color(0xFFE2E8F0),
+                    ),
+                  ],
 
-                    // Translations Container
+                  const SizedBox(height: 14),
+
+                  // Translations Container
+                  if (settings.alwaysShowTranslation) ...[
                     if (settings.showThaiV3) ...[
                       const SizedBox(height: 8),
                       _buildTranslationBlock(
@@ -481,11 +592,7 @@ class _VerseCardState extends State<VerseCard> {
                         textStyle: GoogleFonts.prompt(
                           fontSize: settings.translationFontSize + 1.0,
                           height: 1.65,
-                          color: isDark
-                              ? Colors.white
-                              : (settings.themeColor == 'sepia'
-                                    ? const Color(0xFF2E1705)
-                                    : const Color(0xFF0F172A)),
+                          color: bodyTextColor,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -501,11 +608,7 @@ class _VerseCardState extends State<VerseCard> {
                         textStyle: GoogleFonts.prompt(
                           fontSize: settings.translationFontSize,
                           height: 1.65,
-                          color: isDark
-                              ? const Color(0xFFE2E8F0)
-                              : (settings.themeColor == 'sepia'
-                                    ? const Color(0xFF2E1705)
-                                    : const Color(0xFF334155)),
+                          color: bodyTextColor,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -521,387 +624,412 @@ class _VerseCardState extends State<VerseCard> {
                         textStyle: GoogleFonts.prompt(
                           fontSize: settings.translationFontSize - 1.0,
                           height: 1.6,
-                          color: isDark
-                              ? const Color(0xFFE2E8F0)
-                              : const Color(0xFF334155),
+                          color: bodyTextColor,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
+                  ],
 
-                    if (hasNote) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.brown.withOpacity(0.2)
-                              : Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.brown.withOpacity(0.4)
-                                : Colors.amber.shade200,
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.edit_note,
-                              size: 18,
-                              color: isDark
-                                  ? Colors.amber.shade200
-                                  : Colors.amber.shade800,
+                  if (isFavorited) ...[
+                    const SizedBox(height: 10),
+                    Builder(
+                      builder: (context) {
+                        final noteObj = notesProv.getNoteObjectForVerse(
+                          widget.verse.surahId,
+                          widget.verse.id,
+                        );
+                        final hasNoteText =
+                            noteObj?.noteText.isNotEmpty ?? false;
+                        return GestureDetector(
+                          onTap: _openTadabburModal,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                notesProv.getNoteForVerse(
-                                  widget.verse.surahId,
-                                  widget.verse.id,
-                                ),
-                                style: GoogleFonts.prompt(
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                  color: isDark
-                                      ? Colors.amber.shade100
-                                      : Colors.amber.shade900,
-                                ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.red.shade900.withOpacity(0.2)
+                                  : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.red.shade700.withOpacity(0.4)
+                                    : Colors.red.shade200,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.favorite_rounded,
+                                  size: 13,
+                                  color: isDark
+                                      ? Colors.red.shade300
+                                      : Colors.red.shade600,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  hasNoteText ? 'Favorite & Note' : 'Favorite',
+                                  style: GoogleFonts.prompt(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark
+                                        ? Colors.red.shade300
+                                        : Colors.red.shade600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? Colors.red.shade400
+                                      : Colors.red.shade600,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
 
-                    // Action buttons
-                    if (isHighlighted) ...[
-                      const SizedBox(height: 16),
-                      Consumer<LocalReadingProvider>(
-                        builder: (context, localReading, child) {
-                          final verseRef = toVerseRef(
-                            widget.verse.surahId,
-                            widget.verse.id,
-                          );
-                          final isBookmarked = localReading.isBookmarked(
-                            verseRef.surahId,
-                            verseRef.verseId,
-                          );
+                  // Action buttons
+                  if (_isMenuVisible) ...[
+                    const SizedBox(height: 16),
+                    Consumer<LocalReadingProvider>(
+                      builder: (context, localReading, child) {
+                        final verseRef = toVerseRef(
+                          widget.verse.surahId,
+                          widget.verse.id,
+                        );
+                        final isBookmarked = localReading.isBookmarked(
+                          verseRef.surahId,
+                          verseRef.verseId,
+                        );
 
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  // 1. Bookmark
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                // 1. Bookmark
+                                _buildActionIcon(
+                                  tooltip: 'Bookmark',
+                                  icon: isBookmarked
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  active: isBookmarked,
+                                  color: Colors.amber.shade700,
+                                  onPressed: () async {
+                                    await localReading.toggleBookmark(
+                                      verseRef.surahId,
+                                      verseRef.verseId,
+                                    );
+                                  },
+                                ),
+                                // 2. Short Tafsir
+                                if (widget.verse.shortTafsir != null)
                                   _buildActionIcon(
-                                    tooltip: 'Bookmark',
-                                    icon: isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                                    active: isBookmarked,
-                                    color: Colors.amber.shade700,
-                                    onPressed: () async {
-                                      await localReading.toggleBookmark(
-                                        verseRef.surahId,
-                                        verseRef.verseId,
-                                      );
+                                    tooltip: 'Short tafsir',
+                                    icon: Icons.menu_book_outlined,
+                                    active: _showTafsirBox,
+                                    color: themeColor,
+                                    onPressed: () {
+                                      setState(() {
+                                        _showTafsirBox = !_showTafsirBox;
+                                        _showAuditBox = false;
+                                      });
                                     },
                                   ),
-                                  // 2. Short Tafsir
-                                  if (widget.verse.shortTafsir != null)
-                                    _buildActionIcon(
-                                      tooltip: 'Short tafsir',
-                                      icon: Icons.menu_book_outlined,
-                                      active: _showTafsirBox,
-                                      color: themeColor,
-                                      onPressed: () {
-                                        setState(() {
-                                          _showTafsirBox = !_showTafsirBox;
-                                          _showNotesBox = false;
-                                          _showAuditBox = false;
-                                        });
-                                      },
-                                    ),
-                                  // 3. Arabic toggle with custom "ع" icon
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                                    child: Tooltip(
-                                      message: _isArabicVisible ? 'Hide Arabic' : 'Show Arabic',
-                                      child: Material(
-                                        type: MaterialType.transparency,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(8),
-                                          onTap: () {
-                                            if (!_isArabicVisible) {
-                                              _loadArabic();
-                                              widget.verse.isArabicVisible = true;
-                                            } else {
-                                              setState(() {
-                                                _isArabicVisible = false;
-                                                widget.verse.isArabicVisible = false;
-                                              });
-                                            }
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(6),
-                                            width: 34,
-                                            height: 34,
-                                            decoration: BoxDecoration(
-                                              color: _isArabicVisible ? themeColor.withOpacity(0.12) : Colors.transparent,
-                                              borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(
-                                                color: _isArabicVisible ? themeColor.withOpacity(0.3) : Colors.transparent,
-                                                width: 1,
-                                              ),
+                                // 3. Arabic toggle with custom "ع" icon
+                                Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: Tooltip(
+                                    message: _isArabicVisible
+                                        ? 'Hide Arabic'
+                                        : 'Show Arabic',
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(8),
+                                        onTap: () {
+                                          if (!_isArabicVisible) {
+                                            _loadArabic();
+                                            widget.verse.isArabicVisible = true;
+                                          } else {
+                                            setState(() {
+                                              _isArabicVisible = false;
+                                              widget.verse.isArabicVisible =
+                                                  false;
+                                            });
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          width: 34,
+                                          height: 34,
+                                          decoration: BoxDecoration(
+                                            color: _isArabicVisible
+                                                ? themeColor.withOpacity(0.12)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
                                             ),
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              'ع',
-                                              style: GoogleFonts.amiri(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: _isArabicVisible ? themeColor : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600),
-                                              ),
+                                            border: Border.all(
+                                              color: _isArabicVisible
+                                                  ? themeColor.withOpacity(0.3)
+                                                  : Colors.transparent,
+                                              width: 1,
+                                            ),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            'ع',
+                                            style: GoogleFonts.amiri(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: _isArabicVisible
+                                                  ? themeColor
+                                                  : (isDark
+                                                        ? Colors
+                                                              .blueGrey
+                                                              .shade300
+                                                        : Colors
+                                                              .blueGrey
+                                                              .shade600),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                    // 4. Tadabbur button
-                                    _buildActionIcon(
-                                      tooltip: 'Tadabbur',
-                                      icon: Icons.lightbulb_outline,
-                                      active: _showNotesBox,
-                                      color: themeColor,
-                                      onPressed: () {
-                                        setState(() {
-                                          _showNotesBox = !_showNotesBox;
-                                          _showTafsirBox = false;
-                                          _showAuditBox = false;
-                                        });
-                                      },
-                                    ),
-                                    // 5. Share button
-                                    _buildActionIcon(
-                                      tooltip: 'Share verse',
-                                      icon: Icons.share_outlined,
-                                      active: false,
-                                      color: themeColor,
-                                      onPressed: () {
-                                        final text = '${widget.verse.thaiV3}\n\n— ${widget.verse.surahId}:${widget.verse.id}';
-                                        Clipboard.setData(ClipboardData(text: text));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Copied to clipboard — paste to share'),
-                                            duration: Duration(seconds: 1),
-                                          ),
+                                ),
+                                // 4. Favorite button (formerly Tadabbur)
+                                _buildActionIcon(
+                                  tooltip: isFavorited
+                                      ? 'Remove from Favorites'
+                                      : 'Add to Favorites',
+                                  icon: isFavorited
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  active: isFavorited,
+                                  color: isFavorited
+                                      ? Colors.red.shade400
+                                      : themeColor,
+                                  onPressed: () =>
+                                      _handleFavoriteTap(notesProv, noteObj),
+                                ),
+                                // 5. Share button
+                                _buildActionIcon(
+                                  tooltip: 'Share verse',
+                                  icon: Icons.share_outlined,
+                                  active: false,
+                                  color: themeColor,
+                                  onPressed: () {
+                                    final text =
+                                        '${widget.verse.thaiV3}\n\n— ${widget.verse.surahId}:${widget.verse.id}';
+                                    Clipboard.setData(
+                                      ClipboardData(text: text),
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Copied to clipboard — paste to share',
+                                        ),
+                                        duration: Duration(seconds: 1),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                // 6. More tools (three dots)
+                                _buildActionIcon(
+                                  tooltip: 'More verse tools',
+                                  icon: Icons.more_horiz,
+                                  active: false,
+                                  color: themeColor,
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      backgroundColor: Colors.transparent,
+                                      isScrollControlled: true,
+                                      builder: (context) {
+                                        return VerseActionSheet(
+                                          verse: widget.verse,
+                                          onTafsirSelected: () {
+                                            setState(() {
+                                              _showTafsirBox = !_showTafsirBox;
+                                              _showAuditBox = false;
+                                            });
+                                          },
+                                          onEditNoteSelected: () {
+                                            _openTadabburModal();
+                                          },
+                                          onReportErrorSelected: () {
+                                            setState(() {
+                                              _showAuditBox = !_showAuditBox;
+                                              _showTafsirBox = false;
+                                            });
+                                          },
                                         );
                                       },
-                                    ),
-                                   // 6. More tools (three dots)
-                                   _buildActionIcon(
-                                     tooltip: 'More verse tools',
-                                     icon: Icons.more_horiz,
-                                     active: false,
-                                     color: themeColor,
-                                     onPressed: () {
-                                       showModalBottomSheet(
-                                         context: context,
-                                         backgroundColor: Colors.transparent,
-                                         isScrollControlled: true,
-                                         builder: (context) {
-                                           return VerseActionSheet(
-                                             verse: widget.verse,
-                                             onTafsirSelected: () {
-                                               setState(() {
-                                                 _showTafsirBox = !_showTafsirBox;
-                                                 _showNotesBox = false;
-                                                 _showAuditBox = false;
-                                               });
-                                             },
-                                             onEditNoteSelected: () {
-                                               setState(() {
-                                                 _showNotesBox = !_showNotesBox;
-                                                 _showTafsirBox = false;
-                                                 _showAuditBox = false;
-                                               });
-                                             },
-                                             onReportErrorSelected: () {
-                                               setState(() {
-                                                 _showAuditBox = !_showAuditBox;
-                                                 _showTafsirBox = false;
-                                                 _showNotesBox = false;
-                                               });
-                                             },
-                                           );
-                                         },
-                                       );
-                                     },
-                                   ),
-                                ],
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+
+                  // Collapsible Short Tafsir
+                  if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF0F172A)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.blueGrey.shade800
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Short tafsir',
+                                style: GoogleFonts.prompt(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: themeColor,
+                                ),
+                              ),
+                              Text(
+                                widget.verse.shortTafsirSource ??
+                                    'QuranEnc Thai Mokhtasar',
+                                style: GoogleFonts.prompt(
+                                  fontSize: 10,
+                                  color: isDark
+                                      ? Colors.blueGrey.shade300
+                                      : Colors.blueGrey.shade500,
+                                ),
                               ),
                             ],
-                          );
-                        },
-                      ),
-                    ],
-
-                    // Collapsible Short Tafsir
-                    if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.blueGrey.shade800
-                                : Colors.grey.shade200,
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Short tafsir',
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.verse.shortTafsir!,
+                            style: GoogleFonts.prompt(
+                              fontSize: 14,
+                              height: 1.7,
+                              color: isDark
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFF334155),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Collapsible Audit Input
+                  if (_showAuditBox) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.black26 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.withOpacity(0.1)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          TextField(
+                            controller: _auditController,
+                            style: GoogleFonts.prompt(fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Enter audit error report/fix details...',
+                              hintStyle: GoogleFonts.prompt(fontSize: 13),
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.all(10),
+                              isDense: true,
+                            ),
+                            maxLines: 2,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () =>
+                                    setState(() => _showAuditBox = false),
+                                child: Text(
+                                  'Cancel',
                                   style: GoogleFonts.prompt(
                                     fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: themeColor,
+                                    color: Colors.grey,
                                   ),
                                 ),
-                                Text(
-                                  widget.verse.shortTafsirSource ??
-                                      'QuranEnc Thai Mokhtasar',
-                                  style: GoogleFonts.prompt(
-                                    fontSize: 10,
-                                    color: isDark
-                                        ? Colors.blueGrey.shade300
-                                        : Colors.blueGrey.shade500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.verse.shortTafsir!,
-                              style: GoogleFonts.prompt(
-                                fontSize: 14,
-                                height: 1.7,
-                                color: isDark
-                                    ? const Color(0xFFE2E8F0)
-                                    : const Color(0xFF334155),
-                                fontWeight: FontWeight.w400,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Collapsible Personal Note Input
-                    if (_showNotesBox) ...[
-                      TadabburPanel(
-                        surahId: widget.verse.surahId,
-                        verseId: widget.verse.id,
-                        onClose: () => setState(() => _showNotesBox = false),
-                      ),
-                    ],
-
-                    // Collapsible Audit Input
-                    if (_showAuditBox) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black26 : Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.red.withOpacity(0.1),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            TextField(
-                              controller: _auditController,
-                              style: GoogleFonts.prompt(fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Enter audit error report/fix details...',
-                                hintStyle: GoogleFonts.prompt(fontSize: 13),
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.all(10),
-                                isDense: true,
-                              ),
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      setState(() => _showAuditBox = false),
-                                  child: Text(
-                                    'Cancel',
-                                    style: GoogleFonts.prompt(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
+                              ElevatedButton(
+                                onPressed: _isSavingAudit
+                                    ? null
+                                    : _submitAuditComment,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
                                   ),
                                 ),
-                                ElevatedButton(
-                                  onPressed: _isSavingAudit
-                                      ? null
-                                      : _submitAuditComment,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red.shade700,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: _isSavingAudit
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          _auditSaved
-                                              ? 'Saved ✓'
-                                              : 'Submit Audit',
-                                          style: GoogleFonts.prompt(
-                                            fontSize: 12,
-                                          ),
+                                child: _isSavingAudit
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
                                         ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                                      )
+                                    : Text(
+                                        _auditSaved
+                                            ? 'Saved ✓'
+                                            : 'Submit Audit',
+                                        style: GoogleFonts.prompt(fontSize: 12),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildTranslationBlock({
@@ -955,7 +1083,9 @@ class _VerseCardState extends State<VerseCard> {
       ),
       icon: Icon(
         icon,
-        color: active ? color : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600),
+        color: active
+            ? color
+            : (isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade600),
       ),
       onPressed: onPressed,
     );

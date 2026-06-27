@@ -9,10 +9,11 @@ import '../theme/app_theme.dart';
 class SettingsProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   bool _alwaysShowArabic = false;
+  bool _alwaysShowTranslation = true;
   String _arabicFontFamily = 'UthmanicHafs';
   double _arabicFontSize = 28.0;
   double _translationFontSize = 15.0;
-  String _themeColor = 'sage'; // sage, emerald, blue, purple, sepia
+  String _themeColor = 'blue';
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
 
   // Dual-slot translation model
@@ -24,6 +25,7 @@ class SettingsProvider extends ChangeNotifier {
 
   bool get isDarkMode => _isDarkMode;
   bool get alwaysShowArabic => _alwaysShowArabic;
+  bool get alwaysShowTranslation => _alwaysShowTranslation;
   String get arabicFontFamily => _arabicFontFamily;
   double get arabicFontSize => _arabicFontSize;
   double get translationFontSize => _translationFontSize;
@@ -36,11 +38,14 @@ class SettingsProvider extends ChangeNotifier {
 
   // Derived boolean getters (computed from slots — backwards compat for verse_card.dart etc.)
   bool get showThaiV3 =>
-      _primaryTranslationId == 'thai_v3' || _secondaryTranslationId == 'thai_v3';
+      _primaryTranslationId == 'thai_v3' ||
+      _secondaryTranslationId == 'thai_v3';
   bool get showThaiV2 =>
-      _primaryTranslationId == 'thai_v2' || _secondaryTranslationId == 'thai_v2';
+      _primaryTranslationId == 'thai_v2' ||
+      _secondaryTranslationId == 'thai_v2';
   bool get showEnglish =>
-      _primaryTranslationId == 'english' || _secondaryTranslationId == 'english';
+      _primaryTranslationId == 'english' ||
+      _secondaryTranslationId == 'english';
 
   SettingsProvider() {
     _loadSettings();
@@ -72,7 +77,7 @@ class SettingsProvider extends ChangeNotifier {
         // Derive legacy booleans from slots for backward compat with old Supabase rows
         await client.from('user_settings').upsert({
           'user_id': userId,
-          'theme_color': _themeColor,
+          'theme_color': 'blue',
           'is_dark_mode': _isDarkMode,
           'always_show_arabic': _alwaysShowArabic,
           'arabic_font_family': _arabicFontFamily,
@@ -101,7 +106,9 @@ class SettingsProvider extends ChangeNotifier {
           .maybeSingle();
 
       if (response != null) {
-        _themeColor = response['theme_color']?.toString() ?? _themeColor;
+        _themeColor = _normalizeThemeColor(
+          response['theme_color']?.toString() ?? _themeColor,
+        );
         _isDarkMode = response['is_dark_mode'] == true;
         _alwaysShowArabic = response['always_show_arabic'] == true;
         _arabicFontFamily =
@@ -114,8 +121,8 @@ class SettingsProvider extends ChangeNotifier {
         final rawPrimary = response['primary_translation_id']?.toString();
         if (rawPrimary != null && rawPrimary.isNotEmpty) {
           _primaryTranslationId = rawPrimary;
-          _secondaryTranslationId =
-              response['secondary_translation_id']?.toString();
+          _secondaryTranslationId = response['secondary_translation_id']
+              ?.toString();
         } else {
           // Migrate from legacy boolean columns
           final v3 = response['show_thai_v3'] == true;
@@ -137,7 +144,10 @@ class SettingsProvider extends ChangeNotifier {
         await prefs.setDouble('arabicFontSize', _arabicFontSize);
         await prefs.setString('primaryTranslationId', _primaryTranslationId);
         if (_secondaryTranslationId != null) {
-          await prefs.setString('secondaryTranslationId', _secondaryTranslationId!);
+          await prefs.setString(
+            'secondaryTranslationId',
+            _secondaryTranslationId!,
+          );
         } else {
           await prefs.remove('secondaryTranslationId');
         }
@@ -151,10 +161,11 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _alwaysShowArabic = prefs.getBool('alwaysShowArabic') ?? false;
+    _alwaysShowTranslation = prefs.getBool('alwaysShowTranslation') ?? true;
     _arabicFontFamily = prefs.getString('arabicFontFamily') ?? 'UthmanicHafs';
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
     _translationFontSize = prefs.getDouble('translationFontSize') ?? 15.0;
-    _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'sage');
+    _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'blue');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
 
     // Load dual-slot translation state — migrate from legacy booleans if absent
@@ -183,7 +194,10 @@ class SettingsProvider extends ChangeNotifier {
       // Persist migrated values
       await prefs.setString('primaryTranslationId', _primaryTranslationId);
       if (_secondaryTranslationId != null) {
-        await prefs.setString('secondaryTranslationId', _secondaryTranslationId!);
+        await prefs.setString(
+          'secondaryTranslationId',
+          _secondaryTranslationId!,
+        );
       }
     }
 
@@ -192,12 +206,12 @@ class SettingsProvider extends ChangeNotifier {
 
   /// Derive dual-slot IDs from legacy boolean flags.
   /// Priority: thai_v3 > thai_v2 > english.
-  (String, String?) _deriveSlotIds({required bool v3, required bool v2, required bool en}) {
-    final enabled = [
-      if (v3) 'thai_v3',
-      if (v2) 'thai_v2',
-      if (en) 'english',
-    ];
+  (String, String?) _deriveSlotIds({
+    required bool v3,
+    required bool v2,
+    required bool en,
+  }) {
+    final enabled = [if (v3) 'thai_v3', if (v2) 'thai_v2', if (en) 'english'];
     if (enabled.isEmpty) return ('thai_v3', null);
     return (enabled[0], enabled.length > 1 ? enabled[1] : null);
   }
@@ -216,6 +230,13 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('alwaysShowArabic', value);
     await _syncToSupabase();
+  }
+
+  void toggleAlwaysShowTranslation(bool value) async {
+    _alwaysShowTranslation = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('alwaysShowTranslation', value);
   }
 
   void setArabicFontFamily(String value) async {
@@ -242,14 +263,10 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void setThemeColor(String value) async {
-    final normalized = _normalizeThemeColor(value);
-    if (!['sage', 'emerald', 'blue', 'purple', 'sepia'].contains(normalized)) {
-      return;
-    }
-    _themeColor = normalized;
+    _themeColor = 'blue';
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeColor', normalized);
+    await prefs.setString('themeColor', 'blue');
     await _syncToSupabase();
   }
 
@@ -273,7 +290,9 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     if (slot == 'primary') {
       if (id == null) return; // primary must always have a value
-      final newSecondary = _secondaryTranslationId == id ? null : _secondaryTranslationId;
+      final newSecondary = _secondaryTranslationId == id
+          ? null
+          : _secondaryTranslationId;
       _primaryTranslationId = id;
       _secondaryTranslationId = newSecondary;
     } else {
@@ -304,7 +323,9 @@ class SettingsProvider extends ChangeNotifier {
 
   void setShowThaiV2(bool value) {
     if (value) {
-      if (_primaryTranslationId != 'thai_v2') updateTranslationSlot('secondary', 'thai_v2');
+      if (_primaryTranslationId != 'thai_v2') {
+        updateTranslationSlot('secondary', 'thai_v2');
+      }
     } else {
       if (_primaryTranslationId == 'thai_v2') {
         final fallback = _secondaryTranslationId ?? 'thai_v3';
@@ -317,7 +338,9 @@ class SettingsProvider extends ChangeNotifier {
 
   void setShowEnglish(bool value) {
     if (value) {
-      if (_primaryTranslationId != 'english') updateTranslationSlot('secondary', 'english');
+      if (_primaryTranslationId != 'english') {
+        updateTranslationSlot('secondary', 'english');
+      }
     } else {
       if (_primaryTranslationId == 'english') {
         final fallback = _secondaryTranslationId ?? 'thai_v3';
@@ -330,23 +353,11 @@ class SettingsProvider extends ChangeNotifier {
 
   // Helper method to get theme colors
   MaterialColor getThemeSwatch() {
-    switch (_themeColor) {
-      case 'emerald':
-        return Colors.green;
-      case 'blue':
-        return Colors.blue;
-      case 'purple':
-        return Colors.purple;
-      case 'sepia':
-        return Colors.amber;
-      case 'sage':
-      default:
-        return Colors.green;
-    }
+    return Colors.blue;
   }
 
   AppThemeColors getAppColors() {
-    return AppTheme.colors(isDark: _isDarkMode, palette: _themeColor);
+    return AppTheme.colors(isDark: _isDarkMode, palette: 'blue');
   }
 
   Color getPrimaryColor() {
@@ -358,12 +369,6 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   String _normalizeThemeColor(String value) {
-    switch (value) {
-      case 'teal':
-      case 'grey':
-        return 'sage';
-      default:
-        return value;
-    }
+    return 'blue';
   }
 }

@@ -7,6 +7,7 @@ import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../models/tadabbur_note.dart';
 import '../data/tadabbur_repository.dart';
+import '../theme/app_theme.dart';
 
 class TadabburPanel extends StatefulWidget {
   final String surahId;
@@ -50,7 +51,10 @@ class _TadabburPanelState extends State<TadabburPanel> {
   Future<void> _loadNote() async {
     setState(() => _loading = true);
     final notesProv = context.read<NotesProvider>();
-    final existing = notesProv.getNoteObjectForVerse(widget.surahId, widget.verseId);
+    final existing = notesProv.getNoteObjectForVerse(
+      widget.surahId,
+      widget.verseId,
+    );
     if (existing != null) {
       setState(() {
         _savedNote = existing;
@@ -66,37 +70,37 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
   Future<void> _save() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
 
     setState(() => _isSaving = true);
     final notesProv = context.read<NotesProvider>();
+    final isPublicToSave = text.isEmpty ? false : _isPublic;
+
     await notesProv.saveNote(
       surahId: widget.surahId,
       verseId: widget.verseId,
       noteText: text,
-      isPublic: _isPublic,
+      isPublic: isPublicToSave,
       isAnonymous: _isAnonymous,
     );
 
     if (mounted) {
       setState(() => _isSaving = false);
-      if (text.isNotEmpty) {
-        setState(() => _saveSuccess = true);
-        Future.delayed(const Duration(milliseconds: 1600), () {
-          if (mounted) {
-            setState(() => _saveSuccess = false);
-            widget.onClose();
-          }
-        });
-      } else {
-        widget.onClose();
-      }
+      setState(() => _saveSuccess = true);
+      Future.delayed(const Duration(milliseconds: 1600), () {
+        if (mounted) {
+          setState(() => _saveSuccess = false);
+          widget.onClose();
+        }
+      });
     }
   }
 
   Future<void> _delete() async {
     try {
-      await _repo.deleteNote(_savedNote!.id);
+      await context.read<NotesProvider>().deleteNote(
+        widget.surahId,
+        widget.verseId,
+      );
       if (mounted) {
         setState(() => _savedNote = null);
         widget.onClose();
@@ -104,7 +108,10 @@ class _TadabburPanelState extends State<TadabburPanel> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -113,162 +120,311 @@ class _TadabburPanelState extends State<TadabburPanel> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
+    final colors = settings.getAppColors();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = settings.getPrimaryColor();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isDark ? Colors.blueGrey.shade800 : Colors.grey.shade300,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade100,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  'Tadabbur — ${widget.surahId}:${widget.verseId}',
-                  style: GoogleFonts.prompt(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: primaryColor,
-                  ),
-                ),
-                const Spacer(),
-                if (_savedNote != null)
-                  TextButton(
-                    onPressed: () => setState(() => _isEditing = !_isEditing),
-                    child: Text(
-                      _isEditing ? 'Cancel' : 'Edit',
-                      style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 16),
-                  onPressed: widget.onClose,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+            border: Border.all(color: colors.borderSoft),
           ),
-          // Body
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (_savedNote != null && !_isEditing)
-            _buildSavedCard(primaryColor, isDark)
-          else
-            _buildForm(primaryColor, isDark),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  border: Border(bottom: BorderSide(color: colors.borderSoft)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.red.shade400,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: colors.textStrong,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_savedNote != null)
+                      TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _isEditing = !_isEditing),
+                        icon: Icon(
+                          _isEditing ? Icons.close : Icons.edit_rounded,
+                          size: 14,
+                          color: colors.primary,
+                        ),
+                        label: Text(
+                          _isEditing ? 'Cancel' : 'Edit',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: colors.primary,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: widget.onClose,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      color: colors.foreground.withOpacity(0.6),
+                    ),
+                  ],
+                ),
+              ),
+              // Body
+              Flexible(
+                child: SingleChildScrollView(
+                  child: _loading
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : (_savedNote != null && !_isEditing)
+                      ? _buildSavedCard(colors, isDark)
+                      : _buildForm(colors, isDark),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildSavedCard(Color primaryColor, bool isDark) {
+  Widget _buildSavedCard(AppThemeColors colors, bool isDark) {
+    final hasNoteText = _savedNote!.noteText.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _savedNote!.noteText,
-            style: GoogleFonts.prompt(fontSize: 14, height: 1.6),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            timeago.format(_savedNote!.updatedAt),
-            style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? colors.background.withOpacity(0.4)
+                  : colors.surfaceMuted,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: hasNoteText
+                ? Text(
+                    _savedNote!.noteText,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      height: 1.5,
+                      color: colors.textStrong,
+                    ),
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Icons.favorite_rounded,
+                        color: Colors.red.shade400,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Favorited this verse (no reflection text added)',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            color: colors.textStrong.withOpacity(0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildPrivacyChip(primaryColor),
-              const Spacer(),
-              if (_savedNote!.isPublic)
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final updated = await _repo.saveNote(TadabburNote(
-                        id: _savedNote!.id,
-                        userId: _savedNote!.userId,
-                        surahId: _savedNote!.surahId,
-                        verseId: _savedNote!.verseId,
-                        noteText: _savedNote!.noteText,
-                        isPublic: false,
-                        isAnonymous: _savedNote!.isAnonymous,
-                        likesCount: _savedNote!.likesCount,
-                        language: _savedNote!.language,
-                        createdAt: _savedNote!.createdAt,
-                        updatedAt: DateTime.now(),
-                        synced: true,
-                      ));
-                      if (updated != null && mounted) {
-                        setState(() => _savedNote = updated);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    }
-                  },
-                  child: Text('Make Private', style: GoogleFonts.prompt(fontSize: 10)),
-                )
-              else
-                TextButton(
-                  onPressed: () async {
-                    try {
-                      final updated = await _repo.saveNote(TadabburNote(
-                        id: _savedNote!.id,
-                        userId: _savedNote!.userId,
-                        surahId: _savedNote!.surahId,
-                        verseId: _savedNote!.verseId,
-                        noteText: _savedNote!.noteText,
-                        isPublic: true,
-                        isAnonymous: _savedNote!.isAnonymous,
-                        likesCount: _savedNote!.likesCount,
-                        language: _savedNote!.language,
-                        createdAt: _savedNote!.createdAt,
-                        updatedAt: DateTime.now(),
-                        synced: true,
-                      ));
-                      if (updated != null && mounted) {
-                        setState(() => _savedNote = updated);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
-                        );
-                      }
-                    }
-                  },
-                  child: Text('Make Public', style: GoogleFonts.prompt(fontSize: 10)),
+              if (hasNoteText) ...[
+                _buildPrivacyChip(colors),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                timeago.format(_savedNote!.updatedAt),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: colors.foreground.withOpacity(0.6),
+                  fontWeight: FontWeight.w500,
                 ),
+              ),
+              const Spacer(),
+              if (hasNoteText) ...[
+                if (_savedNote!.isPublic)
+                  TextButton.icon(
+                    onPressed: () async {
+                      try {
+                        final updated = await _repo.saveNote(
+                          TadabburNote(
+                            id: _savedNote!.id,
+                            userId: _savedNote!.userId,
+                            surahId: _savedNote!.surahId,
+                            verseId: _savedNote!.verseId,
+                            noteText: _savedNote!.noteText,
+                            isPublic: false,
+                            isAnonymous: _savedNote!.isAnonymous,
+                            likesCount: _savedNote!.likesCount,
+                            language: _savedNote!.language,
+                            createdAt: _savedNote!.createdAt,
+                            updatedAt: DateTime.now(),
+                            synced: true,
+                          ),
+                        );
+                        if (updated != null && mounted) {
+                          setState(() => _savedNote = updated);
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.lock_outline_rounded, size: 14),
+                    label: Text(
+                      'Make Private',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: () async {
+                      try {
+                        final updated = await _repo.saveNote(
+                          TadabburNote(
+                            id: _savedNote!.id,
+                            userId: _savedNote!.userId,
+                            surahId: _savedNote!.surahId,
+                            verseId: _savedNote!.verseId,
+                            noteText: _savedNote!.noteText,
+                            isPublic: true,
+                            isAnonymous: _savedNote!.isAnonymous,
+                            likesCount: _savedNote!.likesCount,
+                            language: _savedNote!.language,
+                            createdAt: _savedNote!.createdAt,
+                            updatedAt: DateTime.now(),
+                            synced: true,
+                          ),
+                        );
+                        if (updated != null && mounted) {
+                          setState(() => _savedNote = updated);
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.public_rounded, size: 14),
+                    label: Text(
+                      'Make Public',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.primary,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+              ],
               IconButton(
-                icon: Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 20,
+                  color: Colors.red.shade400,
+                ),
+                tooltip: 'Unfavorite',
                 onPressed: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: Text('Delete?', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
-                      content: Text('Delete this reflection?', style: GoogleFonts.prompt()),
+                      title: Text(
+                        'Remove from Favorites',
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+                      ),
+                      content: Text(
+                        'Are you sure you want to unfavorite this verse?',
+                        style: GoogleFonts.inter(),
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: GoogleFonts.prompt())),
-                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Delete', style: GoogleFonts.prompt(color: Colors.red))),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: Text(
+                            'Unfavorite',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -282,79 +438,277 @@ class _TadabburPanelState extends State<TadabburPanel> {
     );
   }
 
-  Widget _buildPrivacyChip(Color primaryColor) {
+  Widget _buildPrivacyChip(AppThemeColors colors) {
+    final isPublic = _savedNote?.isPublic ?? _isPublic;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _isPublic ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+        color: isPublic
+            ? Colors.green.withOpacity(0.08)
+            : colors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: _isPublic ? Colors.green.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+          color: isPublic
+              ? Colors.green.withOpacity(0.2)
+              : colors.primary.withOpacity(0.2),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _isPublic ? Icons.public : Icons.lock_outline,
-            size: 10,
-            color: _isPublic ? Colors.green : Colors.grey,
+            isPublic ? Icons.public : Icons.lock_outline,
+            size: 11,
+            color: isPublic ? Colors.green : colors.primary,
           ),
           const SizedBox(width: 4),
           Text(
-            _isPublic ? 'Public' : 'Private',
-            style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w700),
+            isPublic ? 'Public' : 'Private',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: isPublic ? Colors.green : colors.primary,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildForm(Color primaryColor, bool isDark) {
+  Widget _buildForm(AppThemeColors colors, bool isDark) {
+    final isTextEmpty = _controller.text.trim().isEmpty;
+    final buttonLabel = _saveSuccess
+        ? 'Saved successfully'
+        : isTextEmpty
+        ? 'Save as Favorite'
+        : 'Save Favorite & Note';
+
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _controller,
-            maxLines: 3,
-            style: GoogleFonts.prompt(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Write your reflection...',
-              hintStyle: GoogleFonts.prompt(fontSize: 12, color: Colors.grey),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.all(10),
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
             children: [
-              Switch(
-                value: _isPublic,
-                onChanged: (val) => setState(() => _isPublic = val),
-                activeColor: primaryColor,
+              Icon(
+                Icons.rate_review_outlined,
+                size: 15,
+                color: colors.primary.withOpacity(0.8),
               ),
-              Text('Public', style: GoogleFonts.prompt(fontSize: 11)),
-              const SizedBox(width: 12),
-              Switch(
-                value: _isAnonymous,
-                onChanged: (val) => setState(() => _isAnonymous = val),
-                activeColor: primaryColor,
-              ),
-              Text('Anonymous', style: GoogleFonts.prompt(fontSize: 11)),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: _isSaving || _saveSuccess || _controller.text.trim().isEmpty ? null : _save,
-                style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-                child: _isSaving
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        _saveSuccess ? 'Saved ✓' : 'Save',
-                        style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.w700),
-                      ),
+              const SizedBox(width: 6),
+              Text(
+                'Reflection Note (Optional)',
+                style: GoogleFonts.inter(
+                  color: colors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            style: GoogleFonts.inter(fontSize: 14, color: colors.textStrong),
+            decoration: InputDecoration(
+              hintText: 'Write your reflection here (optional)...',
+              hintStyle: GoogleFonts.inter(
+                fontSize: 13,
+                color: colors.foreground.withOpacity(0.4),
+              ),
+              filled: true,
+              fillColor: isDark
+                  ? colors.background.withOpacity(0.4)
+                  : colors.surfaceMuted,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colors.borderSoft, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colors.primary, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.all(14),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          if (!isTextEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  Icons.visibility_outlined,
+                  size: 15,
+                  color: colors.primary.withOpacity(0.8),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Visibility',
+                  style: GoogleFonts.inter(
+                    color: colors.textStrong,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? colors.background.withOpacity(0.5)
+                    : colors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.borderSoft),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isPublic = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: !_isPublic
+                              ? (isDark
+                                    ? colors.primary.withOpacity(0.2)
+                                    : colors.primary)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              size: 14,
+                              color: !_isPublic
+                                  ? (isDark
+                                        ? colors.primary
+                                        : colors.textInverse)
+                                  : colors.foreground.withOpacity(0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Private',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: !_isPublic
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: !_isPublic
+                                    ? (isDark
+                                          ? colors.primary
+                                          : colors.textInverse)
+                                    : colors.foreground.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isPublic = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _isPublic
+                              ? (isDark
+                                    ? colors.primary.withOpacity(0.2)
+                                    : colors.primary)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.public_rounded,
+                              size: 14,
+                              color: _isPublic
+                                  ? (isDark
+                                        ? colors.primary
+                                        : colors.textInverse)
+                                  : colors.foreground.withOpacity(0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Public',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: _isPublic
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: _isPublic
+                                    ? (isDark
+                                          ? colors.primary
+                                          : colors.textInverse)
+                                    : colors.foreground.withOpacity(0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: isTextEmpty
+                    ? Colors.red.shade400
+                    : colors.primary,
+                foregroundColor: colors.textInverse,
+                disabledBackgroundColor:
+                    (isTextEmpty ? Colors.red.shade400 : colors.primary)
+                        .withOpacity(0.25),
+                disabledForegroundColor: colors.textInverse.withOpacity(0.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                elevation: 0,
+              ),
+              onPressed: _isSaving || _saveSuccess ? null : _save,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      _saveSuccess
+                          ? Icons.check_circle_outline_rounded
+                          : isTextEmpty
+                          ? Icons.favorite_rounded
+                          : Icons.save_rounded,
+                      size: 16,
+                    ),
+              label: Text(
+                buttonLabel,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ),
           ),
         ],
       ),

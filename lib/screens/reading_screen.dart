@@ -15,7 +15,6 @@ import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
-import 'bookmarks_screen.dart';
 import '../shared/shared.dart';
 
 class ReadingScreen extends StatefulWidget {
@@ -391,6 +390,23 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             settings.toggleAlwaysShowArabic(val),
                       ),
 
+                      SwitchListTile(
+                        title: Text(
+                          'Always Show Translation',
+                          style: GoogleFonts.prompt(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Hide all translations for Arabic-only reading.',
+                          style: GoogleFonts.prompt(fontSize: 12),
+                        ),
+                        value: settings.alwaysShowTranslation,
+                        activeColor: primaryColor,
+                        onChanged: (val) =>
+                            settings.toggleAlwaysShowTranslation(val),
+                      ),
+
                       const Divider(height: 24),
                       Text(
                         'Primary Translation',
@@ -506,59 +522,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                       const Divider(height: 32),
 
-                      // Color Themes Options
-                      Text(
-                        'Theme Palette',
-                        style: GoogleFonts.prompt(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildColorDot(
-                            context,
-                            'teal',
-                            Colors.teal,
-                            settings,
-                          ),
-                          _buildColorDot(
-                            context,
-                            'emerald',
-                            const Color(0xFF10B981),
-                            settings,
-                          ),
-                          _buildColorDot(
-                            context,
-                            'blue',
-                            Colors.blue,
-                            settings,
-                          ),
-                          _buildColorDot(
-                            context,
-                            'purple',
-                            Colors.purple,
-                            settings,
-                          ),
-                          _buildColorDot(
-                            context,
-                            'sepia',
-                            Colors.amber,
-                            settings,
-                          ),
-                          _buildColorDot(
-                            context,
-                            'grey',
-                            Colors.blueGrey,
-                            settings,
-                          ),
-                        ],
-                      ),
-
-                      const Divider(height: 32),
-
                       // Arabic Font Family Choice
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -571,11 +534,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           ),
                           DropdownButton<String>(
                             value: settings.arabicFontFamily,
-                            dropdownColor: isDark
-                                ? const Color(0xFF1E293B)
-                                : Colors.white,
+                            dropdownColor: colors.surface,
                             style: GoogleFonts.prompt(
-                              color: isDark ? Colors.white : Colors.black87,
+                              color: colors.textStrong,
                               fontWeight: FontWeight.w500,
                             ),
                             underline: Container(),
@@ -685,39 +646,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
           },
         );
       },
-    );
-  }
-
-  Widget _buildColorDot(
-    BuildContext context,
-    String colorName,
-    Color color,
-    SettingsProvider settings,
-  ) {
-    final isSelected = settings.themeColor == colorName;
-    return GestureDetector(
-      onTap: () => settings.setThemeColor(colorName),
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? color : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: colorName == 'sepia' ? const Color(0xFFE5C158) : color,
-            shape: BoxShape.circle,
-          ),
-          child: isSelected
-              ? const Icon(Icons.check, color: Colors.white, size: 18)
-              : null,
-        ),
-      ),
     );
   }
 
@@ -967,71 +895,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.bookmarks_outlined, color: colors.primary),
-            tooltip: 'Bookmarks',
-            onPressed: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      BookmarksScreen(repository: widget.repository),
-                ),
-              );
-
-              if (result != null) {
-                final targetSurah = result['surahId']?.toString();
-                final targetVerse = result['verseId']?.toString();
-                if (targetSurah == null) return;
-
-                if (targetSurah == _currentSurah) {
-                  await Provider.of<LocalReadingProvider>(
-                    context,
-                    listen: false,
-                  ).switchToFreeReadIfOutside(targetSurah, targetVerse ?? '1');
-                  if (!context.mounted) return;
-                  final targetIndex = targetVerse == null
-                      ? -1
-                      : verses.indexWhere((v) => v.id == targetVerse);
-                  if (targetIndex != -1) {
-                    provider.setVerseIndexAndScroll(targetIndex);
-                  } else if (targetVerse != null) {
-                    _loadSurah(targetSurah, jumpToVerseId: targetVerse);
-                  }
-                } else {
-                  if (targetVerse != null) {
-                    _loadSurah(targetSurah, jumpToVerseId: targetVerse);
-                  } else if (result.containsKey('verseIndex')) {
-                    _loadSurah(targetSurah, jumpToIndex: result['verseIndex']);
-                  }
-                }
-              }
-            },
-          ),
-          IconButton(
-            icon: Text(
-              'ع',
-              style: GoogleFonts.amiri(
-                color: settings.alwaysShowArabic
-                    ? colors.primary
-                    : colors.textStrong.withOpacity(0.4),
-                fontWeight: FontWeight.bold,
-                fontSize: 22,
-              ),
-            ),
-            tooltip: 'Toggle Arabic text globally',
-            onPressed: () =>
-                settings.toggleAlwaysShowArabic(!settings.alwaysShowArabic),
-          ),
-          IconButton(
-            icon: Text(
-              'Aa',
-              style: GoogleFonts.inter(
-                color: colors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            tooltip: 'Appearance',
+            icon: Icon(Icons.settings_rounded, color: colors.primary),
+            tooltip: 'Settings',
             onPressed: _showSettingsSheet,
           ),
         ],
@@ -1164,6 +1029,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       if (_currentSurah != '9')
                         _buildBismillahBanner(settings, isDark),
                       _buildObjectivesBanner(_currentSurah, settings, isDark),
+                      if (showThemeHeader)
+                        _buildThemeHeader(settings, isDark, verseNumber),
                       card,
                     ],
                   );
@@ -1194,7 +1061,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 bottom: MediaQuery.of(context).padding.bottom + 10,
               ),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                color: colors.surface,
                 border: Border(
                   top: BorderSide(
                     color: isDark
@@ -1218,20 +1085,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   final hasPrev = currentIndex > 0;
                   final hasNext = currentIndex < totalCount - 1;
 
-                  final disabledBg = isDark
-                      ? Colors.blueGrey.shade900.withOpacity(0.3)
-                      : Colors.grey.shade100;
-                  final disabledFg = isDark
-                      ? Colors.blueGrey.shade700
-                      : Colors.grey.shade400;
-                  final disabledBorder = isDark
-                      ? Colors.blueGrey.shade800.withOpacity(0.3)
-                      : Colors.grey.shade200;
-
                   return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
+                      IconButton.filledTonal(
                         onPressed: hasPrev
                             ? () {
                                 progressProv.setVerseIndexAndScroll(
@@ -1239,26 +1095,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 );
                               }
                             : null,
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                        icon: const Icon(Icons.chevron_left_rounded),
+                        tooltip: 'Previous ayah',
                         style: IconButton.styleFrom(
-                          disabledForegroundColor: isDark
-                              ? Colors.blueGrey.shade800
-                              : Colors.grey.shade300,
                           foregroundColor: primaryColor,
+                          disabledForegroundColor: colors.foreground
+                              .withOpacity(0.35),
+                          backgroundColor: colors.primaryLight,
+                          disabledBackgroundColor: colors.surfaceMuted,
                         ),
                       ),
                       Expanded(
-                        child: Container(
-                          height: 40,
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                               backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
+                              foregroundColor: colors.textInverse,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              padding: EdgeInsets.zero,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               elevation: 0,
                             ),
                             onPressed: () async {
@@ -1273,7 +1132,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   currentVerse.id,
                                 );
 
-                                // Explicitly update progress and recent reading
                                 await localReading.updateProfileProgress(
                                   activeProfile.id,
                                   verseRef,
@@ -1289,11 +1147,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               }
                             },
                             icon: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 16,
+                              Icons.pause_circle_outline_rounded,
+                              size: 18,
                             ),
                             label: Text(
-                              'Done Reading',
+                              'Take a break',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
@@ -1304,77 +1162,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: settings.alwaysShowTranslation
-                            ? () => settings.toggleAlwaysShowArabic(
-                                !settings.alwaysShowArabic,
-                              )
-                            : null,
-                        icon: Text(
-                          'ع',
-                          style: GoogleFonts.amiri(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: !settings.alwaysShowTranslation
-                                ? disabledFg
-                                : (settings.alwaysShowArabic
-                                      ? Colors.white
-                                      : primaryColor),
-                          ),
-                        ),
-                        style: IconButton.styleFrom(
-                          backgroundColor: !settings.alwaysShowTranslation
-                              ? disabledBg
-                              : (settings.alwaysShowArabic
-                                    ? primaryColor
-                                    : primaryColor.withOpacity(0.12)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: !settings.alwaysShowTranslation
-                                  ? disabledBorder
-                                  : primaryColor.withOpacity(0.3),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: settings.alwaysShowArabic
-                            ? () => settings.toggleAlwaysShowTranslation(
-                                !settings.alwaysShowTranslation,
-                              )
-                            : null,
-                        icon: Text(
-                          'ท',
-                          style: GoogleFonts.prompt(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: !settings.alwaysShowArabic
-                                ? disabledFg
-                                : (settings.alwaysShowTranslation
-                                      ? Colors.white
-                                      : primaryColor),
-                          ),
-                        ),
-                        style: IconButton.styleFrom(
-                          backgroundColor: !settings.alwaysShowArabic
-                              ? disabledBg
-                              : (settings.alwaysShowTranslation
-                                    ? primaryColor
-                                    : primaryColor.withOpacity(0.12)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: !settings.alwaysShowArabic
-                                  ? disabledBorder
-                                  : primaryColor.withOpacity(0.3),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
+                      IconButton.filledTonal(
                         onPressed: hasNext
                             ? () {
                                 progressProv.setVerseIndexAndScroll(
@@ -1382,12 +1170,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 );
                               }
                             : null,
-                        icon: const Icon(Icons.arrow_forward_ios_rounded),
+                        icon: const Icon(Icons.chevron_right_rounded),
+                        tooltip: 'Next ayah',
                         style: IconButton.styleFrom(
-                          disabledForegroundColor: isDark
-                              ? Colors.blueGrey.shade800
-                              : Colors.grey.shade300,
                           foregroundColor: primaryColor,
+                          disabledForegroundColor: colors.foreground
+                              .withOpacity(0.35),
+                          backgroundColor: colors.primaryLight,
+                          disabledBackgroundColor: colors.surfaceMuted,
                         ),
                       ),
                     ],
@@ -1405,11 +1195,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
     bool isDark,
   ) {
     final primaryColor = settingsProv.getPrimaryColor();
+    final colors = settingsProv.getAppColors();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark
@@ -1432,7 +1223,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             style: GoogleFonts.prompt(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.blueGrey.shade800,
+              color: colors.textStrong,
             ),
           ),
           const SizedBox(height: 8),
