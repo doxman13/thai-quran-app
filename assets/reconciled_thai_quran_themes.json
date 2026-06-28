@@ -6449,9 +6449,16 @@
   {
     "surah": 18,
     "surah_name": "Al-Kahf",
-    "verse_range": "82-84",
+    "verse_range": "82",
     "theme_en": "The Wall",
     "theme_th": "กำแพง"
+  },
+  {
+    "surah": 18,
+    "surah_name": "Al-Kahf",
+    "verse_range": "83-84",
+    "theme_en": "Story 4) Zul-Qarnain",
+    "theme_th": "เรื่องที่ 4) ซุลก็อรนัยนฺ"
   },
   {
     "surah": 18,

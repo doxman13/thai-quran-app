@@ -285,14 +285,48 @@ class LocalReadingProvider extends ChangeNotifier {
   int? _pendingReadingStateVerseId;
   String? _pendingReadingStateUserId;
 
-  String get currentUserId => Supabase.instance.client.auth.currentUser?.id ?? _localUserId;
+  String get currentUserId =>
+      Supabase.instance.client.auth.currentUser?.id ?? _localUserId;
 
-  List<LocalReadingProfile> get profiles =>
-      _profiles.where((p) => p.userId == currentUserId).toList();
-  List<LocalReadingProfile> get activeProfiles =>
-      _profiles.where((profile) => !profile.isArchived && profile.userId == currentUserId).toList(growable: false);
-  List<LocalReadingProfile> get archivedProfiles =>
-      _profiles.where((profile) => profile.isArchived && profile.userId == currentUserId).toList(growable: false);
+  List<LocalReadingProfile> get profiles {
+    final userProfiles = _profiles
+        .where((p) => p.userId == currentUserId)
+        .toList();
+    final hasCustomActive = userProfiles.any(
+      (p) => !isFreeReadProfile(p) && !p.isArchived,
+    );
+    if (hasCustomActive) {
+      return userProfiles.where((p) => !isFreeReadProfile(p)).toList();
+    }
+    return userProfiles;
+  }
+
+  List<LocalReadingProfile> get activeProfiles {
+    final allActive = _profiles
+        .where(
+          (profile) => !profile.isArchived && profile.userId == currentUserId,
+        )
+        .toList();
+    final hasCustomActive = allActive.any((p) => !isFreeReadProfile(p));
+    if (hasCustomActive) {
+      return allActive
+          .where((p) => !isFreeReadProfile(p))
+          .toList(growable: false);
+    }
+    return allActive;
+  }
+
+  List<LocalReadingProfile> get archivedProfiles {
+    final allArchived = _profiles
+        .where(
+          (profile) => profile.isArchived && profile.userId == currentUserId,
+        )
+        .toList();
+    return allArchived
+        .where((p) => !isFreeReadProfile(p))
+        .toList(growable: false);
+  }
+
   List<LocalBookmarkCategory> get categories =>
       _categories.where((c) => c.userId == currentUserId).toList();
   List<LocalBookmark> get bookmarks =>
@@ -305,6 +339,13 @@ class LocalReadingProvider extends ChangeNotifier {
       .where(isFreeReadProfile)
       .firstOrNull;
 
+  LocalReadingProfile? profileById(String profileId) {
+    return _profiles
+        .where((profile) => profile.userId == currentUserId)
+        .where((profile) => profile.id == profileId)
+        .firstOrNull;
+  }
+
   LocalReadingProfile? get activeProfile {
     final allUserProfiles = _profiles
         .where((p) => p.userId == currentUserId && !p.isArchived)
@@ -316,7 +357,9 @@ class LocalReadingProvider extends ChangeNotifier {
 
     final userProfiles = profiles;
     if (userProfiles.isEmpty) return null;
-    final active = userProfiles.where((profile) => profile.id == _activeProfileId);
+    final active = userProfiles.where(
+      (profile) => profile.id == _activeProfileId,
+    );
     if (active.isNotEmpty) return active.first;
     final activeList = activeProfiles;
     return activeList.isNotEmpty ? activeList.first : userProfiles.first;
@@ -346,7 +389,18 @@ class LocalReadingProvider extends ChangeNotifier {
       return false;
     }
 
-    await setActiveProfile(freeRead.id);
+    final now = DateTime.now();
+    final freeReadRef = toVerseRef(surahId, verseId);
+    _profiles = _profiles
+        .map(
+          (item) => item.id == freeRead.id
+              ? item.copyWith(current: freeReadRef, updatedAt: now)
+              : item,
+        )
+        .toList();
+    _activeProfileId = freeRead.id;
+    await _save(immediate: true);
+    notifyListeners();
     return true;
   }
 
@@ -377,12 +431,37 @@ class LocalReadingProvider extends ChangeNotifier {
       } else {
         // Guard logout: ensure guest profiles are preserved and default is active
         _ensureDefaultProfile();
-        final guestActive = _profiles.where((p) => p.userId == _localUserId && !p.isArchived).firstOrNull;
-        _activeProfileId = guestActive?.id ?? _profiles.where((p) => p.userId == _localUserId).firstOrNull?.id;
+        final guestActive = _profiles
+            .where((p) => p.userId == _localUserId && !p.isArchived)
+            .firstOrNull;
+        _activeProfileId =
+            guestActive?.id ??
+            _profiles.where((p) => p.userId == _localUserId).firstOrNull?.id;
         await _save(immediate: true);
         notifyListeners();
       }
     });
+  }
+
+  LocalReadingProfile? _getLatestReadProfile(
+    List<LocalReadingProfile> userProfiles,
+  ) {
+    final activeList = userProfiles.where((p) => !p.isArchived).toList();
+    if (activeList.isEmpty) return null;
+
+    // Sort by updatedAt descending (newest first)
+    activeList.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    final first = activeList.first;
+    if (isFreeReadProfile(first)) {
+      // If the newest read profile is "Free Read", look for the 2nd latest (which is NOT Free Read)
+      for (int i = 1; i < activeList.length; i++) {
+        if (!isFreeReadProfile(activeList[i])) {
+          return activeList[i];
+        }
+      }
+    }
+    return first;
   }
 
   @override
@@ -473,20 +552,26 @@ class LocalReadingProvider extends ChangeNotifier {
           );
         }
 
-        final otherBookmarks = _bookmarks.where((b) => b.userId != userId).toList();
+        final otherBookmarks = _bookmarks
+            .where((b) => b.userId != userId)
+            .toList();
         _bookmarks = otherBookmarks + syncedBookmarks;
 
-        final otherCategories = _categories.where((c) => c.userId != userId).toList();
-        _categories = otherCategories + [
-          LocalBookmarkCategory(
-            id: serverCatId,
-            userId: userId,
-            name: 'Saved Verses',
-            slug: 'saved_verses',
-            maxItems: 5,
-            sortOrder: 0,
-          ),
-        ];
+        final otherCategories = _categories
+            .where((c) => c.userId != userId)
+            .toList();
+        _categories =
+            otherCategories +
+            [
+              LocalBookmarkCategory(
+                id: serverCatId,
+                userId: userId,
+                name: 'Saved Verses',
+                slug: 'saved_verses',
+                maxItems: 5,
+                sortOrder: 0,
+              ),
+            ];
 
         // Fetch remote recent readings
         try {
@@ -507,22 +592,30 @@ class LocalReadingProvider extends ChangeNotifier {
                 userId: userId,
                 verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
                 profileId: dbR['profile_id']?.toString(),
-                readAt: DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.now(),
+                readAt:
+                    DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+                    DateTime.now(),
               ),
             );
           }
 
-          final otherRecent = _recentReadings.where((r) => r.userId != userId).toList();
+          final otherRecent = _recentReadings
+              .where((r) => r.userId != userId)
+              .toList();
           _recentReadings = otherRecent + syncedRecent;
         } catch (e) {
           debugPrint('Error syncing recent readings: $e');
         }
 
         // Push local guest profiles to Supabase user_reading_profiles
-        final unsyncedGuestProfiles = _profiles.where((p) => p.userId == 'local').toList();
+        final unsyncedGuestProfiles = _profiles
+            .where((p) => p.userId == 'local')
+            .toList();
         for (final p in unsyncedGuestProfiles) {
           try {
-            final uuidRegExp = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+            final uuidRegExp = RegExp(
+              r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+            );
             final bool hasUuid = uuidRegExp.hasMatch(p.id);
 
             final insertData = {
@@ -537,8 +630,16 @@ class LocalReadingProvider extends ChangeNotifier {
             }
 
             final response = hasUuid
-                ? await client.from('user_reading_profiles').upsert(insertData, onConflict: 'id').select('id').single()
-                : await client.from('user_reading_profiles').insert(insertData).select('id').single();
+                ? await client
+                      .from('user_reading_profiles')
+                      .upsert(insertData, onConflict: 'id')
+                      .select('id')
+                      .single()
+                : await client
+                      .from('user_reading_profiles')
+                      .insert(insertData)
+                      .select('id')
+                      .single();
 
             final returnedId = response['id']?.toString();
             if (returnedId != null) {
@@ -591,13 +692,16 @@ class LocalReadingProvider extends ChangeNotifier {
       final List<dynamic> dbProfiles = response;
 
       // Helper to check if string is a valid UUID
-      final uuidRegExp = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+      final uuidRegExp = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      );
       bool isValidUuid(String id) => uuidRegExp.hasMatch(id);
 
       final List<LocalReadingProfile> reconciledProfiles = [];
       final Set<String> matchedRemoteIds = {};
       final Set<String> profilesToSync = {};
       bool localStateChanged = false;
+      bool hasRemoteUpdates = false;
 
       // Index remote profiles by id and name (case-insensitive) for fast lookup
       final Map<String, Map<String, dynamic>> remoteById = {};
@@ -629,7 +733,11 @@ class LocalReadingProvider extends ChangeNotifier {
           final remoteId = matchedRemote['id'].toString();
           matchedRemoteIds.add(remoteId);
 
-          final remoteLastReadAt = DateTime.tryParse(matchedRemote['last_read_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final remoteLastReadAt =
+              DateTime.tryParse(
+                matchedRemote['last_read_at']?.toString() ?? '',
+              ) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
           final localUpdatedAt = localP.updatedAt;
 
           if (localUpdatedAt.isAfter(remoteLastReadAt)) {
@@ -638,8 +746,13 @@ class LocalReadingProvider extends ChangeNotifier {
             profilesToSync.add(localP.id);
           } else {
             // Remote is newer or equal: update local with remote progress
-            final remoteSurah = matchedRemote['current_surah']?.toString() ?? '1';
+            final remoteSurah =
+                matchedRemote['current_surah']?.toString() ?? '1';
             final remoteAyah = matchedRemote['current_ayah']?.toString() ?? '1';
+
+            if (remoteLastReadAt.isAfter(localUpdatedAt)) {
+              hasRemoteUpdates = true;
+            }
 
             final updatedP = LocalReadingProfile(
               id: remoteId, // Ensure local has the UUID from database
@@ -674,13 +787,18 @@ class LocalReadingProvider extends ChangeNotifier {
 
         final rName = dbP['profile_name']?.toString() ?? 'Free Read';
         // Double check we don't duplicate by name
-        if (reconciledProfiles.any((p) => p.userId == userId && p.name.toLowerCase() == rName.toLowerCase())) {
+        if (reconciledProfiles.any(
+          (p) =>
+              p.userId == userId && p.name.toLowerCase() == rName.toLowerCase(),
+        )) {
           continue;
         }
 
         final remoteSurah = dbP['current_surah']?.toString() ?? '1';
         final remoteAyah = dbP['current_ayah']?.toString() ?? '1';
-        final remoteLastReadAt = DateTime.tryParse(dbP['last_read_at']?.toString() ?? '') ?? DateTime.now();
+        final remoteLastReadAt =
+            DateTime.tryParse(dbP['last_read_at']?.toString() ?? '') ??
+            DateTime.now();
 
         final newLocalP = LocalReadingProfile(
           id: remoteId,
@@ -696,6 +814,7 @@ class LocalReadingProvider extends ChangeNotifier {
         );
         reconciledProfiles.add(newLocalP);
         localStateChanged = true;
+        hasRemoteUpdates = true;
       }
 
       // Update local profiles list
@@ -704,11 +823,13 @@ class LocalReadingProvider extends ChangeNotifier {
 
       // Update active profile ID if needed
       final userProfiles = _profiles.where((p) => p.userId == userId).toList();
-      final firstActive = userProfiles.where((p) => !p.isArchived).firstOrNull;
       final belongsToUser = userProfiles.any((p) => p.id == _activeProfileId);
-      if (!belongsToUser) {
-        _activeProfileId = firstActive?.id ?? userProfiles.firstOrNull?.id;
-        localStateChanged = true;
+      if (!belongsToUser || hasRemoteUpdates) {
+        final latest = _getLatestReadProfile(userProfiles);
+        if (latest != null && latest.id != _activeProfileId) {
+          _activeProfileId = latest.id;
+          localStateChanged = true;
+        }
       }
 
       if (localStateChanged || profilesToSync.isNotEmpty) {
@@ -733,7 +854,9 @@ class LocalReadingProvider extends ChangeNotifier {
     final user = client.auth.currentUser;
     if (user != null && p.userId != 'local') {
       try {
-        final uuidRegExp = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+        final uuidRegExp = RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        );
         final bool hasUuid = uuidRegExp.hasMatch(p.id);
 
         final upsertData = {
@@ -749,8 +872,16 @@ class LocalReadingProvider extends ChangeNotifier {
         }
 
         final response = hasUuid
-            ? await client.from('user_reading_profiles').upsert(upsertData, onConflict: 'id').select('id').single()
-            : await client.from('user_reading_profiles').insert(upsertData).select('id').single();
+            ? await client
+                  .from('user_reading_profiles')
+                  .upsert(upsertData, onConflict: 'id')
+                  .select('id')
+                  .single()
+            : await client
+                  .from('user_reading_profiles')
+                  .insert(upsertData)
+                  .select('id')
+                  .single();
 
         final returnedId = response['id']?.toString();
         if (returnedId != null && returnedId != p.id) {
@@ -826,7 +957,7 @@ class LocalReadingProvider extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       final updatedProfiles = [..._profiles, profile];
       final newActiveProfileId = profile.id;
 
@@ -840,7 +971,9 @@ class LocalReadingProvider extends ChangeNotifier {
 
       final success = await prefs.setString(_storageKey, dataString);
       if (!success) {
-        throw const StorageException('Failed to write profiles to SharedPreferences.');
+        throw const StorageException(
+          'Failed to write profiles to SharedPreferences.',
+        );
       }
 
       // Succeeded: update in-memory state
@@ -856,7 +989,9 @@ class LocalReadingProvider extends ChangeNotifier {
           const SnackBar(content: Text('Failed to save to device storage.')),
         );
       }
-      debugPrint('local_reading_provider: StorageException in createProfile: $e');
+      debugPrint(
+        'local_reading_provider: StorageException in createProfile: $e',
+      );
       throw const StorageException('Failed to save to device storage.');
     }
   }
@@ -902,9 +1037,11 @@ class LocalReadingProvider extends ChangeNotifier {
 
     _profiles = _profiles.where((item) => item.id != profileId).toList();
     if (_activeProfileId == profileId) {
-      _activeProfileId = activeProfiles.isNotEmpty
-          ? activeProfiles.first.id
-          : _profiles.firstOrNull?.id;
+      final userProfiles = _profiles
+          .where((p) => p.userId == currentUserId)
+          .toList();
+      final latest = _getLatestReadProfile(userProfiles);
+      _activeProfileId = latest?.id ?? _profiles.firstOrNull?.id;
     }
     await _save(immediate: true);
     notifyListeners();
@@ -912,7 +1049,9 @@ class LocalReadingProvider extends ChangeNotifier {
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null && profile.userId != 'local') {
       try {
-        final uuidRegExp = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+        final uuidRegExp = RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        );
         if (uuidRegExp.hasMatch(profile.id)) {
           await Supabase.instance.client
               .from('user_reading_profiles')
@@ -940,11 +1079,23 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   Future<void> updateProfileProgress(
-    String profileId, 
+    String profileId,
     VerseRef current, {
     BuildContext? context,
   }) async {
     await _loadCompleter.future;
+    final existingProfile = _profiles
+        .where((profile) => profile.id == profileId)
+        .firstOrNull;
+    if (existingProfile == null ||
+        !isVerseInsideProfile(
+          existingProfile,
+          current.surahId,
+          current.verseId,
+        )) {
+      return;
+    }
+
     final now = DateTime.now();
 
     // 1. Prepare updated profiles list (cloned in memory)
@@ -958,14 +1109,16 @@ class LocalReadingProvider extends ChangeNotifier {
     // 2. Enforce Disk-First Guarantee: Attempt to save to disk first
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Update reading state timestamp on disk
       final timestampSuccess = await prefs.setString(
-        'user_reading_state_updated_at', 
+        'user_reading_state_updated_at',
         now.toIso8601String(),
       );
       if (!timestampSuccess) {
-        throw const StorageException('Failed to write timestamp to SharedPreferences.');
+        throw const StorageException(
+          'Failed to write timestamp to SharedPreferences.',
+        );
       }
 
       // Serialize and write profiles list to disk
@@ -979,7 +1132,9 @@ class LocalReadingProvider extends ChangeNotifier {
 
       final success = await prefs.setString(_storageKey, dataString);
       if (!success) {
-        throw const StorageException('Failed to write profiles to SharedPreferences.');
+        throw const StorageException(
+          'Failed to write profiles to SharedPreferences.',
+        );
       }
 
       // 3. Disk write succeeded: update in-memory state and notify listeners
@@ -987,7 +1142,9 @@ class LocalReadingProvider extends ChangeNotifier {
       notifyListeners();
 
       // Sync to Supabase
-      final updatedProfile = _profiles.where((item) => item.id == profileId).firstOrNull;
+      final updatedProfile = _profiles
+          .where((item) => item.id == profileId)
+          .firstOrNull;
       if (updatedProfile != null) {
         _syncProfileToSupabase(updatedProfile);
       }
@@ -1005,7 +1162,9 @@ class LocalReadingProvider extends ChangeNotifier {
           const SnackBar(content: Text('Failed to save to device storage.')),
         );
       }
-      debugPrint('local_reading_provider: StorageException in updateProfileProgress: $e');
+      debugPrint(
+        'local_reading_provider: StorageException in updateProfileProgress: $e',
+      );
       throw const StorageException('Failed to save to device storage.');
     }
   }
@@ -1015,10 +1174,20 @@ class LocalReadingProvider extends ChangeNotifier {
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
     if (profile == null || isFreeReadProfile(profile)) return;
 
-    final updated = profile.copyWith(isArchived: true, updatedAt: DateTime.now());
-    _profiles = _profiles
-        .map((p) => p.id == profileId ? updated : p)
-        .toList();
+    final updated = profile.copyWith(
+      isArchived: true,
+      updatedAt: DateTime.now(),
+    );
+    _profiles = _profiles.map((p) => p.id == profileId ? updated : p).toList();
+
+    if (_activeProfileId == profileId) {
+      final userProfiles = _profiles
+          .where((p) => p.userId == currentUserId)
+          .toList();
+      final latest = _getLatestReadProfile(userProfiles);
+      _activeProfileId = latest?.id;
+    }
+
     await _save(immediate: true);
     notifyListeners();
 
@@ -1036,10 +1205,11 @@ class LocalReadingProvider extends ChangeNotifier {
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
     if (profile == null) return;
 
-    final updated = profile.copyWith(isArchived: false, updatedAt: DateTime.now());
-    _profiles = _profiles
-        .map((p) => p.id == profileId ? updated : p)
-        .toList();
+    final updated = profile.copyWith(
+      isArchived: false,
+      updatedAt: DateTime.now(),
+    );
+    _profiles = _profiles.map((p) => p.id == profileId ? updated : p).toList();
     await _save(immediate: true);
     notifyListeners();
 
@@ -1054,7 +1224,9 @@ class LocalReadingProvider extends ChangeNotifier {
     final slug = slugifyReadingProfileName(name);
     final curUserId = currentUserId;
     final existing = _categories
-        .where((category) => category.slug == slug && category.userId == curUserId)
+        .where(
+          (category) => category.slug == slug && category.userId == curUserId,
+        )
         .firstOrNull;
     if (existing != null) return existing;
 
@@ -1080,7 +1252,9 @@ class LocalReadingProvider extends ChangeNotifier {
     return _bookmarks.any((b) {
       final bSurah = int.tryParse(b.verse.surahId) ?? 0;
       final bVerse = int.tryParse(b.verse.verseId) ?? 0;
-      return bSurah == numericSurah && bVerse == numericVerse && b.userId == uid;
+      return bSurah == numericSurah &&
+          bVerse == numericVerse &&
+          b.userId == uid;
     });
   }
 
@@ -1088,14 +1262,14 @@ class LocalReadingProvider extends ChangeNotifier {
     final numericSurah = int.tryParse(surahId) ?? 0;
     final numericVerse = int.tryParse(verseId) ?? 0;
     final uid = currentUserId;
-    final existing = _bookmarks
-        .where((b) {
-          final bSurah = int.tryParse(b.verse.surahId) ?? 0;
-          final bVerse = int.tryParse(b.verse.verseId) ?? 0;
-          // Only consider bookmarks belonging to the current user
-          return bSurah == numericSurah && bVerse == numericVerse && b.userId == uid;
-        })
-        .firstOrNull;
+    final existing = _bookmarks.where((b) {
+      final bSurah = int.tryParse(b.verse.surahId) ?? 0;
+      final bVerse = int.tryParse(b.verse.verseId) ?? 0;
+      // Only consider bookmarks belonging to the current user
+      return bSurah == numericSurah &&
+          bVerse == numericVerse &&
+          b.userId == uid;
+    }).firstOrNull;
 
     if (existing != null) {
       await removeBookmark(existing.id);
@@ -1203,7 +1377,11 @@ class LocalReadingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _debounceRecentReadingSync(String userId, String surahId, String verseId) {
+  void _debounceRecentReadingSync(
+    String userId,
+    String surahId,
+    String verseId,
+  ) {
     _pendingSyncUserId = userId;
     _pendingSyncSurahId = surahId;
     _pendingSyncVerseId = verseId;
@@ -1238,17 +1416,28 @@ class LocalReadingProvider extends ChangeNotifier {
     final client = Supabase.instance.client;
     final currentUser = client.auth.currentUser;
     final String currentUserId = currentUser?.id ?? _localUserId;
+    final taggedProfile = profileId == null
+        ? null
+        : _profiles.where((profile) => profile.id == profileId).firstOrNull;
+    final safeProfileId =
+        taggedProfile != null &&
+            isVerseInsideProfile(taggedProfile, verse.surahId, verse.verseId)
+        ? profileId
+        : null;
 
     // Local update: find if there is an existing entry for this user_id and surah_id
     final existingIndex = _recentReadings.indexWhere(
-      (item) => item.userId == currentUserId && item.verse.surahId == verse.surahId,
+      (item) =>
+          item.userId == currentUserId && item.verse.surahId == verse.surahId,
     );
 
     final updatedReading = LocalRecentReading(
-      id: existingIndex != -1 ? _recentReadings[existingIndex].id : _createLocalId(),
+      id: existingIndex != -1
+          ? _recentReadings[existingIndex].id
+          : _createLocalId(),
       userId: currentUserId,
       verse: verse,
-      profileId: profileId,
+      profileId: safeProfileId,
       readAt: DateTime.now(),
     );
 
@@ -1307,20 +1496,40 @@ class LocalReadingProvider extends ChangeNotifier {
       if (response != null) {
         final int remoteSurahId = int.parse(response['surah_id'].toString());
         final int remoteVerseId = int.parse(response['verse_id'].toString());
-        final DateTime remoteUpdatedAt = DateTime.parse(response['updated_at'].toString());
+        final DateTime remoteUpdatedAt = DateTime.parse(
+          response['updated_at'].toString(),
+        );
 
         final prefs = await SharedPreferences.getInstance();
-        final localUpdatedAtStr = prefs.getString('user_reading_state_updated_at');
+        final localUpdatedAtStr = prefs.getString(
+          'user_reading_state_updated_at',
+        );
         final localUpdatedAt = localUpdatedAtStr != null
-            ? DateTime.tryParse(localUpdatedAtStr) ?? DateTime.fromMillisecondsSinceEpoch(0)
+            ? DateTime.tryParse(localUpdatedAtStr) ??
+                  DateTime.fromMillisecondsSinceEpoch(0)
             : DateTime.fromMillisecondsSinceEpoch(0);
 
         if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
-          final remoteVerseRef = toVerseRef(remoteSurahId.toString(), remoteVerseId.toString());
+          final remoteVerseRef = toVerseRef(
+            remoteSurahId.toString(),
+            remoteVerseId.toString(),
+          );
 
-          final targetProfile = _profiles.where(isFreeReadProfile).firstOrNull ?? _profiles.firstOrNull;
+          final targetProfile =
+              _profiles.where(isFreeReadProfile).firstOrNull ??
+              _profiles.firstOrNull;
           if (targetProfile != null) {
-            final targetProfileId = _activeProfileId ?? targetProfile.id;
+            final active = activeProfile;
+            final remoteIsInsideActive =
+                active != null &&
+                isVerseInsideProfile(
+                  active,
+                  remoteVerseRef.surahId,
+                  remoteVerseRef.verseId,
+                );
+            final targetProfileId = remoteIsInsideActive
+                ? active.id
+                : targetProfile.id;
             _profiles = _profiles.map((p) {
               if (p.id == targetProfileId) {
                 return p.copyWith(
@@ -1330,9 +1539,15 @@ class LocalReadingProvider extends ChangeNotifier {
               }
               return p;
             }).toList();
+            if (!remoteIsInsideActive) {
+              _activeProfileId = targetProfileId;
+            }
           }
 
-          await prefs.setString('user_reading_state_updated_at', remoteUpdatedAt.toIso8601String());
+          await prefs.setString(
+            'user_reading_state_updated_at',
+            remoteUpdatedAt.toIso8601String(),
+          );
           await _save(immediate: true);
           notifyListeners();
         }
@@ -1361,11 +1576,15 @@ class LocalReadingProvider extends ChangeNotifier {
       );
 
       // Deduplicate "Free Read" profiles (keep the oldest/first one)
-      final freeReads = loadedProfiles.where((p) => p.name == 'Free Read').toList();
+      final freeReads = loadedProfiles
+          .where((p) => p.name == 'Free Read')
+          .toList();
       if (freeReads.length > 1) {
         freeReads.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         final toKeep = freeReads.first;
-        loadedProfiles = loadedProfiles.where((p) => p.name != 'Free Read' || p.id == toKeep.id).toList();
+        loadedProfiles = loadedProfiles
+            .where((p) => p.name != 'Free Read' || p.id == toKeep.id)
+            .toList();
       }
       _profiles = loadedProfiles;
       _categories = _decodeList(
@@ -1379,10 +1598,26 @@ class LocalReadingProvider extends ChangeNotifier {
       );
       _activeProfileId = decoded['activeProfileId']?.toString();
       _ensureDefaultProfile();
+      _profiles = _profiles
+          .map(
+            (profile) =>
+                profile.target != null &&
+                    !isFreeReadProfile(profile) &&
+                    !isVerseInsideProfile(
+                      profile,
+                      profile.current.surahId,
+                      profile.current.verseId,
+                    )
+                ? profile.copyWith(current: profile.start)
+                : profile,
+          )
+          .toList();
       if (activeProfile == null) {
-        _activeProfileId = activeProfiles.isNotEmpty
-            ? activeProfiles.first.id
-            : null;
+        final userProfiles = _profiles
+            .where((p) => p.userId == currentUserId)
+            .toList();
+        final latest = _getLatestReadProfile(userProfiles);
+        _activeProfileId = latest?.id;
       }
       await _migrateLegacyBookmarks();
       notifyListeners();
@@ -1485,7 +1720,11 @@ class LocalReadingProvider extends ChangeNotifier {
       '${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}_${_bookmarks.length}';
 
   void _ensureDefaultProfile() {
-    if (_profiles.any((p) => isFreeReadProfile(p) && p.userId == currentUserId)) return;
+    if (_profiles.any(
+      (p) => isFreeReadProfile(p) && p.userId == currentUserId,
+    )) {
+      return;
+    }
 
     final now = DateTime.now();
     final profile = LocalReadingProfile(

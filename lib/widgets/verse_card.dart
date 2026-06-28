@@ -15,6 +15,7 @@ import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../shared/shared.dart';
 import 'verse_action_sheet.dart';
 import 'tadabbur_panel.dart';
@@ -23,12 +24,16 @@ class VerseCard extends StatefulWidget {
   final Verse verse;
   final QuranRepository repository;
   final int index;
+  final String? progressProfileId;
+  final bool useExplicitProgressProfile;
 
   const VerseCard({
     Key? key,
     required this.verse,
     required this.repository,
     required this.index,
+    this.progressProfileId,
+    this.useExplicitProgressProfile = false,
   }) : super(key: key);
 
   @override
@@ -36,9 +41,6 @@ class VerseCard extends StatefulWidget {
 }
 
 class _VerseCardState extends State<VerseCard> {
-  bool _isArabicVisible = false;
-  bool? _lastGlobalArabicState;
-
   // Audit and personal notes states
   bool _isMenuVisible = false;
   bool _showAuditBox = false;
@@ -53,10 +55,9 @@ class _VerseCardState extends State<VerseCard> {
   @override
   void initState() {
     super.initState();
-    _isArabicVisible = widget.verse.isArabicVisible;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = Provider.of<SettingsProvider>(context, listen: false);
-      if (settings.alwaysShowArabic || widget.verse.isArabicVisible) {
+      if (settings.showArabicText) {
         _loadArabic();
       }
     });
@@ -175,15 +176,11 @@ class _VerseCardState extends State<VerseCard> {
 
   Future<void> _loadArabic() async {
     if (widget.verse.arabic.isNotEmpty) {
-      setState(() {
-        _isArabicVisible = true;
-      });
       return;
     }
 
     setState(() {
       widget.verse.isArabicLoading = true;
-      _isArabicVisible = true;
     });
 
     final fetched = await widget.repository.fetchArabicVerse(
@@ -297,6 +294,7 @@ class _VerseCardState extends State<VerseCard> {
     final settings = Provider.of<SettingsProvider>(context);
     final progress = Provider.of<ProgressProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
+    final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isHighlighted = widget.index == progress.lastVerseIndex;
@@ -308,13 +306,7 @@ class _VerseCardState extends State<VerseCard> {
         ? const Color(0xFFD7E0EA)
         : const Color(0xFF334155);
 
-    // Auto-reset check for individual Arabic toggle when global setting changes
-    final alwaysShow = settings.alwaysShowArabic;
-    if (_lastGlobalArabicState != null &&
-        _lastGlobalArabicState != alwaysShow) {
-      _isArabicVisible = alwaysShow;
-    }
-    _lastGlobalArabicState = alwaysShow;
+    final showArabicText = settings.showArabicText;
 
     if (isHighlighted) {
       // Log reading stat
@@ -324,65 +316,36 @@ class _VerseCardState extends State<VerseCard> {
           context,
           listen: false,
         );
-        final activeProfile = localReading.activeProfile;
+        final progressProfile = widget.useExplicitProgressProfile
+            ? (widget.progressProfileId == null
+                  ? null
+                  : localReading.profileById(widget.progressProfileId!))
+            : localReading.activeProfile;
         final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
-        if (activeProfile != null &&
-            activeProfile.current.verseKey != verseRef.verseKey) {
+        if (progressProfile != null &&
+            progressProfile.current.verseKey != verseRef.verseKey) {
           localReading.updateProfileProgress(
-            activeProfile.id,
+            progressProfile.id,
             verseRef,
             context: context,
           );
           localReading.addRecentReading(
             verse: verseRef,
-            profileId: activeProfile.id,
+            profileId: progressProfile.id,
           );
         }
       });
     }
 
-    TextStyle arabicStyle;
-    switch (settings.arabicFontFamily) {
-      case 'UthmanicHafs':
-        arabicStyle = TextStyle(
-          fontFamily: 'UthmanicHafs',
-          fontSize: settings.arabicFontSize,
-          height: 2.0,
-          color: arabicTextColor,
-        );
-        break;
-      case 'AmiriQuran':
-        arabicStyle = GoogleFonts.amiriQuran(
-          fontSize: settings.arabicFontSize,
-          height: 2.0,
-          color: arabicTextColor,
-        );
-        break;
-      case 'ScheherazadeNew':
-        arabicStyle = GoogleFonts.scheherazadeNew(
-          fontSize: settings.arabicFontSize,
-          height: 2.0,
-          color: arabicTextColor,
-        );
-        break;
-      case 'Amiri':
-        arabicStyle = GoogleFonts.amiri(
-          fontSize: settings.arabicFontSize,
-          height: 2.0,
-          color: arabicTextColor,
-        );
-        break;
-      default:
-        arabicStyle = TextStyle(
-          fontFamily: 'UthmanicHafs',
-          fontSize: settings.arabicFontSize,
-          height: 2.0,
-          color: arabicTextColor,
-        );
-    }
+    final arabicStyle = TextStyle(
+      fontFamily: 'UthmanicHafs',
+      fontSize: settings.arabicFontSize,
+      height: 2.0,
+      color: arabicTextColor,
+    );
 
     // Force load if Arabic should be visible (globally or locally) and is not loaded yet
-    if ((settings.alwaysShowArabic || _isArabicVisible) &&
+    if (showArabicText &&
         widget.verse.arabic.isEmpty &&
         !widget.verse.isArabicLoading) {
       _loadArabic();
@@ -499,7 +462,7 @@ class _VerseCardState extends State<VerseCard> {
                   ),
 
                   // Arabic Text Area
-                  if (_isArabicVisible || settings.alwaysShowArabic) ...[
+                  if (showArabicText) ...[
                     const SizedBox(height: 14),
                     if (widget.verse.isArabicLoading)
                       const Center(
@@ -523,48 +486,10 @@ class _VerseCardState extends State<VerseCard> {
                             style: arabicStyle,
                             children: [
                               TextSpan(
-                                text: (() {
-                                  final parts = widget.verse.arabic.split(
-                                    ' | ',
-                                  );
-                                  return settings.arabicFontFamily ==
-                                          'UthmanicHafs'
-                                      ? parts.join(' ')
-                                      : parts[0];
-                                })(),
+                                text: widget.verse.arabic
+                                    .split(' | ')
+                                    .join(' '),
                               ),
-                              if (settings.arabicFontFamily != 'UthmanicHafs')
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(right: 8),
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: isDark
-                                            ? Colors.blueGrey.shade800
-                                            : Colors.grey.shade300,
-                                        width: 1,
-                                      ),
-                                      color: isDark
-                                          ? const Color(0xFF0F172A)
-                                          : Colors.grey.shade50,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      widget.verse.id,
-                                      style: GoogleFonts.prompt(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark
-                                            ? Colors.blueGrey.shade300
-                                            : Colors.blueGrey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
                             ],
                           ),
                         ),
@@ -580,12 +505,13 @@ class _VerseCardState extends State<VerseCard> {
                   const SizedBox(height: 14),
 
                   // Translations Container
-                  if (settings.alwaysShowTranslation) ...[
+                  if (settings.showTranslationText) ...[
                     if (settings.showThaiV3) ...[
                       const SizedBox(height: 8),
                       _buildTranslationBlock(
                         label: 'Thai 3',
-                        text: widget.verse.thaiV3,
+                        text: thaiTextProtection.protect(widget.verse.thaiV3),
+                        locale: const Locale('th', 'TH'),
                         labelFg: isDark
                             ? Colors.blueGrey.shade400
                             : Colors.blueGrey.shade500,
@@ -601,7 +527,8 @@ class _VerseCardState extends State<VerseCard> {
                       const SizedBox(height: 12),
                       _buildTranslationBlock(
                         label: 'Thai 2',
-                        text: widget.verse.thaiV2,
+                        text: thaiTextProtection.protect(widget.verse.thaiV2),
+                        locale: const Locale('th', 'TH'),
                         labelFg: isDark
                             ? Colors.blueGrey.shade500
                             : Colors.blueGrey.shade400,
@@ -745,72 +672,7 @@ class _VerseCardState extends State<VerseCard> {
                                       });
                                     },
                                   ),
-                                // 3. Arabic toggle with custom "ع" icon
-                                Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: Tooltip(
-                                    message: _isArabicVisible
-                                        ? 'Hide Arabic'
-                                        : 'Show Arabic',
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(8),
-                                        onTap: () {
-                                          if (!_isArabicVisible) {
-                                            _loadArabic();
-                                            widget.verse.isArabicVisible = true;
-                                          } else {
-                                            setState(() {
-                                              _isArabicVisible = false;
-                                              widget.verse.isArabicVisible =
-                                                  false;
-                                            });
-                                          }
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          width: 34,
-                                          height: 34,
-                                          decoration: BoxDecoration(
-                                            color: _isArabicVisible
-                                                ? themeColor.withOpacity(0.12)
-                                                : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: _isArabicVisible
-                                                  ? themeColor.withOpacity(0.3)
-                                                  : Colors.transparent,
-                                              width: 1,
-                                            ),
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            'ع',
-                                            style: GoogleFonts.amiri(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: _isArabicVisible
-                                                  ? themeColor
-                                                  : (isDark
-                                                        ? Colors
-                                                              .blueGrey
-                                                              .shade300
-                                                        : Colors
-                                                              .blueGrey
-                                                              .shade600),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // 4. Favorite button (formerly Tadabbur)
+                                // 3. Favorite button (formerly Tadabbur)
                                 _buildActionIcon(
                                   tooltip: isFavorited
                                       ? 'Remove from Favorites'
@@ -1037,11 +899,18 @@ class _VerseCardState extends State<VerseCard> {
     required String text,
     required Color labelFg,
     required TextStyle textStyle,
+    Locale? locale,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(text, style: textStyle),
+        Text(
+          text,
+          locale: locale,
+          softWrap: true,
+          overflow: TextOverflow.visible,
+          style: textStyle,
+        ),
         const SizedBox(height: 5),
         Align(
           alignment: Alignment.centerRight,

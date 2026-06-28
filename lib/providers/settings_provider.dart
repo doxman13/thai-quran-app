@@ -7,14 +7,22 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 
 class SettingsProvider extends ChangeNotifier {
+  static const quranOnlyMode = 'quran_only';
+  static const translationOnlyMode = 'translation_only';
+  static const quranTranslationMode = 'quran_translation';
+  static const _validDisplayModes = {
+    quranOnlyMode,
+    translationOnlyMode,
+    quranTranslationMode,
+  };
+
   bool _isDarkMode = false;
-  bool _alwaysShowArabic = false;
-  bool _alwaysShowTranslation = true;
-  String _arabicFontFamily = 'UthmanicHafs';
+  String _readingDisplayMode = quranTranslationMode;
   double _arabicFontSize = 28.0;
   double _translationFontSize = 15.0;
   String _themeColor = 'blue';
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
+  DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Dual-slot translation model
   // Valid IDs: 'thai_v3', 'thai_v2', 'english'
@@ -24,9 +32,16 @@ class SettingsProvider extends ChangeNotifier {
   StreamSubscription<AuthState>? _authSubscription;
 
   bool get isDarkMode => _isDarkMode;
-  bool get alwaysShowArabic => _alwaysShowArabic;
-  bool get alwaysShowTranslation => _alwaysShowTranslation;
-  String get arabicFontFamily => _arabicFontFamily;
+  String get readingDisplayMode => _readingDisplayMode;
+  bool get showArabicText =>
+      _readingDisplayMode == quranOnlyMode ||
+      _readingDisplayMode == quranTranslationMode;
+  bool get showTranslationText =>
+      _readingDisplayMode == translationOnlyMode ||
+      _readingDisplayMode == quranTranslationMode;
+  bool get alwaysShowArabic => showArabicText;
+  bool get alwaysShowTranslation => showTranslationText;
+  String get arabicFontFamily => 'UthmanicHafs';
   double get arabicFontSize => _arabicFontSize;
   double get translationFontSize => _translationFontSize;
   String get themeColor => _themeColor;
@@ -74,13 +89,17 @@ class SettingsProvider extends ChangeNotifier {
     final userId = client.auth.currentUser?.id;
     if (userId != null) {
       try {
+        final updatedAt =
+            _settingsUpdatedAt.isAfter(DateTime.fromMillisecondsSinceEpoch(0))
+            ? _settingsUpdatedAt
+            : DateTime.now();
         // Derive legacy booleans from slots for backward compat with old Supabase rows
         await client.from('user_settings').upsert({
           'user_id': userId,
           'theme_color': 'blue',
           'is_dark_mode': _isDarkMode,
-          'always_show_arabic': _alwaysShowArabic,
-          'arabic_font_family': _arabicFontFamily,
+          'always_show_arabic': showArabicText,
+          'arabic_font_family': 'UthmanicHafs',
           'arabic_font_size': _arabicFontSize,
           // Legacy boolean columns kept for web backwards compat
           'show_thai_v3': showThaiV3,
@@ -89,7 +108,7 @@ class SettingsProvider extends ChangeNotifier {
           // New dual-slot columns
           'primary_translation_id': _primaryTranslationId,
           'secondary_translation_id': _secondaryTranslationId,
-          'updated_at': DateTime.now().toIso8601String(),
+          'updated_at': updatedAt.toIso8601String(),
         });
       } catch (e) {
         debugPrint('Error syncing settings to Supabase: $e');
@@ -106,13 +125,31 @@ class SettingsProvider extends ChangeNotifier {
           .maybeSingle();
 
       if (response != null) {
+        final prefs = await SharedPreferences.getInstance();
+        final hasLocalDisplayMode = prefs.containsKey('readingDisplayMode');
+        final localUpdatedAt =
+            DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final remoteUpdatedAt =
+            DateTime.tryParse(response['updated_at']?.toString() ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        if (localUpdatedAt.isAfter(remoteUpdatedAt)) {
+          _settingsUpdatedAt = localUpdatedAt;
+          await _syncToSupabase();
+          return;
+        }
+
         _themeColor = _normalizeThemeColor(
           response['theme_color']?.toString() ?? _themeColor,
         );
         _isDarkMode = response['is_dark_mode'] == true;
-        _alwaysShowArabic = response['always_show_arabic'] == true;
-        _arabicFontFamily =
-            response['arabic_font_family']?.toString() ?? _arabicFontFamily;
+        if (!hasLocalDisplayMode) {
+          _readingDisplayMode = _modeFromLegacyFlags(
+            showArabic: response['always_show_arabic'] == true,
+            showTranslation: _readingDisplayMode != quranOnlyMode,
+          );
+        }
         _arabicFontSize =
             double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
             _arabicFontSize;
@@ -136,13 +173,19 @@ class SettingsProvider extends ChangeNotifier {
         notifyListeners();
 
         // Save to local SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setString('themeColor', _themeColor);
         await prefs.setBool('isDarkMode', _isDarkMode);
-        await prefs.setBool('alwaysShowArabic', _alwaysShowArabic);
-        await prefs.setString('arabicFontFamily', _arabicFontFamily);
+        await prefs.setString('readingDisplayMode', _readingDisplayMode);
+        await prefs.setBool('alwaysShowArabic', showArabicText);
+        await prefs.setBool('alwaysShowTranslation', showTranslationText);
+        await prefs.setString('arabicFontFamily', 'UthmanicHafs');
         await prefs.setDouble('arabicFontSize', _arabicFontSize);
         await prefs.setString('primaryTranslationId', _primaryTranslationId);
+        _settingsUpdatedAt = remoteUpdatedAt;
+        await prefs.setString(
+          'settingsUpdatedAt',
+          remoteUpdatedAt.toIso8601String(),
+        );
         if (_secondaryTranslationId != null) {
           await prefs.setString(
             'secondaryTranslationId',
@@ -160,13 +203,24 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-    _alwaysShowArabic = prefs.getBool('alwaysShowArabic') ?? false;
-    _alwaysShowTranslation = prefs.getBool('alwaysShowTranslation') ?? true;
-    _arabicFontFamily = prefs.getString('arabicFontFamily') ?? 'UthmanicHafs';
+    final storedDisplayMode = prefs.getString('readingDisplayMode');
+    if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
+      _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
+    } else {
+      _readingDisplayMode = _modeFromLegacyFlags(
+        showArabic: prefs.getBool('alwaysShowArabic') ?? false,
+        showTranslation: prefs.getBool('alwaysShowTranslation') ?? true,
+      );
+      await prefs.setString('readingDisplayMode', _readingDisplayMode);
+    }
+    await prefs.setString('arabicFontFamily', 'UthmanicHafs');
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
     _translationFontSize = prefs.getDouble('translationFontSize') ?? 15.0;
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'blue');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
+    _settingsUpdatedAt =
+        DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
 
     // Load dual-slot translation state — migrate from legacy booleans if absent
     final storedPrimary = prefs.getString('primaryTranslationId');
@@ -216,34 +270,72 @@ class SettingsProvider extends ChangeNotifier {
     return (enabled[0], enabled.length > 1 ? enabled[1] : null);
   }
 
+  String _normalizeReadingDisplayMode(String value) {
+    return _validDisplayModes.contains(value) ? value : quranTranslationMode;
+  }
+
+  String _modeFromLegacyFlags({
+    required bool showArabic,
+    required bool showTranslation,
+  }) {
+    if (showArabic && !showTranslation) return quranOnlyMode;
+    if (!showArabic && showTranslation) return translationOnlyMode;
+    if (showArabic && showTranslation) return quranTranslationMode;
+    return quranTranslationMode;
+  }
+
+  Future<void> _markSettingsChanged(SharedPreferences prefs) async {
+    _settingsUpdatedAt = DateTime.now();
+    await prefs.setString(
+      'settingsUpdatedAt',
+      _settingsUpdatedAt.toIso8601String(),
+    );
+  }
+
   void toggleDarkMode(bool value) async {
     _isDarkMode = value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
+    await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
 
   void toggleAlwaysShowArabic(bool value) async {
-    _alwaysShowArabic = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('alwaysShowArabic', value);
-    await _syncToSupabase();
+    setReadingDisplayMode(
+      value
+          ? (showTranslationText ? quranTranslationMode : quranOnlyMode)
+          : translationOnlyMode,
+    );
   }
 
   void toggleAlwaysShowTranslation(bool value) async {
-    _alwaysShowTranslation = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('alwaysShowTranslation', value);
+    setReadingDisplayMode(
+      value
+          ? (showArabicText ? quranTranslationMode : translationOnlyMode)
+          : quranOnlyMode,
+    );
   }
 
   void setArabicFontFamily(String value) async {
-    _arabicFontFamily = value;
+    if (value != 'UthmanicHafs') return;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('arabicFontFamily', value);
+    await prefs.setString('arabicFontFamily', 'UthmanicHafs');
+    await _markSettingsChanged(prefs);
+    await _syncToSupabase();
+  }
+
+  void setReadingDisplayMode(String value) async {
+    final normalized = _normalizeReadingDisplayMode(value);
+    if (_readingDisplayMode == normalized) return;
+    _readingDisplayMode = normalized;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('readingDisplayMode', normalized);
+    await prefs.setBool('alwaysShowArabic', showArabicText);
+    await prefs.setBool('alwaysShowTranslation', showTranslationText);
+    await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
 
@@ -252,6 +344,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('arabicFontSize', value);
+    await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
 
@@ -260,6 +353,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('translationFontSize', value);
+    await _markSettingsChanged(prefs);
   }
 
   void setThemeColor(String value) async {
@@ -267,6 +361,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeColor', 'blue');
+    await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
 
@@ -275,6 +370,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('webHostUrl', _webHostUrl);
+    await _markSettingsChanged(prefs);
   }
 
   /// Core dual-slot mutation with Auto-Eviction collision logic.
@@ -306,6 +402,7 @@ class SettingsProvider extends ChangeNotifier {
     } else {
       await prefs.remove('secondaryTranslationId');
     }
+    await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
 

@@ -26,10 +26,13 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   bool _loading = true;
   String? _filterSurahId;
   String? _filterVerseId;
+  bool _showFilters = false;
 
   final _postController = TextEditingController();
   bool _isPosting = false;
   bool _isAnonymous = false;
+  String _postSurahId = '1';
+  String _postVerseId = '1';
 
   @override
   void initState() {
@@ -121,8 +124,8 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
       final note = await _repo.saveNote(TadabburNote(
         id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
         userId: user.id,
-        surahId: _filterSurahId ?? '1',
-        verseId: _filterVerseId ?? '1',
+        surahId: _postSurahId,
+        verseId: _postVerseId,
         noteText: text,
         isPublic: true,
         isAnonymous: _isAnonymous,
@@ -173,6 +176,14 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(
+              _filterSurahId != null ? Icons.filter_alt : Icons.filter_alt_outlined,
+              color: _filterSurahId != null ? primaryColor : colors.textStrong,
+            ),
+            tooltip: 'Filter reflections',
+            onPressed: () => setState(() => _showFilters = !_showFilters),
+          ),
+          IconButton(
             icon: Icon(settings.isDarkMode ? Icons.light_mode : Icons.dark_mode, color: primaryColor),
             onPressed: () => settings.toggleDarkMode(!settings.isDarkMode),
           ),
@@ -180,29 +191,29 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
       ),
       body: Column(
         children: [
-          _buildFilterBar(colors, primaryColor),
+          if (_showFilters) _buildFilterBar(colors, primaryColor),
           Expanded(
             child: _loading
                 ? Center(child: CircularProgressIndicator(color: primaryColor))
-                : _feed.isEmpty
-                    ? _buildEmptyState(colors)
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _feed.length,
-                        itemBuilder: (context, index) {
-                          final note = _feed[index];
-                          return _CommunityNoteCard(
-                            note: note,
-                            repository: widget.repository,
-                            colors: colors,
-                            primaryColor: primaryColor,
-                            onLike: () => _handleLike(note),
-                            onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
-                          );
-                        },
-                      ),
+                : ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _buildComposeSection(colors, primaryColor),
+                      const SizedBox(height: 16),
+                      if (_feed.isEmpty)
+                        _buildEmptyState(colors)
+                      else
+                        ..._feed.map((note) => _CommunityNoteCard(
+                              note: note,
+                              repository: widget.repository,
+                              colors: colors,
+                              primaryColor: primaryColor,
+                              onLike: () => _handleLike(note),
+                              onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
+                            )),
+                    ],
+                  ),
           ),
-          _buildComposeBar(colors, primaryColor),
         ],
       ),
     );
@@ -223,13 +234,15 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
               child: DropdownButton<String>(
                 value: _filterSurahId,
                 isExpanded: true,
-                hint: Text('All Surahs', style: GoogleFonts.prompt(fontSize: 12)),
-                style: GoogleFonts.prompt(fontSize: 12),
+                dropdownColor: colors.surface,
+                iconEnabledColor: colors.textStrong,
+                hint: Text('All Surahs', style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong)),
+                style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
                 items: [
-                  const DropdownMenuItem(value: null, child: Text('All Surahs')),
+                  DropdownMenuItem(value: null, child: Text('All Surahs', style: GoogleFonts.prompt(color: colors.textStrong))),
                   ...surahIds.map((id) => DropdownMenuItem(
                         value: id,
-                        child: Text('${widget.repository.getSurahName(id)} ($id)'),
+                        child: Text('${widget.repository.getSurahName(id)} ($id)', style: GoogleFonts.prompt(color: colors.textStrong)),
                       )),
                 ],
                 onChanged: (val) {
@@ -250,25 +263,27 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 child: DropdownButton<String>(
                   value: _filterVerseId,
                   isExpanded: true,
-                  hint: Text('Ayah', style: GoogleFonts.prompt(fontSize: 12)),
-                  style: GoogleFonts.prompt(fontSize: 12),
+                  dropdownColor: colors.surface,
+                  iconEnabledColor: colors.textStrong,
+                  hint: Text('Ayah', style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong)),
+                  style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('All')),
+                    DropdownMenuItem(value: null, child: Text('All', style: GoogleFonts.prompt(color: colors.textStrong))),
                     ...List.generate(
                       widget.repository.getSurahVerses(_filterSurahId!).length,
-                      (i) => DropdownMenuItem(value: (i + 1).toString(), child: Text('${i + 1}')),
+                      (i) => DropdownMenuItem(value: (i + 1).toString(), child: Text('${i + 1}', style: GoogleFonts.prompt(color: colors.textStrong))),
                     ),
                   ],
                   onChanged: (val) {
                     setState(() => _filterVerseId = val);
                     _loadFeed();
-                }),
+                  }),
               ),
             ),
           if (_filterSurahId != null) ...[
             const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.clear, size: 18),
+              icon: Icon(Icons.clear, size: 18, color: colors.textStrong),
               tooltip: 'Clear filter',
               onPressed: () {
                 setState(() {
@@ -284,44 +299,173 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     );
   }
 
-  Widget _buildComposeBar(AppThemeColors colors, Color primaryColor) {
+  Widget _buildComposeSection(AppThemeColors colors, Color primaryColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surahIds = List.generate(114, (i) => (i + 1).toString());
+    final versesCount = widget.repository.getSurahVerses(_postSurahId).length;
+
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.borderSoft)),
+        color: isDark ? colors.surface : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade300),
       ),
-      padding: EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 12 + MediaQuery.of(context).viewInsets.bottom),
-      child: Row(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _postController,
-              style: GoogleFonts.prompt(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: 'Share a reflection...',
-                hintStyle: GoogleFonts.prompt(fontSize: 12, color: Colors.grey),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                isDense: true,
+          Text(
+            'SHARE A REFLECTION',
+            style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Surah', style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.borderSoft),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _postSurahId,
+                          isExpanded: true,
+                          style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                          items: surahIds.map((id) => DropdownMenuItem(
+                                value: id,
+                                child: Text('${widget.repository.getSurahName(id)}'),
+                              )).toList(),
+                          onChanged: (val) {
+                            if (val != null) setState(() { _postSurahId = val; _postVerseId = '1'; });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              maxLines: 2,
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ayah', style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: colors.borderSoft),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _postVerseId,
+                          isExpanded: true,
+                          style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                          items: List.generate(versesCount, (i) => DropdownMenuItem(
+                            value: (i + 1).toString(), child: Text('${i + 1}'),
+                          )),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _postVerseId = val);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(
-              _isAnonymous ? Icons.person_off : Icons.person_outline,
-              color: _isAnonymous ? primaryColor : Colors.grey,
+          const SizedBox(height: 12),
+          // Translation Preview Box
+          Builder(builder: (context) {
+            final verse = widget.repository.getVerse(_postSurahId, _postVerseId);
+            final translationText = verse?.thaiV3 ?? verse?.thaiV2 ?? '';
+            if (translationText.isEmpty) return const SizedBox.shrink();
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: colors.borderSoft),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Translation Preview ($_postSurahId:$_postVerseId)',
+                    style: GoogleFonts.prompt(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    translationText,
+                    style: GoogleFonts.prompt(
+                      fontSize: 12,
+                      color: colors.foreground,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          TextField(
+            controller: _postController,
+            style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+            decoration: InputDecoration(
+              hintText: 'What did you learn or reflect on from this Ayah?...',
+              hintStyle: GoogleFonts.prompt(fontSize: 12, color: Colors.grey),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colors.borderSoft)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colors.borderSoft)),
+              contentPadding: const EdgeInsets.all(12),
             ),
-            tooltip: 'Anonymous',
-            onPressed: () => setState(() => _isAnonymous = !_isAnonymous),
+            maxLines: 3,
           ),
-          ElevatedButton(
-            onPressed: _isPosting || _postController.text.trim().isEmpty ? null : _handlePost,
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor),
-            child: _isPosting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text('Post', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              InkWell(
+                onTap: () => setState(() => _isAnonymous = !_isAnonymous),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isAnonymous ? Icons.check_box : Icons.check_box_outline_blank,
+                        size: 16,
+                        color: _isAnonymous ? primaryColor : Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text('Post anonymously', style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: _isPosting || _postController.text.trim().isEmpty ? null : _handlePost,
+                style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                child: _isPosting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('Share Reflection', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+            ],
           ),
         ],
       ),
@@ -438,9 +582,30 @@ class _CommunityNoteCard extends StatelessWidget {
               style: GoogleFonts.prompt(fontSize: 10, color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade600),
             ),
             const SizedBox(height: 10),
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? colors.surfaceMuted.withOpacity(0.5) : Colors.amber.shade50.withOpacity(0.5),
+                border: Border(
+                  left: BorderSide(color: primaryColor.withOpacity(0.5), width: 3),
+                ),
+                borderRadius: const BorderRadius.only(topRight: Radius.circular(8), bottomRight: Radius.circular(8)),
+              ),
+              child: Text(
+                repository.getVerse(note.surahId, note.verseId)?.thaiV3 ?? '',
+                style: GoogleFonts.prompt(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade700,
+                  height: 1.6,
+                ),
+              ),
+            ),
             Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6, color: isDark ? colors.textStrong : const Color(0xFF1E293B))),
             const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 InkWell(
                   onTap: onLike,
@@ -464,6 +629,22 @@ class _CommunityNoteCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => onOpenVerse(note.surahId, note.verseId),
+                  child: Row(
+                    children: [
+                      const Text('📖 ', style: TextStyle(fontSize: 12)),
+                      Text(
+                        'Read in Mushaf',
+                        style: GoogleFonts.prompt(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

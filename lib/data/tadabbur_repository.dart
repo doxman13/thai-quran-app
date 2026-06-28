@@ -28,14 +28,16 @@ class TadabburRepository {
     }
   }
 
-  /// Fetch public community notes for a specific verse
+  /// Fetch public community notes — matches web fetchPublicTadabburFeed:
+  /// includes ALL public notes (including the logged-in user's own),
+  /// joins tadabbur_likes to compute user_liked, ordered newest first.
   Future<List<TadabburNote>> fetchCommunityNotes(String surahId, String verseId) async {
     try {
       final user = _client.auth.currentUser;
-      
+
       var query = _client
           .from('tadabbur_notes')
-          .select()
+          .select('*, tadabbur_likes(user_id)')
           .eq('is_public', true);
 
       if (surahId != '0') {
@@ -45,14 +47,21 @@ class TadabburRepository {
         query = query.eq('verse_id', verseId);
       }
 
-      if (user != null) {
-        query = query.neq('user_id', user.id);
-      }
-
-      final response = await query.order('likes_count', ascending: false).order('created_at', ascending: false);
+      final response = await query.order('created_at', ascending: false);
       final List<dynamic> data = response as List<dynamic>;
-      
-      return data.map((json) => TadabburNote.fromJson(json as Map<String, dynamic>)).toList();
+
+      return data.map((row) {
+        final json = row as Map<String, dynamic>;
+        // Compute user_liked from the joined tadabbur_likes rows
+        final likes = json['tadabbur_likes'] as List<dynamic>? ?? [];
+        final userLiked = user != null
+            ? likes.any((like) => (like as Map<String, dynamic>)['user_id'] == user.id)
+            : false;
+        return TadabburNote.fromJson({
+          ...json,
+          'user_liked': userLiked,
+        });
+      }).toList();
     } catch (e) {
       debugPrint('TadabburRepository: Error fetching community notes: $e');
       return [];

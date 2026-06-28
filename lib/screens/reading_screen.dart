@@ -23,6 +23,7 @@ class ReadingScreen extends StatefulWidget {
   final int? initialVerseIndex;
   final String? initialVerseId;
   final bool openSettingsPanel;
+  final bool saveToFreeReadOnly;
 
   const ReadingScreen({
     Key? key,
@@ -31,6 +32,7 @@ class ReadingScreen extends StatefulWidget {
     this.initialVerseIndex,
     this.initialVerseId,
     this.openSettingsPanel = false,
+    this.saveToFreeReadOnly = false,
   }) : super(key: key);
 
   @override
@@ -74,11 +76,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
         context,
         listen: false,
       );
-      final activeProfile = localReading.activeProfile;
-      if (activeProfile != null) {
+      final progressProfile = _progressProfile(localReading);
+      if (progressProfile != null) {
         _loadSurah(
-          activeProfile.current.surahId,
-          jumpToVerseId: activeProfile.current.verseId,
+          progressProfile.current.surahId,
+          jumpToVerseId: progressProfile.current.verseId,
         );
         return;
       }
@@ -199,14 +201,17 @@ class _ReadingScreenState extends State<ReadingScreen> {
     provider.setCurrentSurah(surahId);
 
     final allSurahVerses = widget.repository.getSurahVerses(surahId);
+    final progressProfile = _progressProfile(localReading);
     final requestedVerseId =
         jumpToVerseId ??
-        _defaultVisibleVerseIdForSurah(surahId, localReading.activeProfile) ??
+        _defaultVisibleVerseIdForSurah(surahId, progressProfile) ??
         ((jumpToIndex >= 0 && jumpToIndex < allSurahVerses.length)
             ? allSurahVerses[jumpToIndex].id
             : allSurahVerses.firstOrNull?.id ?? '1');
 
-    await localReading.switchToFreeReadIfOutside(surahId, requestedVerseId);
+    if (!widget.saveToFreeReadOnly) {
+      await localReading.switchToFreeReadIfOutside(surahId, requestedVerseId);
+    }
     if (!mounted) return;
 
     final loadedVerses = _visibleVersesForActiveProfile(
@@ -250,7 +255,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       context,
       listen: false,
     );
-    final profile = localReading.activeProfile;
+    final profile = _progressProfile(localReading);
     if (profile == null ||
         profile.target == null ||
         isFreeReadProfile(profile)) {
@@ -298,7 +303,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       context,
       listen: false,
     );
-    final profile = localReading.activeProfile;
+    final profile = _progressProfile(localReading);
     if (profile == null ||
         profile.target == null ||
         isFreeReadProfile(profile)) {
@@ -314,6 +319,52 @@ class _ReadingScreenState extends State<ReadingScreen> {
   void _selectVerseIndex(int index) {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
     provider.setVerseIndexAndScroll(index);
+  }
+
+  LocalReadingProfile? _progressProfile(LocalReadingProvider localReading) {
+    if (widget.saveToFreeReadOnly) {
+      return localReading.freeReadProfile;
+    }
+    return localReading.activeProfile;
+  }
+
+  bool _isBoundedCreatedProfile(LocalReadingProfile? profile) {
+    return profile != null &&
+        profile.target != null &&
+        !isFreeReadProfile(profile);
+  }
+
+  int _verseOrdinal(String surahId, String verseId) {
+    var ordinal = 0;
+    for (var surah = 1; surah <= 114; surah++) {
+      final id = surah.toString();
+      final count = widget.repository.getSurahVerses(id).length;
+      if (id == surahId) return ordinal + (int.tryParse(verseId) ?? 1);
+      ordinal += count;
+    }
+    return ordinal;
+  }
+
+  int _profileTotalAyahs(LocalReadingProfile profile) {
+    if (profile.target == null) return verses.length;
+    final start = _verseOrdinal(profile.start.surahId, profile.start.verseId);
+    final target = _verseOrdinal(
+      profile.target!.surahId,
+      profile.target!.verseId,
+    );
+    return (target - start + 1).clamp(0, 6236).toInt();
+  }
+
+  int _profileReadPosition(LocalReadingProfile profile, VerseRef current) {
+    final totalAyahs = _profileTotalAyahs(profile);
+    if (totalAyahs <= 0) return 0;
+    final start = _verseOrdinal(profile.start.surahId, profile.start.verseId);
+    final currentOrdinal = _verseOrdinal(current.surahId, current.verseId);
+    return (currentOrdinal - start + 1).clamp(1, totalAyahs).toInt();
+  }
+
+  String _ayahLeftLabel(int count) {
+    return count == 1 ? '1 ayah left' : '$count ayahs left';
   }
 
   void _showSettingsSheet() {
@@ -372,39 +423,38 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         onChanged: (val) => settings.toggleDarkMode(val),
                       ),
 
-                      // Arabic Display Toggle
-                      SwitchListTile(
-                        title: Text(
-                          'Always Show Arabic Text',
-                          style: GoogleFonts.prompt(
-                            fontWeight: FontWeight.w500,
-                          ),
+                      Text(
+                        'Reading Mode',
+                        style: GoogleFonts.prompt(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
                         ),
-                        subtitle: Text(
-                          'If unchecked, click the eye icon to reveal.',
-                          style: GoogleFonts.prompt(fontSize: 12),
-                        ),
-                        value: settings.alwaysShowArabic,
-                        activeColor: primaryColor,
-                        onChanged: (val) =>
-                            settings.toggleAlwaysShowArabic(val),
                       ),
-
-                      SwitchListTile(
-                        title: Text(
-                          'Always Show Translation',
-                          style: GoogleFonts.prompt(
-                            fontWeight: FontWeight.w500,
-                          ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<String>(
+                          showSelectedIcon: false,
+                          segments: const [
+                            ButtonSegment(
+                              value: SettingsProvider.quranOnlyMode,
+                              label: Text('Quran only'),
+                            ),
+                            ButtonSegment(
+                              value: SettingsProvider.translationOnlyMode,
+                              label: Text('Translation only'),
+                            ),
+                            ButtonSegment(
+                              value: SettingsProvider.quranTranslationMode,
+                              label: Text('Quran + Translation'),
+                            ),
+                          ],
+                          selected: {settings.readingDisplayMode},
+                          onSelectionChanged: (selection) {
+                            settings.setReadingDisplayMode(selection.first);
+                          },
                         ),
-                        subtitle: Text(
-                          'Hide all translations for Arabic-only reading.',
-                          style: GoogleFonts.prompt(fontSize: 12),
-                        ),
-                        value: settings.alwaysShowTranslation,
-                        activeColor: primaryColor,
-                        onChanged: (val) =>
-                            settings.toggleAlwaysShowTranslation(val),
                       ),
 
                       const Divider(height: 24),
@@ -521,52 +571,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       ),
 
                       const Divider(height: 32),
-
-                      // Arabic Font Family Choice
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Arabic Font Style',
-                            style: GoogleFonts.prompt(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          DropdownButton<String>(
-                            value: settings.arabicFontFamily,
-                            dropdownColor: colors.surface,
-                            style: GoogleFonts.prompt(
-                              color: colors.textStrong,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            underline: Container(),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'UthmanicHafs',
-                                child: Text('Uthmanic Hafs'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'AmiriQuran',
-                                child: Text('Amiri Quran'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'ScheherazadeNew',
-                                child: Text('Scheherazade New'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Amiri',
-                                child: Text('Amiri Regular'),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              if (val != null)
-                                settings.setArabicFontFamily(val);
-                            },
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
 
                       // Arabic Font Size Choice
                       Column(
@@ -838,6 +842,174 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
+  Widget _buildSelectorBar(AppThemeColors colors, List<String> surahIds) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.borderSoft)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border.all(color: colors.borderSoft),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _currentSurah,
+                  isExpanded: true,
+                  dropdownColor: colors.surface,
+                  iconEnabledColor: colors.primary,
+                  style: GoogleFonts.inter(
+                    color: colors.textStrong,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                  items: surahIds
+                      .map(
+                        (id) => DropdownMenuItem(
+                          value: id,
+                          child: Text(
+                            widget.repository.getSurahName(id),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (surahId) {
+                    if (surahId != null && surahId != _currentSurah) {
+                      _loadSurah(surahId);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 96,
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                border: Border.all(color: colors.borderSoft),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+              ),
+              child: Consumer<ProgressProvider>(
+                builder: (context, progressProv, child) {
+                  final currentIndex = progressProv.lastVerseIndex;
+                  final safeIndex = verses.isEmpty
+                      ? 0
+                      : currentIndex.clamp(0, verses.length - 1).toInt();
+                  return DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: verses.isEmpty ? null : safeIndex,
+                      isExpanded: true,
+                      dropdownColor: colors.surface,
+                      iconEnabledColor: colors.primary,
+                      style: GoogleFonts.inter(
+                        color: colors.textStrong,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                      ),
+                      hint: const Text('Ayah'),
+                      items: List.generate(
+                        verses.length,
+                        (index) => DropdownMenuItem(
+                          value: index,
+                          child: Text(verses[index].id),
+                        ),
+                      ),
+                      onChanged: (index) {
+                        if (index != null) _selectVerseIndex(index);
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileCountdownBar(
+    AppThemeColors colors,
+    LocalReadingProfile profile,
+    ProgressProvider progressProv,
+  ) {
+    final currentIndex = progressProv.lastVerseIndex;
+    final currentVerse = currentIndex >= 0 && currentIndex < verses.length
+        ? toVerseRef(verses[currentIndex].surahId, verses[currentIndex].id)
+        : profile.current;
+    final totalAyahs = _profileTotalAyahs(profile);
+    final readPosition = _profileReadPosition(profile, currentVerse);
+    final remaining = totalAyahs <= 0
+        ? 0
+        : (totalAyahs - readPosition + 1).clamp(1, totalAyahs).toInt();
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: colors.borderSoft)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border.all(color: colors.borderSoft),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.hourglass_bottom_rounded,
+              color: colors.primary,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${profile.name} - ${profile.start.verseKey} to ${profile.target!.verseKey}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: colors.textStrong,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    '${_ayahLeftLabel(remaining)} - $readPosition / $totalAyahs',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: colors.foreground,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
@@ -872,8 +1044,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
             ),
             Consumer2<LocalReadingProvider, ProgressProvider>(
               builder: (context, localReading, progressProv, child) {
-                final activeProfile = localReading.activeProfile;
-                final profileName = activeProfile?.name ?? 'Free Read';
+                final progressProfile = _progressProfile(localReading);
+                final profileName = progressProfile?.name ?? 'Free Read';
                 final activeVerseId =
                     (progressProv.lastVerseIndex >= 0 &&
                         progressProv.lastVerseIndex < verses.length)
@@ -902,100 +1074,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(58),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: colors.borderSoft)),
-            ),
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      border: Border.all(color: colors.borderSoft),
-                      borderRadius: BorderRadius.circular(AppTheme.radius),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _currentSurah,
-                        isExpanded: true,
-                        dropdownColor: colors.surface,
-                        iconEnabledColor: colors.primary,
-                        style: GoogleFonts.inter(
-                          color: colors.textStrong,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
-                        items: surahIds
-                            .map(
-                              (id) => DropdownMenuItem(
-                                value: id,
-                                child: Text(
-                                  widget.repository.getSurahName(id),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (surahId) {
-                          if (surahId != null && surahId != _currentSurah) {
-                            _loadSurah(surahId);
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 96,
-                  child: Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      border: Border.all(color: colors.borderSoft),
-                      borderRadius: BorderRadius.circular(AppTheme.radius),
-                    ),
-                    child: Consumer<ProgressProvider>(
-                      builder: (context, progressProv, child) {
-                        final currentIndex = progressProv.lastVerseIndex;
-                        final safeIndex = verses.isEmpty
-                            ? 0
-                            : currentIndex.clamp(0, verses.length - 1);
-                        return DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: verses.isEmpty ? null : safeIndex,
-                            isExpanded: true,
-                            dropdownColor: colors.surface,
-                            iconEnabledColor: colors.primary,
-                            style: GoogleFonts.inter(
-                              color: colors.textStrong,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                            hint: const Text('Ayah'),
-                            items: List.generate(
-                              verses.length,
-                              (index) => DropdownMenuItem(
-                                value: index,
-                                child: Text(verses[index].id),
-                              ),
-                            ),
-                            onChanged: (index) {
-                              if (index != null) _selectVerseIndex(index);
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          child: Consumer2<LocalReadingProvider, ProgressProvider>(
+            builder: (context, localReading, progressProv, child) {
+              final progressProfile = _progressProfile(localReading);
+              if (_isBoundedCreatedProfile(progressProfile)) {
+                return _buildProfileCountdownBar(
+                  colors,
+                  progressProfile!,
+                  progressProv,
+                );
+              }
+              return _buildSelectorBar(colors, surahIds);
+            },
           ),
         ),
       ),
@@ -1013,11 +1103,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   );
                 }
 
+                final localReading = Provider.of<LocalReadingProvider>(
+                  context,
+                  listen: false,
+                );
+                final progressProfile = _progressProfile(localReading);
                 final card = VerseCard(
                   key: ValueKey('${verses[index].surahId}_${verses[index].id}'),
                   verse: verses[index],
                   repository: widget.repository,
                   index: index,
+                  progressProfileId: progressProfile?.id,
+                  useExplicitProgressProfile: true,
                 );
                 final verseNumber = int.tryParse(verses[index].id);
                 final showThemeHeader =
@@ -1121,9 +1218,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               elevation: 0,
                             ),
                             onPressed: () async {
-                              final activeProfile = localReading.activeProfile;
+                              final progressProfile = _progressProfile(
+                                localReading,
+                              );
                               final currentIndex = progressProv.lastVerseIndex;
-                              if (activeProfile != null &&
+                              if (progressProfile != null &&
                                   currentIndex >= 0 &&
                                   currentIndex < verses.length) {
                                 final currentVerse = verses[currentIndex];
@@ -1133,13 +1232,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 );
 
                                 await localReading.updateProfileProgress(
-                                  activeProfile.id,
+                                  progressProfile.id,
                                   verseRef,
                                   context: context,
                                 );
                                 await localReading.addRecentReading(
                                   verse: verseRef,
-                                  profileId: activeProfile.id,
+                                  profileId: progressProfile.id,
                                 );
                               }
                               if (context.mounted) {

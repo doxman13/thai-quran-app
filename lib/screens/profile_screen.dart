@@ -701,10 +701,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onTap: _openNotes,
                             ),
                             _buildStatCard(
-                              icon: Icons.self_improvement,
-                              title: 'Reflections',
+                              icon: Icons.favorite_rounded,
+                              title: 'Favorites & Notes',
                               value: '${notesProv.personalNotes.length}',
-                              color: Colors.teal,
+                              color: Colors.red,
                               onTap: _openTadabbur,
                             ),
                             _buildStatCard(

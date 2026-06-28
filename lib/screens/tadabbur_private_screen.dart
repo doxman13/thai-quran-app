@@ -60,9 +60,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     }
   }
 
-  Future<void> _deleteNote(String noteId) async {
+  Future<void> _deleteNote(String noteId, NotesProvider notesProv) async {
     try {
-      await _repo.deleteNote(noteId);
+      final note = _notes.firstWhere((n) => n.id == noteId);
+      await notesProv.deleteNote(note.surahId, note.verseId);
+
       final updated = _notes.where((n) => n.id != noteId).toList();
       setState(() {
         _notes = updated;
@@ -114,7 +116,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'My Reflections',
+          'My Favorites & Reflections',
           style: GoogleFonts.prompt(fontWeight: FontWeight.w900, color: colors.textStrong),
         ),
         actions: [
@@ -285,30 +287,18 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                   repository: widget.repository,
                   colors: colors,
                   primaryColor: primaryColor,
-                  onDelete: () => _deleteNote(note.id),
+                  onDelete: () => _deleteNote(note.id, notesProv),
                   onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
                   onTogglePublic: (note) async {
                     try {
-                      final updated = await _repo.saveNote(TadabburNote(
-                        id: note.id,
-                        userId: note.userId,
+                      await notesProv.saveNote(
                         surahId: note.surahId,
                         verseId: note.verseId,
                         noteText: note.noteText,
                         isPublic: !note.isPublic,
                         isAnonymous: note.isAnonymous,
-                        likesCount: note.likesCount,
-                        language: note.language,
-                        createdAt: note.createdAt,
-                        updatedAt: DateTime.now(),
-                        synced: true,
-                      ));
-                      if (updated != null) {
-                        setState(() {
-                          final idx = _notes.indexWhere((n) => n.id == note.id);
-                          if (idx >= 0) _notes[idx] = updated;
-                        });
-                      }
+                      );
+                      await _loadNotes();
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -319,26 +309,14 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                   },
                   onEdit: (note, newText) async {
                     try {
-                      final updated = await _repo.saveNote(TadabburNote(
-                        id: note.id,
-                        userId: note.userId,
+                      await notesProv.saveNote(
                         surahId: note.surahId,
                         verseId: note.verseId,
                         noteText: newText.trim(),
                         isPublic: note.isPublic,
                         isAnonymous: note.isAnonymous,
-                        likesCount: note.likesCount,
-                        language: note.language,
-                        createdAt: note.createdAt,
-                        updatedAt: DateTime.now(),
-                        synced: true,
-                      ));
-                      if (updated != null) {
-                        setState(() {
-                          final idx = _notes.indexWhere((n) => n.id == note.id);
-                          if (idx >= 0) _notes[idx] = updated;
-                        });
-                      }
+                      );
+                      await _loadNotes();
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -544,49 +522,59 @@ class _NoteCardState extends State<_NoteCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    note.noteText,
-                    style: GoogleFonts.prompt(fontSize: 14, height: 1.6),
-                  ),
+                  note.noteText.isNotEmpty
+                      ? Text(
+                          note.noteText,
+                          style: GoogleFonts.prompt(fontSize: 14, height: 1.6),
+                        )
+                      : Text(
+                          'Favorited this verse (no reflection text added)',
+                          style: GoogleFonts.prompt(
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      InkWell(
-                        onTap: () => widget.onTogglePublic(note),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: note.isPublic
-                                ? Colors.green.withOpacity(0.1)
-                                : widget.colors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
+                      if (note.noteText.isNotEmpty)
+                        InkWell(
+                          onTap: () => widget.onTogglePublic(note),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
                               color: note.isPublic
-                                  ? Colors.green.withOpacity(0.3)
-                                  : widget.colors.borderSoft,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                note.isPublic ? Icons.public : Icons.lock_outline,
-                                size: 12,
-                                color: note.isPublic ? Colors.green : Colors.grey,
+                                  ? Colors.green.withOpacity(0.1)
+                                  : widget.colors.surfaceMuted,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: note.isPublic
+                                    ? Colors.green.withOpacity(0.3)
+                                    : widget.colors.borderSoft,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                note.isPublic ? 'Public' : 'Private',
-                                style: GoogleFonts.prompt(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  note.isPublic ? Icons.public : Icons.lock_outline,
+                                  size: 12,
                                   color: note.isPublic ? Colors.green : Colors.grey,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  note.isPublic ? 'Public' : 'Private',
+                                  style: GoogleFonts.prompt(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: note.isPublic ? Colors.green : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                       const Spacer(),
                       IconButton(
                         icon: Icon(Icons.edit_outlined, size: 18, color: widget.primaryColor),
@@ -595,13 +583,13 @@ class _NoteCardState extends State<_NoteCard> {
                       ),
                       IconButton(
                         icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
-                        tooltip: 'Delete',
+                        tooltip: 'Unfavorite',
                         onPressed: () {
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text('Delete reflection?', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
-                              content: Text('Are you sure?', style: GoogleFonts.prompt()),
+                              title: Text('Remove from Favorites', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
+                              content: Text('Are you sure you want to unfavorite this verse?', style: GoogleFonts.prompt()),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.prompt())),
                                 TextButton(
@@ -609,7 +597,7 @@ class _NoteCardState extends State<_NoteCard> {
                                     Navigator.pop(ctx);
                                     widget.onDelete();
                                   },
-                                  child: Text('Delete', style: GoogleFonts.prompt(color: Colors.red)),
+                                  child: Text('Unfavorite', style: GoogleFonts.prompt(color: Colors.red)),
                                 ),
                               ],
                             ),

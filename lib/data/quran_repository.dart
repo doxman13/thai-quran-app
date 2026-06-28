@@ -161,6 +161,29 @@ class QuranRepository {
     return versesList;
   }
 
+  Verse? getVerse(String surahId, String verseId) {
+    final versesMap = _getVersesMap(surahId);
+    final thaiV3Text = versesMap[verseId];
+    if (thaiV3Text == null) return null;
+
+    final verseKey = createVerseKey(surahId, verseId);
+    final mergedVerse = _mergedQuranData?[verseKey];
+    final shortTafsir = _tafsirData?[surahId]?[verseId]?.toString();
+
+    return Verse(
+      id: verseId,
+      surahId: surahId,
+      thaiV3: thaiV3Text.toString(),
+      thaiV2: mergedVerse?['thai_v2']?.toString() ??
+              mergedVerse?['thai_v1']?.toString() ??
+              thaiV3Text.toString(),
+      english: mergedVerse?['english']?.toString() ?? 'N/A',
+      shortTafsir: shortTafsir?.trim().isEmpty == true ? null : shortTafsir,
+      shortTafsirSource: shortTafsir == null ? null : 'QuranEnc Thai Mokhtasar',
+      arabic: '',
+    );
+  }
+
   Map<String, String> _getVersesMap(String surahId) {
     final quranData = _quranData;
     if (quranData == null) return {};

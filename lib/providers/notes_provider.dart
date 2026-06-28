@@ -75,11 +75,6 @@ class NotesProvider extends ChangeNotifier {
     final key = '$surahId:$verseId';
     final existing = _personalNotes[key];
 
-    if (noteText.trim().isEmpty) {
-      await deleteNote(surahId, verseId);
-      return;
-    }
-
     final user = Supabase.instance.client.auth.currentUser;
     final isGuest = user == null;
 

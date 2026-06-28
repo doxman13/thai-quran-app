@@ -142,6 +142,35 @@ create table if not exists public.user_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.thai_protected_terms (
+  id uuid primary key default gen_random_uuid(),
+  term text not null unique,
+  is_active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.thai_protected_terms (term, sort_order)
+values
+  ('ฟิรเอานฺ', 10),
+  ('อัลลอฮฺ', 20),
+  ('มุฮัมมัด', 30),
+  ('อิบรอฮีม', 40),
+  ('อิสมาอีล', 50),
+  ('อิสฮาก', 60),
+  ('ยะอฺกูบ', 70),
+  ('ญิบรีล', 80),
+  ('ตอรูต', 90),
+  ('ญาลูต', 100),
+  ('ฏอลูต', 110),
+  ('ฮารูน', 120),
+  ('อีซา', 130),
+  ('มูซา', 140)
+on conflict (term) do update set
+  sort_order = excluded.sort_order,
+  updated_at = now();
+
 create table if not exists public.translation_reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
@@ -199,6 +228,8 @@ create index if not exists recent_readings_user_idx on public.recent_readings (u
 create index if not exists tadabbur_public_verse_idx on public.tadabbur_notes (verse_key)
   where visibility = 'public' and status = 'active';
 create index if not exists translation_reports_status_idx on public.translation_reports (status, created_at);
+create index if not exists thai_protected_terms_active_idx
+  on public.thai_protected_terms (is_active, sort_order, term);
 
 alter table public.reading_profiles enable row level security;
 alter table public.verse_tafsir enable row level security;
@@ -209,14 +240,32 @@ alter table public.recent_readings enable row level security;
 alter table public.user_reading_history enable row level security;
 alter table public.user_completed_surahs enable row level security;
 alter table public.user_settings enable row level security;
+alter table public.thai_protected_terms enable row level security;
 alter table public.translation_reports enable row level security;
 alter table public.tadabbur_notes enable row level security;
 alter table public.tadabbur_reactions enable row level security;
 alter table public.tadabbur_reports enable row level security;
 
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'thai_protected_terms'
+      and policyname = 'Thai protected terms are readable by everyone'
+  ) then
+    create policy "Thai protected terms are readable by everyone"
+      on public.thai_protected_terms
+      for select
+      using (is_active = true);
+  end if;
+end $$;
+
 -- RLS policy outline:
 -- - translations: public read, admin-only write.
 -- - verse_tafsir/surah_summaries: public read, admin-only write.
+-- - thai_protected_terms: public read for active terms, admin-only write.
 -- - reading_profiles/bookmarks/recent_readings/user_* tables:
 --   users can read/write only rows where user_id = auth.uid().
 -- - translation_reports: authenticated users can insert their own reports;
