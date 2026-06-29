@@ -58,13 +58,27 @@ class QuranFoundationException implements Exception {
 class QuranFoundationRepository {
   static const _cachePrefix = 'quran_foundation_cache_v5';
   final http.Client _client;
+  static Map<String, String>? _staticTajweedMap;
 
   QuranFoundationRepository({http.Client? client})
     : _client = client ?? http.Client();
 
+  Future<void> _ensureStaticTajweedLoaded() async {
+    if (_staticTajweedMap != null) return;
+    try {
+      final jsonString = await rootBundle.loadString('assets/quran_tajweed.json');
+      final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+      _staticTajweedMap = decoded.map((k, v) => MapEntry(k, v.toString()));
+    } catch (e) {
+      debugPrint('Failed to load static tajweed map: $e');
+      _staticTajweedMap = {};
+    }
+  }
+
   int _contentMushafId(int mushafId) {
     if (mushafId == qcfPackageMushafId) return 1;
     if (mushafId == 19) return 4;
+    if (mushafId == 99) return 4;
     return mushafId;
   }
 
@@ -81,6 +95,10 @@ class QuranFoundationRepository {
       mushafId: mushafId,
       pageNumber: safePage,
     );
+    
+    if (mushafId == 99) {
+      await _ensureStaticTajweedLoaded();
+    }
 
     if (safePage < pageCount) {
       loadFontForPage(mushafId: mushafId, pageNumber: safePage + 1);
@@ -105,9 +123,9 @@ class QuranFoundationRepository {
       'mushaf': resolvedMushafId.toString(),
       'words': 'true',
       'include_words': 'true',
-      if (mushafId == 11 || mushafId == 19) 'fields': 'text_uthmani_tajweed',
+      if (mushafId == 11 || mushafId == 19 || mushafId == 99) 'fields': 'text_uthmani_tajweed',
       'word_fields':
-          'code,code_v1,code_v2,text_uthmani,text_indopak,text_qpc_hafs,text',
+          'code,code_v1,code_v2,text_uthmani,text_indopak,text_qpc_hafs,text,text_uthmani_tajweed',
     }, config);
     final json = await _getJson(uri, config);
     await _writeCachedJson(cacheKey, json);
@@ -117,6 +135,7 @@ class QuranFoundationRepository {
   }
 
   String getFontFamily(int mushafId, int pageNumber) {
+    if (mushafId == 99) return getFontFamily(4, pageNumber);
     if (mushafId == 1) {
       return 'qcf_v2_p$pageNumber';
     } else if (mushafId == 2) {
@@ -133,6 +152,7 @@ class QuranFoundationRepository {
   }
 
   String? getFontUrl(int mushafId, int pageNumber) {
+    if (mushafId == 99) return getFontUrl(4, pageNumber);
     if (mushafId == 1) {
       return 'https://verses.quran.foundation/fonts/quran/hafs/v2/ttf/p$pageNumber.ttf';
     } else if (mushafId == 2) {
@@ -488,7 +508,7 @@ class QuranFoundationRepository {
         _debugTajweedText(mushafId, verseKey, textUthmaniTajweed);
       }
       final tajweedWordParts = textUthmaniTajweed.trim().isNotEmpty
-          ? _parseTajweedWordParts(textUthmaniTajweed)
+          ? _parseTajweedWordParts(textUthmaniTajweed, mushafId)
           : const <List<MushafTajweedPart>>[];
       final words = <MushafWord>[];
       var wordIndex = 0;
@@ -503,13 +523,32 @@ class QuranFoundationRepository {
             ? verseKey
             : _stringValue(wordMap, ['verse_key', 'verseKey']);
 
-        final tajweedParts = wordIndex < tajweedWordParts.length
-            ? tajweedWordParts[wordIndex]
-            : const <MushafTajweedPart>[];
+        final position = _intValue(wordMap, [
+                'position',
+                'word_number',
+                'wordNumber',
+                'position_in_verse',
+              ]) ??
+              0;
+
+        List<MushafTajweedPart> tajweedParts;
+        if (mushafId == 99 && _staticTajweedMap != null) {
+          final mappedTajweedStr = _staticTajweedMap!['$wordVerseKey:$position'];
+          if (mappedTajweedStr != null && mappedTajweedStr.isNotEmpty) {
+            final parsed = _parseTajweedWordParts(mappedTajweedStr, mushafId);
+            tajweedParts = parsed.isNotEmpty ? parsed.first : const <MushafTajweedPart>[];
+          } else {
+            tajweedParts = const <MushafTajweedPart>[];
+          }
+        } else {
+          tajweedParts = wordIndex < tajweedWordParts.length
+              ? tajweedWordParts[wordIndex]
+              : const <MushafTajweedPart>[];
+        }
         wordIndex++;
 
         if (kDebugMode &&
-            (mushafId == 11 || mushafId == 19) &&
+            (mushafId == 11 || mushafId == 19 || mushafId == 99) &&
             verseKey == '1:7') {
           _debugCleanTajweedParts(mushafId, wordVerseKey, text, tajweedParts);
         }
@@ -526,14 +565,7 @@ class QuranFoundationRepository {
               ]) ??
               _intValue(verseMap, ['line_number', 'lineNumber', 'page_line']) ??
               1,
-          position:
-              _intValue(wordMap, [
-                'position',
-                'word_number',
-                'wordNumber',
-                'position_in_verse',
-              ]) ??
-              0,
+          position: position,
           tajweedParts: tajweedParts,
         );
         words.add(word);
@@ -681,7 +713,7 @@ class QuranFoundationRepository {
     return const {};
   }
 
-  List<List<MushafTajweedPart>> _parseTajweedWordParts(String html) {
+  List<List<MushafTajweedPart>> _parseTajweedWordParts(String html, int mushafId) {
     final words = <List<MushafTajweedPart>>[];
     var currentWord = <MushafTajweedPart>[];
     var buffer = StringBuffer();
@@ -707,7 +739,9 @@ class QuranFoundationRepository {
     void finishWord() {
       flushBuffer();
       final adjusted = _adjustWordTajweedParts(currentWord);
-      adjusted.removeWhere(_shouldDropTajweedPart);
+      if (mushafId != 99) {
+        adjusted.removeWhere(_shouldDropTajweedPart);
+      }
       if (adjusted.isNotEmpty) words.add(adjusted);
       currentWord = <MushafTajweedPart>[];
     }
@@ -876,7 +910,7 @@ class QuranFoundationRepository {
           'text_uthmani',
           'text',
         ]);
-      } else if (mushafId == 11 || mushafId == 19) {
+      } else if (mushafId == 11 || mushafId == 19 || mushafId == 99) {
         if (mushafId == 19) {
           return _stringValue(map, [
             'code',

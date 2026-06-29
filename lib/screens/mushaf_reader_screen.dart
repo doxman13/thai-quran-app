@@ -1662,7 +1662,7 @@ class _MushafLine extends StatelessWidget {
     final fontSize = switch (mushafId) {
       1 => pageNumber <= 2 ? 34.0 : 25.2,
       2 => pageNumber <= 2 ? 38.0 : 30.5,
-      4 => 23.5,
+      4 || 99 => 23.5,
       6 => 25.0,
       11 => 22.0,
       19 => 25.2,
@@ -1700,7 +1700,7 @@ class _MushafLine extends StatelessWidget {
       final recognizer = TapGestureRecognizer()
         ..onTap = () => onVerseTap(word.verseKey);
 
-      if (mushafId == 11 && word.tajweedParts.isNotEmpty) {
+      if ((mushafId == 11 || mushafId == 99) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
           textSpans.add(TextSpan(
             text: part.text,
@@ -1786,21 +1786,29 @@ class _MushafLine extends StatelessWidget {
     switch (className.toLowerCase()) {
       case 'ghunnah':
       case 'ikhfa':
+      case 'ikhafa': // From api.quran.com
       case 'ikhfa_shafawi':
+      case 'ikhafa_shafawi': // From api.quran.com
       case 'idgham_ghunnah':
+      case 'idgham_wo_ghunnah': // From api.quran.com
+      case 'idgham_shafawi': // From api.quran.com
       case 'idgham_muthamaasilayn':
       case 'iqlab':
         return isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D);
       case 'qalqalah':
+      case 'qalaqah': // From api.quran.com
         return isDark ? const Color(0xFF60A5FA) : const Color(0xFF1D4ED8);
       case 'madda_normal':
       case 'madda_permissible':
       case 'madda_necessary':
       case 'madda_obligatory':
+      case 'madda_obligatory_monfasel': // From api.quran.com
+      case 'madda_obligatory_mottasel': // From api.quran.com
         return isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
       case 'ham_wasl':
       case 'laam_shamsiyah':
       case 'silent':
+      case 'slnt': // From api.quran.com
         return const Color(0xFF94A3B8);
       default:
         return null;
