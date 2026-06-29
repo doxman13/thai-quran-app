@@ -48,7 +48,7 @@ def align_and_map(uthmani_text, tajweed_html):
     return result
 
 def fetch_page(page):
-    url = f"https://api.quran.com/api/v4/verses/by_page/{page}?words=true&word_fields=text_qpc_hafs,text_uthmani,text_uthmani_tajweed"
+    url = f"https://api.quran.com/api/v4/verses/by_page/{page}?words=true&word_fields=text_qpc_hafs,text_uthmani_tajweed"
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     for attempt in range(3):
         try:
@@ -75,7 +75,7 @@ def main():
                 for w in verse.get('words', []):
                     if w['char_type_name'] != 'word':
                         continue
-                    uthmani = w['text_uthmani']
+                    uthmani = w.get('text_qpc_hafs', '')
                     tajweed_html = w.get('text_uthmani_tajweed', '')
                     if tajweed_html:
                         mapped = align_and_map(uthmani, tajweed_html)

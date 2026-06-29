@@ -78,9 +78,15 @@ const mushafTypes = [
     pageCount: 604,
     description: 'Bundled QCF page widget from qcf_quran',
   ),
+  MushafType(
+    id: 99,
+    name: 'Uthmani Tajweed test',
+    pageCount: 604,
+    description: 'Experimental Tajweed on Uthmani script',
+  ),
 ];
 
-const visibleMushafTypeIds = {1, 2, 4, 6, 19};
+const visibleMushafTypeIds = {1, 2, 4, 6, 19, 99};
 
 List<MushafType> get visibleMushafTypes {
   return mushafTypes

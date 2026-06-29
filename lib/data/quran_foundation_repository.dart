@@ -749,7 +749,7 @@ class QuranFoundationRepository {
     void appendVisibleText(String text) {
       for (final rune in text.runes) {
         final char = String.fromCharCode(rune);
-        if (char.trim().isEmpty) {
+        if (char.trim().isEmpty && mushafId != 99) {
           finishWord();
           continue;
         }

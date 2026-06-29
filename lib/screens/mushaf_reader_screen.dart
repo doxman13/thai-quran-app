@@ -838,127 +838,10 @@ class _MushafReaderSettingsSheetState
 }
 
 String getSurahNameForPage(int pageNumber, QuranRepository quranRepository) {
-  const List<int> surahStartPages = [
-    1,
-    2,
-    50,
-    77,
-    106,
-    128,
-    151,
-    177,
-    187,
-    208,
-    221,
-    235,
-    249,
-    255,
-    262,
-    267,
-    282,
-    293,
-    305,
-    312,
-    322,
-    332,
-    342,
-    350,
-    359,
-    367,
-    377,
-    385,
-    396,
-    404,
-    411,
-    415,
-    418,
-    428,
-    434,
-    440,
-    446,
-    453,
-    458,
-    467,
-    477,
-    483,
-    489,
-    496,
-    499,
-    502,
-    506,
-    511,
-    515,
-    518,
-    521,
-    523,
-    526,
-    528,
-    531,
-    534,
-    537,
-    542,
-    545,
-    549,
-    551,
-    553,
-    554,
-    556,
-    558,
-    560,
-    562,
-    564,
-    566,
-    568,
-    570,
-    572,
-    574,
-    575,
-    577,
-    578,
-    580,
-    582,
-    583,
-    585,
-    586,
-    587,
-    589,
-    590,
-    591,
-    592,
-    593,
-    594,
-    595,
-    596,
-    596,
-    597,
-    598,
-    598,
-    599,
-    599,
-    600,
-    601,
-    601,
-    602,
-    602,
-    603,
-    603,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-  ];
-
   int surahId = 1;
-  for (int i = 0; i < surahStartPages.length; i++) {
-    if (surahStartPages[i] <= pageNumber) {
-      surahId = i + 1;
+  for (int i = 1; i <= 114; i++) {
+    if (getStartPageForSurah(i) <= pageNumber) {
+      surahId = i;
     } else {
       break;
     }
@@ -1009,33 +892,40 @@ class _ReaderTopBar extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             icon: Icon(pageBookmarked ? Icons.bookmark : Icons.bookmark_border),
           ),
-          IconButton(
-            tooltip: verseFavorited ? 'Remove favorite' : 'Favorite ayah',
-            onPressed: onFavoriteVerse,
-            iconSize: 20,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              verseFavorited
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              color: verseFavorited ? Colors.redAccent : null,
-            ),
-          ),
           Expanded(
             child: InkWell(
               onTap: onTitleTap,
-              borderRadius: BorderRadius.circular(4),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  '$surahName • Page $pageNumber • Juz $juz • Hizb $hizb',
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: colors.textStrong,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '$surahName • Page $pageNumber • Juz $juz • Hizb $hizb',
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          color: colors.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.expand_more,
+                      size: 16,
+                      color: colors.primary,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1122,10 +1012,21 @@ class _SmallReaderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isPrevious = label == 'Previous';
     final child = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: [
+      children: isPrevious ? [
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 3),
+        Icon(icon, size: 16),
+      ] : [
         Icon(icon, size: 16),
         const SizedBox(width: 3),
         Flexible(
@@ -1139,11 +1040,15 @@ class _SmallReaderButton extends StatelessWidget {
     );
     final style = filled
         ? FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             minimumSize: const Size(0, 32),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           )
         : OutlinedButton.styleFrom(
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             minimumSize: const Size(0, 32),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1669,12 +1574,13 @@ class _MushafLine extends StatelessWidget {
       _ => 22.5,
     };
     final bool isQcf = mushafId == 1 || mushafId == 2 || mushafId == 19;
+    final isUthmaniTajweed = mushafId == 99;
     final baseStyle = TextStyle(
       fontFamily: fontFamily,
       fontSize: fontSize,
       height: isQcf ? lineHeight : null,
       color: Theme.of(context).textTheme.bodyMedium?.color,
-      fontWeight: FontWeight.w400,
+      fontWeight: isUthmaniTajweed ? FontWeight.w500 : FontWeight.w400,
     );
     final strutStyle = isQcf
         ? StrutStyle.fromTextStyle(
@@ -2071,11 +1977,11 @@ int getStartPageForSurah(int surahNumber) {
     496,
     499,
     502,
-    506,
+    507,
     511,
     515,
     518,
-    521,
+    520,
     523,
     526,
     528,
@@ -2107,35 +2013,35 @@ int getStartPageForSurah(int surahNumber) {
     585,
     586,
     587,
+    587,
     589,
     590,
+    591,
     591,
     592,
     593,
     594,
     595,
+    595,
     596,
     596,
+    597,
     597,
     598,
     598,
     599,
     599,
     600,
+    600,
+    601,
     601,
     601,
     602,
     602,
+    602,
     603,
     603,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
-    604,
+    603,
     604,
     604,
     604,
@@ -2329,3 +2235,4 @@ int getOfflineHizbForPage(int pageNumber) {
     return juz * 2 - 1;
   }
 }
+
