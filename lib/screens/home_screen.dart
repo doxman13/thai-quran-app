@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
+import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/mushaf_reading_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
@@ -11,6 +14,8 @@ import '../providers/notes_provider.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
+import 'mushaf_home_screen.dart';
+import 'mushaf_reader_screen.dart';
 import 'notes_screen.dart';
 import 'profile_screen.dart';
 import 'reading_screen.dart';
@@ -28,6 +33,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final PageController _pageController = PageController();
   final TextEditingController _searchController = TextEditingController();
+  final QuranFoundationRepository _foundationRepository =
+      QuranFoundationRepository();
   bool _isInit = false;
   int _pageIndex = 0;
   String _browseMode = 'surah';
@@ -135,6 +142,91 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _navigateToMushafFreeReadPage(int pageNumber) async {
+    final mushafProvider = context.read<MushafReadingProvider>();
+    final profile = await mushafProvider.openUnifiedFreeRead();
+    await mushafProvider.updateProgress(
+      profileId: profile.id,
+      pageNumber: pageNumber,
+    );
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.repository,
+          foundationRepository: _foundationRepository,
+          profileId: profile.id,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _chooseBrowseDestination(String surahId, String verseId) async {
+    final colors = context.read<SettingsProvider>().getAppColors();
+    final surah = int.tryParse(surahId) ?? 1;
+    final verse = int.tryParse(verseId) ?? 1;
+    final pageNumber = qcf.getPageNumber(surah, verse);
+    final destination = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Reading Mode',
+                style: GoogleFonts.inter(
+                  color: colors.textStrong,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModeSelectionCard(
+                      icon: Icons.chrome_reader_mode_outlined,
+                      title: 'Verse-by-Verse',
+                      subtitle: 'Translation & Audio',
+                      colors: colors,
+                      onTap: () => Navigator.pop(sheetContext, 'readspace'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ModeSelectionCard(
+                      icon: Icons.import_contacts,
+                      title: 'Mushaf Page',
+                      subtitle: 'Page $pageNumber',
+                      colors: colors,
+                      onTap: () => Navigator.pop(sheetContext, 'mushaf'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || destination == null) return;
+    if (destination == 'mushaf') {
+      await _navigateToMushafFreeReadPage(pageNumber);
+      return;
+    }
+    _navigateToReading(
+      context,
+      surahId,
+      verseId: verseId,
+      saveToFreeReadOnly: true,
+    );
+  }
+
   Future<void> _navigateToBookmarks(BuildContext context) async {
     final result = await Navigator.push(
       context,
@@ -151,6 +243,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         verseIndex: result['verseIndex'] as int?,
       );
     }
+  }
+
+  Future<void> _navigateToJustRead(BuildContext context) async {
+    final provider = context.read<LocalReadingProvider>();
+    final freeRead = provider.freeReadProfile;
+    if (freeRead == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Just Read profile is not ready yet.')),
+      );
+      return;
+    }
+    await provider.setActiveProfile(freeRead.id);
+    if (!mounted || !context.mounted) return;
+    _navigateToReading(
+      context,
+      freeRead.current.surahId,
+      verseId: freeRead.current.verseId,
+    );
   }
 
   Future<void> _setPage(int index) async {
@@ -224,6 +334,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onSwitchProfile: () =>
                         _showProfileSwitcherBottomSheet(context),
                     onCreateProfile: () => _showProfileDialog(context),
+                    onJustRead: () => _navigateToJustRead(context),
                   ),
                   _BrowsePage(
                     repository: widget.repository,
@@ -231,17 +342,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     mode: _browseMode,
                     searchController: _searchController,
                     onModeChanged: (mode) => setState(() => _browseMode = mode),
-                    onOpen: (surahId, verseId) async {
-                      if (!context.mounted) return;
-                      _navigateToReading(
-                        context,
-                        surahId,
-                        verseId: verseId,
-                        saveToFreeReadOnly: true,
-                      );
-                    },
+                    onOpen: _chooseBrowseDestination,
+                    onOpenPage: _navigateToMushafFreeReadPage,
                   ),
-                  _MushafPlaceholderPage(colors: colors),
+                  MushafHomeScreen(quranRepository: widget.repository),
                 ],
               ),
             ),
@@ -926,6 +1030,7 @@ class _WorkspacePage extends StatelessWidget {
   final VoidCallback onTadabbur;
   final VoidCallback onSwitchProfile;
   final VoidCallback onCreateProfile;
+  final VoidCallback onJustRead;
 
   const _WorkspacePage({
     required this.repository,
@@ -936,6 +1041,7 @@ class _WorkspacePage extends StatelessWidget {
     required this.onTadabbur,
     required this.onSwitchProfile,
     required this.onCreateProfile,
+    required this.onJustRead,
   });
 
   @override
@@ -990,7 +1096,7 @@ class _WorkspacePage extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Guest Mode (Free Read)',
+                      'Guest Mode (Just Read)',
                       style: GoogleFonts.inter(
                         color: colors.textStrong,
                         fontSize: 14,
@@ -1084,7 +1190,7 @@ class _WorkspacePage extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          (active?.name ?? 'Free Read').toUpperCase(),
+                          (active?.name ?? 'Just Read').toUpperCase(),
                           style: GoogleFonts.inter(
                             color: colors.textInverse.withOpacity(0.9),
                             fontSize: 10,
@@ -1218,6 +1324,26 @@ class _WorkspacePage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onJustRead,
+            icon: const Icon(Icons.menu_book_outlined, size: 18),
+            label: Text(
+              'Just Read',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.primary.withValues(alpha: 0.35)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
@@ -1272,6 +1398,7 @@ class _WorkspacePage extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MushafPlaceholderPage extends StatelessWidget {
   final AppThemeColors colors;
   const _MushafPlaceholderPage({required this.colors});
@@ -1341,6 +1468,7 @@ class _BrowsePage extends StatefulWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onModeChanged;
   final void Function(String surahId, String verseId) onOpen;
+  final ValueChanged<int> onOpenPage;
 
   const _BrowsePage({
     required this.repository,
@@ -1349,6 +1477,7 @@ class _BrowsePage extends StatefulWidget {
     required this.searchController,
     required this.onModeChanged,
     required this.onOpen,
+    required this.onOpenPage,
   });
 
   @override
@@ -1356,9 +1485,43 @@ class _BrowsePage extends StatefulWidget {
 }
 
 class _BrowsePageState extends State<_BrowsePage> {
+  int _compareRefs(VerseRef left, VerseRef right) {
+    final leftSurah = int.tryParse(left.surahId) ?? 0;
+    final rightSurah = int.tryParse(right.surahId) ?? 0;
+    if (leftSurah != rightSurah) return leftSurah.compareTo(rightSurah);
+
+    final leftVerse = int.tryParse(left.verseId) ?? 0;
+    final rightVerse = int.tryParse(right.verseId) ?? 0;
+    return leftVerse.compareTo(rightVerse);
+  }
+
+  Set<String> _completedSurahs(LocalReadingProvider provider) {
+    final completed = <String>{};
+    final profiles = [...provider.activeProfiles, ...provider.archivedProfiles];
+
+    for (final profile in profiles) {
+      final target = profile.target;
+      if (target == null || isFreeReadProfile(profile)) continue;
+      if (_compareRefs(profile.current, target) < 0) continue;
+
+      final startSurah = int.tryParse(profile.start.surahId);
+      final targetSurah = int.tryParse(target.surahId);
+      if (startSurah == null || targetSurah == null) continue;
+
+      for (var surah = startSurah; surah <= targetSurah; surah++) {
+        completed.add(surah.toString());
+      }
+    }
+
+    return completed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = widget.searchController.text.toLowerCase();
+    final completedSurahs = _completedSurahs(
+      context.watch<LocalReadingProvider>(),
+    );
     final surahs =
         [
           for (var id = 1; id <= 114; id++)
@@ -1395,6 +1558,17 @@ class _BrowsePageState extends State<_BrowsePage> {
               name.contains(query);
         }).toList();
 
+    final cleanQuery = query.replaceAll(RegExp(r'\D'), '');
+    final int? queriedPage = int.tryParse(cleanQuery);
+
+    final pages = [for (var page = 1; page <= 604; page++) page].where((page) {
+      if (query.isEmpty) return true;
+      if (queriedPage != null && page == queriedPage) return true;
+      return page.toString().contains(query) ||
+          'page $page'.contains(query) ||
+          'หน้า $page'.contains(query);
+    }).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -1402,7 +1576,7 @@ class _BrowsePageState extends State<_BrowsePage> {
           controller: widget.searchController,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            hintText: 'Search Surah or Juz',
+            hintText: 'Search Surah, Juz, or Page',
             prefixIcon: const Icon(Icons.search),
             filled: true,
             fillColor: widget.colors.surface,
@@ -1436,6 +1610,15 @@ class _BrowsePageState extends State<_BrowsePage> {
                 onTap: () => widget.onModeChanged('juz'),
               ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _TabButton(
+                label: 'Page',
+                selected: widget.mode == 'page',
+                colors: widget.colors,
+                onTap: () => widget.onModeChanged('page'),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -1446,10 +1629,11 @@ class _BrowsePageState extends State<_BrowsePage> {
               title: surah.name,
               subtitle: '${surah.count} ayat',
               icon: Icons.menu_book_outlined,
+              completed: completedSurahs.contains(surah.id),
               onTap: () => widget.onOpen(surah.id, '1'),
             ),
           )
-        else
+        else if (widget.mode == 'juz')
           ...juz.map(
             (item) => _SimpleLinkRow(
               colors: widget.colors,
@@ -1459,8 +1643,62 @@ class _BrowsePageState extends State<_BrowsePage> {
               icon: Icons.view_week_outlined,
               onTap: () => widget.onOpen(item.startSurah, item.startAyah),
             ),
+          )
+        else
+          _PageNumberGrid(
+            colors: widget.colors,
+            pages: pages,
+            onOpenPage: widget.onOpenPage,
           ),
       ],
+    );
+  }
+}
+
+class _PageNumberGrid extends StatelessWidget {
+  final AppThemeColors colors;
+  final List<int> pages;
+  final ValueChanged<int> onOpenPage;
+
+  const _PageNumberGrid({
+    required this.colors,
+    required this.pages,
+    required this.onOpenPage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: pages.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 2.6,
+      ),
+      itemBuilder: (context, index) {
+        final page = pages[index];
+        return OutlinedButton(
+          onPressed: () => onOpenPage(page),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: colors.surface,
+            foregroundColor: colors.foreground,
+            side: BorderSide(color: colors.borderSoft),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          child: Text(
+            'Page $page',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+          ),
+        );
+      },
     );
   }
 }
@@ -1691,6 +1929,7 @@ class _SimpleLinkRow extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final bool completed;
   final VoidCallback onTap;
 
   const _SimpleLinkRow({
@@ -1698,6 +1937,7 @@ class _SimpleLinkRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.completed = false,
     required this.onTap,
   });
 
@@ -1738,6 +1978,15 @@ class _SimpleLinkRow extends StatelessWidget {
                   ],
                 ),
               ),
+              if (completed) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.green,
+                  size: 18,
+                ),
+              ],
+              const SizedBox(width: 8),
               Icon(Icons.chevron_right, color: colors.foreground),
             ],
           ),
@@ -1805,6 +2054,67 @@ class _TabButton extends StatelessWidget {
       ),
       onPressed: onTap,
       child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _ModeSelectionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final AppThemeColors colors;
+  final VoidCallback onTap;
+
+  const _ModeSelectionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(AppTheme.radius),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            border: Border.all(color: colors.borderSoft),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 28, color: colors.primary),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: colors.textStrong,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: colors.foreground,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

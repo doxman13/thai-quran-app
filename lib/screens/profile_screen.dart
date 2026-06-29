@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
 import '../data/quran_repository.dart';
@@ -43,7 +44,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  void _showEditNameDialog(BuildContext context, SupabaseProvider supabaseProv) {
+  void _showEditNameDialog(
+    BuildContext context,
+    SupabaseProvider supabaseProv,
+  ) {
     final controller = TextEditingController(text: supabaseProv.displayName);
     final dialogFormKey = GlobalKey<FormState>();
 
@@ -88,7 +92,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('อัปเดตชื่อสำเร็จ (Name updated successfully)')),
+                      const SnackBar(
+                        content: Text(
+                          'อัปเดตชื่อสำเร็จ (Name updated successfully)',
+                        ),
+                      ),
                     );
                   }
                 } catch (e) {
@@ -193,6 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _handleManualSync(
     SupabaseProvider supabaseProv,
     LocalReadingProvider readingProv,
+    MushafReadingProvider mushafProv,
     NotesProvider notesProv,
   ) async {
     if (_isSyncing) return;
@@ -203,12 +212,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      await readingProv.syncBookmarksAndProfilesWithSupabase(supabaseProv.userId);
+      await readingProv.syncBookmarksAndProfilesWithSupabase(
+        supabaseProv.userId,
+      );
       await readingProv.syncReadingStateWithSupabase(supabaseProv.userId);
+      await mushafProv.syncWithSupabase(supabaseProv.userId);
       await notesProv.syncWithSupabase();
       if (mounted) {
         setState(() {
-          _successMessage = 'ซิงค์ข้อมูลสำเร็จแล้ว (Sync completed successfully!)';
+          _successMessage =
+              'ซิงค์ข้อมูลสำเร็จแล้ว (Sync completed successfully!)';
         });
       }
     } catch (e) {
@@ -288,10 +301,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final supabaseProv = Provider.of<SupabaseProvider>(context);
     final readingProv = Provider.of<LocalReadingProvider>(context);
+    final mushafProv = Provider.of<MushafReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context);
 
-    if (supabaseProv.isLoggedIn && (_reportsFuture == null || _fetchedUserId != supabaseProv.userId)) {
+    if (supabaseProv.isLoggedIn &&
+        (_reportsFuture == null || _fetchedUserId != supabaseProv.userId)) {
       _fetchedUserId = supabaseProv.userId;
       _reportsFuture = _fetchUserReports(supabaseProv.userId);
     }
@@ -384,7 +399,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit),
-                          onPressed: () => _showEditNameDialog(context, supabaseProv),
+                          onPressed: () =>
+                              _showEditNameDialog(context, supabaseProv),
                         ),
                       ],
                     ),
@@ -589,7 +605,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _showEditNameDialog(context, supabaseProv),
+                              onPressed: () =>
+                                  _showEditNameDialog(context, supabaseProv),
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
                             ),
@@ -609,7 +626,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(20),
                             onTap: _isSyncing
                                 ? null
-                                : () => _handleManualSync(supabaseProv, readingProv, notesProv),
+                                : () => _handleManualSync(
+                                    supabaseProv,
+                                    readingProv,
+                                    mushafProv,
+                                    notesProv,
+                                  ),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -631,7 +653,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                  Colors.green,
+                                                ),
                                           ),
                                         )
                                       : const Icon(
@@ -641,7 +666,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    _isSyncing ? 'กำลังซิงค์ (Syncing...)' : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
+                                    _isSyncing
+                                        ? 'กำลังซิงค์ (Syncing...)'
+                                        : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
                                     style: const TextStyle(
                                       color: Colors.green,
                                       fontWeight: FontWeight.bold,
@@ -715,6 +742,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 24),
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Mushaf Reading',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.import_contacts_rounded,
+                                title: 'Profiles',
+                                value:
+                                    '${mushafProv.activeCustomProfiles.length}',
+                                color: Colors.teal,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.bookmark_added_outlined,
+                                title: 'Page bookmarks',
+                                value: '${mushafProv.pageBookmarks.length}',
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.format_quote_rounded,
+                                title: 'Verse bookmarks',
+                                value: '${mushafProv.verseBookmarks.length}',
+                                color: Colors.indigo,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.history_rounded,
+                                title: 'Recent pages',
+                                value: '${mushafProv.recentReadings.length}',
+                                color: Colors.deepOrange,
+                              ),
+                            ),
+                          ],
+                        ),
                         if (readingProv.archivedProfiles.isNotEmpty) ...[
                           const SizedBox(height: 24),
                           const Align(
@@ -735,7 +818,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
                                   color: isDark
-                                      ? Colors.blueGrey.shade800.withOpacity(0.5)
+                                      ? Colors.blueGrey.shade800.withOpacity(
+                                          0.5,
+                                        )
                                       : Colors.grey.shade200,
                                 ),
                               ),
@@ -754,28 +839,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     TextButton(
-                                      onPressed: () => readingProv.restoreProfile(profile.id),
+                                      onPressed: () => readingProv
+                                          .restoreProfile(profile.id),
                                       child: const Text('Restore'),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                      ),
                                       onPressed: () {
                                         showDialog(
                                           context: context,
                                           builder: (context) => AlertDialog(
                                             title: const Text('ลบแผนการอ่าน?'),
-                                            content: Text('คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้'),
+                                            content: Text(
+                                              'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
+                                            ),
                                             actions: [
                                               TextButton(
-                                                onPressed: () => Navigator.pop(context),
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
                                                 child: const Text('ยกเลิก'),
                                               ),
                                               TextButton(
                                                 onPressed: () {
-                                                  readingProv.deleteProfile(profile.id);
+                                                  readingProv.deleteProfile(
+                                                    profile.id,
+                                                  );
                                                   Navigator.pop(context);
                                                 },
-                                                child: const Text('ลบ', style: TextStyle(color: Colors.redAccent)),
+                                                child: const Text(
+                                                  'ลบ',
+                                                  style: TextStyle(
+                                                    color: Colors.redAccent,
+                                                  ),
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -991,11 +1090,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
       margin: const EdgeInsets.only(top: 24),
       child: Padding(
@@ -1008,10 +1105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 const Text(
                   'รายงานข้อผิดพลาด (My Error Reports)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
@@ -1065,18 +1159,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     final report = reports[index];
                     final surahId = report['surah_id']?.toString() ?? '';
                     final ayahNum = report['ayah_number']?.toString() ?? '';
-                    final reportedText = report['reported_verse_text']?.toString() ?? '';
-                    final userComment = report['user_comment']?.toString() ?? '';
-                    final status = report['status']?.toString() ?? 'pending_review';
-                    final adminNotes = report['admin_resolution_notes']?.toString() ?? '';
+                    final reportedText =
+                        report['reported_verse_text']?.toString() ?? '';
+                    final userComment =
+                        report['user_comment']?.toString() ?? '';
+                    final status =
+                        report['status']?.toString() ?? 'pending_review';
+                    final adminNotes =
+                        report['admin_resolution_notes']?.toString() ?? '';
                     final dateStr = report['created_at']?.toString() ?? '';
-                    
+
                     DateTime? parsedDate;
                     String formattedDate = '';
                     if (dateStr.isNotEmpty) {
                       try {
                         parsedDate = DateTime.parse(dateStr).toLocal();
-                        formattedDate = '${parsedDate.day}/${parsedDate.month}/${parsedDate.year} ${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
+                        formattedDate =
+                            '${parsedDate.day}/${parsedDate.month}/${parsedDate.year} ${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
                       } catch (_) {}
                     }
 
@@ -1091,9 +1190,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               GestureDetector(
                                 onTap: () => _openReading(surahId, ayahNum),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                    color: Theme.of(
+                                      context,
+                                    ).primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -1141,10 +1245,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           Text(
                             reportedText,
+                            softWrap: true,
                             style: GoogleFonts.prompt(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
-                              color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+                              color: isDark
+                                  ? Colors.grey.shade300
+                                  : Colors.grey.shade700,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1158,6 +1265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           Text(
                             userComment,
+                            softWrap: true,
                             style: GoogleFonts.prompt(
                               fontSize: 13,
                               color: isDark ? Colors.white : Colors.black87,
@@ -1171,14 +1279,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                                border: Border.all(
+                                  color: Colors.blue.withOpacity(0.15),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.admin_panel_settings, size: 16, color: Colors.blue),
+                                      const Icon(
+                                        Icons.admin_panel_settings,
+                                        size: 16,
+                                        color: Colors.blue,
+                                      ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'บันทึกจากผู้ดูแล (Admin Note):',
@@ -1193,9 +1307,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     adminNotes,
+                                    softWrap: true,
                                     style: GoogleFonts.prompt(
                                       fontSize: 12,
-                                      color: isDark ? Colors.grey.shade200 : Colors.grey.shade800,
+                                      color: isDark
+                                          ? Colors.grey.shade200
+                                          : Colors.grey.shade800,
                                     ),
                                   ),
                                 ],

@@ -1730,7 +1730,7 @@ class LocalReadingProvider extends ChangeNotifier {
     final profile = LocalReadingProfile(
       id: _createLocalId(),
       userId: currentUserId,
-      name: 'Free Read',
+      name: 'Just Read',
       slug: 'free_read',
       start: toVerseRef(1, 1),
       current: toVerseRef(1, 1),
@@ -1748,5 +1748,6 @@ class LocalReadingProvider extends ChangeNotifier {
 bool isFreeReadProfile(LocalReadingProfile profile) {
   return profile.slug == 'free_read' ||
       profile.slug == 'main_read' ||
+      profile.name == 'Just Read' ||
       profile.name == 'Free Read';
 }

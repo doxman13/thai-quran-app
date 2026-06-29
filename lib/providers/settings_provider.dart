@@ -19,7 +19,7 @@ class SettingsProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   String _readingDisplayMode = quranTranslationMode;
   double _arabicFontSize = 28.0;
-  double _translationFontSize = 15.0;
+  double _translationFontSize = 16.0;
   String _themeColor = 'blue';
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -207,15 +207,19 @@ class SettingsProvider extends ChangeNotifier {
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
     } else {
-      _readingDisplayMode = _modeFromLegacyFlags(
-        showArabic: prefs.getBool('alwaysShowArabic') ?? false,
-        showTranslation: prefs.getBool('alwaysShowTranslation') ?? true,
-      );
+      final hasLegacyArabic = prefs.containsKey('alwaysShowArabic');
+      final hasLegacyTranslation = prefs.containsKey('alwaysShowTranslation');
+      _readingDisplayMode = hasLegacyArabic || hasLegacyTranslation
+          ? _modeFromLegacyFlags(
+              showArabic: prefs.getBool('alwaysShowArabic') ?? true,
+              showTranslation: prefs.getBool('alwaysShowTranslation') ?? true,
+            )
+          : quranTranslationMode;
       await prefs.setString('readingDisplayMode', _readingDisplayMode);
     }
     await prefs.setString('arabicFontFamily', 'UthmanicHafs');
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
-    _translationFontSize = prefs.getDouble('translationFontSize') ?? 15.0;
+    _translationFontSize = prefs.getDouble('translationFontSize') ?? 16.0;
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'blue');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
     _settingsUpdatedAt =
@@ -232,11 +236,9 @@ class SettingsProvider extends ChangeNotifier {
       final bool hasShowThaiV3 = prefs.containsKey('showThaiV3');
       bool v3, v2, en;
       if (!hasShowThaiV3) {
-        final String nativeLang =
-            WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-        v3 = nativeLang == 'th';
+        v3 = true;
         v2 = false;
-        en = nativeLang != 'th';
+        en = false;
       } else {
         v3 = prefs.getBool('showThaiV3') ?? true;
         v2 = prefs.getBool('showThaiV2') ?? false;

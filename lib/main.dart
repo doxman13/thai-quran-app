@@ -8,6 +8,7 @@ import 'providers/settings_provider.dart';
 import 'providers/notes_provider.dart';
 import 'providers/stats_provider.dart';
 import 'providers/local_reading_provider.dart';
+import 'providers/mushaf_reading_provider.dart';
 import 'providers/supabase_provider.dart';
 import 'providers/thai_text_protection_provider.dart';
 import 'data/quran_repository.dart';
@@ -33,6 +34,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => LocalReadingProvider()),
+        ChangeNotifierProvider(create: (_) => MushafReadingProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),
         ChangeNotifierProvider(create: (_) => ThaiTextProtectionProvider()),

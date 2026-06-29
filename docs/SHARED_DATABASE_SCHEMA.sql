@@ -171,6 +171,52 @@ on conflict (term) do update set
   sort_order = excluded.sort_order,
   updated_at = now();
 
+create table if not exists public.mushaf_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  slug text not null,
+  mushaf_id integer not null,
+  plan_mode text not null check (plan_mode in ('free_read', 'page_range', 'by_surah', 'by_juz')),
+  start_page integer not null check (start_page > 0),
+  target_page integer not null check (target_page >= start_page),
+  current_page integer not null check (current_page >= start_page),
+  sort_order integer not null default 0,
+  is_archived boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, slug, mushaf_id)
+);
+
+create table if not exists public.mushaf_page_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  mushaf_id integer not null,
+  page_number integer not null check (page_number > 0),
+  created_at timestamptz not null default now(),
+  unique (user_id, mushaf_id, page_number)
+);
+
+create table if not exists public.mushaf_verse_bookmarks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  mushaf_id integer not null,
+  page_number integer not null check (page_number > 0),
+  verse_key text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, mushaf_id, page_number, verse_key)
+);
+
+create table if not exists public.mushaf_recent_readings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  mushaf_id integer not null,
+  page_number integer not null check (page_number > 0),
+  profile_id uuid references public.mushaf_profiles(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  unique (user_id, mushaf_id, profile_id)
+);
+
 create table if not exists public.translation_reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
@@ -230,6 +276,10 @@ create index if not exists tadabbur_public_verse_idx on public.tadabbur_notes (v
 create index if not exists translation_reports_status_idx on public.translation_reports (status, created_at);
 create index if not exists thai_protected_terms_active_idx
   on public.thai_protected_terms (is_active, sort_order, term);
+create index if not exists mushaf_profiles_user_idx
+  on public.mushaf_profiles (user_id, mushaf_id, is_archived, sort_order);
+create index if not exists mushaf_recent_readings_user_idx
+  on public.mushaf_recent_readings (user_id, updated_at desc);
 
 alter table public.reading_profiles enable row level security;
 alter table public.verse_tafsir enable row level security;
@@ -241,6 +291,10 @@ alter table public.user_reading_history enable row level security;
 alter table public.user_completed_surahs enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.thai_protected_terms enable row level security;
+alter table public.mushaf_profiles enable row level security;
+alter table public.mushaf_page_bookmarks enable row level security;
+alter table public.mushaf_verse_bookmarks enable row level security;
+alter table public.mushaf_recent_readings enable row level security;
 alter table public.translation_reports enable row level security;
 alter table public.tadabbur_notes enable row level security;
 alter table public.tadabbur_reactions enable row level security;
@@ -267,6 +321,8 @@ end $$;
 -- - verse_tafsir/surah_summaries: public read, admin-only write.
 -- - thai_protected_terms: public read for active terms, admin-only write.
 -- - reading_profiles/bookmarks/recent_readings/user_* tables:
+--   users can read/write only rows where user_id = auth.uid().
+-- - mushaf_profiles/mushaf_* tables:
 --   users can read/write only rows where user_id = auth.uid().
 -- - translation_reports: authenticated users can insert their own reports;
 --   optional guest report insert should go through a protected server endpoint.

@@ -13,17 +13,17 @@ Thai Quran is a mobile-first Quran reading app focused on Thai readers, with opt
 The app currently supports:
 
 - Reading Quran by surah and juz.
+- Reading Mushaf page-by-page through Quran Foundation page layout APIs.
 - Continuing from the current reading position.
 - Free Read for open-ended browsing and reading.
-- Created reading profiles for bounded goals.
-- Bookmarks / saved verses.
+- Created reading profiles for bounded verse goals.
+- Separate Mushaf profiles for bounded page goals.
+- Bookmarks / saved verses and Mushaf page / verse bookmarks.
 - Private tadabbur notes and community tadabbur entry points.
 - Reading display settings.
 - Local guest use without sign-in.
 - Supabase sign-in and sync for logged-in users.
 - Local-first persistence through `SharedPreferences`.
-
-The Mushaf page-by-page reader is visible as a future feature, but is not implemented yet.
 
 ## Main Navigation
 
@@ -31,7 +31,7 @@ The home screen has three primary areas:
 
 - `Read Space`: the main workspace for continuing reading, profile actions, bookmarks, notes, and tadabbur.
 - `Surah / Juz`: browse mode for opening a specific surah or juz.
-- `Mushaf Read`: placeholder for a future traditional Mushaf view.
+- `Mushaf Read`: traditional page-by-page Mushaf reading, with Mushaf layout selection, Mushaf Free Read, and Mushaf profiles.
 
 The profile button opens the reader profile/account area. The theme button toggles dark mode quickly.
 
@@ -41,6 +41,8 @@ The app has two different reading ideas:
 
 - **Free Read**: open-ended reading. It can point anywhere in the Quran.
 - **Created profiles**: named reading plans with a start point and optional target point.
+
+The standard reader is verse-based. The Mushaf reader is page-based and has its own separate state model.
 
 The reader decides which profile is used through `LocalReadingProvider`.
 
@@ -54,6 +56,58 @@ When a specific surah / verse is opened:
 - If the requested verse is inside the active bounded profile, the active profile remains active.
 
 For bounded profiles, the reading screen only shows verses inside the profile range. Free Read and unbounded profiles show the whole surah.
+
+## Mushaf Reading Model
+
+Mushaf reading is a separate read track from the standard translation reader.
+
+Current rules:
+
+- Mushaf state is owned by `MushafReadingProvider`, not `LocalReadingProvider`.
+- Mushaf progress is page-based, not verse-based.
+- Mushaf Free Read is independent from standard Free Read.
+- Each Mushaf profile is tied to a specific `mushafId`.
+- The app currently lists all supported Quran Foundation Mushaf layouts:
+  - `1` QCF V2, 604 pages
+  - `2` QCF V1, 604 pages
+  - `3` IndoPak, 604 pages
+  - `4` Uthmani Hafs, 604 pages
+  - `5` KFGQPC Hafs, 604 pages
+  - `6` IndoPak 15-line, 610 pages
+  - `7` IndoPak 16-line, 548 pages
+  - `11` Tajweed, 604 pages
+  - `19` QCF Tajweed V4, 604 pages
+- The default Mushaf for first use is `1` / QCF V2.
+- Mushaf pages are fetched from Quran Foundation and cached locally.
+- The reader renders Arabic only in a page-like layout.
+- Words are grouped by API `line_number` and rendered right-to-left.
+- Previous / next page are the primary navigation controls.
+- Long-pressing a Mushaf word shows that verse's Thai translation.
+- Longer translations use a bottom sheet; shorter translations use a snackbar.
+
+Mushaf Free Read behavior:
+
+- Free Read can open any page in the selected Mushaf.
+- Free Read shows page, Surah, and Juz jump controls.
+- Opening a Mushaf type from the Mushaf list opens that Mushaf's Free Read profile.
+
+Mushaf created profile behavior:
+
+- The app allows up to 3 active custom Mushaf profiles.
+- Profiles can be created by page range, Surah, or Juz.
+- Surah and Juz profiles are converted to the containing page range for that `mushafId`.
+- A custom Mushaf profile can only navigate inside its page range.
+- Page / Surah / Juz selectors are hidden while reading a custom Mushaf profile.
+- Completion is reached on the profile's final page and shown in the reader.
+
+Quran Foundation config:
+
+- `.env` is ignored and can hold local developer credentials.
+- `.env.example` documents the expected variables.
+- `QURAN_FOUNDATION_CONTENT_BASE_URL` defaults to `https://apis.quran.foundation/content/api/v4`.
+- `QURAN_FOUNDATION_AUTH_BASE_URL` defaults to `https://prelive-oauth2.quran.foundation`.
+- `QURAN_FOUNDATION_CLIENT_ID` and `QURAN_FOUNDATION_AUTH_TOKEN` are required for API calls.
+- Release builds should pass these values through dart defines.
 
 ## Free Read Rules
 
@@ -134,6 +188,21 @@ Progress updates are disk-first:
 
 This is important because reading progress should not appear saved unless it actually survives app restart.
 
+The app stores the local Mushaf reading system under:
+
+`thai_quran_mushaf_store_v1`
+
+The Mushaf local store contains:
+
+- active Mushaf profile id
+- Mushaf Free Read profiles
+- custom Mushaf profiles
+- Mushaf page bookmarks
+- Mushaf verse bookmarks
+- recent Mushaf readings
+
+Mushaf API page and lookup responses are cached separately under Quran Foundation cache keys.
+
 ## Supabase Rules
 
 The app can be used without sign-in. Supabase adds account sync, not basic app access.
@@ -161,6 +230,15 @@ Profile sync currently uses the legacy `user_reading_profiles` table shape:
 - `last_read_at`
 
 The newer shared contract also defines richer `reading_profiles` rows with names, slugs, ranges, plan metadata, archived state, and sort order. The app is moving toward that cleaner model, but still carries compatibility behavior.
+
+Mushaf sync schema is defined as an optional local-first extension:
+
+- `mushaf_profiles`
+- `mushaf_page_bookmarks`
+- `mushaf_verse_bookmarks`
+- `mushaf_recent_readings`
+
+The current app behavior must still work without login. Mushaf sync should follow the same quiet local-first principle as standard reading sync.
 
 ## Settings Rules
 
@@ -204,6 +282,13 @@ Current behavior:
 - Guest bookmarks are pushed to Supabase on sign-in.
 - Remote bookmarks replace the signed-in user's bookmark list locally.
 
+Mushaf bookmarks are separate from standard verse bookmarks:
+
+- Page bookmarks use `mushafId + pageNumber`.
+- Verse bookmarks use `mushafId + verseKey + pageNumber`.
+- Page bookmarks are toggled from the Mushaf reader app bar.
+- Verse bookmarks are toggled from the long-press translation UI.
+
 Recent readings:
 
 - The app keeps recent readings locally.
@@ -245,7 +330,9 @@ Before migrating the flow to web, the Flutter app should be polished in these ar
 - Confirm whether `reading_profiles` should replace the older `user_reading_profiles` path.
 - Tighten account/profile sync behavior after sign-in and sign-out.
 - Simplify settings UI around reading mode and translation slots.
-- Finish or hide incomplete Mushaf behavior until it is ready.
+- Visually evaluate Quran Foundation Mushaf layouts and decide which remain user-facing.
+- Polish Mushaf fonts/glyph mapping for layouts that need more than the bundled Uthmanic Hafs font.
+- Complete Mushaf Supabase sync if account-level Mushaf continuity is needed.
 - Review Thai/English copy and encoding issues in older screens.
 
 ## Web Migration Contract
@@ -261,6 +348,7 @@ When `thai-quran-web` is ready for the redesign, it should implement the app beh
 7. Supabase account sync and timestamp reconciliation.
 8. Settings model, especially reading display mode and translation slots.
 9. Bookmarks and notes behavior.
-10. Visual design inspired by the polished app, adapted for web layout.
+10. Mushaf read track with page-based Free Read, profiles, and bookmarks.
+11. Visual design inspired by the polished app, adapted for web layout.
 
 The web repo should not copy mobile-specific navigation blindly. It should copy the rules first, then design a web-native layout around them.
