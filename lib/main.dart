@@ -11,6 +11,7 @@ import 'providers/local_reading_provider.dart';
 import 'providers/mushaf_reading_provider.dart';
 import 'providers/supabase_provider.dart';
 import 'providers/thai_text_protection_provider.dart';
+import 'providers/translation_manager_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
@@ -33,6 +34,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SupabaseProvider()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => TranslationManagerProvider()),
         ChangeNotifierProvider(create: (_) => LocalReadingProvider()),
         ChangeNotifierProvider(create: (_) => MushafReadingProvider()),
         ChangeNotifierProvider(create: (_) => NotesProvider()),
@@ -52,68 +54,23 @@ class ThaiQuranApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
-        final swatch = settings.getThemeSwatch();
-        final lightColors = AppTheme.colors(
-          isDark: false,
-          palette: settings.themeColor,
-        );
-        final darkColors = AppTheme.colors(
-          isDark: true,
-          palette: settings.themeColor,
-        );
-
         return MaterialApp(
           title: 'Thai Quran',
           debugShowCheckedModeBanner: false,
+          
+          // Connects your live app settings state directly into the theme engine
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          theme: ThemeData(
-            primarySwatch: swatch,
-            primaryColor: lightColors.primary,
-            scaffoldBackgroundColor: lightColors.background,
-            brightness: Brightness.light,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: lightColors.primary,
-              brightness: Brightness.light,
-              surface: lightColors.surface,
-            ),
-            appBarTheme: AppBarTheme(
-              backgroundColor: lightColors.surfaceMuted,
-              foregroundColor: lightColors.textStrong,
-              elevation: 0,
-            ),
-            cardTheme: CardThemeData(
-              color: lightColors.surface,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                side: BorderSide(color: lightColors.borderSoft),
-              ),
-            ),
+          
+          // Natively builds your beautiful Material 3 styles using your custom palette options
+          theme: AppTheme.toThemeData(
+            isDark: false, 
+            palette: settings.themeColor,
           ),
-          darkTheme: ThemeData(
-            primarySwatch: swatch,
-            primaryColor: darkColors.primary,
-            scaffoldBackgroundColor: darkColors.background,
-            brightness: Brightness.dark,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: darkColors.primary,
-              brightness: Brightness.dark,
-              surface: darkColors.surface,
-            ),
-            appBarTheme: AppBarTheme(
-              backgroundColor: darkColors.surfaceMuted,
-              foregroundColor: darkColors.textStrong,
-              elevation: 0,
-            ),
-            cardTheme: CardThemeData(
-              color: darkColors.surface,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                side: BorderSide(color: darkColors.borderSoft),
-              ),
-            ),
+          darkTheme: AppTheme.toThemeData(
+            isDark: true, 
+            palette: settings.themeColor,
           ),
+          
           home: WelcomeScreen(repository: repository),
         );
       },

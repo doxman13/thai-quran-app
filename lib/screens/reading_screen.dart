@@ -7,10 +7,12 @@ import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../providers/progress_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/translation_manager_provider.dart';
 import '../models/verse.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
@@ -50,6 +52,22 @@ class _ReadingScreenState extends State<ReadingScreen> {
   void initState() {
     super.initState();
     _initData();
+
+    // Enable Wakelock if keepAwake setting is true
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        if (settings.keepAwake) {
+          WakelockPlus.enable();
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WakelockPlus.disable();
+    super.dispose();
   }
 
   Future<void> _initData() async {
@@ -375,17 +393,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
       isDismissible: true,
       enableDrag: true,
       builder: (context) {
-        return Consumer<SettingsProvider>(
-          builder: (context, settings, child) {
-            final isDark = settings.isDarkMode;
-            final primaryColor = settings.getPrimaryColor();
-            final colors = settings.getAppColors();
+        return Consumer2<SettingsProvider, TranslationManagerProvider>(
+          builder: (context, settings, transManager, child) {
+            final colorScheme = Theme.of(context).colorScheme;
 
             return Container(
               decoration: BoxDecoration(
-                color: colors.background,
+                color: colorScheme.surfaceContainerLow,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
+                  top: Radius.circular(AppTheme.radius),
                 ),
               ),
               child: Padding(
@@ -402,172 +418,121 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     children: [
                       Text(
                         'Display Settings',
-                        style: GoogleFonts.prompt(
+                        style: GoogleFonts.inter(
                           fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 20),
 
                       // Dark Mode Toggle
                       SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                         title: Text(
                           'Dark Mode',
-                          style: GoogleFonts.prompt(
-                            fontWeight: FontWeight.w500,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         value: settings.isDarkMode,
-                        activeColor: primaryColor,
+                        activeColor: colorScheme.primary,
                         onChanged: (val) => settings.toggleDarkMode(val),
                       ),
+                      const SizedBox(height: 16),
 
                       Text(
                         'Reading Mode',
-                        style: GoogleFonts.prompt(
+                        style: GoogleFonts.inter(
                           fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<String>(
-                          showSelectedIcon: false,
-                          segments: const [
-                            ButtonSegment(
-                              value: SettingsProvider.quranOnlyMode,
-                              label: Text('Quran only'),
-                            ),
-                            ButtonSegment(
-                              value: SettingsProvider.translationOnlyMode,
-                              label: Text('Translation only'),
-                            ),
-                            ButtonSegment(
-                              value: SettingsProvider.quranTranslationMode,
-                              label: Text('Quran + Translation'),
-                            ),
-                          ],
-                          selected: {settings.readingDisplayMode},
-                          onSelectionChanged: (selection) {
-                            settings.setReadingDisplayMode(selection.first);
-                          },
-                        ),
-                      ),
-
-                      const Divider(height: 24),
-                      Text(
-                        'Primary Translation',
-                        style: GoogleFonts.prompt(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTranslationChip(
-                              context,
-                              label: 'Thai 3',
-                              sublabel: 'Society of Institutes',
-                              slotId: 'thai_v3',
-                              isPrimary:
-                                  settings.primaryTranslationId == 'thai_v3',
-                              isInSecondary:
-                                  settings.secondaryTranslationId == 'thai_v3',
-                              primaryColor: primaryColor,
-                              isDark: isDark,
-                              onSelectPrimary: () {
-                                if (settings.primaryTranslationId !=
-                                    'thai_v3') {
-                                  settings.updateTranslationSlot(
-                                    'primary',
-                                    'thai_v3',
-                                  );
-                                }
-                              },
-                              onToggleSecondary: () {
-                                final isInSec =
-                                    settings.secondaryTranslationId ==
-                                    'thai_v3';
-                                settings.updateTranslationSlot(
-                                  'secondary',
-                                  isInSec ? null : 'thai_v3',
-                                );
-                              },
-                            ),
+                      DropdownButtonFormField<String>(
+                        value: settings.readingDisplayMode,
+                        dropdownColor: colorScheme.surfaceContainerLow,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: colorScheme.surface,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            borderSide: BorderSide(color: colorScheme.outline, width: 1),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildTranslationChip(
-                              context,
-                              label: 'Thai 2',
-                              sublabel: 'Society of Institutes',
-                              slotId: 'thai_v2',
-                              isPrimary:
-                                  settings.primaryTranslationId == 'thai_v2',
-                              isInSecondary:
-                                  settings.secondaryTranslationId == 'thai_v2',
-                              primaryColor: primaryColor,
-                              isDark: isDark,
-                              onSelectPrimary: () {
-                                if (settings.primaryTranslationId !=
-                                    'thai_v2') {
-                                  settings.updateTranslationSlot(
-                                    'primary',
-                                    'thai_v2',
-                                  );
-                                }
-                              },
-                              onToggleSecondary: () {
-                                final isInSec =
-                                    settings.secondaryTranslationId ==
-                                    'thai_v2';
-                                settings.updateTranslationSlot(
-                                  'secondary',
-                                  isInSec ? null : 'thai_v2',
-                                );
-                              },
-                            ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            borderSide: BorderSide(color: colorScheme.outline, width: 1),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildTranslationChip(
-                              context,
-                              label: 'English',
-                              sublabel: 'Saheeh International',
-                              slotId: 'english',
-                              isPrimary:
-                                  settings.primaryTranslationId == 'english',
-                              isInSecondary:
-                                  settings.secondaryTranslationId == 'english',
-                              primaryColor: primaryColor,
-                              isDark: isDark,
-                              onSelectPrimary: () {
-                                if (settings.primaryTranslationId !=
-                                    'english') {
-                                  settings.updateTranslationSlot(
-                                    'primary',
-                                    'english',
-                                  );
-                                }
-                              },
-                              onToggleSecondary: () {
-                                final isInSec =
-                                    settings.secondaryTranslationId ==
-                                    'english';
-                                settings.updateTranslationSlot(
-                                  'secondary',
-                                  isInSec ? null : 'english',
-                                );
-                              },
-                            ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                          ),
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: SettingsProvider.quranOnlyMode,
+                            child: Text('Quran Only', style: GoogleFonts.inter(color: colorScheme.onSurface)),
+                          ),
+                          DropdownMenuItem(
+                            value: SettingsProvider.translationOnlyMode,
+                            child: Text('Translation Only', style: GoogleFonts.inter(color: colorScheme.onSurface)),
+                          ),
+                          DropdownMenuItem(
+                            value: SettingsProvider.quranTranslationMode,
+                            child: Text('Quran & Translation', style: GoogleFonts.inter(color: colorScheme.onSurface)),
                           ),
                         ],
+                        onChanged: (val) {
+                          if (val != null) settings.setReadingDisplayMode(val);
+                        },
+                      ),
+
+                      const Divider(height: 32),
+                      Text(
+                        'Translations',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                          border: Border.all(color: colorScheme.outline, width: 1),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildTranslationCheckbox(context, settings, 'thai_v3', 'Thai (V3)', colorScheme),
+                            Divider(height: 1, color: colorScheme.outline),
+                            _buildTranslationCheckbox(context, settings, 'thai_v2', 'Thai (V2)', colorScheme),
+                            Divider(height: 1, color: colorScheme.outline),
+                            _buildTranslationCheckbox(context, settings, 'english', 'English (MHE)', colorScheme),
+                            
+                            ...transManager.downloadedTranslations.map((t) {
+                              final idStr = t['id'].toString();
+                              return Column(
+                                children: [
+                                  Divider(height: 1, color: colorScheme.outline),
+                                  _buildTranslationCheckbox(
+                                    context,
+                                    settings,
+                                    idStr,
+                                    t['name'],
+                                    colorScheme,
+                                    subtitleText: '${t['language']} - ${t['author']}',
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
                       ),
 
                       const Divider(height: 32),
@@ -581,27 +546,35 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             children: [
                               Text(
                                 'Arabic Font Size',
-                                style: GoogleFonts.prompt(
-                                  fontWeight: FontWeight.w500,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                  fontSize: 15,
                                 ),
                               ),
                               Text(
                                 '${settings.arabicFontSize.round()} px',
-                                style: GoogleFonts.prompt(
-                                  color: primaryColor,
+                                style: GoogleFonts.inter(
+                                  color: colorScheme.primary,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
                           ),
-                          Slider(
-                            value: settings.arabicFontSize,
-                            min: 20.0,
-                            max: 48.0,
-                            divisions: 14,
-                            activeColor: primaryColor,
-                            inactiveColor: primaryColor.withOpacity(0.2),
-                            onChanged: (val) => settings.setArabicFontSize(val),
+                          SliderTheme(
+                            data: SliderThemeData(
+                              activeTrackColor: colorScheme.primary,
+                              inactiveTrackColor: colorScheme.outline,
+                              thumbColor: colorScheme.primary,
+                              overlayColor: colorScheme.primary.withOpacity(0.1),
+                            ),
+                            child: Slider(
+                              value: settings.arabicFontSize,
+                              min: 18.0,
+                              max: 48.0,
+                              onChanged: (val) => settings.setArabicFontSize(val),
+                            ),
                           ),
                         ],
                       ),
@@ -617,28 +590,35 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             children: [
                               Text(
                                 'Translation Font Size',
-                                style: GoogleFonts.prompt(
-                                  fontWeight: FontWeight.w500,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                  fontSize: 15,
                                 ),
                               ),
                               Text(
                                 '${settings.translationFontSize.round()} px',
-                                style: GoogleFonts.prompt(
-                                  color: primaryColor,
+                                style: GoogleFonts.inter(
+                                  color: colorScheme.primary,
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
                           ),
-                          Slider(
-                            value: settings.translationFontSize,
-                            min: 12.0,
-                            max: 24.0,
-                            divisions: 12,
-                            activeColor: primaryColor,
-                            inactiveColor: primaryColor.withOpacity(0.2),
-                            onChanged: (val) =>
-                                settings.setTranslationFontSize(val),
+                          SliderTheme(
+                            data: SliderThemeData(
+                              activeTrackColor: colorScheme.primary,
+                              inactiveTrackColor: colorScheme.outline,
+                              thumbColor: colorScheme.primary,
+                              overlayColor: colorScheme.primary.withOpacity(0.1),
+                            ),
+                            child: Slider(
+                              value: settings.translationFontSize,
+                              min: 12.0,
+                              max: 32.0,
+                              onChanged: (val) => settings.setTranslationFontSize(val),
+                            ),
                           ),
                         ],
                       ),
@@ -653,81 +633,68 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
-  Widget _buildTranslationChip(
-    BuildContext context, {
-    required String label,
-    required String sublabel,
-    required String slotId,
-    required bool isPrimary,
-    required bool isInSecondary,
-    required Color primaryColor,
-    required bool isDark,
-    required VoidCallback onSelectPrimary,
-    required VoidCallback onToggleSecondary,
+  Widget _buildTranslationCheckbox(
+    BuildContext context,
+    SettingsProvider settings,
+    String id,
+    String label,
+    ColorScheme colorScheme, {
+    String? subtitleText,
   }) {
-    final isActive = isPrimary || isInSecondary;
-    return GestureDetector(
-      onTap: onSelectPrimary,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: isPrimary
-              ? primaryColor.withOpacity(0.12)
-              : isInSecondary
-              ? Colors.blue.withOpacity(0.08)
-              : isDark
-              ? const Color(0xFF1E293B)
-              : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isPrimary
-                ? primaryColor.withOpacity(0.5)
-                : isInSecondary
-                ? Colors.blue.withOpacity(0.3)
-                : isDark
-                ? Colors.blueGrey.shade700
-                : Colors.grey.shade300,
-            width: isPrimary ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.prompt(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: isPrimary
-                    ? primaryColor
-                    : isInSecondary
-                    ? Colors.blue.shade700
-                    : isDark
-                    ? Colors.blueGrey.shade300
-                    : Colors.blueGrey.shade600,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              isPrimary
-                  ? 'Primary'
-                  : isInSecondary
-                  ? 'Secondary'
-                  : sublabel,
-              style: GoogleFonts.prompt(
-                fontSize: 9,
-                color: isActive
-                    ? (isPrimary ? primaryColor : Colors.blue.shade600)
-                    : isDark
-                    ? Colors.blueGrey.shade500
-                    : Colors.blueGrey.shade400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+    final isPrimary = settings.primaryTranslationId == id;
+    final isSecondary = settings.secondaryTranslationId == id;
+    final isChecked = isPrimary || isSecondary;
+
+    return CheckboxListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      title: Text(
+        label,
+        style: GoogleFonts.inter(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
         ),
       ),
+      subtitle: Text(
+        isPrimary 
+            ? 'Primary' 
+            : isSecondary 
+                ? 'Secondary' 
+                : (subtitleText ?? ''),
+        style: GoogleFonts.inter(
+          color: isPrimary 
+              ? colorScheme.primary 
+              : isSecondary 
+                  ? Colors.blue 
+                  : colorScheme.onSurfaceVariant,
+          fontSize: 12,
+          fontWeight: (isPrimary || isSecondary) ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      value: isChecked,
+      activeColor: colorScheme.primary,
+      onChanged: (val) {
+        if (val == true) {
+          if (settings.secondaryTranslationId == null && settings.primaryTranslationId != id) {
+            settings.updateTranslationSlot('secondary', id);
+          } else {
+            settings.updateTranslationSlot('secondary', id);
+          }
+        } else {
+          if (isPrimary) {
+            if (settings.secondaryTranslationId != null) {
+              settings.updateTranslationSlot('primary', settings.secondaryTranslationId);
+              settings.updateTranslationSlot('secondary', null);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('At least one translation must be active.')),
+              );
+            }
+          } else {
+            settings.updateTranslationSlot('secondary', null);
+          }
+        }
+      },
     );
   }
 

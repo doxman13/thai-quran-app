@@ -14,9 +14,11 @@ import '../providers/settings_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
+import '../providers/translation_manager_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
 import '../shared/shared.dart';
+import '../utils/html_parser.dart';
 import 'verse_action_sheet.dart';
 import 'tadabbur_panel.dart';
 
@@ -348,7 +350,11 @@ class _VerseCardState extends State<VerseCard> {
     if (showArabicText &&
         widget.verse.arabic.isEmpty &&
         !widget.verse.isArabicLoading) {
-      _loadArabic();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadArabic();
+        }
+      });
     }
 
     final noteObj = notesProv.getNoteObjectForVerse(
@@ -382,15 +388,12 @@ class _VerseCardState extends State<VerseCard> {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: colors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: 1,
+                  ),
                 ),
               ),
             ),
@@ -403,16 +406,12 @@ class _VerseCardState extends State<VerseCard> {
                 curve: Curves.easeInOut,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: colors.primaryLight,
+                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: highlightColor, width: 2.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: themeColor.withOpacity(isDark ? 0.35 : 0.12),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -420,7 +419,7 @@ class _VerseCardState extends State<VerseCard> {
 
             // Content Layer
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -434,18 +433,29 @@ class _VerseCardState extends State<VerseCard> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: isDark
-                              ? themeColor.withOpacity(0.25)
-                              : themeColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(
-                          'Verse ${widget.verse.id}',
-                          style: GoogleFonts.prompt(
-                            color: isDark ? highlightColor : themeColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Verse ${widget.verse.id}',
+                              style: GoogleFonts.prompt(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            if (isFavorited) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.favorite_rounded,
+                                size: 12,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       Text(
@@ -463,7 +473,7 @@ class _VerseCardState extends State<VerseCard> {
 
                   // Arabic Text Area
                   if (showArabicText) ...[
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     if (widget.verse.isArabicLoading)
                       const Center(
                         child: Padding(
@@ -506,122 +516,29 @@ class _VerseCardState extends State<VerseCard> {
 
                   // Translations Container
                   if (settings.showTranslationText) ...[
-                    if (settings.showThaiV3) ...[
-                      const SizedBox(height: 8),
-                      _buildTranslationBlock(
-                        label: 'Thai 3',
-                        text: thaiTextProtection.protect(widget.verse.thaiV3),
-                        locale: const Locale('th', 'TH'),
-                        labelFg: isDark
-                            ? Colors.blueGrey.shade400
-                            : Colors.blueGrey.shade500,
-                        textStyle: GoogleFonts.prompt(
-                          fontSize: settings.translationFontSize + 1.0,
-                          height: 1.65,
-                          color: bodyTextColor,
-                          fontWeight: FontWeight.w400,
-                        ),
+                    if (settings.primaryTranslationId.isNotEmpty)
+                      _buildDynamicTranslation(
+                        context, 
+                        settings.primaryTranslationId, 
+                        settings, 
+                        isDark, 
+                        bodyTextColor, 
+                        thaiTextProtection,
+                        isPrimary: true,
                       ),
-                    ],
-                    if (settings.showThaiV2) ...[
-                      const SizedBox(height: 12),
-                      _buildTranslationBlock(
-                        label: 'Thai 2',
-                        text: thaiTextProtection.protect(widget.verse.thaiV2),
-                        locale: const Locale('th', 'TH'),
-                        labelFg: isDark
-                            ? Colors.blueGrey.shade500
-                            : Colors.blueGrey.shade400,
-                        textStyle: GoogleFonts.prompt(
-                          fontSize: settings.translationFontSize,
-                          height: 1.65,
-                          color: bodyTextColor,
-                          fontWeight: FontWeight.w400,
-                        ),
+                    if (settings.secondaryTranslationId != null)
+                      _buildDynamicTranslation(
+                        context, 
+                        settings.secondaryTranslationId!, 
+                        settings, 
+                        isDark, 
+                        bodyTextColor, 
+                        thaiTextProtection,
+                        isPrimary: false,
                       ),
-                    ],
-                    if (settings.showEnglish) ...[
-                      const SizedBox(height: 12),
-                      _buildTranslationBlock(
-                        label: 'English',
-                        text: widget.verse.english,
-                        labelFg: isDark
-                            ? Colors.blueGrey.shade500
-                            : Colors.blueGrey.shade400,
-                        textStyle: GoogleFonts.prompt(
-                          fontSize: settings.translationFontSize - 1.0,
-                          height: 1.6,
-                          color: bodyTextColor,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
                   ],
 
-                  if (isFavorited) ...[
-                    const SizedBox(height: 10),
-                    Builder(
-                      builder: (context) {
-                        final noteObj = notesProv.getNoteObjectForVerse(
-                          widget.verse.surahId,
-                          widget.verse.id,
-                        );
-                        final hasNoteText =
-                            noteObj?.noteText.isNotEmpty ?? false;
-                        return GestureDetector(
-                          onTap: _openTadabburModal,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.red.shade900.withOpacity(0.2)
-                                  : Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.red.shade700.withOpacity(0.4)
-                                    : Colors.red.shade200,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.favorite_rounded,
-                                  size: 13,
-                                  color: isDark
-                                      ? Colors.red.shade300
-                                      : Colors.red.shade600,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  hasNoteText ? 'Favorite & Note' : 'Favorite',
-                                  style: GoogleFonts.prompt(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark
-                                        ? Colors.red.shade300
-                                        : Colors.red.shade600,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 14,
-                                  color: isDark
-                                      ? Colors.red.shade400
-                                      : Colors.red.shade600,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+
 
                   // Action buttons
                   if (_isMenuVisible) ...[
@@ -687,6 +604,15 @@ class _VerseCardState extends State<VerseCard> {
                                   onPressed: () =>
                                       _handleFavoriteTap(notesProv, noteObj),
                                 ),
+                                // 4. Reflection / Note editor (if favorited)
+                                if (isFavorited)
+                                  _buildActionIcon(
+                                    tooltip: 'Edit Note/Reflection',
+                                    icon: Icons.edit_note_outlined,
+                                    active: false,
+                                    color: themeColor,
+                                    onPressed: _openTadabburModal,
+                                  ),
                                 // 5. Share button
                                 _buildActionIcon(
                                   tooltip: 'Share verse',
@@ -894,6 +820,64 @@ class _VerseCardState extends State<VerseCard> {
     );
   }
 
+  Widget _buildDynamicTranslation(
+    BuildContext context,
+    String translationId,
+    SettingsProvider settings,
+    bool isDark,
+    Color bodyTextColor,
+    ThaiTextProtectionProvider thaiTextProtection,
+    {required bool isPrimary}
+  ) {
+    String label = '';
+    String text = '';
+    Locale? locale;
+
+    if (translationId == 'thai_v3') {
+      label = 'Thai 3';
+      text = thaiTextProtection.protect(widget.verse.thaiV3);
+      locale = const Locale('th', 'TH');
+    } else if (translationId == 'thai_v2') {
+      label = 'Thai 2';
+      text = thaiTextProtection.protect(widget.verse.thaiV2);
+      locale = const Locale('th', 'TH');
+    } else if (translationId == 'english') {
+      label = 'English';
+      text = widget.verse.english;
+    } else {
+      final transManager = Provider.of<TranslationManagerProvider>(context);
+      final idInt = int.tryParse(translationId) ?? -1;
+      final tInfo = transManager.downloadedTranslations.firstWhere(
+        (t) => t['id'] == idInt,
+        orElse: () => <String, dynamic>{},
+      );
+      label = tInfo['name'] as String? ?? 'Downloaded';
+      
+      final customText = transManager.getVerseTranslation(idInt, widget.verse.verseKey);
+      text = customText ?? 'Loading translation...';
+      if (tInfo['language'] == 'Thai') {
+        locale = const Locale('th', 'TH');
+        text = thaiTextProtection.protect(text);
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: _buildTranslationBlock(
+        label: label,
+        text: text,
+        locale: locale,
+        labelFg: isDark ? Colors.blueGrey.shade500 : Colors.blueGrey.shade400,
+        textStyle: GoogleFonts.prompt(
+          fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
+          height: 1.65,
+          color: bodyTextColor,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTranslationBlock({
     required String label,
     required String text,
@@ -904,12 +888,18 @@ class _VerseCardState extends State<VerseCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          text,
+        RichText(
           locale: locale,
           softWrap: true,
           overflow: TextOverflow.visible,
-          style: textStyle,
+          text: TextSpan(
+            children: HtmlParser.parseTranslationText(
+              context,
+              text,
+              textStyle,
+              Theme.of(context).primaryColor,
+            ),
+          ),
         ),
         const SizedBox(height: 5),
         Align(

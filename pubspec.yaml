@@ -23,6 +23,9 @@ dependencies:
   qcf_quran: ^0.0.5
   url_launcher: ^6.3.0
   timeago: ^3.7.1
+  wakelock_plus: ^1.6.1
+  sqflite: ^2.4.3
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
@@ -39,10 +42,12 @@ flutter:
     - assets/merged_quran.json
     - assets/tafsir_thai_mokhtasar.json
     - assets/icons/playstore-icon.png
+    - assets/icons/mipmap-xxxhdpi/
     - assets/quran_arabic.json
     - assets/Bismillah_Calligraphy6.svg
     - assets/reconciled_thai_quran_themes.json
     - assets/surah_summary_th_exact.json
+    - assets/images/
 
   fonts:
     - family: UthmanicHafs

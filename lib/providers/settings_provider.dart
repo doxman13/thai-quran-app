@@ -17,6 +17,7 @@ class SettingsProvider extends ChangeNotifier {
   };
 
   bool _isDarkMode = false;
+  bool _keepAwake = true;
   String _readingDisplayMode = quranTranslationMode;
   double _arabicFontSize = 28.0;
   double _translationFontSize = 16.0;
@@ -32,6 +33,7 @@ class SettingsProvider extends ChangeNotifier {
   StreamSubscription<AuthState>? _authSubscription;
 
   bool get isDarkMode => _isDarkMode;
+  bool get keepAwake => _keepAwake;
   String get readingDisplayMode => _readingDisplayMode;
   bool get showArabicText =>
       _readingDisplayMode == quranOnlyMode ||
@@ -98,6 +100,7 @@ class SettingsProvider extends ChangeNotifier {
           'user_id': userId,
           'theme_color': 'blue',
           'is_dark_mode': _isDarkMode,
+          'keep_awake': _keepAwake,
           'always_show_arabic': showArabicText,
           'arabic_font_family': 'UthmanicHafs',
           'arabic_font_size': _arabicFontSize,
@@ -144,6 +147,7 @@ class SettingsProvider extends ChangeNotifier {
           response['theme_color']?.toString() ?? _themeColor,
         );
         _isDarkMode = response['is_dark_mode'] == true;
+        _keepAwake = response['keep_awake'] ?? true;
         if (!hasLocalDisplayMode) {
           _readingDisplayMode = _modeFromLegacyFlags(
             showArabic: response['always_show_arabic'] == true,
@@ -175,6 +179,7 @@ class SettingsProvider extends ChangeNotifier {
         // Save to local SharedPreferences
         await prefs.setString('themeColor', _themeColor);
         await prefs.setBool('isDarkMode', _isDarkMode);
+        await prefs.setBool('keepAwake', _keepAwake);
         await prefs.setString('readingDisplayMode', _readingDisplayMode);
         await prefs.setBool('alwaysShowArabic', showArabicText);
         await prefs.setBool('alwaysShowTranslation', showTranslationText);
@@ -203,6 +208,7 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    _keepAwake = prefs.getBool('keepAwake') ?? true;
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
@@ -299,6 +305,15 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
+    await _markSettingsChanged(prefs);
+    await _syncToSupabase();
+  }
+
+  void toggleKeepAwake(bool value) async {
+    _keepAwake = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('keepAwake', value);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }

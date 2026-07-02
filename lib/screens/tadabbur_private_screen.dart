@@ -105,19 +105,21 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     final notesProv = Provider.of<NotesProvider>(context);
     final primaryColor = settings.getPrimaryColor();
     final colors = settings.getAppColors();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: colors.surfaceMuted,
+        backgroundColor: colorScheme.surfaceContainerLow,
         elevation: 0,
+        shape: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textStrong),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'My Favorites & Reflections',
-          style: GoogleFonts.prompt(fontWeight: FontWeight.w900, color: colors.textStrong),
+          'Favorites & Reflections',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
         ),
         actions: [
           IconButton(
@@ -160,20 +162,21 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   Widget _buildEmptyState(AppThemeColors colors) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.edit_note_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.edit_note_outlined, size: 64, color: colorScheme.onSurfaceVariant),
           const SizedBox(height: 16),
           Text(
             'No reflections yet',
-            style: GoogleFonts.prompt(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey.shade600),
+            style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
           ),
           const SizedBox(height: 8),
           Text(
             'Add reflections while reading the Quran.',
-            style: GoogleFonts.prompt(fontSize: 13, color: Colors.grey.shade500),
+            style: GoogleFonts.inter(fontSize: 13, color: colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ],
@@ -182,83 +185,92 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   Widget _buildSidebar(AppThemeColors colors, Color primaryColor, NotesProvider notesProv) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 260,
       decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(right: BorderSide(color: colors.borderSoft)),
+        color: colorScheme.surfaceContainerLow,
+        border: Border(right: BorderSide(color: colorScheme.outline, width: 1)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
               'Surahs',
-              style: GoogleFonts.prompt(fontSize: 13, fontWeight: FontWeight.w900, color: colors.foreground),
+              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: colorScheme.onSurface),
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: colorScheme.outline),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               itemCount: _sortedSurahIds.length,
               itemBuilder: (context, index) {
                 final surahId = _sortedSurahIds[index];
                 final count = _surahGroups[surahId]!.length;
                 final isActive = _selectedSurahId == surahId;
-                return InkWell(
-                  onTap: () => setState(() => _selectedSurahId = surahId),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    color: isActive ? primaryColor.withOpacity(0.08) : Colors.transparent,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: isActive ? primaryColor.withOpacity(0.15) : colors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              surahId,
-                              style: GoogleFonts.prompt(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: isActive ? primaryColor : colors.foreground,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () => setState(() => _selectedSurahId = surahId),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isActive ? colorScheme.primaryContainer : Colors.transparent,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: isActive ? colorScheme.primary : colorScheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                surahId,
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: isActive ? colorScheme.onPrimary : colorScheme.onSurface,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.repository.getSurahName(surahId),
-                            style: GoogleFonts.prompt(
-                              fontSize: 13,
-                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                              color: isActive ? primaryColor : colors.textStrong,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isActive ? primaryColor.withOpacity(0.15) : colors.surfaceMuted,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$count',
-                            style: GoogleFonts.prompt(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: isActive ? primaryColor : colors.foreground,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              widget.repository.getSurahName(surahId),
+                              style: GoogleFonts.prompt(
+                                fontSize: 13,
+                                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                color: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                      ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isActive ? colorScheme.primary.withOpacity(0.2) : colorScheme.surface,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -276,10 +288,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
       padding: const EdgeInsets.all(20),
       child: notes.isEmpty
           ? _buildEmptyState(colors)
-          : ListView.builder(
+          : ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: notes.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 16),
               itemBuilder: (context, index) {
                 final note = notes[index];
                 return _NoteCard(
@@ -341,12 +354,13 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   Widget _buildSurahTabs(AppThemeColors colors, Color primaryColor) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
+        color: colorScheme.surfaceContainerLow,
+        border: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -354,20 +368,25 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             final isActive = _selectedSurahId == surahId;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: isActive ? colorScheme.primaryContainer : colorScheme.surface,
+                  foregroundColor: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
+                  side: BorderSide(color: isActive ? colorScheme.primary : colorScheme.outline, width: isActive ? 1.5 : 1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => setState(() => _selectedSurahId = surahId),
+                child: Text(
                   '${widget.repository.getSurahName(surahId)} ($surahId)',
-                  style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                selected: isActive,
-                onSelected: (val) => setState(() => _selectedSurahId = surahId),
-                selectedColor: primaryColor.withOpacity(0.15),
-                backgroundColor: colors.surfaceMuted,
-                labelStyle: TextStyle(
-                  color: isActive ? primaryColor : colors.foreground,
-                ),
-                side: BorderSide(
-                  color: isActive ? primaryColor.withOpacity(0.4) : colors.borderSoft,
+                  style: GoogleFonts.prompt(
+                    fontSize: 12,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                  ),
                 ),
               ),
             );
@@ -434,25 +453,17 @@ class _NoteCardState extends State<_NoteCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     final note = widget.note;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: widget.colors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: widget.colors.borderSoft),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.15 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -469,10 +480,10 @@ class _NoteCardState extends State<_NoteCard> {
                     ),
                     child: Text(
                       '${widget.repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: widget.primaryColor,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ),
@@ -480,7 +491,7 @@ class _NoteCardState extends State<_NoteCard> {
                 const Spacer(),
                 Text(
                   timeago.format(note.updatedAt),
-                  style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey),
+                  style: GoogleFonts.inter(fontSize: 10, color: colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -503,7 +514,7 @@ class _NoteCardState extends State<_NoteCard> {
                     children: [
                       TextButton(
                         onPressed: () => setState(() => _isEditing = false),
-                        child: Text('Cancel', style: GoogleFonts.prompt()),
+                        child: Text('Cancel', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -511,8 +522,11 @@ class _NoteCardState extends State<_NoteCard> {
                           await widget.onEdit(note, _editController.text);
                           if (mounted) setState(() => _isEditing = false);
                         },
-                        style: ElevatedButton.styleFrom(backgroundColor: widget.primaryColor),
-                        child: Text('Save', style: GoogleFonts.prompt()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                        ),
+                        child: Text('Save', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -529,10 +543,10 @@ class _NoteCardState extends State<_NoteCard> {
                         )
                       : Text(
                           'Favorited this verse (no reflection text added)',
-                          style: GoogleFonts.prompt(
+                          style: GoogleFonts.inter(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
-                            color: Colors.grey.shade500,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                   const SizedBox(height: 12),
@@ -547,28 +561,28 @@ class _NoteCardState extends State<_NoteCard> {
                             decoration: BoxDecoration(
                               color: note.isPublic
                                   ? Colors.green.withOpacity(0.1)
-                                  : widget.colors.surfaceMuted,
-                              borderRadius: BorderRadius.circular(20),
+                                  : colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: note.isPublic
                                     ? Colors.green.withOpacity(0.3)
-                                    : widget.colors.borderSoft,
+                                    : colorScheme.outlineVariant,
                               ),
                             ),
                             child: Row(
                               children: [
                                 Icon(
                                   note.isPublic ? Icons.public : Icons.lock_outline,
-                                  size: 12,
-                                  color: note.isPublic ? Colors.green : Colors.grey,
+                                  size: 14,
+                                  color: note.isPublic ? Colors.green : colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 8),
                                 Text(
                                   note.isPublic ? 'Public' : 'Private',
-                                  style: GoogleFonts.prompt(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: note.isPublic ? Colors.green : Colors.grey,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: note.isPublic ? Colors.green : colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -577,7 +591,7 @@ class _NoteCardState extends State<_NoteCard> {
                         ),
                       const Spacer(),
                       IconButton(
-                        icon: Icon(Icons.edit_outlined, size: 18, color: widget.primaryColor),
+                        icon: Icon(Icons.edit_outlined, size: 18, color: colorScheme.primary),
                         tooltip: 'Edit',
                         onPressed: () => setState(() => _isEditing = true),
                       ),
@@ -588,16 +602,16 @@ class _NoteCardState extends State<_NoteCard> {
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text('Remove from Favorites', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
-                              content: Text('Are you sure you want to unfavorite this verse?', style: GoogleFonts.prompt()),
+                              title: Text('Remove from Favorites', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                              content: Text('Are you sure you want to unfavorite this verse?', style: GoogleFonts.inter()),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.prompt())),
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(fontWeight: FontWeight.bold))),
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(ctx);
                                     widget.onDelete();
                                   },
-                                  child: Text('Unfavorite', style: GoogleFonts.prompt(color: Colors.red)),
+                                  child: Text('Unfavorite', style: GoogleFonts.inter(color: colorScheme.error, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),

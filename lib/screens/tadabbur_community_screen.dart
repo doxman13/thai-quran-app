@@ -160,19 +160,20 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final primaryColor = settings.getPrimaryColor();
     final colors = settings.getAppColors();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colors.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: colors.surfaceMuted,
+        backgroundColor: colorScheme.surfaceContainerLow,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textStrong),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Community Reflections',
-          style: GoogleFonts.prompt(fontWeight: FontWeight.w900, color: colors.textStrong),
+          style: GoogleFonts.prompt(fontWeight: FontWeight.w900, color: colorScheme.onSurface),
         ),
         actions: [
           IconButton(
@@ -195,23 +196,24 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           Expanded(
             child: _loading
                 ? Center(child: CircularProgressIndicator(color: primaryColor))
-                : ListView(
+                : ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildComposeSection(colors, primaryColor),
-                      const SizedBox(height: 16),
-                      if (_feed.isEmpty)
-                        _buildEmptyState(colors)
-                      else
-                        ..._feed.map((note) => _CommunityNoteCard(
-                              note: note,
-                              repository: widget.repository,
-                              colors: colors,
-                              primaryColor: primaryColor,
-                              onLike: () => _handleLike(note),
-                              onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
-                            )),
-                    ],
+                    itemCount: _feed.isEmpty ? 2 : _feed.length + 1,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      if (index == 0) return _buildComposeSection(colors, primaryColor);
+                      
+                      if (_feed.isEmpty) return _buildEmptyState(colors);
+
+                      final note = _feed[index - 1];
+                      return _CommunityNoteCard(
+                        note: note,
+                        repository: widget.repository,
+                        primaryColor: primaryColor,
+                        onLike: () => _handleLike(note),
+                        onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
+                      );
+                    },
                   ),
           ),
         ],
@@ -300,17 +302,17 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   }
 
   Widget _buildComposeSection(AppThemeColors colors, Color primaryColor) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     final surahIds = List.generate(114, (i) => (i + 1).toString());
     final versesCount = widget.repository.getSurahVerses(_postSurahId).length;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade300),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -391,14 +393,14 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
             final verse = widget.repository.getVerse(_postSurahId, _postVerseId);
             final translationText = verse?.thaiV3 ?? verse?.thaiV2 ?? '';
             if (translationText.isEmpty) return const SizedBox.shrink();
-            return Container(
+              return Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: colors.background,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: colors.borderSoft),
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,13 +428,13 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           }),
           TextField(
             controller: _postController,
-            style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+            style: GoogleFonts.prompt(fontSize: 14, color: colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'What did you learn or reflect on from this Ayah?...',
-              hintStyle: GoogleFonts.prompt(fontSize: 12, color: Colors.grey),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colors.borderSoft)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: colors.borderSoft)),
-              contentPadding: const EdgeInsets.all(12),
+              hintStyle: GoogleFonts.prompt(fontSize: 12, color: colorScheme.onSurfaceVariant),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+              contentPadding: const EdgeInsets.all(16),
             ),
             maxLines: 3,
           ),
@@ -460,7 +462,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
               ),
               ElevatedButton(
                 onPressed: _isPosting || _postController.text.trim().isEmpty ? null : _handlePost,
-                style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 child: _isPosting
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text('Share Reflection', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w700)),
@@ -510,7 +512,6 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
 class _CommunityNoteCard extends StatelessWidget {
   final TadabburNote note;
   final QuranRepository repository;
-  final AppThemeColors colors;
   final Color primaryColor;
   final VoidCallback onLike;
   final void Function(String surahId, String verseId) onOpenVerse;
@@ -518,7 +519,6 @@ class _CommunityNoteCard extends StatelessWidget {
   const _CommunityNoteCard({
     required this.note,
     required this.repository,
-    required this.colors,
     required this.primaryColor,
     required this.onLike,
     required this.onOpenVerse,
@@ -526,97 +526,94 @@ class _CommunityNoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final primaryColor = settings.getPrimaryColor();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? colors.surface : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade300),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  radius: 14,
+                  radius: 16,
                   backgroundColor: primaryColor.withOpacity(0.15),
                   child: Text(
                     (note.isAnonymous ? 'A' : (note.userEmail?.split('@').first ?? 'R')).substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w800, color: primaryColor),
+                    style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w800, color: primaryColor),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     note.isAnonymous ? 'Anonymous' : (note.userEmail ?? 'Reader'),
-                    style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600, color: isDark ? colors.textStrong : const Color(0xFF1E293B)),
+                    style: GoogleFonts.prompt(fontSize: 14, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 InkWell(
                   onTap: () => onOpenVerse(note.surahId, note.verseId),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: isDark ? colors.borderSoft : Colors.grey.shade400),
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
-                      style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w700, color: primaryColor),
+                      style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               timeago.format(note.updatedAt),
-              style: GoogleFonts.prompt(fontSize: 10, color: isDark ? Colors.blueGrey.shade400 : Colors.blueGrey.shade600),
+              style: GoogleFonts.prompt(fontSize: 11, color: colorScheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isDark ? colors.surfaceMuted.withOpacity(0.5) : Colors.amber.shade50.withOpacity(0.5),
+                color: colorScheme.surfaceContainerLow,
                 border: Border(
-                  left: BorderSide(color: primaryColor.withOpacity(0.5), width: 3),
+                  left: BorderSide(color: primaryColor.withOpacity(0.5), width: 4),
                 ),
                 borderRadius: const BorderRadius.only(topRight: Radius.circular(8), bottomRight: Radius.circular(8)),
               ),
               child: Text(
                 repository.getVerse(note.surahId, note.verseId)?.thaiV3 ?? '',
                 style: GoogleFonts.prompt(
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.blueGrey.shade300 : Colors.blueGrey.shade700,
+                  color: colorScheme.onSurfaceVariant,
                   height: 1.6,
                 ),
               ),
             ),
-            Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6, color: isDark ? colors.textStrong : const Color(0xFF1E293B))),
-            const SizedBox(height: 12),
+            Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6, color: colorScheme.onSurface)),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 InkWell(
                   onTap: onLike,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: note.userLiked ? Colors.red.withOpacity(0.1) : colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(20),
+                      color: note.userLiked ? colorScheme.errorContainer : colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: note.userLiked ? Colors.red.withOpacity(0.3) : colors.borderSoft,
+                        color: note.userLiked ? colorScheme.error : colorScheme.outlineVariant,
                       ),
                     ),
                     child: Row(

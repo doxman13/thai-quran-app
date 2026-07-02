@@ -1,1 +1,0 @@
-import 'dart:convert'; import 'dart:io'; import 'package:http/http.dart' as http; void main() async { final r = await http.get(Uri.parse('https://api.quran.com/api/v4/verses/by_page/7?words=true&word_fields=text_qpc_hafs')); final d = json.decode(r.body); for (var w in d['verses'][0]['words']) { print('' -> line ''); } }

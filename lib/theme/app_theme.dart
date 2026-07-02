@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
 
 class AppThemeColors {
@@ -33,7 +32,8 @@ class AppThemeColors {
 }
 
 class AppTheme {
-  static const radius = 8.0;
+  // 1. Upgrade radius from 8.0 to 16.0 for a softer, premium, modern feel
+  static const radius = 16.0; 
 
   static Future<void> prewarmFonts() async {
     try {
@@ -45,10 +45,7 @@ class AppTheme {
     }
   }
 
-  static AppThemeColors colors({
-    required bool isDark,
-    required String palette,
-  }) {
+  static AppThemeColors colors({required bool isDark, required String palette}) {
     if (isDark) {
       return const AppThemeColors(
         background: Color(0xFF111827),
@@ -81,4 +78,59 @@ class AppTheme {
       accent: Color(0xFF6C93C5),
     );
   }
+
+  // 2. NEW: Native ThemeData bridge generator so your AI and Flutter Widgets recognize your styles instantly
+  static ThemeData toThemeData({required bool isDark, String palette = 'default'}) {
+    final c = colors(isDark: isDark, palette: palette);
+    
+    return ThemeData(
+      useMaterial3: true,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      scaffoldBackgroundColor: c.background,
+      
+      // Map your clean color variables directly into Flutter's native system
+      colorScheme: ColorScheme(
+        brightness: isDark ? Brightness.dark : Brightness.light,
+        primary: c.primary,
+        onPrimary: c.textInverse,
+        secondary: c.accent,
+        onSecondary: c.textStrong,
+        surface: c.surface,
+        onSurface: c.textStrong,
+        surfaceContainerLow: c.surfaceMuted, // Perfect for list backdrops
+        outline: c.borderSoft,
+        error: Colors.redAccent,
+        onError: Colors.white,
+      ),
+
+      // Set clean, standard component defaults based on your radius
+      cardTheme: CardThemeData(
+        color: c.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: BorderSide(color: c.borderSoft, width: 1),
+        ),
+      ),
+      
+      appBarTheme: AppBarTheme(
+        backgroundColor: c.surface,
+        elevation: 0,
+        iconTheme: IconThemeData(color: c.textStrong),
+        titleTextStyle: TextStyle(color: c.textStrong, fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+// Add this at the absolute bottom of app_theme.dart
+extension BuildContextThemeExt on BuildContext {
+  ThemeData get theme => Theme.of(this);
+  ColorScheme get colorScheme => Theme.of(this).colorScheme;
+  
+  // This lets you call your custom palette from anywhere instantly!
+  AppThemeColors get appColors => AppTheme.colors(
+        isDark: Theme.of(this).brightness == Brightness.dark,
+        palette: 'default',
+      );
 }

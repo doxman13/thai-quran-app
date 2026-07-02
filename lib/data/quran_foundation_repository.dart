@@ -58,27 +58,13 @@ class QuranFoundationException implements Exception {
 class QuranFoundationRepository {
   static const _cachePrefix = 'quran_foundation_cache_v5';
   final http.Client _client;
-  static Map<String, String>? _staticTajweedMap;
 
   QuranFoundationRepository({http.Client? client})
     : _client = client ?? http.Client();
 
-  Future<void> _ensureStaticTajweedLoaded() async {
-    if (_staticTajweedMap != null) return;
-    try {
-      final jsonString = await rootBundle.loadString('assets/quran_tajweed.json');
-      final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
-      _staticTajweedMap = decoded.map((k, v) => MapEntry(k, v.toString()));
-    } catch (e) {
-      debugPrint('Failed to load static tajweed map: $e');
-      _staticTajweedMap = {};
-    }
-  }
-
   int _contentMushafId(int mushafId) {
     if (mushafId == qcfPackageMushafId) return 1;
     if (mushafId == 19) return 4;
-    if (mushafId == 99) return 4;
     return mushafId;
   }
 
@@ -95,10 +81,6 @@ class QuranFoundationRepository {
       mushafId: mushafId,
       pageNumber: safePage,
     );
-    
-    if (mushafId == 99) {
-      await _ensureStaticTajweedLoaded();
-    }
 
     if (safePage < pageCount) {
       loadFontForPage(mushafId: mushafId, pageNumber: safePage + 1);
@@ -123,7 +105,7 @@ class QuranFoundationRepository {
       'mushaf': resolvedMushafId.toString(),
       'words': 'true',
       'include_words': 'true',
-      if (mushafId == 11 || mushafId == 19 || mushafId == 99) 'fields': 'text_uthmani_tajweed',
+      if (mushafId == 11 || mushafId == 19) 'fields': 'text_uthmani_tajweed',
       'word_fields':
           'code,code_v1,code_v2,text_uthmani,text_indopak,text_qpc_hafs,text,text_uthmani_tajweed',
     }, config);
@@ -135,7 +117,6 @@ class QuranFoundationRepository {
   }
 
   String getFontFamily(int mushafId, int pageNumber) {
-    if (mushafId == 99) return getFontFamily(4, pageNumber);
     if (mushafId == 1) {
       return 'qcf_v2_p$pageNumber';
     } else if (mushafId == 2) {
@@ -152,7 +133,6 @@ class QuranFoundationRepository {
   }
 
   String? getFontUrl(int mushafId, int pageNumber) {
-    if (mushafId == 99) return getFontUrl(4, pageNumber);
     if (mushafId == 1) {
       return 'https://verses.quran.foundation/fonts/quran/hafs/v2/ttf/p$pageNumber.ttf';
     } else if (mushafId == 2) {
@@ -531,24 +511,13 @@ class QuranFoundationRepository {
               ]) ??
               0;
 
-        List<MushafTajweedPart> tajweedParts;
-        if (mushafId == 99 && _staticTajweedMap != null) {
-          final mappedTajweedStr = _staticTajweedMap!['$wordVerseKey:$position'];
-          if (mappedTajweedStr != null && mappedTajweedStr.isNotEmpty) {
-            final parsed = _parseTajweedWordParts(mappedTajweedStr, mushafId);
-            tajweedParts = parsed.isNotEmpty ? parsed.first : const <MushafTajweedPart>[];
-          } else {
-            tajweedParts = const <MushafTajweedPart>[];
-          }
-        } else {
-          tajweedParts = wordIndex < tajweedWordParts.length
-              ? tajweedWordParts[wordIndex]
-              : const <MushafTajweedPart>[];
-        }
+        List<MushafTajweedPart> tajweedParts = wordIndex < tajweedWordParts.length
+            ? tajweedWordParts[wordIndex]
+            : const <MushafTajweedPart>[];
         wordIndex++;
 
         if (kDebugMode &&
-            (mushafId == 11 || mushafId == 19 || mushafId == 99) &&
+            (mushafId == 11 || mushafId == 19) &&
             verseKey == '1:7') {
           _debugCleanTajweedParts(mushafId, wordVerseKey, text, tajweedParts);
         }
@@ -739,9 +708,7 @@ class QuranFoundationRepository {
     void finishWord() {
       flushBuffer();
       final adjusted = _adjustWordTajweedParts(currentWord);
-      if (mushafId != 99) {
-        adjusted.removeWhere(_shouldDropTajweedPart);
-      }
+      adjusted.removeWhere(_shouldDropTajweedPart);
       if (adjusted.isNotEmpty) words.add(adjusted);
       currentWord = <MushafTajweedPart>[];
     }
@@ -749,7 +716,7 @@ class QuranFoundationRepository {
     void appendVisibleText(String text) {
       for (final rune in text.runes) {
         final char = String.fromCharCode(rune);
-        if (char.trim().isEmpty && mushafId != 99) {
+        if (char.trim().isEmpty) {
           finishWord();
           continue;
         }
@@ -910,7 +877,7 @@ class QuranFoundationRepository {
           'text_uthmani',
           'text',
         ]);
-      } else if (mushafId == 11 || mushafId == 19 || mushafId == 99) {
+      } else if (mushafId == 11 || mushafId == 19) {
         if (mushafId == 19) {
           return _stringValue(map, [
             'code',

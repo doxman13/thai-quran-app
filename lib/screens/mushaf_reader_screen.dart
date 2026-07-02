@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
@@ -12,7 +13,11 @@ import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
+import '../providers/translation_manager_provider.dart';
 import '../theme/app_theme.dart';
+import '../shared/shared.dart';
+import '../utils/html_parser.dart';
 import '../widgets/tadabbur_panel.dart';
 
 class MushafReaderScreen extends StatefulWidget {
@@ -52,10 +57,21 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
+    
+    // Enable Wakelock if keepAwake setting is true
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        if (settings.keepAwake) {
+          WakelockPlus.enable();
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    WakelockPlus.disable();
     _translationTimer?.cancel();
     _highlightTimer?.cancel();
     _pageController.dispose();
@@ -152,7 +168,28 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final parts = verseKey.split(':');
     if (parts.length != 2) return;
     final verse = widget.quranRepository.getVerse(parts[0], parts[1]);
-    final translation = verse?.thaiV3 ?? 'Translation not found.';
+    
+    final settings = context.read<SettingsProvider>();
+    final transManager = context.read<TranslationManagerProvider>();
+    String translation = 'Translation not found.';
+    
+    if (verse != null) {
+      if (settings.primaryTranslationId == 'english') {
+        translation = verse.english;
+      } else if (settings.primaryTranslationId == 'thai_v2') {
+        translation = verse.thaiV2;
+      } else if (settings.primaryTranslationId == 'thai_v3') {
+        translation = verse.thaiV3;
+      } else {
+        final idInt = int.tryParse(settings.primaryTranslationId) ?? -1;
+        final customTrans = transManager.getVerseTranslation(idInt, verseKey);
+        if (customTrans != null) {
+          translation = customTrans;
+        } else {
+          translation = verse.thaiV3; // Fallback
+        }
+      }
+    }
     final isBookmarked = context
         .read<MushafReadingProvider>()
         .isVerseBookmarked(profile.mushafId, pageNumber, verseKey);
@@ -566,6 +603,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             onFavorite: () =>
                                 _toggleCurrentVerseFavorite(askForNote: true),
                             onClose: _dismissTranslation,
+                            fontSize: context.read<SettingsProvider>().translationFontSize,
                           ),
                         ),
                     ],
@@ -1567,14 +1605,14 @@ class _MushafLine extends StatelessWidget {
     final fontSize = switch (mushafId) {
       1 => pageNumber <= 2 ? 34.0 : 25.2,
       2 => pageNumber <= 2 ? 38.0 : 30.5,
-      4 || 99 => 23.5,
+      4 => 23.5,
       6 => 25.0,
       11 => 22.0,
       19 => 25.2,
       _ => 22.5,
     };
     final bool isQcf = mushafId == 1 || mushafId == 2 || mushafId == 19;
-    final isUthmaniTajweed = mushafId == 99;
+    final isUthmaniTajweed = mushafId == 11;
     final baseStyle = TextStyle(
       fontFamily: fontFamily,
       fontSize: fontSize,
@@ -1606,7 +1644,7 @@ class _MushafLine extends StatelessWidget {
       final recognizer = TapGestureRecognizer()
         ..onTap = () => onVerseTap(word.verseKey);
 
-      if ((mushafId == 11 || mushafId == 99) && word.tajweedParts.isNotEmpty) {
+      if ((mushafId == 11) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
           textSpans.add(TextSpan(
             text: part.text,
@@ -1777,6 +1815,7 @@ class _TranslationPanel extends StatelessWidget {
   final VoidCallback onBookmark;
   final VoidCallback onFavorite;
   final VoidCallback onClose;
+  final double fontSize;
 
   const _TranslationPanel({
     required this.colors,
@@ -1787,6 +1826,7 @@ class _TranslationPanel extends StatelessWidget {
     required this.onBookmark,
     required this.onFavorite,
     required this.onClose,
+    required this.fontSize,
   });
 
   @override
@@ -1844,13 +1884,20 @@ class _TranslationPanel extends StatelessWidget {
             ),
             Flexible(
               child: SingleChildScrollView(
-                child: Text(
-                  translation,
+                child: RichText(
                   locale: const Locale('th', 'TH'),
                   softWrap: true,
-                  style: GoogleFonts.prompt(
-                    color: colors.foreground,
-                    height: 1.55,
+                  text: TextSpan(
+                    children: HtmlParser.parseTranslationText(
+                      context,
+                      translation,
+                      GoogleFonts.prompt(
+                        color: colors.foreground,
+                        fontSize: fontSize,
+                        height: 1.55,
+                      ),
+                      colors.primary,
+                    ),
                   ),
                 ),
               ),

@@ -504,26 +504,6 @@ class LocalReadingProvider extends ChangeNotifier {
       }
 
       if (serverCatId != null) {
-        // Push any local unsynced bookmarks
-        final unsyncedLocalBookmarks = _bookmarks
-            .where((b) => b.userId == 'local')
-            .toList();
-        for (final b in unsyncedLocalBookmarks) {
-          try {
-            await client.from('bookmarks').upsert({
-              'user_id': userId,
-              'category_id': serverCatId,
-              'surah_id': b.verse.surahId,
-              'verse_id': b.verse.verseId,
-              'label': b.label,
-              'note': b.note,
-              'sort_order': b.sortOrder,
-            });
-          } catch (e) {
-            debugPrint('Error pushing unsynced bookmark: $e');
-          }
-        }
-
         // Fetch remote bookmarks
         final response = await client
             .from('bookmarks')
@@ -583,89 +563,70 @@ class LocalReadingProvider extends ChangeNotifier {
               .limit(20);
 
           final List<dynamic> dbRecent = recentResponse;
-          final List<LocalRecentReading> syncedRecent = [];
+          
+          final otherRecent = _recentReadings
+              .where((r) => r.userId != userId)
+              .toList();
+          final userRecent = _recentReadings
+              .where((r) => r.userId == userId)
+              .toList();
+
+          final List<LocalRecentReading> reconciledRecent = [];
+          final Set<String> matchedKeys = {};
+
+          for (final localR in userRecent) {
+            final dbR = dbRecent.firstWhere(
+              (item) => item['surah_id'].toString() == localR.verse.surahId && item['profile_id']?.toString() == localR.profileId,
+              orElse: () => null,
+            );
+
+            if (dbR != null) {
+              matchedKeys.add('${localR.verse.surahId}-${localR.profileId}');
+              final remoteDate = DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+              
+              if (localR.readAt.isAfter(remoteDate)) {
+                // Local is newer, keep it and push it
+                reconciledRecent.add(localR);
+                _debounceRecentReadingSync(userId, localR.verse.surahId, localR.verse.verseId);
+              } else {
+                // Remote is newer, keep it
+                reconciledRecent.add(
+                  LocalRecentReading(
+                    id: dbR['id'].toString(),
+                    userId: userId,
+                    verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
+                    profileId: dbR['profile_id']?.toString(),
+                    readAt: remoteDate,
+                  )
+                );
+              }
+            } else {
+              // Local only, keep it and push it
+              reconciledRecent.add(localR);
+              _debounceRecentReadingSync(userId, localR.verse.surahId, localR.verse.verseId);
+            }
+          }
 
           for (final dbR in dbRecent) {
-            syncedRecent.add(
+            final key = '${dbR['surah_id']}-${dbR['profile_id']}';
+            if (matchedKeys.contains(key)) continue;
+            
+            reconciledRecent.add(
               LocalRecentReading(
                 id: dbR['id'].toString(),
                 userId: userId,
                 verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
                 profileId: dbR['profile_id']?.toString(),
-                readAt:
-                    DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
-                    DateTime.now(),
-              ),
+                readAt: DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.now(),
+              )
             );
           }
 
-          final otherRecent = _recentReadings
-              .where((r) => r.userId != userId)
-              .toList();
-          _recentReadings = otherRecent + syncedRecent;
+          reconciledRecent.sort((a, b) => b.readAt.compareTo(a.readAt));
+          
+          _recentReadings = otherRecent + reconciledRecent;
         } catch (e) {
           debugPrint('Error syncing recent readings: $e');
-        }
-
-        // Push local guest profiles to Supabase user_reading_profiles
-        final unsyncedGuestProfiles = _profiles
-            .where((p) => p.userId == 'local')
-            .toList();
-        for (final p in unsyncedGuestProfiles) {
-          try {
-            final uuidRegExp = RegExp(
-              r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-            );
-            final bool hasUuid = uuidRegExp.hasMatch(p.id);
-
-            final insertData = {
-              'user_id': userId,
-              'profile_name': p.name,
-              'current_surah': int.tryParse(p.current.surahId) ?? 1,
-              'current_ayah': int.tryParse(p.current.verseId) ?? 1,
-              'last_read_at': p.updatedAt.toIso8601String(),
-            };
-            if (hasUuid) {
-              insertData['id'] = p.id;
-            }
-
-            final response = hasUuid
-                ? await client
-                      .from('user_reading_profiles')
-                      .upsert(insertData, onConflict: 'id')
-                      .select('id')
-                      .single()
-                : await client
-                      .from('user_reading_profiles')
-                      .insert(insertData)
-                      .select('id')
-                      .single();
-
-            final returnedId = response['id']?.toString();
-            if (returnedId != null) {
-              final idx = _profiles.indexWhere((item) => item.id == p.id);
-              if (idx != -1) {
-                _profiles[idx] = LocalReadingProfile(
-                  id: returnedId,
-                  userId: userId,
-                  name: p.name,
-                  slug: p.slug,
-                  planMode: p.planMode,
-                  startJuz: p.startJuz,
-                  targetJuz: p.targetJuz,
-                  start: p.start,
-                  target: p.target,
-                  current: p.current,
-                  sortOrder: p.sortOrder,
-                  isArchived: p.isArchived,
-                  createdAt: p.createdAt,
-                  updatedAt: p.updatedAt,
-                );
-              }
-            }
-          } catch (e) {
-            debugPrint('Error migrating guest profile: $e');
-          }
         }
 
         // Run reconciliation

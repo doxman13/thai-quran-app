@@ -221,6 +221,23 @@ class MushafReadingProvider extends ChangeNotifier {
     _syncProfileToSupabase(updated);
   }
 
+  Future<void> updateProfile(
+    String profileId, {
+    required String name,
+  }) async {
+    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    if (index == -1) return;
+    final profile = _profiles[index];
+    final updated = profile.copyWith(
+      name: name,
+      updatedAt: DateTime.now(),
+    );
+    _profiles[index] = updated;
+    await _save();
+    notifyListeners();
+    _syncProfileToSupabase(updated);
+  }
+
   Future<void> createPageRangeProfile({
     required String name,
     required int mushafId,
@@ -712,18 +729,31 @@ class MushafReadingProvider extends ChangeNotifier {
               item['profile_id'] == localR.profileId,
           orElse: () => null,
         );
+        
         if (dbR != null) {
           matchedRecentKeys.add('${localR.mushafId}-${localR.profileId}');
+          final remoteDate = DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+          
+          if (localR.updatedAt.isAfter(remoteDate)) {
+            // Local is newer, keep it and push it
+            reconciledRecent.add(localR);
+            _debounceRecentReadingSync(userId, localR.mushafId, localR.pageNumber, localR.profileId);
+          } else {
+            // Remote is newer, keep it
+            reconciledRecent.add(
+              MushafRecentReading(
+                mushafId: dbR['mushaf_id'],
+                pageNumber: dbR['page_number'],
+                profileId: dbR['profile_id']?.toString(),
+                updatedAt: remoteDate,
+              )
+            );
+          }
         } else {
-          await client.from('mushaf_recent_readings').upsert({
-            'user_id': userId,
-            'mushaf_id': localR.mushafId,
-            'page_number': localR.pageNumber,
-            'profile_id': localR.profileId,
-            'updated_at': localR.updatedAt.toIso8601String(),
-          }, onConflict: 'user_id,mushaf_id,profile_id');
+          // Local only, keep it and push it
+          reconciledRecent.add(localR);
+          _debounceRecentReadingSync(userId, localR.mushafId, localR.pageNumber, localR.profileId);
         }
-        reconciledRecent.add(localR);
       }
 
       for (final dbR in dbRecent) {

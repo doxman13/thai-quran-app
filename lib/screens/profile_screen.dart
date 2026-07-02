@@ -14,6 +14,7 @@ import 'bookmarks_screen.dart';
 import 'notes_screen.dart';
 import 'reading_screen.dart';
 import 'tadabbur_private_screen.dart';
+import '../theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
@@ -50,22 +51,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) {
     final controller = TextEditingController(text: supabaseProv.displayName);
     final dialogFormKey = GlobalKey<FormState>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
       builder: (context) {
-        final settings = Provider.of<SettingsProvider>(context, listen: false);
-        final primaryColor = settings.getPrimaryColor();
-
         return AlertDialog(
-          title: const Text('แก้ไขชื่อ (Edit Name)'),
+          backgroundColor: colorScheme.surface,
+          surfaceTintColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            side: BorderSide(color: colorScheme.outline, width: 1),
+          ),
+          title: Text(
+            'แก้ไขชื่อ (Edit Name)',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
+          ),
           content: Form(
             key: dialogFormKey,
             child: TextFormField(
               controller: controller,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'ชื่อ (Name)',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                ),
               ),
               validator: (val) {
                 if (val == null || val.trim().isEmpty) {
@@ -78,12 +97,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก (Cancel)'),
+              child: Text('ยกเลิก (Cancel)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () async {
                 if (!dialogFormKey.currentState!.validate()) return;
@@ -311,94 +333,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _reportsFuture = _fetchUserReports(supabaseProv.userId);
     }
 
-    final primaryColor = settings.getPrimaryColor();
-    final isDark = settings.isDarkMode;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('โปรไฟล์ผู้อ่าน (Reader Profile)'),
+        title: Text(
+          'โปรไฟล์ผู้อ่าน (Reader Profile)',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
+        ),
+        backgroundColor: colorScheme.surfaceContainerLow,
+        foregroundColor: colorScheme.onSurface,
         elevation: 0,
+        shape: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_errorMessage != null)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    color: colorScheme.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colorScheme.error, width: 1),
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
+                    style: TextStyle(
+                      color: colorScheme.error,
                       fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
                 ),
               if (_successMessage != null)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    color: colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colorScheme.primary, width: 1),
                   ),
                   child: Text(
                     _successMessage!,
-                    style: const TextStyle(
-                      color: Colors.green,
+                    style: TextStyle(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
                 ),
 
               if (!supabaseProv.isLoggedIn) ...[
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colorScheme.outline, width: 1),
                   ),
-                  elevation: 2,
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(20.0),
                     child: Row(
                       children: [
                         CircleAvatar(
-                          radius: 24,
-                          backgroundColor: primaryColor.withOpacity(0.2),
-                          child: Icon(Icons.person, color: primaryColor),
+                          radius: 28,
+                          backgroundColor: colorScheme.primary.withOpacity(0.15),
+                          child: Icon(Icons.person, color: colorScheme.primary, size: 28),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'ผู้อ่านทั่วไป (Guest Reader)',
-                                style: TextStyle(
+                                style: GoogleFonts.prompt(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 supabaseProv.displayName,
-                                style: const TextStyle(
+                                style: GoogleFonts.prompt(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.edit),
+                          icon: Icon(Icons.edit, color: colorScheme.primary),
                           onPressed: () =>
                               _showEditNameDialog(context, supabaseProv),
                         ),
@@ -406,13 +440,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Auth form
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colorScheme.outline, width: 1),
                   ),
-                  elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
@@ -420,28 +454,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(Icons.cloud_sync, size: 64, color: primaryColor),
+                          Icon(Icons.cloud_sync, size: 64, color: colorScheme.primary),
                           const SizedBox(height: 16),
                           Text(
                             'ซิงค์ข้อมูลกับคลาวด์',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark
-                                      ? Colors.white
-                                      : Colors.teal.shade900,
-                                ),
+                            style: GoogleFonts.prompt(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'เข้าสู่ระบบเพื่อสำรองข้อมูลและซิงค์การตั้งค่า บุ๊กมาร์ก และบันทึกต่าง ๆ ไปยังเว็บและอุปกรณ์อื่น ๆ',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: isDark
-                                      ? Colors.grey.shade400
-                                      : Colors.grey.shade600,
-                                ),
+                            style: GoogleFonts.prompt(
+                              fontSize: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
@@ -454,7 +484,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 labelText: 'อีเมล (Email)',
                                 prefixIcon: const Icon(Icons.email),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
                                 ),
                               ),
                               validator: (val) {
@@ -469,41 +508,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               },
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
                                 ),
                               ),
                               onPressed: _isLoading
                                   ? null
                                   : () => _handleSendOtp(supabaseProv),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                        color: colorScheme.onPrimary,
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'ขอรหัสเข้าสู่ระบบ (Send OTP)',
-                                      style: TextStyle(
+                                      style: GoogleFonts.prompt(
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 15,
                                       ),
                                     ),
                             ),
                           ] else ...[
                             Text(
                               'รหัสยืนยัน 6 หลักถูกส่งไปยัง ${_emailController.text} แล้ว',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
+                              style: GoogleFonts.prompt(
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -516,39 +555,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 labelText: 'รหัสยืนยัน 6 หลัก (OTP Code)',
                                 prefixIcon: const Icon(Icons.lock_open),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
                                 ),
                                 counterText: "",
                               ),
                             ),
                             const SizedBox(height: 16),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(AppTheme.radius),
                                 ),
                               ),
                               onPressed: _isLoading
                                   ? null
                                   : () => _handleVerifyOtp(supabaseProv),
                               child: _isLoading
-                                  ? const SizedBox(
+                                  ? SizedBox(
                                       height: 20,
                                       width: 20,
                                       child: CircularProgressIndicator(
-                                        color: Colors.white,
+                                        color: colorScheme.onPrimary,
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : const Text(
+                                  : Text(
                                       'ยืนยันรหัส (Verify Code)',
-                                      style: TextStyle(
+                                      style: GoogleFonts.prompt(
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 15,
                                       ),
                                     ),
                             ),
@@ -562,7 +609,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         _otpController.clear();
                                       });
                                     },
-                              child: const Text('เปลี่ยนอีเมล (Change Email)'),
+                              child: Text(
+                                'เปลี่ยนอีเมล (Change Email)',
+                                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ],
                         ],
@@ -571,23 +621,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ] else ...[
-                // Logged in UI
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colorScheme.outline, width: 1),
                   ),
-                  elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor: primaryColor.withOpacity(0.2),
+                          backgroundColor: colorScheme.primary.withOpacity(0.15),
                           child: Icon(
                             Icons.person,
                             size: 50,
-                            color: primaryColor,
+                            color: colorScheme.primary,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -597,14 +647,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               supabaseProv.displayName,
-                              style: const TextStyle(
+                              style: GoogleFonts.prompt(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
+                              icon: Icon(Icons.edit, size: 20, color: colorScheme.primary),
                               onPressed: () =>
                                   _showEditNameDialog(context, supabaseProv),
                               constraints: const BoxConstraints(),
@@ -615,12 +666,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 4),
                         Text(
                           supabaseProv.userEmail,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
+                          style: GoogleFonts.inter(
+                            color: colorScheme.onSurfaceVariant,
                             fontSize: 14,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Center(
                           child: InkWell(
                             borderRadius: BorderRadius.circular(20),
@@ -638,30 +689,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: colorScheme.primary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: Colors.green.withOpacity(0.3),
+                                  color: colorScheme.primary.withOpacity(0.3),
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   _isSyncing
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 16,
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                                  Colors.green,
+                                                  colorScheme.primary,
                                                 ),
                                           ),
                                         )
-                                      : const Icon(
+                                      : Icon(
                                           Icons.sync,
-                                          color: Colors.green,
+                                          color: colorScheme.primary,
                                           size: 16,
                                         ),
                                   const SizedBox(width: 8),
@@ -669,8 +720,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _isSyncing
                                         ? 'กำลังซิงค์ (Syncing...)'
                                         : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
-                                    style: const TextStyle(
-                                      color: Colors.green,
+                                    style: GoogleFonts.prompt(
+                                      color: colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
                                     ),
@@ -681,75 +732,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        const Divider(),
-                        const SizedBox(height: 8),
+                        Divider(color: colorScheme.outline, thickness: 1),
+                        const SizedBox(height: 16),
 
-                        // Statistics Header
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'สถิติการอ่านของคุณ (Your Reading Stats)',
-                            style: TextStyle(
+                            style: GoogleFonts.prompt(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
 
-                        // Statistics Grid
                         GridView.count(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
                           childAspectRatio: 1.4,
                           children: [
                             _buildStatCard(
                               icon: Icons.menu_book,
                               title: 'แผนการอ่าน',
                               value: '${readingProv.activeProfiles.length} / 5',
-                              color: Colors.blue,
+                              color: colorScheme.primary,
                               onTap: () => Navigator.pop(context),
                             ),
                             _buildStatCard(
                               icon: Icons.bookmark,
                               title: 'บุ๊กมาร์ก',
                               value: '${readingProv.bookmarks.length}',
-                              color: Colors.orange,
+                              color: colorScheme.secondary,
                               onTap: _openBookmarks,
                             ),
                             _buildStatCard(
                               icon: Icons.note_alt,
                               title: 'บันทึกส่วนตัว',
                               value: '${notesProv.personalNotes.length}',
-                              color: Colors.purple,
+                              color: colorScheme.primary,
                               onTap: _openNotes,
                             ),
                             _buildStatCard(
                               icon: Icons.favorite_rounded,
                               title: 'Favorites & Notes',
                               value: '${notesProv.personalNotes.length}',
-                              color: Colors.red,
+                              color: colorScheme.secondary,
                               onTap: _openTadabbur,
                             ),
                             _buildStatCard(
                               icon: Icons.local_fire_department,
                               title: 'วันอ่านต่อเนื่อง',
                               value: '${statsProv.streakCount} วัน',
-                              color: Colors.red,
+                              color: colorScheme.primary,
                             ),
                           ],
                         ),
                         const SizedBox(height: 24),
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'Mushaf Reading',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -760,9 +811,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _buildStatCard(
                                 icon: Icons.import_contacts_rounded,
                                 title: 'Profiles',
-                                value:
-                                    '${mushafProv.activeCustomProfiles.length}',
-                                color: Colors.teal,
+                                value: '${mushafProv.activeCustomProfiles.length}',
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -771,7 +821,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icon: Icons.bookmark_added_outlined,
                                 title: 'Page bookmarks',
                                 value: '${mushafProv.pageBookmarks.length}',
-                                color: Colors.green,
+                                color: colorScheme.secondary,
                               ),
                             ),
                           ],
@@ -784,7 +834,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icon: Icons.format_quote_rounded,
                                 title: 'Verse bookmarks',
                                 value: '${mushafProv.verseBookmarks.length}',
-                                color: Colors.indigo,
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -793,174 +843,186 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icon: Icons.history_rounded,
                                 title: 'Recent pages',
                                 value: '${mushafProv.recentReadings.length}',
-                                color: Colors.deepOrange,
+                                color: colorScheme.secondary,
                               ),
                             ),
                           ],
                         ),
-                        if (readingProv.archivedProfiles.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'แผนการอ่านที่เก็บถาวร (Archived Plans)',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...readingProv.archivedProfiles.map((profile) {
-                            return Card(
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(
-                                  color: isDark
-                                      ? Colors.blueGrey.shade800.withOpacity(
-                                          0.5,
-                                        )
-                                      : Colors.grey.shade200,
-                                ),
-                              ),
-                              child: ListTile(
-                                leading: Icon(
-                                  Icons.archive_outlined,
-                                  color: primaryColor,
-                                ),
-                                title: Text(
-                                  profile.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    TextButton(
-                                      onPressed: () => readingProv
-                                          .restoreProfile(profile.id),
-                                      child: const Text('Restore'),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.redAccent,
-                                      ),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('ลบแผนการอ่าน?'),
-                                            content: Text(
-                                              'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: const Text('ยกเลิก'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  readingProv.deleteProfile(
-                                                    profile.id,
-                                                  );
-                                                  Navigator.pop(context);
-                                                },
-                                                child: const Text(
-                                                  'ลบ',
-                                                  style: TextStyle(
-                                                    color: Colors.redAccent,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                        if (readingProv.recentReadings.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Recent Readings',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...readingProv.recentReadings.take(5).map((reading) {
-                            return Card(
-                              elevation: 0,
-                              child: ListTile(
-                                leading: Icon(
-                                  Icons.history,
-                                  color: primaryColor,
-                                ),
-                                title: Text(
-                                  '${reading.verse.surahId}:${reading.verse.verseId}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: const Text('Continue from this ayah'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => _openReading(
-                                  reading.verse.surahId,
-                                  reading.verse.verseId,
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-
-                        _buildReportsSection(supabaseProv),
-
-                        const SizedBox(height: 24),
-                        const Divider(),
-                        const SizedBox(height: 16),
-
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _isLoading
-                              ? null
-                              : () => _handleSignOut(supabaseProv),
-                          icon: const Icon(Icons.logout),
-                          label: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  'ออกจากระบบ (Sign Out)',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                        ),
                       ],
                     ),
                   ),
+                ),
+              ],
+
+              if (supabaseProv.isLoggedIn) ...[
+                if (readingProv.archivedProfiles.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'แผนการอ่านที่เก็บถาวร (Archived Plans)',
+                      style: GoogleFonts.prompt(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...readingProv.archivedProfiles.map((profile) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: colorScheme.outline, width: 1),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.archive_outlined,
+                          color: colorScheme.primary,
+                        ),
+                        title: Text(
+                          profile.name,
+                          style: GoogleFonts.prompt(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(
+                              onPressed: () => readingProv.restoreProfile(profile.id),
+                              child: Text('Restore', style: TextStyle(color: colorScheme.primary)),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: colorScheme.error,
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    backgroundColor: colorScheme.surface,
+                                    surfaceTintColor: colorScheme.surface,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                                      side: BorderSide(color: colorScheme.outline),
+                                    ),
+                                    title: Text('ลบแผนการอ่าน?', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
+                                    content: Text(
+                                      'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
+                                      style: GoogleFonts.prompt(),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text('ยกเลิก', style: TextStyle(color: colorScheme.primary)),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          readingProv.deleteProfile(profile.id);
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text(
+                                          'ลบ',
+                                          style: TextStyle(color: colorScheme.error),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                if (readingProv.recentReadings.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Recent Readings',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...readingProv.recentReadings.take(5).map((reading) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: colorScheme.outline, width: 1),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.history,
+                          color: colorScheme.primary,
+                        ),
+                        title: Text(
+                          '${reading.verse.surahId}:${reading.verse.verseId}',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Continue from this ayah',
+                          style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                        ),
+                        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                        onTap: () => _openReading(
+                          reading.verse.surahId,
+                          reading.verse.verseId,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+
+                _buildReportsSection(supabaseProv),
+
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 16),
+
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.error,
+                    foregroundColor: colorScheme.onError,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => _handleSignOut(supabaseProv),
+                  icon: const Icon(Icons.logout),
+                  label: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: colorScheme.onError,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          'ออกจากระบบ (Sign Out)',
+                          style: GoogleFonts.prompt(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
                 ),
               ],
             ],
@@ -974,16 +1036,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required String value,
-    required Color color,
+    required Color color, // Maintain parameter signature to keep functionality intact
     VoidCallback? onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    // Dynamically derive theme colors based on input color parameters
+    // This allows us to use dynamic theme styles without breaking signatures
+    Color activeColor = color;
+    if (color == Colors.blue || color == Colors.purple || color == Colors.indigo || color == Colors.teal) {
+      activeColor = colorScheme.primary;
+    } else if (color == Colors.orange || color == Colors.red || color == Colors.deepOrange) {
+      activeColor = colorScheme.secondary;
+    } else {
+      activeColor = colorScheme.primary;
+    }
+
     final card = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(isDark ? 0.15 : 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(isDark ? 0.3 : 0.15)),
+        color: activeColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: activeColor.withOpacity(0.25), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -991,15 +1065,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 20),
+              Icon(icon, color: activeColor, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
+                  style: GoogleFonts.prompt(
                     fontSize: 12,
-                    color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
-                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1009,10 +1083,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: activeColor,
             ),
           ),
         ],
@@ -1022,7 +1096,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         onTap: onTap,
         child: card,
       ),
@@ -1044,25 +1118,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildStatusBadge(String status) {
+    final colorScheme = Theme.of(context).colorScheme;
     Color bgColor;
     Color textColor;
     String label;
 
     switch (status) {
       case 'reviewed_fixed':
-        bgColor = Colors.green.withOpacity(0.15);
-        textColor = Colors.green.shade800;
+        bgColor = colorScheme.primary.withOpacity(0.15);
+        textColor = colorScheme.primary;
         label = 'แก้ไขแล้ว (Fixed)';
         break;
       case 'reviewed_not_needed':
-        bgColor = Colors.grey.withOpacity(0.15);
-        textColor = Colors.grey.shade700;
+        bgColor = colorScheme.outline.withOpacity(0.15);
+        textColor = colorScheme.onSurfaceVariant;
         label = 'ไม่ต้องแก้ไข (No Action)';
         break;
       case 'pending_review':
       default:
-        bgColor = Colors.amber.withOpacity(0.15);
-        textColor = Colors.amber.shade900;
+        bgColor = colorScheme.secondary.withOpacity(0.15);
+        textColor = colorScheme.secondary;
         label = 'รอดำเนินการ (Pending)';
         break;
     }
@@ -1072,6 +1147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: textColor.withOpacity(0.2), width: 1),
       ),
       child: Text(
         label,
@@ -1090,10 +1166,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colorScheme.outline, width: 1),
+      ),
       margin: const EdgeInsets.only(top: 24),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1103,12 +1183,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'รายงานข้อผิดพลาด (My Error Reports)',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
+                  icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
                   onPressed: () {
                     setState(() {
                       _reportsFuture = _fetchUserReports(supabaseProv.userId);
@@ -1122,17 +1202,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               future: _reportsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(),
+                      padding: const EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(color: colorScheme.primary),
                     ),
                   );
                 }
                 if (snapshot.hasError) {
                   return Text(
                     'เกิดข้อผิดพลาดในการโหลดข้อมูล (Error loading reports)',
-                    style: GoogleFonts.prompt(color: Colors.redAccent),
+                    style: GoogleFonts.prompt(color: colorScheme.error),
                   );
                 }
                 final reports = snapshot.data ?? [];
@@ -1142,7 +1222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Text(
                       'ไม่มีประวัติการรายงานข้อผิดพลาด (No error reports submitted yet)',
                       style: GoogleFonts.prompt(
-                        color: Colors.grey.shade500,
+                        color: colorScheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
                       textAlign: TextAlign.center,
@@ -1154,7 +1234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: reports.length,
-                  separatorBuilder: (context, index) => const Divider(),
+                  separatorBuilder: (context, index) => Divider(color: colorScheme.outline, thickness: 1),
                   itemBuilder: (context, index) {
                     final report = reports[index];
                     final surahId = report['surah_id']?.toString() ?? '';
@@ -1195,9 +1275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).primaryColor.withOpacity(0.1),
+                                    color: colorScheme.primary.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
@@ -1208,14 +1286,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         style: GoogleFonts.prompt(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: Theme.of(context).primaryColor,
+                                          color: colorScheme.primary,
                                         ),
                                       ),
                                       const SizedBox(width: 4),
                                       Icon(
                                         Icons.open_in_new,
                                         size: 12,
-                                        color: Theme.of(context).primaryColor,
+                                        color: colorScheme.primary,
                                       ),
                                     ],
                                   ),
@@ -1230,7 +1308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               formattedDate,
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.grey.shade500,
+                                color: colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -1240,7 +1318,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: GoogleFonts.prompt(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade500,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                           Text(
@@ -1249,9 +1327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: GoogleFonts.prompt(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
-                              color: isDark
-                                  ? Colors.grey.shade300
-                                  : Colors.grey.shade700,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -1260,7 +1336,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: GoogleFonts.prompt(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade500,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                           Text(
@@ -1268,7 +1344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             softWrap: true,
                             style: GoogleFonts.prompt(
                               fontSize: 13,
-                              color: isDark ? Colors.white : Colors.black87,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                           if (adminNotes.isNotEmpty) ...[
@@ -1277,10 +1353,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               padding: const EdgeInsets.all(10),
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.08),
+                                color: colorScheme.primary.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: Colors.blue.withOpacity(0.15),
+                                  color: colorScheme.primary.withOpacity(0.15),
                                 ),
                               ),
                               child: Column(
@@ -1288,10 +1364,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         Icons.admin_panel_settings,
                                         size: 16,
-                                        color: Colors.blue,
+                                        color: colorScheme.primary,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
@@ -1299,7 +1375,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         style: GoogleFonts.prompt(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.blue.shade700,
+                                          color: colorScheme.primary,
                                         ),
                                       ),
                                     ],
@@ -1310,9 +1386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     softWrap: true,
                                     style: GoogleFonts.prompt(
                                       fontSize: 12,
-                                      color: isDark
-                                          ? Colors.grey.shade200
-                                          : Colors.grey.shade800,
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ],
