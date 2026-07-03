@@ -20,6 +20,7 @@ import 'settings_screen.dart';
 import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
 import 'browse_screen.dart';
+import 'tadabbur_private_screen.dart';
 
 class _ModeSelectionCard extends StatelessWidget {
   final IconData icon;
@@ -361,8 +362,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_isInit) {
       return Scaffold(
         backgroundColor: colorScheme.surface,
-        body: Center(
-          child: CircularProgressIndicator(color: colorScheme.primary),
+        body: SafeArea(
+          child: Center(
+            child: CircularProgressIndicator(color: colorScheme.primary),
+          ),
         ),
       );
     }
@@ -391,6 +394,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.format_list_bulleted_outlined),
             selectedIcon: Icon(Icons.format_list_bulleted),
             label: 'Surahs',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_border),
+            selectedIcon: Icon(Icons.favorite),
+            label: 'Favourites',
           ),
           NavigationDestination(
             icon: Icon(Icons.bookmark_outline),
@@ -599,9 +607,11 @@ class _HomeScreenState extends State<HomeScreen> {
         onOpen: _chooseBrowseDestination,
         onOpenPage: _navigateToMushafFreeReadPage,
       ),
-      // 2: Bookmarks
+      // 2: Favourites (Tadabbur)
+      TadabburPrivateScreen(repository: widget.repository),
+      // 3: Bookmarks
       BookmarksScreen(repository: widget.repository),
-      // 3: Profile
+      // 4: Profile
       const ProfileScreen(),
     ],
   ),
