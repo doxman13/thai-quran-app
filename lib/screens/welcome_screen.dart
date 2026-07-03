@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import '../data/quran_repository.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../shared/shared.dart';
 
 class WelcomeScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -77,7 +78,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
             ),
           ),
-          
+
           // Subtle graphic elements in background
           Positioned(
             top: -100,
@@ -109,24 +110,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               width: double.infinity,
               height: double.infinity,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32.0,
+                  vertical: 24.0,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const Spacer(),
-                    
+
                     // Bismillah SVG
                     SvgPicture.asset(
                       'assets/Bismillah_Calligraphy6.svg',
                       width: 240,
-                      colorFilter: ColorFilter.mode(colorScheme.onSurface, BlendMode.srcIn),
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Translation
                     Text(
-                      'ด้วยพระนามของอัลลอฮฺ\nผู้ทรงกรุณาปรานี ผู้ทรงเมตตาเสมอ',
+                      context.tr('welcome_bismillah'),
                       style: GoogleFonts.notoSansThai(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -134,9 +141,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    
+
                     const Spacer(),
-                    
+
                     // Logo at the bottom
                     Image.asset(
                       'assets/icons/mipmap-xxxhdpi/ic_launcher_foreground.png',
@@ -144,10 +151,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       color: isDark ? Colors.white : null,
                     ),
                     const SizedBox(height: 8),
-                    
+
                     // App Name
                     Text(
-                      'อ่านอัลกุรอาน',
+                      context.tr('welcome_app_name'),
                       style: GoogleFonts.notoSansThai(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,

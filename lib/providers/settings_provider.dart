@@ -24,6 +24,7 @@ class SettingsProvider extends ChangeNotifier {
   String _themeColor = 'blue';
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
+  String _languageCode = 'th'; // Default to Thai
 
   // Dual-slot translation model
   // Valid IDs: 'thai_v3', 'thai_v2', 'english'
@@ -35,6 +36,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool get keepAwake => _keepAwake;
   String get readingDisplayMode => _readingDisplayMode;
+  String get languageCode => _languageCode;
   bool get showArabicText =>
       _readingDisplayMode == quranOnlyMode ||
       _readingDisplayMode == quranTranslationMode;
@@ -207,6 +209,7 @@ class SettingsProvider extends ChangeNotifier {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
+    _languageCode = prefs.getString('languageCode') ?? 'th';
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _keepAwake = prefs.getBool('keepAwake') ?? true;
     final storedDisplayMode = prefs.getString('readingDisplayMode');
@@ -387,6 +390,15 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('webHostUrl', _webHostUrl);
+    await _markSettingsChanged(prefs);
+  }
+
+  void setLanguageCode(String value) async {
+    if (value != 'th' && value != 'en') return;
+    _languageCode = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('languageCode', _languageCode);
     await _markSettingsChanged(prefs);
   }
 

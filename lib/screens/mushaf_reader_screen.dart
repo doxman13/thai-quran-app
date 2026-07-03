@@ -57,7 +57,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
-    
+
     // Enable Wakelock if keepAwake setting is true
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -168,11 +168,11 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final parts = verseKey.split(':');
     if (parts.length != 2) return;
     final verse = widget.quranRepository.getVerse(parts[0], parts[1]);
-    
+
     final settings = context.read<SettingsProvider>();
     final transManager = context.read<TranslationManagerProvider>();
     String translation = 'Translation not found.';
-    
+
     if (verse != null) {
       if (settings.primaryTranslationId == 'english') {
         translation = verse.english;
@@ -250,25 +250,25 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         final colors = context.read<SettingsProvider>().getAppColors();
         return AlertDialog(
           title: Text(
-            'Add note?',
+            context.tr('add_note_title'),
             style: GoogleFonts.inter(fontWeight: FontWeight.w900),
           ),
           content: Text(
-            'Verse saved as favorite. Do you want to add a note now?',
+            context.tr('favorite_add_note_prompt'),
             style: GoogleFonts.inter(color: colors.foreground),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(
-                'Later',
+                context.tr('later'),
                 style: GoogleFonts.inter(fontWeight: FontWeight.w800),
               ),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
-                'Add note',
+                context.tr('add_note'),
                 style: GoogleFonts.inter(fontWeight: FontWeight.w800),
               ),
             ),
@@ -288,9 +288,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     if (parts.length != 2) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Tap an ayah first to favorite it.')),
-        );
+        ..showSnackBar(SnackBar(content: Text(context.tr('tap_ayah_first'))));
       return;
     }
 
@@ -306,7 +304,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(content: Text('Verse saved as favorite')),
+            SnackBar(content: Text(context.tr('verse_saved_favorite'))),
           );
       }
       return;
@@ -317,7 +315,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+        ..showSnackBar(
+          SnackBar(content: Text(context.tr('removed_from_favorites'))),
+        );
       return;
     }
 
@@ -327,25 +327,25 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         final colors = context.read<SettingsProvider>().getAppColors();
         return AlertDialog(
           title: Text(
-            'Remove favorite?',
+            context.tr('remove_favorite_title'),
             style: GoogleFonts.inter(fontWeight: FontWeight.w900),
           ),
           content: Text(
-            'This verse has a note. Removing it will delete the saved note too.',
+            context.tr('remove_favorite_with_note'),
             style: GoogleFonts.inter(color: colors.foreground),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(
-                'Cancel',
+                context.tr('cancel'),
                 style: GoogleFonts.inter(fontWeight: FontWeight.w800),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
-                'Remove',
+                context.tr('remove'),
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800,
                   color: Colors.red.shade500,
@@ -362,7 +362,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+        ..showSnackBar(
+          SnackBar(content: Text(context.tr('removed_from_favorites'))),
+        );
     }
   }
 
@@ -603,7 +605,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             onFavorite: () =>
                                 _toggleCurrentVerseFavorite(askForNote: true),
                             onClose: _dismissTranslation,
-                            fontSize: context.read<SettingsProvider>().translationFontSize,
+                            fontSize: context
+                                .read<SettingsProvider>()
+                                .translationFontSize,
                           ),
                         ),
                     ],
@@ -693,7 +697,7 @@ class _MushafReaderSettingsSheetState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Mushaf Settings',
+                context.tr('mushaf_settings'),
                 style: GoogleFonts.inter(
                   color: colors.textStrong,
                   fontSize: 20,
@@ -728,7 +732,7 @@ class _MushafReaderSettingsSheetState
                         children: [
                           Expanded(
                             child: Text(
-                              'Current Profile',
+                              context.tr('current_profile'),
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -749,7 +753,7 @@ class _MushafReaderSettingsSheetState
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: Text(
-                              'See all',
+                              context.tr('see_all'),
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
@@ -789,7 +793,7 @@ class _MushafReaderSettingsSheetState
                 color: colors.primary,
               ),
               title: Text(
-                'Dark Mode',
+                context.tr('dark_mode'),
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -797,7 +801,7 @@ class _MushafReaderSettingsSheetState
                 ),
               ),
               subtitle: Text(
-                'Optimize screen brightness for reading',
+                context.tr('optimize_brightness'),
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   color: colors.foreground,
@@ -813,7 +817,7 @@ class _MushafReaderSettingsSheetState
 
           // Display Mushaf Selection Label
           Text(
-            'Mushaf Font & Layout',
+            context.tr('mushaf_font_layout'),
             style: GoogleFonts.inter(
               color: colors.textStrong,
               fontSize: 14,
@@ -861,7 +865,13 @@ class _MushafReaderSettingsSheetState
           ),
           const SizedBox(height: 12),
           Text(
-            'Current view: ${type.name} • Page ${widget.currentPage.clamp(1, type.pageCount)}',
+            context.tr(
+              'current_view',
+              args: {
+                'name': type.name,
+                'page': '${widget.currentPage.clamp(1, type.pageCount)}',
+              },
+            ),
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               color: colors.foreground,
@@ -936,7 +946,10 @@ class _ReaderTopBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
@@ -958,11 +971,7 @@ class _ReaderTopBar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
-                      Icons.expand_more,
-                      size: 16,
-                      color: colors.primary,
-                    ),
+                    Icon(Icons.expand_more, size: 16, color: colors.primary),
                   ],
                 ),
               ),
@@ -1054,31 +1063,41 @@ class _SmallReaderButton extends StatelessWidget {
     final child = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: isPrevious ? [
-        Flexible(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-        ),
-        const SizedBox(width: 3),
-        Icon(icon, size: 16),
-      ] : [
-        Icon(icon, size: 16),
-        const SizedBox(width: 3),
-        Flexible(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-        ),
-      ],
+      children: isPrevious
+          ? [
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(icon, size: 16),
+            ]
+          : [
+              Icon(icon, size: 16),
+              const SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
     );
     final style = filled
         ? FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
             foregroundColor: Theme.of(context).colorScheme.onSurface,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             minimumSize: const Size(0, 32),
@@ -1086,7 +1105,9 @@ class _SmallReaderButton extends StatelessWidget {
           )
         : OutlinedButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.onSurface,
-            side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             minimumSize: const Size(0, 32),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1393,8 +1414,8 @@ class _MushafLayoutProfile {
       1 => const _MushafLayoutProfile(
         pageWidth: 410,
         lineWidth: 410,
-        lineHeight: 1.9,
-        lineVerticalPadding: 3.5,
+        lineHeight: 1.96,
+        lineVerticalPadding: 4.0,
         horizontalPadding: 16,
         wordPadding: 0,
       ),
@@ -1587,13 +1608,16 @@ class _MushafLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isShortLine = false;
-    
+
     if (line.isNotEmpty) {
-      final isLastLineOfSurahOnPage = surahStartsByLine.containsKey(line.first.lineNumber + 1);
-      
+      final isLastLineOfSurahOnPage = surahStartsByLine.containsKey(
+        line.first.lineNumber + 1,
+      );
+
       if (pageNumber == 1 || pageNumber == 2) {
         isShortLine = true;
-      } else if (pageNumber >= 582) { // Juz 30
+      } else if (pageNumber >= 582) {
+        // Juz 30
         isShortLine = true;
       } else if (isLastLineOfSurahOnPage) {
         isShortLine = true;
@@ -1621,10 +1645,7 @@ class _MushafLine extends StatelessWidget {
       fontWeight: isUthmaniTajweed ? FontWeight.w500 : FontWeight.w400,
     );
     final strutStyle = isQcf
-        ? StrutStyle.fromTextStyle(
-            baseStyle,
-            forceStrutHeight: true,
-          )
+        ? StrutStyle.fromTextStyle(baseStyle, forceStrutHeight: true)
         : null;
     final textHeightBehavior = isQcf
         ? const TextHeightBehavior(
@@ -1646,38 +1667,53 @@ class _MushafLine extends StatelessWidget {
 
       if ((mushafId == 11) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
-          textSpans.add(TextSpan(
-            text: part.text,
-            style: baseStyle.copyWith(
-              color: _getTajweedColor(part.className, context),
-              backgroundColor: highlightColor,
+          textSpans.add(
+            TextSpan(
+              text: part.text,
+              style: baseStyle.copyWith(
+                color: _getTajweedColor(part.className, context),
+                backgroundColor: highlightColor,
+              ),
+              recognizer: recognizer,
             ),
-            recognizer: recognizer,
-          ));
+          );
         }
-        textSpans.add(TextSpan(text: ' ', style: baseStyle.copyWith(backgroundColor: highlightColor), recognizer: recognizer));
+        textSpans.add(
+          TextSpan(
+            text: ' ',
+            style: baseStyle.copyWith(backgroundColor: highlightColor),
+            recognizer: recognizer,
+          ),
+        );
       } else {
-        textSpans.add(TextSpan(
-          text: '${word.text} ',
-          style: baseStyle.copyWith(backgroundColor: highlightColor),
-          recognizer: recognizer,
-        ));
+        textSpans.add(
+          TextSpan(
+            text: '${word.text} ',
+            style: baseStyle.copyWith(backgroundColor: highlightColor),
+            recognizer: recognizer,
+          ),
+        );
       }
 
       if (_shouldShowIndopakVerseMarker(word)) {
         final verseNumber = int.tryParse(word.verseKey.split(':').last) ?? 0;
-        final marker = '${String.fromCharCode(0x06dd)}${_arabicIndicDigits(verseNumber)}';
-        textSpans.add(TextSpan(
-          text: marker,
-          style: TextStyle(
-            fontFamily: 'UthmanicHafs',
-            fontSize: 13,
-            height: 1,
-            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
-            backgroundColor: highlightColor,
+        final marker =
+            '${String.fromCharCode(0x06dd)}${_arabicIndicDigits(verseNumber)}';
+        textSpans.add(
+          TextSpan(
+            text: marker,
+            style: TextStyle(
+              fontFamily: 'UthmanicHafs',
+              fontSize: 13,
+              height: 1,
+              color: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
+              backgroundColor: highlightColor,
+            ),
+            recognizer: recognizer,
           ),
-          recognizer: recognizer,
-        ));
+        );
       }
     }
 
@@ -1686,7 +1722,8 @@ class _MushafLine extends StatelessWidget {
       textDirection: TextDirection.rtl,
       strutStyle: strutStyle,
       textHeightBehavior: textHeightBehavior,
-      softWrap: false, // ensures it calculates width identically to Row without wrapping
+      softWrap:
+          false, // ensures it calculates width identically to Row without wrapping
       text: TextSpan(children: textSpans),
     );
 
@@ -1722,7 +1759,9 @@ class _MushafLine extends StatelessWidget {
   bool _shouldShowIndopakVerseMarker(MushafWord word) {
     if (mushafId != 3 && mushafId != 6 && mushafId != 7) return false;
     if (!verseEndWords.contains(word)) return false;
-    return !RegExp('[\u06dd\u06de\u0660-\u0669\u06f0-\u06f9\uf500-\uf8ff]').hasMatch(word.text);
+    return !RegExp(
+      '[\u06dd\u06de\u0660-\u0669\u06f0-\u06f9\uf500-\uf8ff]',
+    ).hasMatch(word.text);
   }
 
   Color? _getTajweedColor(String className, BuildContext context) {
@@ -2282,4 +2321,3 @@ int getOfflineHizbForPage(int pageNumber) {
     return juz * 2 - 1;
   }
 }
-

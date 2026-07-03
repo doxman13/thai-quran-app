@@ -417,7 +417,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Display Settings',
+                        context.tr('display_settings'),
                         style: GoogleFonts.inter(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -428,9 +428,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                       // Dark Mode Toggle
                       SwitchListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
                         title: Text(
-                          'Dark Mode',
+                          context.tr('dark_mode'),
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
@@ -444,7 +447,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       const SizedBox(height: 16),
 
                       Text(
-                        'Reading Mode',
+                        context.tr('reading_mode'),
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -458,32 +461,65 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: colorScheme.surface,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppTheme.radius),
-                            borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline,
+                              width: 1,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppTheme.radius),
-                            borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline,
+                              width: 1,
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppTheme.radius),
-                            borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 1.5,
+                            ),
                           ),
                         ),
                         items: [
                           DropdownMenuItem(
                             value: SettingsProvider.quranOnlyMode,
-                            child: Text('Quran Only', style: GoogleFonts.inter(color: colorScheme.onSurface)),
+                            child: Text(
+                              context.tr('quran_only'),
+                              style: GoogleFonts.inter(
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                           DropdownMenuItem(
                             value: SettingsProvider.translationOnlyMode,
-                            child: Text('Translation Only', style: GoogleFonts.inter(color: colorScheme.onSurface)),
+                            child: Text(
+                              context.tr('translation_only'),
+                              style: GoogleFonts.inter(
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                           DropdownMenuItem(
                             value: SettingsProvider.quranTranslationMode,
-                            child: Text('Quran & Translation', style: GoogleFonts.inter(color: colorScheme.onSurface)),
+                            child: Text(
+                              context.tr('quran_translation'),
+                              style: GoogleFonts.inter(
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                         ],
                         onChanged: (val) {
@@ -493,7 +529,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                       const Divider(height: 32),
                       Text(
-                        'Translations',
+                        context.tr('translations'),
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
@@ -505,28 +541,53 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         decoration: BoxDecoration(
                           color: colorScheme.surface,
                           borderRadius: BorderRadius.circular(AppTheme.radius),
-                          border: Border.all(color: colorScheme.outline, width: 1),
+                          border: Border.all(
+                            color: colorScheme.outline,
+                            width: 1,
+                          ),
                         ),
                         child: Column(
                           children: [
-                            _buildTranslationCheckbox(context, settings, 'thai_v3', 'Thai (V3)', colorScheme),
+                            _buildTranslationCheckbox(
+                              context,
+                              settings,
+                              'thai_v3',
+                              context.tr('thai_v3'),
+                              colorScheme,
+                            ),
                             Divider(height: 1, color: colorScheme.outline),
-                            _buildTranslationCheckbox(context, settings, 'thai_v2', 'Thai (V2)', colorScheme),
+                            _buildTranslationCheckbox(
+                              context,
+                              settings,
+                              'thai_v2',
+                              context.tr('thai_v2'),
+                              colorScheme,
+                            ),
                             Divider(height: 1, color: colorScheme.outline),
-                            _buildTranslationCheckbox(context, settings, 'english', 'English (MHE)', colorScheme),
-                            
+                            _buildTranslationCheckbox(
+                              context,
+                              settings,
+                              'english',
+                              context.tr('english'),
+                              colorScheme,
+                            ),
+
                             ...transManager.downloadedTranslations.map((t) {
                               final idStr = t['id'].toString();
                               return Column(
                                 children: [
-                                  Divider(height: 1, color: colorScheme.outline),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outline,
+                                  ),
                                   _buildTranslationCheckbox(
                                     context,
                                     settings,
                                     idStr,
                                     t['name'],
                                     colorScheme,
-                                    subtitleText: '${t['language']} - ${t['author']}',
+                                    subtitleText:
+                                        '${t['language']} - ${t['author']}',
                                   ),
                                 ],
                               );
@@ -545,7 +606,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Arabic Font Size',
+                                context.tr('arabic_font_size'),
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   color: colorScheme.onSurface,
@@ -567,13 +628,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               activeTrackColor: colorScheme.primary,
                               inactiveTrackColor: colorScheme.outline,
                               thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withOpacity(0.1),
+                              overlayColor: colorScheme.primary.withOpacity(
+                                0.1,
+                              ),
                             ),
                             child: Slider(
                               value: settings.arabicFontSize,
                               min: 18.0,
                               max: 48.0,
-                              onChanged: (val) => settings.setArabicFontSize(val),
+                              onChanged: (val) =>
+                                  settings.setArabicFontSize(val),
                             ),
                           ),
                         ],
@@ -589,7 +653,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Translation Font Size',
+                                context.tr('translation_font_size'),
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.w600,
                                   color: colorScheme.onSurface,
@@ -611,13 +675,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               activeTrackColor: colorScheme.primary,
                               inactiveTrackColor: colorScheme.outline,
                               thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withOpacity(0.1),
+                              overlayColor: colorScheme.primary.withOpacity(
+                                0.1,
+                              ),
                             ),
                             child: Slider(
                               value: settings.translationFontSize,
                               min: 12.0,
                               max: 32.0,
-                              onChanged: (val) => settings.setTranslationFontSize(val),
+                              onChanged: (val) =>
+                                  settings.setTranslationFontSize(val),
                             ),
                           ),
                         ],
@@ -656,26 +723,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ),
       ),
       subtitle: Text(
-        isPrimary 
-            ? 'Primary' 
-            : isSecondary 
-                ? 'Secondary' 
-                : (subtitleText ?? ''),
+        isPrimary
+            ? context.tr('primary')
+            : isSecondary
+            ? context.tr('secondary')
+            : (subtitleText ?? ''),
         style: GoogleFonts.inter(
-          color: isPrimary 
-              ? colorScheme.primary 
-              : isSecondary 
-                  ? Colors.blue 
-                  : colorScheme.onSurfaceVariant,
+          color: isPrimary
+              ? colorScheme.primary
+              : isSecondary
+              ? Colors.blue
+              : colorScheme.onSurfaceVariant,
           fontSize: 12,
-          fontWeight: (isPrimary || isSecondary) ? FontWeight.bold : FontWeight.normal,
+          fontWeight: (isPrimary || isSecondary)
+              ? FontWeight.bold
+              : FontWeight.normal,
         ),
       ),
       value: isChecked,
       activeColor: colorScheme.primary,
       onChanged: (val) {
         if (val == true) {
-          if (settings.secondaryTranslationId == null && settings.primaryTranslationId != id) {
+          if (settings.secondaryTranslationId == null &&
+              settings.primaryTranslationId != id) {
             settings.updateTranslationSlot('secondary', id);
           } else {
             settings.updateTranslationSlot('secondary', id);
@@ -683,11 +753,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
         } else {
           if (isPrimary) {
             if (settings.secondaryTranslationId != null) {
-              settings.updateTranslationSlot('primary', settings.secondaryTranslationId);
+              settings.updateTranslationSlot(
+                'primary',
+                settings.secondaryTranslationId,
+              );
               settings.updateTranslationSlot('secondary', null);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('At least one translation must be active.')),
+                SnackBar(content: Text(context.tr('at_least_one_active'))),
               );
             }
           } else {

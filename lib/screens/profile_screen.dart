@@ -15,6 +15,7 @@ import 'notes_screen.dart';
 import 'reading_screen.dart';
 import 'tadabbur_private_screen.dart';
 import '../theme/app_theme.dart';
+import '../shared/shared.dart';
 
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
@@ -64,15 +65,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             side: BorderSide(color: colorScheme.outline, width: 1),
           ),
           title: Text(
-            'แก้ไขชื่อ (Edit Name)',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
+            context.tr('edit_name'),
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w800,
+              color: colorScheme.onSurface,
+            ),
           ),
           content: Form(
             key: dialogFormKey,
             child: TextFormField(
               controller: controller,
               decoration: InputDecoration(
-                labelText: 'ชื่อ (Name)',
+                labelText: context.tr('name'),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radius),
                   borderSide: BorderSide(color: colorScheme.outline, width: 1),
@@ -83,12 +87,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                  borderSide: BorderSide(
+                    color: colorScheme.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
               validator: (val) {
                 if (val == null || val.trim().isEmpty) {
-                  return 'กรุณากรอกชื่อ';
+                  return context.tr('please_enter_name');
                 }
                 return null;
               },
@@ -97,7 +104,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('ยกเลิก (Cancel)', style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
+              child: Text(
+                context.tr('cancel'),
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -114,22 +127,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'อัปเดตชื่อสำเร็จ (Name updated successfully)',
-                        ),
+                      SnackBar(
+                        content: Text(context.tr('name_updated_successfully')),
                       ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                      SnackBar(
+                        content: Text(
+                          context.tr('error_occurred', args: {'error': '$e'}),
+                        ),
+                      ),
                     );
                   }
                 }
               },
-              child: const Text('บันทึก (Save)'),
+              child: Text(context.tr('save')),
             ),
           ],
         );
@@ -340,7 +355,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: Text(
           'โปรไฟล์ผู้อ่าน (Reader Profile)',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w800,
+            color: colorScheme.onSurface,
+          ),
         ),
         backgroundColor: colorScheme.surfaceContainerLow,
         foregroundColor: colorScheme.onSurface,
@@ -403,8 +421,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 28,
-                          backgroundColor: colorScheme.primary.withOpacity(0.15),
-                          child: Icon(Icons.person, color: colorScheme.primary, size: 28),
+                          backgroundColor: colorScheme.primary.withOpacity(
+                            0.15,
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: colorScheme.primary,
+                            size: 28,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -454,7 +478,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Icon(Icons.cloud_sync, size: 64, color: colorScheme.primary),
+                          Icon(
+                            Icons.cloud_sync,
+                            size: 64,
+                            color: colorScheme.primary,
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'ซิงค์ข้อมูลกับคลาวด์',
@@ -484,16 +512,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 labelText: 'อีเมล (Email)',
                                 prefixIcon: const Icon(Icons.email),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.outline,
+                                    width: 1,
+                                  ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.outline,
+                                    width: 1,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.primary,
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                               validator: (val) {
@@ -512,9 +555,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
                                 ),
                               ),
                               onPressed: _isLoading
@@ -555,16 +602,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 labelText: 'รหัสยืนยัน 6 หลัก (OTP Code)',
                                 prefixIcon: const Icon(Icons.lock_open),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.outline,
+                                    width: 1,
+                                  ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.outline,
+                                    width: 1,
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
-                                  borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: colorScheme.primary,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 counterText: "",
                               ),
@@ -574,9 +636,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radius,
+                                  ),
                                 ),
                               ),
                               onPressed: _isLoading
@@ -611,7 +677,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     },
                               child: Text(
                                 'เปลี่ยนอีเมล (Change Email)',
-                                style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -633,7 +702,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor: colorScheme.primary.withOpacity(0.15),
+                          backgroundColor: colorScheme.primary.withOpacity(
+                            0.15,
+                          ),
                           child: Icon(
                             Icons.person,
                             size: 50,
@@ -655,7 +726,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              icon: Icon(Icons.edit, size: 20, color: colorScheme.primary),
+                              icon: Icon(
+                                Icons.edit,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
                               onPressed: () =>
                                   _showEditNameDialog(context, supabaseProv),
                               constraints: const BoxConstraints(),
@@ -811,7 +886,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _buildStatCard(
                                 icon: Icons.import_contacts_rounded,
                                 title: 'Profiles',
-                                value: '${mushafProv.activeCustomProfiles.length}',
+                                value:
+                                    '${mushafProv.activeCustomProfiles.length}',
                                 color: colorScheme.primary,
                               ),
                             ),
@@ -875,7 +951,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(AppTheme.radius),
-                        border: Border.all(color: colorScheme.outline, width: 1),
+                        border: Border.all(
+                          color: colorScheme.outline,
+                          width: 1,
+                        ),
                       ),
                       child: ListTile(
                         leading: Icon(
@@ -893,8 +972,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             TextButton(
-                              onPressed: () => readingProv.restoreProfile(profile.id),
-                              child: Text('Restore', style: TextStyle(color: colorScheme.primary)),
+                              onPressed: () =>
+                                  readingProv.restoreProfile(profile.id),
+                              child: Text(
+                                'Restore',
+                                style: TextStyle(color: colorScheme.primary),
+                              ),
                             ),
                             IconButton(
                               icon: Icon(
@@ -908,10 +991,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     backgroundColor: colorScheme.surface,
                                     surfaceTintColor: colorScheme.surface,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppTheme.radius),
-                                      side: BorderSide(color: colorScheme.outline),
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radius,
+                                      ),
+                                      side: BorderSide(
+                                        color: colorScheme.outline,
+                                      ),
                                     ),
-                                    title: Text('ลบแผนการอ่าน?', style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold)),
+                                    title: Text(
+                                      'ลบแผนการอ่าน?',
+                                      style: GoogleFonts.notoSansThai(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                     content: Text(
                                       'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
                                       style: GoogleFonts.notoSansThai(),
@@ -919,7 +1011,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     actions: [
                                       TextButton(
                                         onPressed: () => Navigator.pop(context),
-                                        child: Text('ยกเลิก', style: TextStyle(color: colorScheme.primary)),
+                                        child: Text(
+                                          'ยกเลิก',
+                                          style: TextStyle(
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
                                       ),
                                       TextButton(
                                         onPressed: () {
@@ -928,7 +1025,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         },
                                         child: Text(
                                           'ลบ',
-                                          style: TextStyle(color: colorScheme.error),
+                                          style: TextStyle(
+                                            color: colorScheme.error,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -962,7 +1061,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(AppTheme.radius),
-                        border: Border.all(color: colorScheme.outline, width: 1),
+                        border: Border.all(
+                          color: colorScheme.outline,
+                          width: 1,
+                        ),
                       ),
                       child: ListTile(
                         leading: Icon(
@@ -978,9 +1080,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         subtitle: Text(
                           'Continue from this ayah',
-                          style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                          style: GoogleFonts.inter(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                        trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         onTap: () => _openReading(
                           reading.verse.surahId,
                           reading.verse.verseId,
@@ -1021,7 +1128,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       : Text(
                           'ออกจากระบบ (Sign Out)',
-                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: GoogleFonts.notoSansThai(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                 ),
               ],
@@ -1036,17 +1146,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required String value,
-    required Color color, // Maintain parameter signature to keep functionality intact
+    required Color
+    color, // Maintain parameter signature to keep functionality intact
     VoidCallback? onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     // Dynamically derive theme colors based on input color parameters
     // This allows us to use dynamic theme styles without breaking signatures
     Color activeColor = color;
-    if (color == Colors.blue || color == Colors.purple || color == Colors.indigo || color == Colors.teal) {
+    if (color == Colors.blue ||
+        color == Colors.purple ||
+        color == Colors.indigo ||
+        color == Colors.teal) {
       activeColor = colorScheme.primary;
-    } else if (color == Colors.orange || color == Colors.red || color == Colors.deepOrange) {
+    } else if (color == Colors.orange ||
+        color == Colors.red ||
+        color == Colors.deepOrange) {
       activeColor = colorScheme.secondary;
     } else {
       activeColor = colorScheme.primary;
@@ -1185,10 +1301,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   'รายงานข้อผิดพลาด (My Error Reports)',
-                  style: GoogleFonts.notoSansThai(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
+                  icon: Icon(
+                    Icons.refresh,
+                    size: 20,
+                    color: colorScheme.primary,
+                  ),
                   onPressed: () {
                     setState(() {
                       _reportsFuture = _fetchUserReports(supabaseProv.userId);
@@ -1205,7 +1329,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(color: colorScheme.primary),
+                      child: CircularProgressIndicator(
+                        color: colorScheme.primary,
+                      ),
                     ),
                   );
                 }
@@ -1234,7 +1360,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: reports.length,
-                  separatorBuilder: (context, index) => Divider(color: colorScheme.outline, thickness: 1),
+                  separatorBuilder: (context, index) =>
+                      Divider(color: colorScheme.outline, thickness: 1),
                   itemBuilder: (context, index) {
                     final report = reports[index];
                     final surahId = report['surah_id']?.toString() ?? '';
@@ -1275,7 +1402,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.primary.withOpacity(0.15),
+                                    color: colorScheme.primary.withOpacity(
+                                      0.15,
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(

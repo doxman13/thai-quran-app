@@ -13,6 +13,7 @@ import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import '../models/mushaf_models.dart';
 import 'settings_screen.dart';
+import '../shared/shared.dart';
 
 class BookmarksScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -23,21 +24,25 @@ class BookmarksScreen extends StatefulWidget {
 }
 
 class _BookmarksScreenState extends State<BookmarksScreen> {
-  final QuranFoundationRepository _foundationRepository = QuranFoundationRepository();
+  final QuranFoundationRepository _foundationRepository =
+      QuranFoundationRepository();
 
   void _openMushaf(String? profileId, int mushafId, {int? pageNumber}) async {
     final provider = context.read<MushafReadingProvider>();
     String targetProfileId = profileId ?? '';
-    
+
     if (targetProfileId.isEmpty || targetProfileId.startsWith('free-read')) {
       final profile = await provider.openFreeRead(mushafId);
       targetProfileId = profile.id;
     } else {
       await provider.setActiveProfile(targetProfileId);
     }
-    
+
     if (pageNumber != null) {
-      await provider.updateProgress(profileId: targetProfileId, pageNumber: pageNumber);
+      await provider.updateProgress(
+        profileId: targetProfileId,
+        pageNumber: pageNumber,
+      );
     }
 
     if (!mounted) return;
@@ -53,20 +58,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  void _handleMushafRecentTap(MushafRecentReading reading, MushafReadingProvider provider, bool matchesGoal) {
+  void _handleMushafRecentTap(
+    MushafRecentReading reading,
+    MushafReadingProvider provider,
+    bool matchesGoal,
+  ) {
     if (matchesGoal && reading.profileId != null) {
-      _openMushaf(reading.profileId, reading.mushafId, pageNumber: reading.pageNumber);
+      _openMushaf(
+        reading.profileId,
+        reading.mushafId,
+        pageNumber: reading.pageNumber,
+      );
       return;
     }
     _openMushaf(null, reading.mushafId, pageNumber: reading.pageNumber);
   }
 
-  void _handleVerseRecentTap(dynamic reading, LocalReadingProvider provider, bool matchesGoal) {
+  void _handleVerseRecentTap(
+    dynamic reading,
+    LocalReadingProvider provider,
+    bool matchesGoal,
+  ) {
     final surahId = reading is Map ? reading['surahId'] : reading.verse.surahId;
-    final verseId = reading is Map ? reading['verseId']?.toString() : reading.verse.verseId;
+    final verseId = reading is Map
+        ? reading['verseId']?.toString()
+        : reading.verse.verseId;
     final profileId = reading is Map ? null : reading.profileId;
     final verseIndex = reading is Map ? reading['verseIndex'] : null;
-    
+
     if (matchesGoal && profileId != null && profileId.isNotEmpty) {
       provider.setActiveProfile(profileId).then((_) {
         if (!mounted) return;
@@ -79,7 +98,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       });
       return;
     }
-    
+
     Navigator.pop(context, {
       'surahId': surahId,
       'verseId': verseId,
@@ -87,21 +106,33 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     });
   }
 
-  void _showSeeMoreDialog(String title, List<Widget> items, ColorScheme colorScheme) {
+  void _showSeeMoreDialog(
+    String title,
+    List<Widget> items,
+    ColorScheme colorScheme,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
         return Dialog(
           backgroundColor: colorScheme.surface,
           surfaceTintColor: colorScheme.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radius)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 24,
+          ),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -125,7 +156,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, thickness: 0.5, color: colorScheme.outline.withOpacity(0.3)),
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: colorScheme.outline.withOpacity(0.3),
+                    ),
                     itemBuilder: (context, index) => items[index],
                   ),
                 ),
@@ -152,7 +187,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  Widget _buildSeeMoreButton(String title, List<Widget> allItems, ColorScheme colorScheme) {
+  Widget _buildSeeMoreButton(
+    String title,
+    List<Widget> allItems,
+    ColorScheme colorScheme,
+  ) {
     if (allItems.length <= 3) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -168,11 +207,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           foregroundColor: colorScheme.primary,
         ),
         child: Text(
-          'See more',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
+          context.tr('see_more'),
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
     );
@@ -234,7 +270,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ],
       ),
       onTap: onTap,
-      trailing: trailing ?? Icon(Icons.chevron_right, size: 16, color: colorScheme.onSurfaceVariant),
+      trailing:
+          trailing ??
+          Icon(
+            Icons.chevron_right,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
     );
   }
 
@@ -252,19 +294,25 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           for (int i = 0; i < items.length; i++) ...[
             items[i],
             if (i < items.length - 1)
-              Divider(height: 1, thickness: 0.5, color: colorScheme.outline.withOpacity(0.3)),
+              Divider(
+                height: 1,
+                thickness: 0.5,
+                color: colorScheme.outline.withOpacity(0.3),
+              ),
           ],
         ],
       ),
     );
   }
-  
+
   Widget _buildHeader(ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outline, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -278,7 +326,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     color: colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(Icons.menu_book, color: colorScheme.onPrimaryContainer, size: 24),
+                  child: Icon(
+                    Icons.menu_book,
+                    color: colorScheme.onPrimaryContainer,
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -286,7 +338,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Bookmarks',
+                        context.tr('bookmarks'),
                         style: GoogleFonts.inter(
                           color: colorScheme.onSurface,
                           fontSize: 24,
@@ -296,7 +348,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Your reading progress',
+                        context.tr('reading_progress'),
                         style: GoogleFonts.inter(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 14,
@@ -309,7 +361,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             ),
           ),
           IconButton(
-            icon: Icon(Icons.settings_outlined, color: colorScheme.onSurfaceVariant),
+            icon: Icon(
+              Icons.settings_outlined,
+              color: colorScheme.onSurfaceVariant,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -336,36 +391,59 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         icon: Icons.history,
         title: widget.repository.getSurahName(progress.currentSurahId),
         subtitle: 'อายะฮฺที่: ${progress.lastVerseIndex}',
-        onTap: () => _handleVerseRecentTap({
-          'surahId': progress.currentSurahId,
-          'verseIndex': progress.lastVerseIndex,
-        }, localReading, false),
+        onTap: () => _handleVerseRecentTap(
+          {
+            'surahId': progress.currentSurahId,
+            'verseIndex': progress.lastVerseIndex,
+          },
+          localReading,
+          false,
+        ),
       ),
     ];
-    
-    if (localReading.recentReadings.isNotEmpty) {
-      verseRecentItems.addAll(localReading.recentReadings.map((reading) {
-        final profile = reading.profileId != null ? localReading.profiles.where((p) => p.id == reading.profileId).firstOrNull : null;
-        bool matchesGoal = false;
-        if (profile != null) {
-          matchesGoal = (profile.current.surahId == reading.verse.surahId && profile.current.verseId == reading.verse.verseId);
-        }
 
-        return _buildVerseItem(
-          colorScheme,
-          icon: Icons.history,
-          title: widget.repository.getSurahName(reading.verse.surahId),
-          subtitle: 'อายะฮฺที่ ${reading.verse.surahId}:${reading.verse.verseId}',
-          badgeText: matchesGoal ? profile?.name : null,
-          onTap: () => _handleVerseRecentTap(reading, localReading, matchesGoal),
-        );
-      }));
+    if (localReading.recentReadings.isNotEmpty) {
+      verseRecentItems.addAll(
+        localReading.recentReadings.map((reading) {
+          final profile = reading.profileId != null
+              ? localReading.profiles
+                    .where((p) => p.id == reading.profileId)
+                    .firstOrNull
+              : null;
+          bool matchesGoal = false;
+          if (profile != null) {
+            matchesGoal =
+                (profile.current.surahId == reading.verse.surahId &&
+                profile.current.verseId == reading.verse.verseId);
+          }
+
+          return _buildVerseItem(
+            colorScheme,
+            icon: Icons.history,
+            title: widget.repository.getSurahName(reading.verse.surahId),
+            subtitle: context.tr(
+              'ayah_number',
+              args: {
+                'number': '${reading.verse.surahId}:${reading.verse.verseId}',
+              },
+            ),
+            badgeText: matchesGoal ? profile?.name : null,
+            onTap: () =>
+                _handleVerseRecentTap(reading, localReading, matchesGoal),
+          );
+        }),
+      );
     }
 
     final mushafRecentItems = mushafReading.recentReadings.map((reading) {
-      final surahName = getSurahNameForPage(reading.pageNumber, widget.repository);
-      final profile = reading.profileId != null ? mushafReading.profileById(reading.profileId!) : null;
-      
+      final surahName = getSurahNameForPage(
+        reading.pageNumber,
+        widget.repository,
+      );
+      final profile = reading.profileId != null
+          ? mushafReading.profileById(reading.profileId!)
+          : null;
+
       bool matchesGoal = false;
       if (profile != null && profile.currentPage == reading.pageNumber) {
         matchesGoal = true;
@@ -374,10 +452,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       return _buildVerseItem(
         colorScheme,
         icon: Icons.import_contacts,
-        title: 'Mushaf (Page ${reading.pageNumber})',
+        title: 'Mushaf (${context.tr('page')} ${reading.pageNumber})',
         subtitle: surahName,
         badgeText: matchesGoal ? profile?.name : null,
-        onTap: () => _handleMushafRecentTap(reading, mushafReading, matchesGoal),
+        onTap: () =>
+            _handleMushafRecentTap(reading, mushafReading, matchesGoal),
       );
     }).toList();
 
@@ -387,8 +466,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       return _buildVerseItem(
         colorScheme,
         icon: Icons.bookmark,
-        title: '${widget.repository.getSurahName(rawSurahId)}, อายะฮฺที่ $rawVerseId',
-        subtitle: 'Surah $rawSurahId, Verse $rawVerseId',
+        title:
+            '${widget.repository.getSurahName(rawSurahId)}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
+        subtitle:
+            '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
         onTap: () {
           Navigator.pop(context, {
             'surahId': rawSurahId,
@@ -403,16 +484,26 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }).toList();
 
     final mushafBookmarkItems = mushafReading.pageBookmarks.map((bookmark) {
-      final surahName = getSurahNameForPage(bookmark.pageNumber, widget.repository);
+      final surahName = getSurahNameForPage(
+        bookmark.pageNumber,
+        widget.repository,
+      );
       return _buildVerseItem(
         colorScheme,
         icon: Icons.bookmark_border,
-        title: 'Page ${bookmark.pageNumber}',
+        title: '${context.tr('page')} ${bookmark.pageNumber}',
         subtitle: surahName,
-        onTap: () => _openMushaf(null, bookmark.mushafId, pageNumber: bookmark.pageNumber),
+        onTap: () => _openMushaf(
+          null,
+          bookmark.mushafId,
+          pageNumber: bookmark.pageNumber,
+        ),
         trailing: IconButton(
           icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 24),
-          onPressed: () => mushafReading.togglePageBookmark(bookmark.mushafId, bookmark.pageNumber),
+          onPressed: () => mushafReading.togglePageBookmark(
+            bookmark.mushafId,
+            bookmark.pageNumber,
+          ),
         ),
       );
     }).toList();
@@ -427,35 +518,69 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               padding: const EdgeInsets.only(top: 8, bottom: 32),
               children: [
                 if (verseRecentItems.isNotEmpty) ...[
-                  _buildSectionTitle('Recent Verse-by-Verse', colorScheme),
-                  _buildListGroup(verseRecentItems.take(3).toList(), colorScheme),
-                  _buildSeeMoreButton('Recent Verse-by-Verse', verseRecentItems, colorScheme),
-                ],
-                
-                if (mushafRecentItems.isNotEmpty) ...[
-                  _buildSectionTitle('Recent Mushaf Pages', colorScheme),
-                  _buildListGroup(mushafRecentItems.take(3).toList(), colorScheme),
-                  _buildSeeMoreButton('Recent Mushaf Pages', mushafRecentItems, colorScheme),
+                  _buildSectionTitle(context.tr('recent_verse'), colorScheme),
+                  _buildListGroup(
+                    verseRecentItems.take(3).toList(),
+                    colorScheme,
+                  ),
+                  _buildSeeMoreButton(
+                    context.tr('recent_verse'),
+                    verseRecentItems,
+                    colorScheme,
+                  ),
                 ],
 
-                _buildSectionTitle('Saved Verses (Verse-by-Verse)', colorScheme),
+                if (mushafRecentItems.isNotEmpty) ...[
+                  _buildSectionTitle(context.tr('recent_mushaf'), colorScheme),
+                  _buildListGroup(
+                    mushafRecentItems.take(3).toList(),
+                    colorScheme,
+                  ),
+                  _buildSeeMoreButton(
+                    context.tr('recent_mushaf'),
+                    mushafRecentItems,
+                    colorScheme,
+                  ),
+                ],
+
+                _buildSectionTitle(context.tr('saved_verses'), colorScheme),
                 if (verseBookmarkItems.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                     child: Text(
-                      'No saved verses yet.',
-                      style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant, fontSize: 14),
+                      context.tr('no_saved_verses'),
+                      style: GoogleFonts.inter(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 14,
+                      ),
                     ),
                   )
                 else ...[
-                  _buildListGroup(verseBookmarkItems.take(3).toList(), colorScheme),
-                  _buildSeeMoreButton('Saved Verses', verseBookmarkItems, colorScheme),
+                  _buildListGroup(
+                    verseBookmarkItems.take(3).toList(),
+                    colorScheme,
+                  ),
+                  _buildSeeMoreButton(
+                    context.tr('saved_verses'),
+                    verseBookmarkItems,
+                    colorScheme,
+                  ),
                 ],
 
                 if (mushafBookmarkItems.isNotEmpty) ...[
-                  _buildSectionTitle('Saved Mushaf Pages', colorScheme),
-                  _buildListGroup(mushafBookmarkItems.take(3).toList(), colorScheme),
-                  _buildSeeMoreButton('Saved Mushaf Pages', mushafBookmarkItems, colorScheme),
+                  _buildSectionTitle(context.tr('saved_mushaf'), colorScheme),
+                  _buildListGroup(
+                    mushafBookmarkItems.take(3).toList(),
+                    colorScheme,
+                  ),
+                  _buildSeeMoreButton(
+                    context.tr('saved_mushaf'),
+                    mushafBookmarkItems,
+                    colorScheme,
+                  ),
                 ],
               ],
             ),

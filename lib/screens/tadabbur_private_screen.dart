@@ -10,13 +10,15 @@ import '../data/quran_repository.dart';
 import '../data/tadabbur_repository.dart';
 import '../models/tadabbur_note.dart';
 import '../theme/app_theme.dart';
+import '../shared/shared.dart';
 import 'reading_screen.dart';
 import 'tadabbur_community_screen.dart';
 
 class TadabburPrivateScreen extends StatefulWidget {
   final QuranRepository repository;
 
-  const TadabburPrivateScreen({Key? key, required this.repository}) : super(key: key);
+  const TadabburPrivateScreen({Key? key, required this.repository})
+    : super(key: key);
 
   @override
   State<TadabburPrivateScreen> createState() => _TadabburPrivateScreenState();
@@ -76,7 +78,12 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              context.tr('failed_to_delete', args: {'error': '$e'}),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -96,7 +103,8 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   List<String> get _sortedSurahIds {
-    return _surahGroups.keys.toList()..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
+    return _surahGroups.keys.toList()
+      ..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
   }
 
   @override
@@ -125,18 +133,18 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'บันทึกตะดับบุร',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
+                          context.tr('tadabbur'),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'My Reflections',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          context.tr('my_tadabbur'),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -149,7 +157,9 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => TadabburCommunityScreen(repository: widget.repository),
+                              builder: (_) => TadabburCommunityScreen(
+                                repository: widget.repository,
+                              ),
                             ),
                           );
                         },
@@ -175,7 +185,9 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                           radius: 24,
                           backgroundColor: colorScheme.surfaceContainerHighest,
                           child: Icon(
-                            settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            settings.isDarkMode
+                                ? Icons.light_mode
+                                : Icons.dark_mode,
                             color: colorScheme.onSurface,
                             size: 24,
                           ),
@@ -189,23 +201,35 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             const SizedBox(height: 20),
             Expanded(
               child: _loading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : _notes.isEmpty
-              ? _buildEmptyState(colors)
-              : LayoutBuilder(
-                   builder: (context, constraints) {
-                     final showSidebar = constraints.maxWidth > 700;
-                    if (showSidebar) {
-                      return Row(
-                        children: [
-                          _buildSidebar(colors, primaryColor, notesProv),
-                          Expanded(child: _buildMainContent(colors, primaryColor, notesProv)),
-                        ],
-                      );
-                    }
-                    return _buildMobileLayout(colors, primaryColor, notesProv);
-                  },
-                ),
+                  ? Center(
+                      child: CircularProgressIndicator(color: primaryColor),
+                    )
+                  : _notes.isEmpty
+                  ? _buildEmptyState(colors)
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final showSidebar = constraints.maxWidth > 700;
+                        if (showSidebar) {
+                          return Row(
+                            children: [
+                              _buildSidebar(colors, primaryColor, notesProv),
+                              Expanded(
+                                child: _buildMainContent(
+                                  colors,
+                                  primaryColor,
+                                  notesProv,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return _buildMobileLayout(
+                          colors,
+                          primaryColor,
+                          notesProv,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -219,16 +243,27 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.edit_note_outlined, size: 64, color: colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.edit_note_outlined,
+            size: 64,
+            color: colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           Text(
-            'No reflections yet',
-            style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: colorScheme.onSurface),
+            context.tr('no_reflections_yet'),
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Add reflections while reading the Quran.',
-            style: GoogleFonts.inter(fontSize: 13, color: colorScheme.onSurfaceVariant),
+            context.tr('add_reflections_while_reading'),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: colorScheme.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -236,7 +271,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     );
   }
 
-  Widget _buildSidebar(AppThemeColors colors, Color primaryColor, NotesProvider notesProv) {
+  Widget _buildSidebar(
+    AppThemeColors colors,
+    Color primaryColor,
+    NotesProvider notesProv,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 260,
@@ -250,8 +289,12 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Surahs',
-              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: colorScheme.onSurface),
+              context.tr('surahs'),
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface,
+              ),
             ),
           ),
           Divider(height: 1, color: colorScheme.outline),
@@ -269,9 +312,14 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                     borderRadius: BorderRadius.circular(AppTheme.radius),
                     onTap: () => setState(() => _selectedSurahId = surahId),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: isActive ? colorScheme.primaryContainer : Colors.transparent,
+                        color: isActive
+                            ? colorScheme.primaryContainer
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(AppTheme.radius),
                       ),
                       child: Row(
@@ -280,7 +328,9 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
-                              color: isActive ? colorScheme.primary : colorScheme.surface,
+                              color: isActive
+                                  ? colorScheme.primary
+                                  : colorScheme.surface,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
@@ -289,7 +339,9 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: isActive ? colorScheme.onPrimary : colorScheme.onSurface,
+                                  color: isActive
+                                      ? colorScheme.onPrimary
+                                      : colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -300,16 +352,25 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                               widget.repository.getSurahName(surahId),
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 13,
-                                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                                color: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                                fontWeight: isActive
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isActive
+                                    ? colorScheme.onPrimaryContainer
+                                    : colorScheme.onSurface,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: isActive ? colorScheme.primary.withOpacity(0.2) : colorScheme.surface,
+                              color: isActive
+                                  ? colorScheme.primary.withOpacity(0.2)
+                                  : colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -317,7 +378,9 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                                color: isActive
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -334,7 +397,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     );
   }
 
-  Widget _buildMainContent(AppThemeColors colors, Color primaryColor, NotesProvider notesProv) {
+  Widget _buildMainContent(
+    AppThemeColors colors,
+    Color primaryColor,
+    NotesProvider notesProv,
+  ) {
     final notes = _currentNotes;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -353,7 +420,8 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                   colors: colors,
                   primaryColor: primaryColor,
                   onDelete: () => _deleteNote(note.id, notesProv),
-                  onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
+                  onOpenVerse: (surahId, verseId) =>
+                      _openVerse(surahId, verseId),
                   onTogglePublic: (note) async {
                     try {
                       await notesProv.saveNote(
@@ -367,7 +435,15 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+                          SnackBar(
+                            content: Text(
+                              context.tr(
+                                'failed_to_update',
+                                args: {'error': '$e'},
+                              ),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                       }
                     }
@@ -385,7 +461,15 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
+                          SnackBar(
+                            content: Text(
+                              context.tr(
+                                'failed_to_update',
+                                args: {'error': '$e'},
+                              ),
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                       }
                     }
@@ -396,7 +480,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
     );
   }
 
-  Widget _buildMobileLayout(AppThemeColors colors, Color primaryColor, NotesProvider notesProv) {
+  Widget _buildMobileLayout(
+    AppThemeColors colors,
+    Color primaryColor,
+    NotesProvider notesProv,
+  ) {
     return Column(
       children: [
         _buildSurahDropdown(colors, primaryColor),
@@ -427,7 +515,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             DropdownMenuItem(
               value: null,
               child: Text(
-                'ทั้งหมด (All)',
+                context.tr('all'),
                 style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.bold,
                   color: colorScheme.onSurface,
@@ -439,7 +527,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
               return DropdownMenuItem(
                 value: surahId,
                 child: Text(
-                  '${surahId}. ${widget.repository.getSurahName(surahId)} ($count notes)',
+                  '${surahId}. ${widget.repository.getSurahName(surahId)} (${context.tr('notes_count_short', args: {'count': '$count'})})',
                   style: GoogleFonts.notoSansThai(
                     fontWeight: FontWeight.w500,
                     color: colorScheme.onSurface,
@@ -535,7 +623,10 @@ class _NoteCardState extends State<_NoteCard> {
                   onTap: () => widget.onOpenVerse(note.surahId, note.verseId),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: widget.primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -553,7 +644,10 @@ class _NoteCardState extends State<_NoteCard> {
                 const Spacer(),
                 Text(
                   timeago.format(note.updatedAt),
-                  style: GoogleFonts.inter(fontSize: 10, color: colorScheme.onSurfaceVariant),
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -566,7 +660,9 @@ class _NoteCardState extends State<_NoteCard> {
                     maxLines: 5,
                     style: GoogleFonts.notoSansThai(fontSize: 14),
                     decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       contentPadding: const EdgeInsets.all(12),
                     ),
                   ),
@@ -576,7 +672,10 @@ class _NoteCardState extends State<_NoteCard> {
                     children: [
                       TextButton(
                         onPressed: () => setState(() => _isEditing = false),
-                        child: Text('Cancel', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          context.tr('cancel'),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       ElevatedButton(
@@ -588,7 +687,10 @@ class _NoteCardState extends State<_NoteCard> {
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,
                         ),
-                        child: Text('Save', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          context.tr('save'),
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -601,10 +703,13 @@ class _NoteCardState extends State<_NoteCard> {
                   note.noteText.isNotEmpty
                       ? Text(
                           note.noteText,
-                          style: GoogleFonts.notoSansThai(fontSize: 14, height: 1.6),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 14,
+                            height: 1.6,
+                          ),
                         )
                       : Text(
-                          'Favorited this verse (no reflection text added)',
+                          context.tr('favorited_no_reflection'),
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
@@ -619,7 +724,10 @@ class _NoteCardState extends State<_NoteCard> {
                           onTap: () => widget.onTogglePublic(note),
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: note.isPublic
                                   ? Colors.green.withOpacity(0.1)
@@ -634,17 +742,25 @@ class _NoteCardState extends State<_NoteCard> {
                             child: Row(
                               children: [
                                 Icon(
-                                  note.isPublic ? Icons.public : Icons.lock_outline,
+                                  note.isPublic
+                                      ? Icons.public
+                                      : Icons.lock_outline,
                                   size: 14,
-                                  color: note.isPublic ? Colors.green : colorScheme.onSurfaceVariant,
+                                  color: note.isPublic
+                                      ? Colors.green
+                                      : colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  note.isPublic ? 'Public' : 'Private',
+                                  note.isPublic
+                                      ? context.tr('public')
+                                      : context.tr('private'),
                                   style: GoogleFonts.inter(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: note.isPublic ? Colors.green : colorScheme.onSurfaceVariant,
+                                    color: note.isPublic
+                                        ? Colors.green
+                                        : colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                               ],
@@ -653,27 +769,57 @@ class _NoteCardState extends State<_NoteCard> {
                         ),
                       const Spacer(),
                       IconButton(
-                        icon: Icon(Icons.edit_outlined, size: 18, color: colorScheme.primary),
-                        tooltip: 'Edit',
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        tooltip: context.tr('edit'),
                         onPressed: () => setState(() => _isEditing = true),
                       ),
                       IconButton(
-                        icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade400),
-                        tooltip: 'Unfavorite',
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red.shade400,
+                        ),
+                        tooltip: context.tr('unfavorite'),
                         onPressed: () {
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text('Remove from Favorites', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-                              content: Text('Are you sure you want to unfavorite this verse?', style: GoogleFonts.inter()),
+                              title: Text(
+                                context.tr('remove_from_favorites'),
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              content: Text(
+                                context.tr('unfavorite_confirm'),
+                                style: GoogleFonts.inter(),
+                              ),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: GoogleFonts.inter(fontWeight: FontWeight.bold))),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: Text(
+                                    context.tr('cancel'),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(ctx);
                                     widget.onDelete();
                                   },
-                                  child: Text('Unfavorite', style: GoogleFonts.inter(color: colorScheme.error, fontWeight: FontWeight.bold)),
+                                  child: Text(
+                                    context.tr('unfavorite'),
+                                    style: GoogleFonts.inter(
+                                      color: colorScheme.error,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

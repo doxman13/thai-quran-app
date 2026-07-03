@@ -6,24 +6,20 @@ import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
-import '../shared/quran_contract.dart';
+import '../shared/shared.dart';
 import 'settings_screen.dart';
 
 class BrowseScreen extends StatefulWidget {
   final QuranRepository repository;
   final AppThemeColors colors;
-  
-  
-  
+
   final void Function(String surahId, String verseId) onOpen;
   final ValueChanged<int> onOpenPage;
 
   const BrowseScreen({
     required this.repository,
     required this.colors,
-    
-    
-    
+
     required this.onOpen,
     required this.onOpenPage,
   });
@@ -79,7 +75,7 @@ class BrowseScreenState extends State<BrowseScreen> {
 
   String _mode = 'surah';
   final TextEditingController _searchController = TextEditingController();
-  
+
   void _setMode(String mode) {
     setState(() {
       _mode = mode;
@@ -129,39 +125,41 @@ class BrowseScreenState extends State<BrowseScreen> {
     );
 
     // Build surah list with optional translation search
-    final surahs = [
-      for (var id = 1; id <= 114; id++)
-        (
-          id: id.toString(),
-          name: widget.repository.getSurahName(id.toString()),
-          count: widget.repository.getSurahVerses(id.toString()).length,
-        ),
-    ].where((surah) {
-      return query.isEmpty ||
-          surah.id.contains(query) ||
-          surah.name.toLowerCase().contains(query);
-    }).toList();
+    final surahs =
+        [
+          for (var id = 1; id <= 114; id++)
+            (
+              id: id.toString(),
+              name: widget.repository.getSurahName(id.toString()),
+              count: widget.repository.getSurahVerses(id.toString()).length,
+            ),
+        ].where((surah) {
+          return query.isEmpty ||
+              surah.id.contains(query) ||
+              surah.name.toLowerCase().contains(query);
+        }).toList();
 
-    final juz = [
-      for (
-        var index = 0;
-        index < BrowseScreenState._juzStarts.length;
-        index++
-      )
-        (
-          id: index + 1,
-          startSurah: BrowseScreenState._juzStarts[index][0].toString(),
-          startAyah: BrowseScreenState._juzStarts[index][1].toString(),
-        ),
-    ].where((item) {
-      final name = widget.repository
-          .getSurahName(item.startSurah)
-          .toLowerCase();
-      return query.isEmpty ||
-          item.id.toString().contains(query) ||
-          'juz ${item.id}'.contains(query) ||
-          name.contains(query);
-    }).toList();
+    final juz =
+        [
+          for (
+            var index = 0;
+            index < BrowseScreenState._juzStarts.length;
+            index++
+          )
+            (
+              id: index + 1,
+              startSurah: BrowseScreenState._juzStarts[index][0].toString(),
+              startAyah: BrowseScreenState._juzStarts[index][1].toString(),
+            ),
+        ].where((item) {
+          final name = widget.repository
+              .getSurahName(item.startSurah)
+              .toLowerCase();
+          return query.isEmpty ||
+              item.id.toString().contains(query) ||
+              'juz ${item.id}'.contains(query) ||
+              name.contains(query);
+        }).toList();
 
     final cleanQuery = query.replaceAll(RegExp(r'\D'), '');
     final int? queriedPage = int.tryParse(cleanQuery);
@@ -175,7 +173,15 @@ class BrowseScreenState extends State<BrowseScreen> {
     }).toList();
 
     // Collect verse translation matches
-    final List<({String surahName, String surahId, String verseId, String translationText})> verseMatches = [];
+    final List<
+      ({
+        String surahName,
+        String surahId,
+        String verseId,
+        String translationText,
+      })
+    >
+    verseMatches = [];
     if (isSearching && query.length >= 2) {
       outer:
       for (var id = 1; id <= 114; id++) {
@@ -223,7 +229,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ค้นหาสูเราะฮ์',
+                          context.tr('choose_surah'),
                           style: textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onSurface,
@@ -231,7 +237,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Which surah do you want to read?',
+                          context.tr('which_surah_to_read'),
                           style: textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -262,7 +268,6 @@ class BrowseScreenState extends State<BrowseScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Search Bar ──────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
@@ -274,7 +279,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                   controller: _searchController,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: 'Search Surah, Juz, Page, Meaning...',
+                    hintText: context.tr('search_hint'),
                     hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -319,7 +324,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                   children: [
                     Expanded(
                       child: _TabButton(
-                        label: 'Surah',
+                        label: context.tr('surah'),
                         selected: _mode == 'surah',
                         colors: widget.colors,
                         onTap: () => _setMode('surah'),
@@ -328,7 +333,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _TabButton(
-                        label: 'Juz',
+                        label: context.tr('juz'),
                         selected: _mode == 'juz',
                         colors: widget.colors,
                         onTap: () => _setMode('juz'),
@@ -337,7 +342,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: _TabButton(
-                        label: 'Page',
+                        label: context.tr('page'),
                         selected: _mode == 'page',
                         colors: widget.colors,
                         onTap: () => _setMode('page'),
@@ -353,130 +358,166 @@ class BrowseScreenState extends State<BrowseScreen> {
             Expanded(
               child: ClipRect(
                 child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
-                children: [
-                  if (isSearching) ...[
-                    // Surah matches
-                    if (surahs.isNotEmpty) ...[
-                      Text(
-                        'Surah',
-                        style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          letterSpacing: 1.2,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 0,
+                  ),
+                  children: [
+                    if (isSearching) ...[
+                      // Surah matches
+                      if (surahs.isNotEmpty) ...[
+                        Text(
+                          context.tr('surah'),
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...surahs.map(
-                        (surah) => _SimpleLinkRow(
-                          colors: widget.colors,
-                          title: surah.name,
-                          subtitle: '${surah.count} ayat',
-                          icon: Icons.menu_book_outlined,
-                          completed: completedSurahs.contains(surah.id),
-                          onTap: () => widget.onOpen(surah.id, '1'),
+                        const SizedBox(height: 8),
+                        ...surahs.map(
+                          (surah) => _SimpleLinkRow(
+                            colors: widget.colors,
+                            title: surah.name,
+                            subtitle: context.tr(
+                              'ayat_count',
+                              args: {'count': '${surah.count}'},
+                            ),
+                            icon: Icons.menu_book_outlined,
+                            completed: completedSurahs.contains(surah.id),
+                            onTap: () => widget.onOpen(surah.id, '1'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Verse / translation matches
-                    if (verseMatches.isNotEmpty) ...[
-                      Text(
-                        'Ayah matches',
-                        style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          letterSpacing: 1.2,
+                        const SizedBox(height: 16),
+                      ],
+                      // Verse / translation matches
+                      if (verseMatches.isNotEmpty) ...[
+                        Text(
+                          context.tr('ayah_matches'),
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...verseMatches.map(
-                        (m) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(AppTheme.radius),
-                            onTap: () => widget.onOpen(m.surahId, m.verseId),
-                            child: _SectionCard(
-                              colors: widget.colors,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.menu_book_outlined, color: widget.colors.primary),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${m.surahName}, Ayah ${m.verseId}',
-                                          style: textTheme.titleSmall?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: widget.colors.textStrong,
-                                          ),
+                        const SizedBox(height: 8),
+                        ...verseMatches.map(
+                          (m) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radius,
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radius,
+                                ),
+                                onTap: () =>
+                                    widget.onOpen(m.surahId, m.verseId),
+                                child: _SectionCard(
+                                  colors: widget.colors,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.menu_book_outlined,
+                                        color: widget.colors.primary,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: textTheme.titleSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: widget
+                                                        .colors
+                                                        .textStrong,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              m.translationText,
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: widget.colors.foreground,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          m.translationText,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: widget.colors.foreground,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        Icons.chevron_right,
+                                        color: widget.colors.foreground,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 8),
-                                  Icon(Icons.chevron_right, color: widget.colors.foreground),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                    if (surahs.isEmpty && verseMatches.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 48),
-                        child: Center(
-                          child: Text(
-                            'No results found for "$query"',
-                            style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ],
+                      if (surahs.isEmpty && verseMatches.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 48),
+                          child: Center(
+                            child: Text(
+                              context.tr(
+                                'no_results_for',
+                                args: {'query': query},
+                              ),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                  ] else ...[
-                    if (_mode == 'surah')
-                      ...surahs.map(
-                        (surah) => _SimpleLinkRow(
+                    ] else ...[
+                      if (_mode == 'surah')
+                        ...surahs.map(
+                          (surah) => _SimpleLinkRow(
+                            colors: widget.colors,
+                            title: surah.name,
+                            subtitle: context.tr(
+                              'ayat_count',
+                              args: {'count': '${surah.count}'},
+                            ),
+                            icon: Icons.menu_book_outlined,
+                            completed: completedSurahs.contains(surah.id),
+                            onTap: () => widget.onOpen(surah.id, '1'),
+                          ),
+                        )
+                      else if (_mode == 'juz')
+                        ...juz.map(
+                          (item) => _SimpleLinkRow(
+                            colors: widget.colors,
+                            title: '${context.tr('juz')} ${item.id}',
+                            subtitle:
+                                '${widget.repository.getSurahName(item.startSurah)}:${item.startAyah}',
+                            icon: Icons.view_week_outlined,
+                            onTap: () =>
+                                widget.onOpen(item.startSurah, item.startAyah),
+                          ),
+                        )
+                      else
+                        _PageNumberGrid(
                           colors: widget.colors,
-                          title: surah.name,
-                          subtitle: '${surah.count} ayat',
-                          icon: Icons.menu_book_outlined,
-                          completed: completedSurahs.contains(surah.id),
-                          onTap: () => widget.onOpen(surah.id, '1'),
+                          pages: pages,
+                          onOpenPage: widget.onOpenPage,
                         ),
-                      )
-                    else if (_mode == 'juz')
-                      ...juz.map(
-                        (item) => _SimpleLinkRow(
-                          colors: widget.colors,
-                          title: 'Juz ${item.id}',
-                          subtitle:
-                              '${widget.repository.getSurahName(item.startSurah)}:${item.startAyah}',
-                          icon: Icons.view_week_outlined,
-                          onTap: () => widget.onOpen(item.startSurah, item.startAyah),
-                        ),
-                      )
-                    else
-                      _PageNumberGrid(
-                        colors: widget.colors,
-                        pages: pages,
-                        onOpenPage: widget.onOpenPage,
-                      ),
+                    ],
+                    const SizedBox(height: 24),
                   ],
-                  const SizedBox(height: 24),
-                ],
-              ),
+                ),
               ),
             ),
           ],
@@ -523,7 +564,7 @@ class _PageNumberGrid extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
           child: Text(
-            'Page $page',
+            '${context.tr('page')} $page',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(fontWeight: FontWeight.w800),
@@ -626,6 +667,7 @@ class _SimpleLinkRow extends StatelessWidget {
     );
   }
 }
+
 class _TabButton extends StatelessWidget {
   final String label;
   final bool selected;
@@ -655,4 +697,3 @@ class _TabButton extends StatelessWidget {
     );
   }
 }
-

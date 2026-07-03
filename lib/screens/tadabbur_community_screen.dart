@@ -9,15 +9,18 @@ import '../data/quran_repository.dart';
 import '../data/tadabbur_repository.dart';
 import '../models/tadabbur_note.dart';
 import '../theme/app_theme.dart';
+import '../shared/shared.dart';
 import 'reading_screen.dart';
 
 class TadabburCommunityScreen extends StatefulWidget {
   final QuranRepository repository;
 
-  const TadabburCommunityScreen({Key? key, required this.repository}) : super(key: key);
+  const TadabburCommunityScreen({Key? key, required this.repository})
+    : super(key: key);
 
   @override
-  State<TadabburCommunityScreen> createState() => _TadabburCommunityScreenState();
+  State<TadabburCommunityScreen> createState() =>
+      _TadabburCommunityScreenState();
 }
 
 class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
@@ -67,9 +70,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   Future<void> _handleLike(TadabburNote note) async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to like reflections.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr('login_to_like'))));
       return;
     }
     try {
@@ -86,7 +89,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
               noteText: n.noteText,
               isPublic: n.isPublic,
               isAnonymous: n.isAnonymous,
-              likesCount: newLiked ? n.likesCount + 1 : (n.likesCount > 0 ? n.likesCount - 1 : 0),
+              likesCount: newLiked
+                  ? n.likesCount + 1
+                  : (n.likesCount > 0 ? n.likesCount - 1 : 0),
               language: n.language,
               createdAt: n.createdAt,
               updatedAt: n.updatedAt,
@@ -101,7 +106,10 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to like: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(context.tr('failed_to_like', args: {'error': '$e'})),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -113,30 +121,32 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to share reflections.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.tr('login_to_share'))));
       return;
     }
 
     setState(() => _isPosting = true);
     try {
-      final note = await _repo.saveNote(TadabburNote(
-        id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-        userId: user.id,
-        surahId: _postSurahId,
-        verseId: _postVerseId,
-        noteText: text,
-        isPublic: true,
-        isAnonymous: _isAnonymous,
-        likesCount: 0,
-        language: 'th',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        userEmail: _isAnonymous ? 'Anonymous' : user.email ?? 'Reader',
-        userLiked: false,
-        synced: true,
-      ));
+      final note = await _repo.saveNote(
+        TadabburNote(
+          id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
+          userId: user.id,
+          surahId: _postSurahId,
+          verseId: _postVerseId,
+          noteText: text,
+          isPublic: true,
+          isAnonymous: _isAnonymous,
+          likesCount: 0,
+          language: 'th',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          userEmail: _isAnonymous ? 'Anonymous' : user.email ?? 'Reader',
+          userLiked: false,
+          synced: true,
+        ),
+      );
       if (note != null) {
         setState(() {
           _feed = [note, ..._feed];
@@ -147,7 +157,10 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to post: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(context.tr('failed_to_post', args: {'error': '$e'})),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -180,18 +193,18 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Community Reflections',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
+                          context.tr('community_tadabbur'),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Global Insights',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                          context.tr('global_insights'),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -200,14 +213,21 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                   Row(
                     children: [
                       InkWell(
-                        onTap: () => setState(() => _showFilters = !_showFilters),
+                        onTap: () =>
+                            setState(() => _showFilters = !_showFilters),
                         borderRadius: BorderRadius.circular(24),
                         child: CircleAvatar(
                           radius: 24,
-                          backgroundColor: _filterSurahId != null ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+                          backgroundColor: _filterSurahId != null
+                              ? colorScheme.primaryContainer
+                              : colorScheme.surfaceContainerHighest,
                           child: Icon(
-                            _filterSurahId != null ? Icons.filter_alt : Icons.filter_alt_outlined,
-                            color: _filterSurahId != null ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                            _filterSurahId != null
+                                ? Icons.filter_alt
+                                : Icons.filter_alt_outlined,
+                            color: _filterSurahId != null
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurface,
                             size: 24,
                           ),
                         ),
@@ -222,7 +242,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                           radius: 24,
                           backgroundColor: colorScheme.surfaceContainerHighest,
                           child: Icon(
-                            settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            settings.isDarkMode
+                                ? Icons.light_mode
+                                : Icons.dark_mode,
                             color: colorScheme.onSurface,
                             size: 24,
                           ),
@@ -235,32 +257,37 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
             ),
             const SizedBox(height: 20),
             if (_showFilters) _buildFilterBar(colors, primaryColor),
-          Expanded(
-            child: _loading
-                ? Center(child: CircularProgressIndicator(color: primaryColor))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _feed.isEmpty ? 2 : _feed.length + 1,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      if (index == 0) return _buildComposeSection(colors, primaryColor);
-                      
-                      if (_feed.isEmpty) return _buildEmptyState(colors);
+            Expanded(
+              child: _loading
+                  ? Center(
+                      child: CircularProgressIndicator(color: primaryColor),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _feed.isEmpty ? 2 : _feed.length + 1,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        if (index == 0)
+                          return _buildComposeSection(colors, primaryColor);
 
-                      final note = _feed[index - 1];
-                      return _CommunityNoteCard(
-                        note: note,
-                        repository: widget.repository,
-                        primaryColor: primaryColor,
-                        onLike: () => _handleLike(note),
-                        onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        if (_feed.isEmpty) return _buildEmptyState(colors);
+
+                        final note = _feed[index - 1];
+                        return _CommunityNoteCard(
+                          note: note,
+                          repository: widget.repository,
+                          primaryColor: primaryColor,
+                          onLike: () => _handleLike(note),
+                          onOpenVerse: (surahId, verseId) =>
+                              _openVerse(surahId, verseId),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
-      )
     );
   }
 
@@ -281,14 +308,36 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 isExpanded: true,
                 dropdownColor: colors.surface,
                 iconEnabledColor: colors.textStrong,
-                hint: Text('All Surahs', style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong)),
-                style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
+                hint: Text(
+                  context.tr('all_surahs_filter'),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    color: colors.textStrong,
+                  ),
+                ),
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  color: colors.textStrong,
+                ),
                 items: [
-                  DropdownMenuItem(value: null, child: Text('All Surahs', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
-                  ...surahIds.map((id) => DropdownMenuItem(
-                        value: id,
-                        child: Text('${widget.repository.getSurahName(id)} ($id)', style: GoogleFonts.notoSansThai(color: colors.textStrong)),
-                      )),
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text(
+                      context.tr('all_surahs_filter'),
+                      style: GoogleFonts.notoSansThai(color: colors.textStrong),
+                    ),
+                  ),
+                  ...surahIds.map(
+                    (id) => DropdownMenuItem(
+                      value: id,
+                      child: Text(
+                        '${widget.repository.getSurahName(id)} ($id)',
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.textStrong,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
                 onChanged: (val) {
                   setState(() {
@@ -310,26 +359,52 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                   isExpanded: true,
                   dropdownColor: colors.surface,
                   iconEnabledColor: colors.textStrong,
-                  hint: Text('Ayah', style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong)),
-                  style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
+                  hint: Text(
+                    context.tr('ayah'),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 12,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    color: colors.textStrong,
+                  ),
                   items: [
-                    DropdownMenuItem(value: null, child: Text('All', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text(
+                        context.tr('all'),
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.textStrong,
+                        ),
+                      ),
+                    ),
                     ...List.generate(
                       widget.repository.getSurahVerses(_filterSurahId!).length,
-                      (i) => DropdownMenuItem(value: (i + 1).toString(), child: Text('${i + 1}', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
+                      (i) => DropdownMenuItem(
+                        value: (i + 1).toString(),
+                        child: Text(
+                          '${i + 1}',
+                          style: GoogleFonts.notoSansThai(
+                            color: colors.textStrong,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                   onChanged: (val) {
                     setState(() => _filterVerseId = val);
                     _loadFeed();
-                  }),
+                  },
+                ),
               ),
             ),
           if (_filterSurahId != null) ...[
             const SizedBox(width: 4),
             IconButton(
               icon: Icon(Icons.clear, size: 18, color: colors.textStrong),
-              tooltip: 'Clear filter',
+              tooltip: context.tr('clear_filter'),
               onPressed: () {
                 setState(() {
                   _filterSurahId = null;
@@ -360,8 +435,12 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'SHARE A REFLECTION',
-            style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey.shade500),
+            context.tr('share_reflection_heading').toUpperCase(),
+            style: GoogleFonts.notoSansThai(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Colors.grey.shade500,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -371,7 +450,14 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Surah', style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text(
+                      context.tr('surah'),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
                     Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -383,13 +469,26 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         child: DropdownButton<String>(
                           value: _postSurahId,
                           isExpanded: true,
-                          style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
-                          items: surahIds.map((id) => DropdownMenuItem(
-                                value: id,
-                                child: Text('${widget.repository.getSurahName(id)}'),
-                              )).toList(),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            color: colors.textStrong,
+                          ),
+                          items: surahIds
+                              .map(
+                                (id) => DropdownMenuItem(
+                                  value: id,
+                                  child: Text(
+                                    '${widget.repository.getSurahName(id)}',
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (val) {
-                            if (val != null) setState(() { _postSurahId = val; _postVerseId = '1'; });
+                            if (val != null)
+                              setState(() {
+                                _postSurahId = val;
+                                _postVerseId = '1';
+                              });
                           },
                         ),
                       ),
@@ -403,7 +502,14 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ayah', style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text(
+                      context.tr('ayah'),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
+                    ),
                     Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -415,10 +521,17 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         child: DropdownButton<String>(
                           value: _postVerseId,
                           isExpanded: true,
-                          style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
-                          items: List.generate(versesCount, (i) => DropdownMenuItem(
-                            value: (i + 1).toString(), child: Text('${i + 1}'),
-                          )),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            color: colors.textStrong,
+                          ),
+                          items: List.generate(
+                            versesCount,
+                            (i) => DropdownMenuItem(
+                              value: (i + 1).toString(),
+                              child: Text('${i + 1}'),
+                            ),
+                          ),
                           onChanged: (val) {
                             if (val != null) setState(() => _postVerseId = val);
                           },
@@ -432,51 +545,71 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           ),
           const SizedBox(height: 12),
           // Translation Preview Box
-          Builder(builder: (context) {
-            final verse = widget.repository.getVerse(_postSurahId, _postVerseId);
-            final translationText = verse?.thaiV3 ?? verse?.thaiV2 ?? '';
-            if (translationText.isEmpty) return const SizedBox.shrink();
+          Builder(
+            builder: (context) {
+              final verse = widget.repository.getVerse(
+                _postSurahId,
+                _postVerseId,
+              );
+              final translationText = verse?.thaiV3 ?? verse?.thaiV2 ?? '';
+              if (translationText.isEmpty) return const SizedBox.shrink();
               return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Translation Preview ($_postSurahId:$_postVerseId)',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: primaryColor,
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr(
+                        'translation_preview',
+                        args: {'reference': '$_postSurahId:$_postVerseId'},
+                      ),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    translationText,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      color: colors.foreground,
-                      height: 1.4,
+                    const SizedBox(height: 4),
+                    Text(
+                      translationText,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        color: colors.foreground,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
+                  ],
+                ),
+              );
+            },
+          ),
           TextField(
             controller: _postController,
-            style: GoogleFonts.notoSansThai(fontSize: 14, color: colorScheme.onSurface),
+            style: GoogleFonts.notoSansThai(
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
             decoration: InputDecoration(
-              hintText: 'What did you learn or reflect on from this Ayah?...',
-              hintStyle: GoogleFonts.notoSansThai(fontSize: 12, color: colorScheme.onSurfaceVariant),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
+              hintText: context.tr('reflection_hint'),
+              hintStyle: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
               contentPadding: const EdgeInsets.all(16),
             ),
             maxLines: 3,
@@ -489,26 +622,58 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 onTap: () => setState(() => _isAnonymous = !_isAnonymous),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 2,
+                  ),
                   child: Row(
                     children: [
                       Icon(
-                        _isAnonymous ? Icons.check_box : Icons.check_box_outline_blank,
+                        _isAnonymous
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
                         size: 16,
                         color: _isAnonymous ? primaryColor : Colors.grey,
                       ),
                       const SizedBox(width: 4),
-                      Text('Post anonymously', style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                      Text(
+                        context.tr('post_anonymously'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               ElevatedButton(
-                onPressed: _isPosting || _postController.text.trim().isEmpty ? null : _handlePost,
-                style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: _isPosting || _postController.text.trim().isEmpty
+                    ? null
+                    : _handlePost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: _isPosting
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Share Reflection', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w700)),
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        context.tr('share_reflection'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -525,13 +690,20 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            'No reflections yet',
-            style: GoogleFonts.notoSansThai(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey.shade600),
+            context.tr('no_reflections_yet'),
+            style: GoogleFonts.notoSansThai(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade600,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Be the first to share your reflection!',
-            style: GoogleFonts.notoSansThai(fontSize: 13, color: Colors.grey.shade500),
+            context.tr('first_to_share_reflection'),
+            style: GoogleFonts.notoSansThai(
+              fontSize: 13,
+              color: Colors.grey.shade500,
+            ),
           ),
         ],
       ),
@@ -588,29 +760,50 @@ class _CommunityNoteCard extends StatelessWidget {
                   radius: 16,
                   backgroundColor: primaryColor.withOpacity(0.15),
                   child: Text(
-                    (note.isAnonymous ? 'A' : (note.userEmail?.split('@').first ?? 'R')).substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w800, color: primaryColor),
+                    (note.isAnonymous
+                            ? 'A'
+                            : (note.userEmail?.split('@').first ?? 'R'))
+                        .substring(0, 1)
+                        .toUpperCase(),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    note.isAnonymous ? 'Anonymous' : (note.userEmail ?? 'Reader'),
-                    style: GoogleFonts.notoSansThai(fontSize: 14, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                    note.isAnonymous
+                        ? context.tr('anonymous')
+                        : (note.userEmail ?? context.tr('reader')),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 InkWell(
                   onTap: () => onOpenVerse(note.surahId, note.verseId),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
-                      style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -619,7 +812,10 @@ class _CommunityNoteCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               timeago.format(note.updatedAt),
-              style: GoogleFonts.notoSansThai(fontSize: 11, color: colorScheme.onSurfaceVariant),
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -628,9 +824,15 @@ class _CommunityNoteCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerLow,
                 border: Border(
-                  left: BorderSide(color: primaryColor.withOpacity(0.5), width: 4),
+                  left: BorderSide(
+                    color: primaryColor.withOpacity(0.5),
+                    width: 4,
+                  ),
                 ),
-                borderRadius: const BorderRadius.only(topRight: Radius.circular(8), bottomRight: Radius.circular(8)),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(8),
+                  bottomRight: Radius.circular(8),
+                ),
               ),
               child: Text(
                 repository.getVerse(note.surahId, note.verseId)?.thaiV3 ?? '',
@@ -642,7 +844,14 @@ class _CommunityNoteCard extends StatelessWidget {
                 ),
               ),
             ),
-            Text(note.noteText, style: GoogleFonts.notoSansThai(fontSize: 14, height: 1.6, color: colorScheme.onSurface)),
+            Text(
+              note.noteText,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 14,
+                height: 1.6,
+                color: colorScheme.onSurface,
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -651,21 +860,34 @@ class _CommunityNoteCard extends StatelessWidget {
                   onTap: onLike,
                   borderRadius: BorderRadius.circular(24),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: note.userLiked ? colorScheme.errorContainer : colorScheme.surfaceContainerLow,
+                      color: note.userLiked
+                          ? colorScheme.errorContainer
+                          : colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: note.userLiked ? colorScheme.error : colorScheme.outlineVariant,
+                        color: note.userLiked
+                            ? colorScheme.error
+                            : colorScheme.outlineVariant,
                       ),
                     ),
                     child: Row(
                       children: [
-                        Text(note.userLiked ? '❤️' : '🤍', style: const TextStyle(fontSize: 12)),
+                        Text(
+                          note.userLiked ? '❤️' : '🤍',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           '${note.likesCount}',
-                          style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.w700),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
@@ -677,7 +899,7 @@ class _CommunityNoteCard extends StatelessWidget {
                     children: [
                       const Text('📖 ', style: TextStyle(fontSize: 12)),
                       Text(
-                        'Read in Mushaf',
+                        context.tr('read_in_mushaf'),
                         style: GoogleFonts.notoSansThai(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

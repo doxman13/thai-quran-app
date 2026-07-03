@@ -13,7 +13,7 @@ import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/notes_provider.dart';
-import '../shared/quran_contract.dart';
+import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import 'reading_screen.dart';
@@ -60,7 +60,11 @@ class _ModeSelectionCard extends StatelessWidget {
                   color: colorScheme.primaryContainer,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 24, color: colorScheme.onPrimaryContainer),
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
@@ -101,29 +105,55 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final QuranFoundationRepository _foundationRepository = QuranFoundationRepository();
-  int _selectedTabIndex = 0; // 0: Meaningful Read, 1: Mushaf Read, 2: Quick Links
+  final QuranFoundationRepository _foundationRepository =
+      QuranFoundationRepository();
+  int _selectedTabIndex =
+      0; // 0: Meaningful Read, 1: Mushaf Read, 2: Quick Links
   int _navIndex = 0;
   bool _isInit = false;
 
   final ScrollController _capsuleScrollController = ScrollController();
 
   final List<Map<String, dynamic>> _tabs = [
-    {'title': "Meaningful Read", 'icon': Icons.menu_book},
-    {'title': "Mushaf Read", 'icon': Icons.import_contacts},
-    {'title': "Quick Links", 'icon': Icons.flash_on},
+    {'title': "meaningful_read", 'icon': Icons.menu_book},
+    {'title': "mushaf_read", 'icon': Icons.import_contacts},
+    {'title': "free_read", 'icon': Icons.flash_on},
   ];
 
   List<CustomQuickLink> _quickLinks = [];
 
   // Juz boundary data (shared with Browse screen)
   static const List<List<int>> _juzStarts = [
-    [1, 1], [2, 142], [2, 253], [3, 93], [4, 24],
-    [4, 148], [5, 82], [6, 111], [7, 88], [8, 41],
-    [9, 93], [11, 6], [12, 53], [15, 1], [17, 1],
-    [18, 75], [21, 1], [23, 1], [25, 21], [27, 56],
-    [29, 46], [33, 31], [36, 28], [39, 32], [41, 47],
-    [46, 1], [51, 31], [58, 1], [67, 1], [78, 1],
+    [1, 1],
+    [2, 142],
+    [2, 253],
+    [3, 93],
+    [4, 24],
+    [4, 148],
+    [5, 82],
+    [6, 111],
+    [7, 88],
+    [8, 41],
+    [9, 93],
+    [11, 6],
+    [12, 53],
+    [15, 1],
+    [17, 1],
+    [18, 75],
+    [21, 1],
+    [23, 1],
+    [25, 21],
+    [27, 56],
+    [29, 46],
+    [33, 31],
+    [36, 28],
+    [39, 32],
+    [41, 47],
+    [46, 1],
+    [51, 31],
+    [58, 1],
+    [67, 1],
+    [78, 1],
   ];
 
   @override
@@ -151,13 +181,23 @@ class _HomeScreenState extends State<HomeScreen> {
     if (linksJson != null) {
       final List<dynamic> decoded = jsonDecode(linksJson);
       setState(() {
-        _quickLinks = decoded.map((e) => CustomQuickLink.fromJson(e as Map<String, dynamic>)).toList();
+        _quickLinks = decoded
+            .map((e) => CustomQuickLink.fromJson(e as Map<String, dynamic>))
+            .toList();
       });
     } else {
       setState(() {
         _quickLinks = [
-          CustomQuickLink(surahNumber: 67, label: "Don't forget to read every night.", isLocked: true),
-          CustomQuickLink(surahNumber: 18, label: "Read every Friday.", isLocked: true),
+          CustomQuickLink(
+            surahNumber: 67,
+            label: "Don't forget to read every night.",
+            isLocked: true,
+          ),
+          CustomQuickLink(
+            surahNumber: 18,
+            label: "Read every Friday.",
+            isLocked: true,
+          ),
         ];
       });
       _saveQuickLinks();
@@ -166,7 +206,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _saveQuickLinks() async {
     final prefs = await SharedPreferences.getInstance();
-    final String encoded = jsonEncode(_quickLinks.map((e) => e.toJson()).toList());
+    final String encoded = jsonEncode(
+      _quickLinks.map((e) => e.toJson()).toList(),
+    );
     await prefs.setString('custom_quick_links', encoded);
   }
 
@@ -229,7 +271,9 @@ class _HomeScreenState extends State<HomeScreen> {
       showDragHandle: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radius)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
       ),
       builder: (sheetContext) {
         return Padding(
@@ -288,10 +332,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<Map<String, String>> _fetchArabicPreviewForPage(int page) async {
     try {
-      final mushafPage = await _foundationRepository.fetchPage(mushafId: 2, pageNumber: page);
+      final mushafPage = await _foundationRepository.fetchPage(
+        mushafId: 2,
+        pageNumber: page,
+      );
       if (mushafPage.verses.isEmpty) return {};
       final firstVerse = mushafPage.verses.first;
-      
+
       final arabicText = await widget.repository.fetchArabicVerse(
         firstVerse.surahId.toString(),
         firstVerse.verseId.toString(),
@@ -306,9 +353,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildDailyReadTracker(ColorScheme colorScheme, LocalReadingProvider provider) {
+  Widget _buildDailyReadTracker(
+    ColorScheme colorScheme,
+    LocalReadingProvider provider,
+  ) {
     final now = DateTime.now();
-    
+
     // Compute the past 7 days ending today
     final daysList = List.generate(7, (index) {
       final date = now.subtract(Duration(days: 6 - index));
@@ -325,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final date = daysList[index];
           final isToday = index == 6; // Last item is today
           final isRead = provider.hasReadOn(date);
-          
+
           Color circleColor;
           if (isRead) {
             circleColor = Colors.green;
@@ -335,7 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
             circleColor = colorScheme.outlineVariant;
           }
 
-          final dayLabel = dayLabels[date.weekday - 1]; // weekday is 1(Mon) to 7(Sun)
+          final dayLabel =
+              dayLabels[date.weekday - 1]; // weekday is 1(Mon) to 7(Sun)
 
           return Column(
             children: [
@@ -344,7 +395,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.inter(
                   fontSize: isToday ? 11 : 9,
                   fontWeight: isToday ? FontWeight.w900 : FontWeight.w600,
-                  color: isToday ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  color: isToday
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 4),
@@ -355,15 +408,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: circleColor.withValues(alpha: isToday ? 0.2 : 0.1),
-                  border: Border.all(color: circleColor, width: isToday ? 2.0 : 1.0),
+                  border: Border.all(
+                    color: circleColor,
+                    width: isToday ? 2.0 : 1.0,
+                  ),
                 ),
-                child: isToday 
-                    ? (isRead 
-                        ? const Icon(Icons.check, size: 14, color: Colors.green)
-                        : Icon(Icons.menu_book, size: 14, color: colorScheme.primary))
-                    : (isRead 
-                        ? const Icon(Icons.check, size: 12, color: Colors.green)
-                        : null), // We can omit the red X or add it if needed. Let's just leave it blank if not read, or maybe a small dot.
+                child: isToday
+                    ? (isRead
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.green,
+                            )
+                          : Icon(
+                              Icons.menu_book,
+                              size: 14,
+                              color: colorScheme.primary,
+                            ))
+                    : (isRead
+                          ? const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: Colors.green,
+                            )
+                          : null), // We can omit the red X or add it if needed. Let's just leave it blank if not read, or maybe a small dot.
               ),
             ],
           );
@@ -441,203 +509,233 @@ class _HomeScreenState extends State<HomeScreen> {
               slivers: [
                 SliverList(
                   delegate: SliverChildListDelegate([
-                Padding(
-                  padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 16),
-                  child: Column(
-                    children: [
-                      // ROW 1: THE WELCOME TYPOGRAPHY HEADER
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        left: 24,
+                        right: 24,
+                        top: 24,
+                        bottom: 16,
+                      ),
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Salam, ${Provider.of<SupabaseProvider>(context).displayName} 👋',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                          // ROW 1: THE WELCOME TYPOGRAPHY HEADER
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${context.tr('salam')}, ${Provider.of<SupabaseProvider>(context).displayName} 👋',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      context.tr('which_surah_to_read'),
+                                      style: textTheme.bodyLarge?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              InkWell(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const SettingsScreen(),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(24),
+                                child: CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor:
+                                      colorScheme.surfaceContainerHighest,
+                                  child: Icon(
+                                    Icons.settings,
                                     color: colorScheme.onSurface,
+                                    size: 24,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Which Surah you want to read?',
-                                  style: textTheme.bodyLarge?.copyWith(
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+
+                          // CARD/PILL SEARCH INPUT MATRIX
+                          Container(
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search Surah, Page, Meaning...',
+                                hintStyle: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
+                                prefixIcon: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 16.0,
+                                    right: 8.0,
+                                  ),
+                                  child: Icon(
+                                    Icons.search,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(24),
-                            child: CircleAvatar(
-                              radius: 24,
-                              backgroundColor: colorScheme.surfaceContainerHighest,
-                              child: Icon(
-                                Icons.settings,
-                                color: colorScheme.onSurface,
-                                size: 24,
+                                suffixIcon: Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 18,
+                                      color: colorScheme.primary,
+                                    ),
+                                    onPressed: () {
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                    ),
 
-                      // CARD/PILL SEARCH INPUT MATRIX
-                      Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Search Surah, Page, Meaning...',
-                            hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 16,
-                            ),
-                            prefixIcon: Padding(
-                              padding: const EdgeInsets.only(left: 16.0, right: 8.0),
-                              child: Icon(
-                                Icons.search,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            suffixIcon: Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: IconButton(
-                                icon: Icon(
-                                  Icons.arrow_forward_ios,
-                                  size: 18,
-                                  color: colorScheme.primary,
+                    if (!isSearching) ...[
+                      // Daily Read Checks Tracker
+                      _buildDailyReadTracker(colorScheme, readingProvider),
+
+                      // ROW 2: HORIZONTAL CAPSULE MENUS
+                      SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          controller: _capsuleScrollController,
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          itemCount: _tabs.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final isActive = _selectedTabIndex == index;
+                            final tab = _tabs[index];
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () {
+                                setState(() {
+                                  _selectedTabIndex = index;
+                                });
+                                final screenWidth = MediaQuery.of(
+                                  context,
+                                ).size.width;
+                                final offset =
+                                    (index * 150.0) - (screenWidth / 2) + 75.0;
+                                _capsuleScrollController.animateTo(
+                                  offset.clamp(
+                                    0.0,
+                                    _capsuleScrollController
+                                        .position
+                                        .maxScrollExtent,
+                                  ),
+                                  duration: const Duration(milliseconds: 350),
+                                  curve: Curves.easeOutCubic,
+                                );
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
                                 ),
-                                onPressed: () {
-                                  FocusScope.of(context).unfocus();
-                                },
+                                decoration: BoxDecoration(
+                                  color: isActive
+                                      ? colorScheme.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: isActive
+                                      ? null
+                                      : Border.all(color: colorScheme.outline),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      tab['icon'] as IconData,
+                                      size: 16,
+                                      color: isActive
+                                          ? colorScheme.onPrimary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      context.tr(tab['title'] as String),
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? colorScheme.onPrimary
+                                            : colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                if (!isSearching) ...[
-                  // Daily Read Checks Tracker
-                  _buildDailyReadTracker(colorScheme, readingProvider),
-
-                  // ROW 2: HORIZONTAL CAPSULE MENUS
-                  SizedBox(
-                    height: 38,
-                    child: ListView.separated(
-                      controller: _capsuleScrollController,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      itemCount: _tabs.length,
-                      separatorBuilder: (context, index) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final isActive = _selectedTabIndex == index;
-                        final tab = _tabs[index];
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: () {
-                            setState(() {
-                              _selectedTabIndex = index;
-                            });
-                            final screenWidth = MediaQuery.of(context).size.width;
-                            final offset = (index * 150.0) - (screenWidth / 2) + 75.0;
-                            _capsuleScrollController.animateTo(
-                              offset.clamp(0.0, _capsuleScrollController.position.maxScrollExtent),
-                              duration: const Duration(milliseconds: 350),
-                              curve: Curves.easeOutCubic,
                             );
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isActive ? colorScheme.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(24),
-                              border: isActive ? null : Border.all(color: colorScheme.outline),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  tab['icon'] as IconData,
-                                  size: 16,
-                                  color: isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  tab['title'] as String,
-                                  style: TextStyle(
-                                    color: isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ]),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ]),
+                ),
+
+                // Dynamic Dock Content as Slivers
+                if (isSearching)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    sliver: _buildSearchResultsSliver(colorScheme, textTheme),
+                  )
+                else
+                  _buildDynamicDockSliver(colorScheme, textTheme),
+
+                const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+              ],
             ),
-            
-            // Dynamic Dock Content as Slivers
-            if (isSearching)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                sliver: _buildSearchResultsSliver(colorScheme, textTheme),
-              )
-            else
-              _buildDynamicDockSliver(colorScheme, textTheme),
-              
-            const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-          ],
-        ),
+          ),
+          // 1: Browse (Surahs)
+          BrowseScreen(
+            repository: widget.repository,
+            colors: settings.getAppColors(),
+            onOpen: _chooseBrowseDestination,
+            onOpenPage: _navigateToMushafFreeReadPage,
+          ),
+          // 2: Favourites (Tadabbur)
+          TadabburPrivateScreen(repository: widget.repository),
+          // 3: Bookmarks
+          BookmarksScreen(repository: widget.repository),
+          // 4: Profile
+          const ProfileScreen(),
+        ],
       ),
-      // 1: Browse (Surahs)
-      BrowseScreen(
-        repository: widget.repository,
-        colors: settings.getAppColors(),
-        onOpen: _chooseBrowseDestination,
-        onOpenPage: _navigateToMushafFreeReadPage,
-      ),
-      // 2: Favourites (Tadabbur)
-      TadabburPrivateScreen(repository: widget.repository),
-      // 3: Bookmarks
-      BookmarksScreen(repository: widget.repository),
-      // 4: Profile
-      const ProfileScreen(),
-    ],
-  ),
-);
+    );
   }
 
   Widget _buildDynamicDockSliver(ColorScheme colorScheme, TextTheme textTheme) {
@@ -645,14 +743,14 @@ class _HomeScreenState extends State<HomeScreen> {
       // Meaningful Read
       return SliverList(
         delegate: SliverChildListDelegate([
-          _buildMeaningfulReadSection(colorScheme, textTheme)
+          _buildMeaningfulReadSection(colorScheme, textTheme),
         ]),
       );
     } else if (_selectedTabIndex == 1) {
       // Mushaf Read
       return SliverList(
         delegate: SliverChildListDelegate([
-          _buildMushafReadSection(colorScheme, textTheme)
+          _buildMushafReadSection(colorScheme, textTheme),
         ]),
       );
     } else if (_selectedTabIndex == 2) {
@@ -669,9 +767,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
     if (supabaseProv.isLoggedIn && supabaseProv.user != null) {
       final userId = supabaseProv.user!.id;
-      await Provider.of<NotesProvider>(context, listen: false).syncWithSupabase();
-      await Provider.of<LocalReadingProvider>(context, listen: false).syncBookmarksAndProfilesWithSupabase(userId);
-      await Provider.of<MushafReadingProvider>(context, listen: false).syncWithSupabase(userId);
+      await Provider.of<NotesProvider>(
+        context,
+        listen: false,
+      ).syncWithSupabase();
+      await Provider.of<LocalReadingProvider>(
+        context,
+        listen: false,
+      ).syncBookmarksAndProfilesWithSupabase(userId);
+      await Provider.of<MushafReadingProvider>(
+        context,
+        listen: false,
+      ).syncWithSupabase(userId);
     }
   }
 
@@ -683,13 +790,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return index + verse;
   }
 
-  Widget _buildMeaningfulReadSection(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildMeaningfulReadSection(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     final localReading = Provider.of<LocalReadingProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
 
-    final customProfiles = localReading.profiles.where((p) => !isFreeReadProfile(p) && !p.isArchived).toList();
-    final freeReadProfile = localReading.profiles.where((p) => isFreeReadProfile(p)).firstOrNull;
-    
+    final customProfiles = localReading.profiles
+        .where((p) => !isFreeReadProfile(p) && !p.isArchived)
+        .toList();
+    final freeReadProfile = localReading.profiles
+        .where((p) => isFreeReadProfile(p))
+        .firstOrNull;
+
     final allItems = [
       ...customProfiles,
       if (freeReadProfile != null) freeReadProfile else 'guest_read',
@@ -715,11 +829,13 @@ class _HomeScreenState extends State<HomeScreen> {
               FilledButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please switch to the main Home tab to create a goal for now.')),
+                    SnackBar(
+                      content: Text(context.tr('switch_home_tab_create_goal')),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Goal'),
+                label: Text(context.tr('goal')),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -758,7 +874,12 @@ class _HomeScreenState extends State<HomeScreen> {
               if (item == 'guest_read') {
                 return _buildMeaningfulGuestCard(colorScheme, settings, index);
               }
-              return _buildMeaningfulProfileCard(item as LocalReadingProfile, colorScheme, settings, index);
+              return _buildMeaningfulProfileCard(
+                item as LocalReadingProfile,
+                colorScheme,
+                settings,
+                index,
+              );
             },
           ),
         ),
@@ -769,8 +890,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMushafReadSection(ColorScheme colorScheme, TextTheme textTheme) {
     final mushafReading = Provider.of<MushafReadingProvider>(context);
     final customProfiles = mushafReading.activeCustomProfiles;
-    final freeReadProfile = mushafReading.profiles.where((p) => p.isFreeRead && !p.isArchived).firstOrNull;
-    
+    final freeReadProfile = mushafReading.profiles
+        .where((p) => p.isFreeRead && !p.isArchived)
+        .firstOrNull;
+
     final allItems = [
       ...customProfiles,
       if (freeReadProfile != null) freeReadProfile else 'guest_read',
@@ -796,11 +919,13 @@ class _HomeScreenState extends State<HomeScreen> {
               FilledButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please switch to the main Home tab to create a goal for now.')),
+                    SnackBar(
+                      content: Text(context.tr('switch_home_tab_create_goal')),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Goal'),
+                label: Text(context.tr('goal')),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -837,9 +962,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 return _buildAddGoalCard(colorScheme);
               }
               if (item == 'guest_read') {
-                 return _buildMushafGuestCard(colorScheme, index);
+                return _buildMushafGuestCard(colorScheme, index);
               }
-              return _buildMushafProfileCard(item as MushafProfile, colorScheme, index);
+              return _buildMushafProfileCard(
+                item as MushafProfile,
+                colorScheme,
+                index,
+              );
             },
           ),
         ),
@@ -847,15 +976,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMeaningfulProfileCard(LocalReadingProfile profile, ColorScheme colorScheme, SettingsProvider settings, int index) {
+  Widget _buildMeaningfulProfileCard(
+    LocalReadingProfile profile,
+    ColorScheme colorScheme,
+    SettingsProvider settings,
+    int index,
+  ) {
     bool isFreeRead = isFreeReadProfile(profile);
     double? progressPercent;
-    
+
     if (!isFreeRead && profile.planMode != 'mushaf' && profile.target != null) {
-      final startAbs = _getAbsoluteVerseIndex(int.parse(profile.start.surahId), int.parse(profile.start.verseId));
-      final currentAbs = _getAbsoluteVerseIndex(int.parse(profile.current.surahId), int.parse(profile.current.verseId));
-      final targetAbs = _getAbsoluteVerseIndex(int.parse(profile.target!.surahId), int.parse(profile.target!.verseId));
-      
+      final startAbs = _getAbsoluteVerseIndex(
+        int.parse(profile.start.surahId),
+        int.parse(profile.start.verseId),
+      );
+      final currentAbs = _getAbsoluteVerseIndex(
+        int.parse(profile.current.surahId),
+        int.parse(profile.current.verseId),
+      );
+      final targetAbs = _getAbsoluteVerseIndex(
+        int.parse(profile.target!.surahId),
+        int.parse(profile.target!.verseId),
+      );
+
       if (targetAbs > startAbs) {
         progressPercent = (currentAbs - startAbs) / (targetAbs - startAbs);
         if (progressPercent > 1.0) progressPercent = 1.0;
@@ -872,39 +1015,49 @@ class _HomeScreenState extends State<HomeScreen> {
       continueVerse: profile.current.verseId,
       imageIndex: index,
       progressPercent: progressPercent,
-      onDelete: isFreeRead ? null : () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Delete Goal?'),
-            content: const Text('Are you sure you want to delete this goal? This action cannot be undone.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: colorScheme.error,
-                  foregroundColor: colorScheme.onError,
+      onDelete: isFreeRead
+          ? null
+          : () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text(context.tr('delete_goal_title')),
+                  content: Text(context.tr('delete_goal_confirm')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(context.tr('cancel')),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.error,
+                        foregroundColor: colorScheme.onError,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(context.tr('delete')),
+                    ),
+                  ],
                 ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        );
-        if (confirm == true) {
-          if (mounted) {
-            context.read<LocalReadingProvider>().archiveProfile(profile.id);
-          }
-        }
-      },
+              );
+              if (confirm == true) {
+                if (mounted) {
+                  context.read<LocalReadingProvider>().archiveProfile(
+                    profile.id,
+                  );
+                }
+              }
+            },
       onContinue: () {
-         context.read<LocalReadingProvider>().setActiveProfile(profile.id);
-         _navigateToReading(context, profile.current.surahId, verseId: profile.current.verseId);
+        context.read<LocalReadingProvider>().setActiveProfile(profile.id);
+        _navigateToReading(
+          context,
+          profile.current.surahId,
+          verseId: profile.current.verseId,
+        );
       },
-      onEdit: isFreeRead ? null : () => _showProfileDialog(context, profile: profile),
+      onEdit: isFreeRead
+          ? null
+          : () => _showProfileDialog(context, profile: profile),
     );
   }
 
@@ -931,8 +1084,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            final startAyahCount = widget.repository.getSurahVerses(startSurah).length;
-            final endAyahCount = widget.repository.getSurahVerses(endSurah).length;
+            final startAyahCount = widget.repository
+                .getSurahVerses(startSurah)
+                .length;
+            final endAyahCount = widget.repository
+                .getSurahVerses(endSurah)
+                .length;
             startAyah = _clampAyah(startAyah, startAyahCount);
             endAyah = _clampAyah(endAyah, endAyahCount);
 
@@ -943,8 +1100,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 side: BorderSide(color: colors.borderSoft),
               ),
               title: Text(
-                profile == null ? 'Create Reading Goal' : 'Edit Reading Goal',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colors.textStrong),
+                profile == null
+                    ? context.tr('create_goal')
+                    : context.tr('edit_goal'),
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  color: colors.textStrong,
+                ),
               ),
               content: SingleChildScrollView(
                 child: Column(
@@ -953,23 +1115,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Goal name',
+                      decoration: InputDecoration(
+                        labelText: context.tr('goal_name'),
                         hintText: 'e.g. Ramadan 2026',
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: planMode,
-                      decoration: const InputDecoration(labelText: 'Plan type'),
-                      items: const [
-                        DropdownMenuItem(value: 'by_juz', child: Text('By Juz')),
-                        DropdownMenuItem(value: 'by_ayat', child: Text('By Ayat')),
-                        DropdownMenuItem(value: 'by_surah', child: Text('By Surah')),
-                        DropdownMenuItem(value: 'custom', child: Text('Custom')),
+                      decoration: InputDecoration(
+                        labelText: context.tr('plan_type'),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'by_juz',
+                          child: Text(context.tr('juz_mode')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'by_ayat',
+                          child: Text(context.tr('ayah_mode')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'by_surah',
+                          child: Text(context.tr('surah_mode')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text(context.tr('custom_mode')),
+                        ),
                       ],
                       onChanged: (value) {
-                        if (value != null) setDialogState(() => planMode = value);
+                        if (value != null)
+                          setDialogState(() => planMode = value);
                       },
                     ),
                     const SizedBox(height: 12),
@@ -978,7 +1155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Expanded(
                             child: _numberDropdown(
-                              label: 'Start Juz',
+                              label: context.tr('start_juz'),
                               value: startJuz,
                               max: 30,
                               onChanged: (value) {
@@ -992,53 +1169,60 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _numberDropdown(
-                              label: 'End Juz',
+                              label: context.tr('target_juz'),
                               value: endJuz,
                               min: startJuz,
                               max: 30,
-                              onChanged: (value) => setDialogState(() => endJuz = value),
+                              onChanged: (value) =>
+                                  setDialogState(() => endJuz = value),
                             ),
                           ),
                         ],
                       )
                     else ...[
                       _surahDropdown(
-                        label: 'Start Surah',
+                        label: context.tr('start_surah'),
                         value: startSurah,
                         onChanged: (value) {
                           setDialogState(() {
                             startSurah = value;
-                            if (int.parse(endSurah) < int.parse(startSurah)) endSurah = startSurah;
+                            if (int.parse(endSurah) < int.parse(startSurah))
+                              endSurah = startSurah;
                           });
                         },
                       ),
                       const SizedBox(height: 12),
                       _surahDropdown(
-                        label: 'End Surah',
+                        label: context.tr('target_surah'),
                         value: endSurah,
                         min: int.parse(startSurah),
-                        onChanged: (value) => setDialogState(() => endSurah = value),
+                        onChanged: (value) =>
+                            setDialogState(() => endSurah = value),
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
                             child: _ayahDropdown(
-                              label: 'Start Ayah',
+                              label: context.tr('start_ayah'),
                               value: planMode == 'by_surah' ? '1' : startAyah,
                               max: startAyahCount,
                               enabled: planMode != 'by_surah',
-                              onChanged: (value) => setDialogState(() => startAyah = value),
+                              onChanged: (value) =>
+                                  setDialogState(() => startAyah = value),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: _ayahDropdown(
-                              label: 'End Ayah',
-                              value: planMode == 'by_surah' ? endAyahCount.toString() : endAyah,
+                              label: context.tr('target_ayah'),
+                              value: planMode == 'by_surah'
+                                  ? endAyahCount.toString()
+                                  : endAyah,
                               max: endAyahCount,
                               enabled: planMode != 'by_surah',
-                              onChanged: (value) => setDialogState(() => endAyah = value),
+                              onChanged: (value) =>
+                                  setDialogState(() => endAyah = value),
                             ),
                           ),
                         ],
@@ -1048,19 +1232,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.restart_alt),
-                        label: const Text('Reset Progress to Start'),
+                        label: Text(context.tr('reset_progress')),
                         onPressed: () {
                           Navigator.pop(dialogContext);
-                          provider.updateProfileProgress(profile.id, profile.start);
+                          provider.updateProfileProgress(
+                            profile.id,
+                            profile.start,
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Goal progress reset.')));
+                            SnackBar(
+                              content: Text(context.tr('goal_progress_reset')),
+                            ),
+                          );
                         },
                       ),
                     ],
                     if (error != null) ...[
                       const SizedBox(height: 12),
-                      Text(error!, style: GoogleFonts.inter(
-                        color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                      Text(
+                        error!,
+                        style: GoogleFonts.inter(
+                          color: Colors.red.shade700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1068,28 +1264,40 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel')),
                 ),
                 FilledButton(
                   onPressed: () {
                     final name = nameController.text.trim();
                     if (name.isEmpty) {
-                      setDialogState(() => error = 'Enter a goal name first.');
+                      setDialogState(
+                        () => error = context.tr('enter_goal_name'),
+                      );
                       return;
                     }
 
                     final start = planMode == 'by_juz'
                         ? _juzStartRef(startJuz)
-                        : toVerseRef(startSurah, planMode == 'by_surah' ? 1 : startAyah);
+                        : toVerseRef(
+                            startSurah,
+                            planMode == 'by_surah' ? 1 : startAyah,
+                          );
                     final target = planMode == 'by_juz'
                         ? _juzEndRef(endJuz)
-                        : toVerseRef(endSurah, planMode == 'by_surah'
-                            ? widget.repository.getSurahVerses(endSurah).length
-                            : endAyah);
+                        : toVerseRef(
+                            endSurah,
+                            planMode == 'by_surah'
+                                ? widget.repository
+                                      .getSurahVerses(endSurah)
+                                      .length
+                                : endAyah,
+                          );
 
                     if (_verseOrdinal(target.surahId, target.verseId) <
                         _verseOrdinal(start.surahId, start.verseId)) {
-                      setDialogState(() => error = 'End position must be after the start.');
+                      setDialogState(
+                        () => error = context.tr('end_must_be_after_start'),
+                      );
                       return;
                     }
 
@@ -1117,7 +1325,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }
                   },
-                  child: Text(profile == null ? 'Create' : 'Save'),
+                  child: Text(
+                    profile == null ? context.tr('create') : context.tr('save'),
+                  ),
                 ),
               ],
             );
@@ -1176,8 +1386,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return DropdownButtonFormField<int>(
       value: safe,
       decoration: InputDecoration(labelText: label),
-      items: [for (var n = min; n <= max; n++) DropdownMenuItem(value: n, child: Text(n.toString()))],
-      onChanged: (next) { if (next != null) onChanged(next); },
+      items: [
+        for (var n = min; n <= max; n++)
+          DropdownMenuItem(value: n, child: Text(n.toString())),
+      ],
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
     );
   }
 
@@ -1194,9 +1409,14 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: InputDecoration(labelText: label),
       items: [
         for (var s = min; s <= 114; s++)
-          DropdownMenuItem(value: s.toString(), child: Text(widget.repository.getSurahName(s.toString()))),
+          DropdownMenuItem(
+            value: s.toString(),
+            child: Text(widget.repository.getSurahName(s.toString())),
+          ),
       ],
-      onChanged: (next) { if (next != null) onChanged(next); },
+      onChanged: (next) {
+        if (next != null) onChanged(next);
+      },
     );
   }
 
@@ -1215,11 +1435,19 @@ class _HomeScreenState extends State<HomeScreen> {
         for (var a = 1; a <= max; a++)
           DropdownMenuItem(value: a.toString(), child: Text(a.toString())),
       ],
-      onChanged: enabled ? (next) { if (next != null) onChanged(next); } : null,
+      onChanged: enabled
+          ? (next) {
+              if (next != null) onChanged(next);
+            }
+          : null,
     );
   }
 
-  Widget _buildMeaningfulGuestCard(ColorScheme colorScheme, SettingsProvider settings, int index) {
+  Widget _buildMeaningfulGuestCard(
+    ColorScheme colorScheme,
+    SettingsProvider settings,
+    int index,
+  ) {
     return _buildMeaningfulCardLayout(
       colorScheme: colorScheme,
       settings: settings,
@@ -1229,7 +1457,12 @@ class _HomeScreenState extends State<HomeScreen> {
       continueVerse: '1',
       imageIndex: index,
       onContinue: () {
-         _navigateToReading(context, '1', verseId: '1', saveToFreeReadOnly: true);
+        _navigateToReading(
+          context,
+          '1',
+          verseId: '1',
+          saveToFreeReadOnly: true,
+        );
       },
     );
   }
@@ -1275,7 +1508,10 @@ class _HomeScreenState extends State<HomeScreen> {
         image: DecorationImage(
           image: AssetImage('assets/images/image_slider${imageNumber}_x.webp'),
           fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.55), BlendMode.darken),
+          colorFilter: ColorFilter.mode(
+            Colors.black.withValues(alpha: 0.55),
+            BlendMode.darken,
+          ),
         ),
         borderRadius: BorderRadius.circular(AppTheme.radius * 1.2),
       ),
@@ -1291,11 +1527,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: textColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: textColor.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1317,7 +1558,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: onEdit,
                               child: Padding(
                                 padding: const EdgeInsets.all(2.0),
-                                child: Icon(Icons.edit, size: 14, color: textColor),
+                                child: Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: textColor,
+                                ),
                               ),
                             ),
                           ],
@@ -1341,7 +1586,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: colorScheme.error.withValues(alpha: 0.8),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.delete_outline, size: 16, color: colorScheme.onError),
+                              child: Icon(
+                                Icons.delete_outline,
+                                size: 16,
+                                color: colorScheme.onError,
+                              ),
                             ),
                           ),
                         ],
@@ -1375,7 +1624,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: LinearProgressIndicator(
                           value: progressPercent,
                           backgroundColor: textColor.withValues(alpha: 0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 4,
                           borderRadius: BorderRadius.circular(2),
                         ),
@@ -1396,12 +1647,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Spacer(),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: textColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border(
-                        left: BorderSide(color: textColor.withValues(alpha: 0.6), width: 3),
+                        left: BorderSide(
+                          color: textColor.withValues(alpha: 0.6),
+                          width: 3,
+                        ),
                       ),
                     ),
                     child: Column(
@@ -1471,11 +1728,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMushafProfileCard(MushafProfile profile, ColorScheme colorScheme, int index) {
+  Widget _buildMushafProfileCard(
+    MushafProfile profile,
+    ColorScheme colorScheme,
+    int index,
+  ) {
     bool isFreeRead = profile.isFreeRead;
     double? progressPercent;
-    
-    if (!isFreeRead && profile.startPage != null && profile.targetPage != null) {
+
+    if (!isFreeRead &&
+        profile.startPage != null &&
+        profile.targetPage != null) {
       final start = profile.startPage!;
       final target = profile.targetPage!;
       final current = profile.currentPage;
@@ -1493,75 +1756,86 @@ class _HomeScreenState extends State<HomeScreen> {
       page: profile.currentPage,
       imageIndex: index,
       progressPercent: progressPercent,
-      onDelete: isFreeRead ? null : () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Delete Goal?'),
-            content: const Text('Are you sure you want to delete this goal? This action cannot be undone.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: colorScheme.error,
-                  foregroundColor: colorScheme.onError,
+      onDelete: isFreeRead
+          ? null
+          : () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text(context.tr('delete_goal_title')),
+                  content: Text(context.tr('delete_goal_confirm')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(context.tr('cancel')),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.error,
+                        foregroundColor: colorScheme.onError,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(context.tr('delete')),
+                    ),
+                  ],
                 ),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        );
-        if (confirm == true) {
-          if (mounted) {
-            context.read<MushafReadingProvider>().archiveProfile(profile.id);
-          }
-        }
-      },
+              );
+              if (confirm == true) {
+                if (mounted) {
+                  context.read<MushafReadingProvider>().archiveProfile(
+                    profile.id,
+                  );
+                }
+              }
+            },
       onContinue: () => _navigateToMushafFreeReadPage(profile.currentPage),
       onEdit: isFreeRead ? null : () => _showEditMushafGoalDialog(profile),
     );
   }
 
   Future<void> _showEditMushafGoalDialog(MushafProfile profile) async {
-    final TextEditingController nameCtrl = TextEditingController(text: profile.name);
+    final TextEditingController nameCtrl = TextEditingController(
+      text: profile.name,
+    );
     final colorScheme = Theme.of(context).colorScheme;
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Edit Goal'),
+        title: Text(context.tr('edit_goal')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Goal Name'),
+              decoration: InputDecoration(labelText: context.tr('goal_name')),
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.restart_alt),
-                label: const Text('Reset Progress'),
+                label: Text(context.tr('reset_progress')),
                 onPressed: () {
                   Navigator.pop(ctx);
                   context.read<MushafReadingProvider>().updateProgress(
                     profileId: profile.id,
                     pageNumber: profile.startPage ?? 1,
                   );
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Goal progress reset.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.tr('goal_progress_reset'))),
+                  );
                 },
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(context.tr('cancel')),
+          ),
           FilledButton(
             onPressed: () {
               if (nameCtrl.text.trim().isNotEmpty) {
@@ -1572,7 +1846,7 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Save'),
+            child: Text(context.tr('save')),
           ),
         ],
       ),
@@ -1613,7 +1887,10 @@ class _HomeScreenState extends State<HomeScreen> {
         image: DecorationImage(
           image: AssetImage('assets/images/image_slider${imageNumber}_x.webp'),
           fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(Colors.black.withValues(alpha: 0.65), BlendMode.darken),
+          colorFilter: ColorFilter.mode(
+            Colors.black.withValues(alpha: 0.65),
+            BlendMode.darken,
+          ),
         ),
         borderRadius: BorderRadius.circular(AppTheme.radius * 1.2),
       ),
@@ -1629,16 +1906,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: textColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: textColor.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: textColor.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.import_contacts, size: 12, color: textColor),
+                          Icon(
+                            Icons.import_contacts,
+                            size: 12,
+                            color: textColor,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             profileName.toUpperCase(),
@@ -1655,7 +1941,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: onEdit,
                               child: Padding(
                                 padding: const EdgeInsets.all(2.0),
-                                child: Icon(Icons.edit, size: 14, color: textColor),
+                                child: Icon(
+                                  Icons.edit,
+                                  size: 14,
+                                  color: textColor,
+                                ),
                               ),
                             ),
                           ],
@@ -1679,7 +1969,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: colorScheme.error.withValues(alpha: 0.8),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.delete_outline, size: 16, color: colorScheme.onError),
+                              child: Icon(
+                                Icons.delete_outline,
+                                size: 16,
+                                color: colorScheme.onError,
+                              ),
                             ),
                           ),
                         ],
@@ -1704,7 +1998,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: LinearProgressIndicator(
                           value: progressPercent,
                           backgroundColor: textColor.withValues(alpha: 0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
                           minHeight: 4,
                           borderRadius: BorderRadius.circular(2),
                         ),
@@ -1721,7 +2017,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ],
-                
+
                 // Fetch and render the Arabic Text from Repository
                 Expanded(
                   child: FutureBuilder<Map<String, String>>(
@@ -1733,8 +2029,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       final verseId = data['verseId'] ?? '';
 
                       if (arabicText.isEmpty) {
-                         // Fallback or loading state
-                         return const SizedBox.shrink();
+                        // Fallback or loading state
+                        return const SizedBox.shrink();
                       }
 
                       return Column(
@@ -1752,7 +2048,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Spacer(),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: textColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -1775,7 +2074,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ),
-                
+
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -1835,11 +2134,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.add, size: 32, color: colorScheme.onPrimaryContainer),
+              child: Icon(
+                Icons.add,
+                size: 32,
+                color: colorScheme.onPrimaryContainer,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              'Add New Goal',
+              context.tr('create_goal'),
               style: GoogleFonts.inter(
                 color: colorScheme.onSurface,
                 fontSize: 16,
@@ -1852,105 +2155,121 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuickLinksSliverList(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildQuickLinksSliverList(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (index == _quickLinks.length) {
-            if (_quickLinks.length >= 7) return const SizedBox();
-            return Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 24),
-              child: FilledButton.tonalIcon(
-                onPressed: _showAddQuickLinkSheet,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Quick Link'),
-              ),
-            );
-          }
-
-          final link = _quickLinks[index];
-          final surahName = widget.repository.getSurahName(link.surahNumber.toString());
-          final versesCount = widget.repository.getSurahVerses(link.surahNumber.toString()).length;
-
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index == _quickLinks.length) {
+          if (_quickLinks.length >= 7) return const SizedBox();
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              elevation: 0,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+            padding: const EdgeInsets.only(top: 12, bottom: 24),
+            child: FilledButton.tonalIcon(
+              onPressed: _showAddQuickLinkSheet,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Quick Link'),
+            ),
+          );
+        }
+
+        final link = _quickLinks[index];
+        final surahName = widget.repository.getSurahName(
+          link.surahNumber.toString(),
+        );
+        final versesCount = widget.repository
+            .getSurahVerses(link.surahNumber.toString())
+            .length;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Card(
+            elevation: 0,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              side: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
-              color: colorScheme.surface,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                onTap: () => _chooseBrowseDestination(link.surahNumber.toString(), '1'),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(10),
+            ),
+            color: colorScheme.surface,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              onTap: () =>
+                  _chooseBrowseDestination(link.surahNumber.toString(), '1'),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${link.surahNumber}',
-                          style: textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.bold,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${link.surahNumber}',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            surahName,
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            link.label.isNotEmpty
+                                ? link.label
+                                : '$versesCount Verses',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!link.isLocked)
+                      IconButton(
+                        icon: Icon(
+                          Icons.remove_circle_outline,
+                          color: colorScheme.error,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _quickLinks.removeAt(index);
+                          });
+                          _saveQuickLinks();
+                        },
+                      )
+                    else
+                      Icon(
+                        Icons.lock_outline,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              surahName,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              link.label.isNotEmpty ? link.label : '$versesCount Verses',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!link.isLocked)
-                        IconButton(
-                          icon: Icon(Icons.remove_circle_outline, color: colorScheme.error),
-                          onPressed: () {
-                            setState(() {
-                              _quickLinks.removeAt(index);
-                            });
-                            _saveQuickLinks();
-                          },
-                        )
-                      else
-                        Icon(
-                          Icons.lock_outline,
-                          size: 16,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          );
-        },
-        childCount: _quickLinks.length + 1,
-      ),
+          ),
+        );
+      }, childCount: _quickLinks.length + 1),
     );
   }
 
@@ -1970,7 +2289,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (BuildContext context, StateSetter setSheetState) {
             final colorScheme = Theme.of(context).colorScheme;
             final textTheme = Theme.of(context).textTheme;
-            
+
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1982,21 +2301,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Add Quick Link', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Add Quick Link',
+                    style: textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Text('Select Surah', style: textTheme.titleSmall),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
                     value: selectedSurah,
                     decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     items: List.generate(114, (i) {
                       final sNum = i + 1;
                       return DropdownMenuItem(
                         value: sNum,
-                        child: Text('$sNum. ${widget.repository.getSurahName(sNum.toString())}'),
+                        child: Text(
+                          '$sNum. ${widget.repository.getSurahName(sNum.toString())}',
+                        ),
                       );
                     }),
                     onChanged: (val) {
@@ -2009,8 +2340,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   TextField(
                     decoration: InputDecoration(
                       hintText: 'e.g., Read after Fajr',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                     ),
                     onChanged: (val) => customLabel = val,
                   ),
@@ -2021,10 +2357,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: FilledButton(
                       onPressed: () {
                         setState(() {
-                          _quickLinks.add(CustomQuickLink(
-                            surahNumber: selectedSurah,
-                            label: customLabel,
-                          ));
+                          _quickLinks.add(
+                            CustomQuickLink(
+                              surahNumber: selectedSurah,
+                              label: customLabel,
+                            ),
+                          );
                         });
                         _saveQuickLinks();
                         Navigator.pop(context);
@@ -2042,21 +2380,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSearchResultsSliver(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildSearchResultsSliver(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     final query = _searchController.text.toLowerCase();
-    
-    final surahs = [
-      for (var id = 1; id <= 114; id++)
-        (
-          id: id.toString(),
-          name: widget.repository.getSurahName(id.toString()),
-          count: widget.repository.getSurahVerses(id.toString()).length,
-        ),
-    ].where((surah) {
-      return query.isEmpty ||
-          surah.id.contains(query) ||
-          surah.name.toLowerCase().contains(query);
-    }).toList();
+
+    final surahs =
+        [
+          for (var id = 1; id <= 114; id++)
+            (
+              id: id.toString(),
+              name: widget.repository.getSurahName(id.toString()),
+              count: widget.repository.getSurahVerses(id.toString()).length,
+            ),
+        ].where((surah) {
+          return query.isEmpty ||
+              surah.id.contains(query) ||
+              surah.name.toLowerCase().contains(query);
+        }).toList();
 
     final List<Widget> results = [];
 
@@ -2087,9 +2429,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            title: Text(surah.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            subtitle: Text('${surah.count} ayat', style: TextStyle(color: colorScheme.onSurfaceVariant)),
-            trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+            title: Text(
+              surah.name,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Text(
+              '${surah.count} ayat',
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
+            ),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurfaceVariant,
+            ),
             onTap: () => _chooseBrowseDestination(surah.id, '1'),
           ),
         ),
@@ -2103,11 +2456,10 @@ class _HomeScreenState extends State<HomeScreen> {
       for (var id = 1; id <= 114; id++) {
         final verses = widget.repository.getSurahVerses(id.toString());
         for (var verse in verses) {
-          if (verse.thaiV3.toLowerCase().contains(query) || 
+          if (verse.thaiV3.toLowerCase().contains(query) ||
               verse.thaiV2.toLowerCase().contains(query) ||
               verse.english.toLowerCase().contains(query) ||
               (verse.shortTafsir?.toLowerCase().contains(query) ?? false)) {
-            
             final surahName = widget.repository.getSurahName(verse.surahId);
             results.add(
               Padding(
@@ -2115,18 +2467,36 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListTile(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radius),
-                    side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                    side: BorderSide(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
                   tileColor: colorScheme.surface,
-                  title: Text('$surahName, Ayah ${verse.id}', style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    '$surahName, Ayah ${verse.id}',
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   subtitle: Text(
                     verse.thaiV3,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
                   ),
-                  trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant, size: 16),
-                  onTap: () => _navigateToReading(context, verse.surahId, verseId: verse.id),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: colorScheme.onSurfaceVariant,
+                    size: 16,
+                  ),
+                  onTap: () => _navigateToReading(
+                    context,
+                    verse.surahId,
+                    verseId: verse.id,
+                  ),
                 ),
               ),
             );
@@ -2149,7 +2519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),
             ),
-          )
+          ),
         ]),
       );
     }
@@ -2187,9 +2557,10 @@ class CustomQuickLink {
     'isLocked': isLocked,
   };
 
-  factory CustomQuickLink.fromJson(Map<String, dynamic> json) => CustomQuickLink(
-    surahNumber: json['surahNumber'],
-    label: json['label'] ?? '',
-    isLocked: json['isLocked'] ?? false,
-  );
+  factory CustomQuickLink.fromJson(Map<String, dynamic> json) =>
+      CustomQuickLink(
+        surahNumber: json['surahNumber'],
+        label: json['label'] ?? '',
+        isLocked: json['isLocked'] ?? false,
+      );
 }
