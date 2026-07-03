@@ -64,6 +64,8 @@ create table if not exists public.reading_profiles (
   current_surah_id text not null,
   current_verse_id text not null,
   current_verse_key text generated always as (current_surah_id || ':' || current_verse_id) stored,
+  furthest_unread_index integer not null default 1 check (furthest_unread_index between 1 and 6236),
+  last_viewed_index integer not null default 1 check (last_viewed_index between 1 and 6236),
   sort_order integer not null default 0,
   is_archived boolean not null default false,
   created_at timestamptz not null default now(),

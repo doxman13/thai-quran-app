@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/tadabbur_repository.dart';
 
 class SupabaseProvider extends ChangeNotifier {
   final _client = Supabase.instance.client;
@@ -15,7 +14,7 @@ class SupabaseProvider extends ChangeNotifier {
   bool get isLoggedIn => _user != null;
   String get userEmail => _user?.email ?? '';
   String get userId => _user?.id ?? '';
-  
+
   String get displayName {
     if (_user != null) {
       final metaName = _user?.userMetadata?['full_name']?.toString() ?? '';
@@ -89,39 +88,45 @@ class SupabaseProvider extends ChangeNotifier {
           .maybeSingle();
 
       final List<Future> futures = [
-        _client.from('reading_profiles').upsert(
-          {
-            'user_id': userId,
-            'name': 'Free Read',
-            'slug': 'free_read',
-            'start_surah_id': '1',
-            'start_verse_id': '1',
-            'current_surah_id': '1',
-            'current_verse_id': '1',
-            'sort_order': 0,
-            'is_archived': false,
-          },
-          onConflict: 'user_id,slug',
-          ignoreDuplicates: true,
-        ),
-        _client.from('bookmark_categories').upsert(
-          {
-            'user_id': userId,
-            'name': 'Saved Verses',
-            'slug': 'saved_verses',
-            'max_items': 5,
-            'sort_order': 0,
-          },
-          onConflict: 'user_id,slug',
-          ignoreDuplicates: true,
-        ),
-        _client.from('user_settings').upsert(
-          {
-            'user_id': userId,
-          },
-          onConflict: 'user_id',
-          ignoreDuplicates: true,
-        ),
+        _client
+            .from('reading_profiles')
+            .upsert(
+              {
+                'user_id': userId,
+                'name': 'Free Read',
+                'slug': 'free_read',
+                'start_surah_id': '1',
+                'start_verse_id': '1',
+                'current_surah_id': '1',
+                'current_verse_id': '1',
+                'furthest_unread_index': 1,
+                'last_viewed_index': 1,
+                'sort_order': 0,
+                'is_archived': false,
+              },
+              onConflict: 'user_id,slug',
+              ignoreDuplicates: true,
+            ),
+        _client
+            .from('bookmark_categories')
+            .upsert(
+              {
+                'user_id': userId,
+                'name': 'Saved Verses',
+                'slug': 'saved_verses',
+                'max_items': 5,
+                'sort_order': 0,
+              },
+              onConflict: 'user_id,slug',
+              ignoreDuplicates: true,
+            ),
+        _client
+            .from('user_settings')
+            .upsert(
+              {'user_id': userId},
+              onConflict: 'user_id',
+              ignoreDuplicates: true,
+            ),
       ];
 
       if (countResult == null) {
@@ -131,8 +136,10 @@ class SupabaseProvider extends ChangeNotifier {
             'profile_name': 'Free Read',
             'current_surah': 1,
             'current_ayah': 1,
+            'furthest_unread_index': 1,
+            'last_viewed_index': 1,
             'last_read_at': DateTime.now().toIso8601String(),
-          })
+          }),
         );
       }
 
@@ -158,16 +165,16 @@ class SupabaseProvider extends ChangeNotifier {
   }
 
   // Save/Upsert Settings to Supabase
-  Future<void> saveUserSettings(String userId, Map<String, dynamic> settings) async {
+  Future<void> saveUserSettings(
+    String userId,
+    Map<String, dynamic> settings,
+  ) async {
     try {
-      await _client.from('user_settings').upsert(
-        {
-          'user_id': userId,
-          ...settings,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        onConflict: 'user_id',
-      );
+      await _client.from('user_settings').upsert({
+        'user_id': userId,
+        ...settings,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
     } catch (e) {
       debugPrint('Error saving user settings to Supabase: $e');
     }
@@ -178,9 +185,11 @@ class SupabaseProvider extends ChangeNotifier {
     try {
       final response = await _client
           .from('bookmarks')
-          .select('id, surah_id, verse_id, label, note, sort_order, created_at, category_id')
+          .select(
+            'id, surah_id, verse_id, label, note, sort_order, created_at, category_id',
+          )
           .eq('user_id', userId);
-      
+
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       debugPrint('Error fetching bookmarks from Supabase: $e');
@@ -226,7 +235,11 @@ class SupabaseProvider extends ChangeNotifier {
   }
 
   // Remove Bookmark from Supabase
-  Future<void> removeBookmark(String userId, String surahId, String verseId) async {
+  Future<void> removeBookmark(
+    String userId,
+    String surahId,
+    String verseId,
+  ) async {
     try {
       await _client
           .from('bookmarks')
@@ -256,16 +269,13 @@ class SupabaseProvider extends ChangeNotifier {
       // Upsert fallback
       final created = await _client
           .from('bookmark_categories')
-          .upsert(
-            {
-              'user_id': userId,
-              'name': 'Saved Verses',
-              'slug': 'saved_verses',
-              'max_items': 5,
-              'sort_order': 0,
-            },
-            onConflict: 'user_id,slug',
-          )
+          .upsert({
+            'user_id': userId,
+            'name': 'Saved Verses',
+            'slug': 'saved_verses',
+            'max_items': 5,
+            'sort_order': 0,
+          }, onConflict: 'user_id,slug')
           .select('id')
           .single();
 
@@ -282,9 +292,7 @@ class SupabaseProvider extends ChangeNotifier {
 
     if (_user != null) {
       await _client.auth.updateUser(
-        UserAttributes(
-          data: {'full_name': trimmed},
-        ),
+        UserAttributes(data: {'full_name': trimmed}),
       );
       _user = _client.auth.currentUser;
       notifyListeners();

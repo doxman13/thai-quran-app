@@ -25,6 +25,7 @@ class LocalReadingProfile {
   final VerseRef start;
   final VerseRef? target;
   final VerseRef current;
+  final VerseRef lastViewed;
   final int sortOrder;
   final bool isArchived;
   final DateTime createdAt;
@@ -41,11 +42,16 @@ class LocalReadingProfile {
     required this.start,
     this.target,
     required this.current,
+    VerseRef? lastViewed,
     required this.sortOrder,
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : lastViewed = lastViewed ?? current;
+
+  VerseRef get furthestUnread => current;
+  int get furthestUnreadIndex => absoluteVerseIndex(furthestUnread);
+  int get lastViewedIndex => absoluteVerseIndex(lastViewed);
 
   LocalReadingProfile copyWith({
     String? name,
@@ -57,6 +63,7 @@ class LocalReadingProfile {
     VerseRef? target,
     bool clearTarget = false,
     VerseRef? current,
+    VerseRef? lastViewed,
     bool? isArchived,
     DateTime? updatedAt,
   }) {
@@ -71,6 +78,7 @@ class LocalReadingProfile {
       start: start ?? this.start,
       target: clearTarget ? null : target ?? this.target,
       current: current ?? this.current,
+      lastViewed: lastViewed ?? this.lastViewed,
       sortOrder: sortOrder,
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt,
@@ -93,6 +101,10 @@ class LocalReadingProfile {
       if (target != null) 'targetVerseId': target!.verseId,
       'currentSurahId': current.surahId,
       'currentVerseId': current.verseId,
+      'furthestUnreadIndex': furthestUnreadIndex,
+      'lastViewedSurahId': lastViewed.surahId,
+      'lastViewedVerseId': lastViewed.verseId,
+      'lastViewedIndex': lastViewedIndex,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
       'createdAt': createdAt.toIso8601String(),
@@ -103,6 +115,19 @@ class LocalReadingProfile {
   factory LocalReadingProfile.fromJson(Map<String, dynamic> json) {
     final targetSurahId = json['targetSurahId']?.toString();
     final targetVerseId = json['targetVerseId']?.toString();
+    final current = _profileVerseRefFromJson(
+      json,
+      indexKey: 'furthestUnreadIndex',
+      surahKey: 'currentSurahId',
+      verseKey: 'currentVerseId',
+    );
+    final lastViewed = _profileVerseRefFromJson(
+      json,
+      indexKey: 'lastViewedIndex',
+      surahKey: 'lastViewedSurahId',
+      verseKey: 'lastViewedVerseId',
+      fallback: current,
+    );
 
     return LocalReadingProfile(
       id: json['id'].toString(),
@@ -118,7 +143,8 @@ class LocalReadingProfile {
       target: targetSurahId != null && targetVerseId != null
           ? toVerseRef(targetSurahId, targetVerseId)
           : null,
-      current: toVerseRef(json['currentSurahId'], json['currentVerseId']),
+      current: current,
+      lastViewed: lastViewed,
       sortOrder: int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
       isArchived: json['isArchived'] == true,
       createdAt:
@@ -129,6 +155,169 @@ class LocalReadingProfile {
           DateTime.now(),
     );
   }
+}
+
+const List<int> _quranSurahVerseCounts = [
+  7,
+  286,
+  200,
+  176,
+  120,
+  165,
+  206,
+  75,
+  129,
+  109,
+  123,
+  111,
+  43,
+  52,
+  99,
+  128,
+  111,
+  110,
+  98,
+  135,
+  112,
+  78,
+  118,
+  64,
+  77,
+  227,
+  93,
+  88,
+  69,
+  60,
+  34,
+  30,
+  73,
+  54,
+  45,
+  83,
+  182,
+  88,
+  75,
+  85,
+  54,
+  53,
+  89,
+  59,
+  37,
+  35,
+  38,
+  29,
+  18,
+  45,
+  60,
+  49,
+  62,
+  55,
+  78,
+  96,
+  29,
+  22,
+  24,
+  13,
+  14,
+  11,
+  11,
+  18,
+  12,
+  12,
+  30,
+  52,
+  52,
+  44,
+  28,
+  28,
+  20,
+  56,
+  40,
+  31,
+  50,
+  40,
+  46,
+  42,
+  29,
+  19,
+  36,
+  25,
+  22,
+  17,
+  19,
+  26,
+  30,
+  20,
+  15,
+  21,
+  11,
+  8,
+  8,
+  19,
+  5,
+  8,
+  8,
+  11,
+  11,
+  8,
+  3,
+  9,
+  5,
+  4,
+  7,
+  3,
+  6,
+  3,
+  5,
+  4,
+  5,
+  6,
+];
+
+int absoluteVerseIndex(VerseRef verse) {
+  final surah = int.tryParse(verse.surahId) ?? 1;
+  final ayah = int.tryParse(verse.verseId) ?? 1;
+  return absoluteVerseIndexFromParts(surah, ayah);
+}
+
+int absoluteVerseIndexFromParts(int surah, int ayah) {
+  final safeSurah = surah.clamp(1, _quranSurahVerseCounts.length).toInt();
+  final maxAyah = _quranSurahVerseCounts[safeSurah - 1];
+  final safeAyah = ayah.clamp(1, maxAyah).toInt();
+  var index = safeAyah;
+  for (var i = 0; i < safeSurah - 1; i++) {
+    index += _quranSurahVerseCounts[i];
+  }
+  return index;
+}
+
+VerseRef verseRefFromAbsoluteIndex(int index) {
+  var remaining = index.clamp(1, 6236).toInt();
+  for (var i = 0; i < _quranSurahVerseCounts.length; i++) {
+    final count = _quranSurahVerseCounts[i];
+    if (remaining <= count) {
+      return toVerseRef(i + 1, remaining);
+    }
+    remaining -= count;
+  }
+  return toVerseRef(114, 6);
+}
+
+VerseRef _profileVerseRefFromJson(
+  Map<String, dynamic> json, {
+  required String indexKey,
+  required String surahKey,
+  required String verseKey,
+  VerseRef? fallback,
+}) {
+  final index = int.tryParse(json[indexKey]?.toString() ?? '');
+  if (index != null) return verseRefFromAbsoluteIndex(index);
+
+  final surah = json[surahKey];
+  final verse = json[verseKey];
+  if (surah != null && verse != null) return toVerseRef(surah, verse);
+
+  return fallback ?? toVerseRef(1, 1);
 }
 
 class LocalBookmarkCategory {
@@ -282,8 +471,7 @@ class LocalReadingProvider extends ChangeNotifier {
   String? _pendingSyncUserId;
 
   Timer? _readingStateSyncTimer;
-  int? _pendingReadingStateSurahId;
-  int? _pendingReadingStateVerseId;
+  int? _pendingReadingStateVerseIndex;
   String? _pendingReadingStateUserId;
 
   String get currentUserId =>
@@ -564,7 +752,7 @@ class LocalReadingProvider extends ChangeNotifier {
               .limit(20);
 
           final List<dynamic> dbRecent = recentResponse;
-          
+
           final otherRecent = _recentReadings
               .where((r) => r.userId != userId)
               .toList();
@@ -577,18 +765,26 @@ class LocalReadingProvider extends ChangeNotifier {
 
           for (final localR in userRecent) {
             final dbR = dbRecent.firstWhere(
-              (item) => item['surah_id'].toString() == localR.verse.surahId && item['profile_id']?.toString() == localR.profileId,
+              (item) =>
+                  item['surah_id'].toString() == localR.verse.surahId &&
+                  item['profile_id']?.toString() == localR.profileId,
               orElse: () => null,
             );
 
             if (dbR != null) {
               matchedKeys.add('${localR.verse.surahId}-${localR.profileId}');
-              final remoteDate = DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-              
+              final remoteDate =
+                  DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+
               if (localR.readAt.isAfter(remoteDate)) {
                 // Local is newer, keep it and push it
                 reconciledRecent.add(localR);
-                _debounceRecentReadingSync(userId, localR.verse.surahId, localR.verse.verseId);
+                _debounceRecentReadingSync(
+                  userId,
+                  localR.verse.surahId,
+                  localR.verse.verseId,
+                );
               } else {
                 // Remote is newer, keep it
                 reconciledRecent.add(
@@ -598,33 +794,39 @@ class LocalReadingProvider extends ChangeNotifier {
                     verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
                     profileId: dbR['profile_id']?.toString(),
                     readAt: remoteDate,
-                  )
+                  ),
                 );
               }
             } else {
               // Local only, keep it and push it
               reconciledRecent.add(localR);
-              _debounceRecentReadingSync(userId, localR.verse.surahId, localR.verse.verseId);
+              _debounceRecentReadingSync(
+                userId,
+                localR.verse.surahId,
+                localR.verse.verseId,
+              );
             }
           }
 
           for (final dbR in dbRecent) {
             final key = '${dbR['surah_id']}-${dbR['profile_id']}';
             if (matchedKeys.contains(key)) continue;
-            
+
             reconciledRecent.add(
               LocalRecentReading(
                 id: dbR['id'].toString(),
                 userId: userId,
                 verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
                 profileId: dbR['profile_id']?.toString(),
-                readAt: DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.now(),
-              )
+                readAt:
+                    DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+                    DateTime.now(),
+              ),
             );
           }
 
           reconciledRecent.sort((a, b) => b.readAt.compareTo(a.readAt));
-          
+
           _recentReadings = otherRecent + reconciledRecent;
         } catch (e) {
           debugPrint('Error syncing recent readings: $e');
@@ -708,9 +910,21 @@ class LocalReadingProvider extends ChangeNotifier {
             profilesToSync.add(localP.id);
           } else {
             // Remote is newer or equal: update local with remote progress
-            final remoteSurah =
-                matchedRemote['current_surah']?.toString() ?? '1';
-            final remoteAyah = matchedRemote['current_ayah']?.toString() ?? '1';
+            final remoteFurthestIndex = int.tryParse(
+              matchedRemote['furthest_unread_index']?.toString() ?? '',
+            );
+            final remoteLastViewedIndex = int.tryParse(
+              matchedRemote['last_viewed_index']?.toString() ?? '',
+            );
+            final remoteFurthest = remoteFurthestIndex == null
+                ? toVerseRef(
+                    matchedRemote['current_surah']?.toString() ?? '1',
+                    matchedRemote['current_ayah']?.toString() ?? '1',
+                  )
+                : verseRefFromAbsoluteIndex(remoteFurthestIndex);
+            final remoteLastViewed = remoteLastViewedIndex == null
+                ? remoteFurthest
+                : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
 
             if (remoteLastReadAt.isAfter(localUpdatedAt)) {
               hasRemoteUpdates = true;
@@ -726,7 +940,8 @@ class LocalReadingProvider extends ChangeNotifier {
               targetJuz: localP.targetJuz,
               start: localP.start,
               target: localP.target,
-              current: toVerseRef(remoteSurah, remoteAyah),
+              current: remoteFurthest,
+              lastViewed: remoteLastViewed,
               sortOrder: localP.sortOrder,
               isArchived: localP.isArchived,
               createdAt: localP.createdAt,
@@ -756,8 +971,21 @@ class LocalReadingProvider extends ChangeNotifier {
           continue;
         }
 
-        final remoteSurah = dbP['current_surah']?.toString() ?? '1';
-        final remoteAyah = dbP['current_ayah']?.toString() ?? '1';
+        final remoteFurthestIndex = int.tryParse(
+          dbP['furthest_unread_index']?.toString() ?? '',
+        );
+        final remoteLastViewedIndex = int.tryParse(
+          dbP['last_viewed_index']?.toString() ?? '',
+        );
+        final remoteFurthest = remoteFurthestIndex == null
+            ? toVerseRef(
+                dbP['current_surah']?.toString() ?? '1',
+                dbP['current_ayah']?.toString() ?? '1',
+              )
+            : verseRefFromAbsoluteIndex(remoteFurthestIndex);
+        final remoteLastViewed = remoteLastViewedIndex == null
+            ? remoteFurthest
+            : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
         final remoteLastReadAt =
             DateTime.tryParse(dbP['last_read_at']?.toString() ?? '') ??
             DateTime.now();
@@ -768,7 +996,8 @@ class LocalReadingProvider extends ChangeNotifier {
           name: rName,
           slug: _uniqueSlug(slugifyReadingProfileName(rName)),
           start: toVerseRef(1, 1),
-          current: toVerseRef(remoteSurah, remoteAyah),
+          current: remoteFurthest,
+          lastViewed: remoteLastViewed,
           sortOrder: reconciledProfiles.where((p) => p.userId == userId).length,
           isArchived: false,
           createdAt: remoteLastReadAt,
@@ -826,6 +1055,8 @@ class LocalReadingProvider extends ChangeNotifier {
           'profile_name': p.name,
           'current_surah': int.tryParse(p.current.surahId) ?? 1,
           'current_ayah': int.tryParse(p.current.verseId) ?? 1,
+          'furthest_unread_index': p.furthestUnreadIndex,
+          'last_viewed_index': p.lastViewedIndex,
           'last_read_at': p.updatedAt.toIso8601String(),
         };
 
@@ -862,6 +1093,7 @@ class LocalReadingProvider extends ChangeNotifier {
               start: oldP.start,
               target: oldP.target,
               current: oldP.current,
+              lastViewed: oldP.lastViewed,
               sortOrder: oldP.sortOrder,
               isArchived: oldP.isArchived,
               createdAt: oldP.createdAt,
@@ -1060,11 +1292,18 @@ class LocalReadingProvider extends ChangeNotifier {
 
     final now = DateTime.now();
     markReadToday();
+    final currentIndex = absoluteVerseIndex(current);
+    final furthestIndex = existingProfile.furthestUnreadIndex;
+    final shouldAdvanceFurthest = currentIndex > furthestIndex;
 
     // 1. Prepare updated profiles list (cloned in memory)
     final updatedProfiles = _profiles.map((profile) {
       if (profile.id == profileId) {
-        return profile.copyWith(current: current, updatedAt: now);
+        return profile.copyWith(
+          current: shouldAdvanceFurthest ? current : profile.current,
+          lastViewed: current,
+          updatedAt: now,
+        );
       }
       return profile;
     }).toList();
@@ -1114,9 +1353,7 @@ class LocalReadingProvider extends ChangeNotifier {
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final surahInt = int.tryParse(current.surahId) ?? 1;
-        final verseInt = int.tryParse(current.verseId) ?? 1;
-        _debounceReadingStateSync(user.id, surahInt, verseInt);
+        _debounceReadingStateSync(user.id, currentIndex);
       }
     } catch (e) {
       // 4. Failed: emit SnackBar & throw exception (in-memory state was not mutated)
@@ -1421,24 +1658,37 @@ class LocalReadingProvider extends ChangeNotifier {
     }
   }
 
-  void _debounceReadingStateSync(String userId, int surahId, int verseId) {
+  void _debounceReadingStateSync(String userId, int currentVerseIndex) {
     _pendingReadingStateUserId = userId;
-    _pendingReadingStateSurahId = surahId;
-    _pendingReadingStateVerseId = verseId;
+    _pendingReadingStateVerseIndex = currentVerseIndex;
 
     _readingStateSyncTimer?.cancel();
     _readingStateSyncTimer = Timer(const Duration(seconds: 2), () async {
       final uId = _pendingReadingStateUserId;
-      final sId = _pendingReadingStateSurahId;
-      final vId = _pendingReadingStateVerseId;
-      if (uId == null || sId == null || vId == null) return;
+      final viewedIndex = _pendingReadingStateVerseIndex;
+      if (uId == null || viewedIndex == null) return;
 
       try {
         final client = Supabase.instance.client;
+        final existing = await client
+            .from('user_reading_state')
+            .select('furthest_unread_index')
+            .eq('user_id', uId)
+            .maybeSingle();
+        final existingFurthest = int.tryParse(
+          existing?['furthest_unread_index']?.toString() ?? '',
+        );
+        final nextFurthest =
+            existingFurthest == null || viewedIndex > existingFurthest
+            ? viewedIndex
+            : existingFurthest;
+        final viewedRef = verseRefFromAbsoluteIndex(viewedIndex);
         await client.from('user_reading_state').upsert({
           'user_id': uId,
-          'surah_id': sId,
-          'verse_id': vId,
+          'surah_id': int.tryParse(viewedRef.surahId) ?? 1,
+          'verse_id': int.tryParse(viewedRef.verseId) ?? 1,
+          'last_viewed_index': viewedIndex,
+          'furthest_unread_index': nextFurthest,
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id');
       } catch (e) {
@@ -1452,13 +1702,23 @@ class LocalReadingProvider extends ChangeNotifier {
       final client = Supabase.instance.client;
       final response = await client
           .from('user_reading_state')
-          .select('surah_id, verse_id, updated_at')
+          .select(
+            'surah_id, verse_id, furthest_unread_index, last_viewed_index, updated_at',
+          )
           .eq('user_id', userId)
           .maybeSingle();
 
       if (response != null) {
-        final int remoteSurahId = int.parse(response['surah_id'].toString());
-        final int remoteVerseId = int.parse(response['verse_id'].toString());
+        final remoteFurthestIndex = int.tryParse(
+          response['furthest_unread_index']?.toString() ?? '',
+        );
+        final remoteLastViewedIndex = int.tryParse(
+          response['last_viewed_index']?.toString() ?? '',
+        );
+        final int remoteSurahId =
+            int.tryParse(response['surah_id']?.toString() ?? '') ?? 1;
+        final int remoteVerseId =
+            int.tryParse(response['verse_id']?.toString() ?? '') ?? 1;
         final DateTime remoteUpdatedAt = DateTime.parse(
           response['updated_at'].toString(),
         );
@@ -1473,10 +1733,12 @@ class LocalReadingProvider extends ChangeNotifier {
             : DateTime.fromMillisecondsSinceEpoch(0);
 
         if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
-          final remoteVerseRef = toVerseRef(
-            remoteSurahId.toString(),
-            remoteVerseId.toString(),
-          );
+          final remoteFurthestRef = remoteFurthestIndex == null
+              ? toVerseRef(remoteSurahId.toString(), remoteVerseId.toString())
+              : verseRefFromAbsoluteIndex(remoteFurthestIndex);
+          final remoteLastViewedRef = remoteLastViewedIndex == null
+              ? remoteFurthestRef
+              : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
 
           final targetProfile =
               _profiles.where(isFreeReadProfile).firstOrNull ??
@@ -1487,8 +1749,8 @@ class LocalReadingProvider extends ChangeNotifier {
                 active != null &&
                 isVerseInsideProfile(
                   active,
-                  remoteVerseRef.surahId,
-                  remoteVerseRef.verseId,
+                  remoteLastViewedRef.surahId,
+                  remoteLastViewedRef.verseId,
                 );
             final targetProfileId = remoteIsInsideActive
                 ? active.id
@@ -1496,7 +1758,8 @@ class LocalReadingProvider extends ChangeNotifier {
             _profiles = _profiles.map((p) {
               if (p.id == targetProfileId) {
                 return p.copyWith(
-                  current: remoteVerseRef,
+                  current: remoteFurthestRef,
+                  lastViewed: remoteLastViewedRef,
                   updatedAt: remoteUpdatedAt,
                 );
               }
@@ -1668,7 +1931,7 @@ class LocalReadingProvider extends ChangeNotifier {
     if (!_readDates.contains(today)) {
       _readDates.add(today);
       _save(immediate: true);
-      // Removed notifyListeners() here to avoid redundant rebuilds, 
+      // Removed notifyListeners() here to avoid redundant rebuilds,
       // since markReadToday is usually called alongside other state updates.
     }
   }

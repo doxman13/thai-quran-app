@@ -212,6 +212,8 @@ reading_profiles
 - current_surah_id
 - current_verse_id
 - current_verse_key
+- furthest_unread_index
+- last_viewed_index
 - sort_order
 - is_archived
 - created_at

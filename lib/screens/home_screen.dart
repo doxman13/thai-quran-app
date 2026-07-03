@@ -113,6 +113,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isInit = false;
 
   final ScrollController _capsuleScrollController = ScrollController();
+  final ScrollController _meaningfulCardsScrollController = ScrollController();
+  final ScrollController _mushafCardsScrollController = ScrollController();
 
   final List<Map<String, dynamic>> _tabs = [
     {'title': "meaningful_read", 'icon': Icons.menu_book},
@@ -216,7 +218,23 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _searchController.dispose();
     _capsuleScrollController.dispose();
+    _meaningfulCardsScrollController.dispose();
+    _mushafCardsScrollController.dispose();
     super.dispose();
+  }
+
+  void _resetCardsForTab(int tabIndex) {
+    final controller = switch (tabIndex) {
+      0 => _meaningfulCardsScrollController,
+      1 => _mushafCardsScrollController,
+      _ => null,
+    };
+    if (controller == null || !controller.hasClients) return;
+    controller.animateTo(
+      0,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _navigateToReading(
@@ -283,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Select Reading Mode',
+                context.tr('select_reading_mode'),
                 style: GoogleFonts.inter(
                   color: colorScheme.onSurface,
                   fontSize: 18,
@@ -296,8 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: _ModeSelectionCard(
                       icon: Icons.chrome_reader_mode_outlined,
-                      title: 'Verse-by-Verse',
-                      subtitle: 'Translation & Audio',
+                      title: context.tr('verse_by_verse'),
+                      subtitle: context.tr('translation_audio'),
                       onTap: () => Navigator.pop(sheetContext, 'readspace'),
                     ),
                   ),
@@ -305,8 +323,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: _ModeSelectionCard(
                       icon: Icons.import_contacts,
-                      title: 'Mushaf Page',
-                      subtitle: 'Page $pageNumber',
+                      title: context.tr('mushaf_page'),
+                      subtitle: '${context.tr('page')} $pageNumber',
                       onTap: () => Navigator.pop(sheetContext, 'mushaf'),
                     ),
                   ),
@@ -365,7 +383,15 @@ class _HomeScreenState extends State<HomeScreen> {
       return date;
     });
 
-    final dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final dayLabels = [
+      context.tr('weekday_mon_short'),
+      context.tr('weekday_tue_short'),
+      context.tr('weekday_wed_short'),
+      context.tr('weekday_thu_short'),
+      context.tr('weekday_fri_short'),
+      context.tr('weekday_sat_short'),
+      context.tr('weekday_sun_short'),
+    ];
 
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16, left: 24, right: 24),
@@ -528,7 +554,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${context.tr('salam')}, ${Provider.of<SupabaseProvider>(context).displayName} 👋',
+                                      context.tr('salam'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.labelMedium?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      Provider.of<SupabaseProvider>(
+                                        context,
+                                      ).displayName,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: textTheme.headlineMedium?.copyWith(
@@ -581,7 +619,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
-                                hintText: 'Search Surah, Page, Meaning...',
+                                hintText: context.tr('home_search_hint'),
                                 hintStyle: TextStyle(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -642,6 +680,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: () {
                                 setState(() {
                                   _selectedTabIndex = index;
+                                });
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (mounted) _resetCardsForTab(index);
                                 });
                                 final screenWidth = MediaQuery.of(
                                   context,
@@ -819,7 +862,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Meaningful Read',
+                context.tr('meaningful_read'),
                 style: GoogleFonts.inter(
                   color: colorScheme.onSurface,
                   fontSize: 18,
@@ -851,7 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'เพิ่มความสนิทสนมกับอัลกุรอาน โดยการอ่านอัลกุรอานพร้อมความหมาย ใคร่ครวญไตร่ตรองทีละอายะห์ อินชาอัลลอฮฺ',
+            context.tr('mushaf_meaningful_desc'),
             style: GoogleFonts.notoSansThai(
               color: colorScheme.onSurfaceVariant,
               fontSize: 13,
@@ -861,8 +904,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 275,
+          height: 328,
           child: ListView.builder(
+            controller: _meaningfulCardsScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
             itemCount: allItems.length,
@@ -909,7 +953,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Mushaf Read',
+                context.tr('mushaf_read'),
                 style: GoogleFonts.inter(
                   color: colorScheme.onSurface,
                   fontSize: 18,
@@ -941,7 +985,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'อ่านอัลกุรอานจากหน้ามุสฮัฟเพื่อความเคยชินและสะดวกในการจดจำ',
+            context.tr('mushaf_read_desc'),
             style: GoogleFonts.notoSansThai(
               color: colorScheme.onSurfaceVariant,
               fontSize: 13,
@@ -953,6 +997,7 @@ class _HomeScreenState extends State<HomeScreen> {
         SizedBox(
           height: 275,
           child: ListView.builder(
+            controller: _mushafCardsScrollController,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
             itemCount: allItems.length,
@@ -991,8 +1036,8 @@ class _HomeScreenState extends State<HomeScreen> {
         int.parse(profile.start.verseId),
       );
       final currentAbs = _getAbsoluteVerseIndex(
-        int.parse(profile.current.surahId),
-        int.parse(profile.current.verseId),
+        int.parse(profile.furthestUnread.surahId),
+        int.parse(profile.furthestUnread.verseId),
       );
       final targetAbs = _getAbsoluteVerseIndex(
         int.parse(profile.target!.surahId),
@@ -1011,8 +1056,10 @@ class _HomeScreenState extends State<HomeScreen> {
       settings: settings,
       isFreeRead: isFreeRead,
       profileName: profile.name,
-      continueSurah: profile.current.surahId,
-      continueVerse: profile.current.verseId,
+      continueSurah: profile.furthestUnread.surahId,
+      continueVerse: profile.furthestUnread.verseId,
+      lastViewedSurah: profile.lastViewed.surahId,
+      lastViewedVerse: profile.lastViewed.verseId,
       imageIndex: index,
       progressPercent: progressPercent,
       onDelete: isFreeRead
@@ -1051,10 +1098,20 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<LocalReadingProvider>().setActiveProfile(profile.id);
         _navigateToReading(
           context,
-          profile.current.surahId,
-          verseId: profile.current.verseId,
+          profile.furthestUnread.surahId,
+          verseId: profile.furthestUnread.verseId,
         );
       },
+      onJumpBack: profile.lastViewedIndex < profile.furthestUnreadIndex
+          ? () {
+              context.read<LocalReadingProvider>().setActiveProfile(profile.id);
+              _navigateToReading(
+                context,
+                profile.lastViewed.surahId,
+                verseId: profile.lastViewed.verseId,
+              );
+            }
+          : null,
       onEdit: isFreeRead
           ? null
           : () => _showProfileDialog(context, profile: profile),
@@ -1452,7 +1509,7 @@ class _HomeScreenState extends State<HomeScreen> {
       colorScheme: colorScheme,
       settings: settings,
       isFreeRead: true,
-      profileName: 'Just Read',
+      profileName: context.tr('just_read'),
       continueSurah: '1',
       continueVerse: '1',
       imageIndex: index,
@@ -1474,12 +1531,19 @@ class _HomeScreenState extends State<HomeScreen> {
     required String profileName,
     required String continueSurah,
     required String continueVerse,
+    String? lastViewedSurah,
+    String? lastViewedVerse,
     required int imageIndex,
     required VoidCallback onContinue,
+    VoidCallback? onJumpBack,
     VoidCallback? onDelete,
     VoidCallback? onEdit,
     double? progressPercent,
   }) {
+    final isReviewing =
+        onJumpBack != null &&
+        lastViewedSurah != null &&
+        lastViewedVerse != null;
     final verses = widget.repository.getSurahVerses(continueSurah);
     String translationText = '';
     if (verses.isNotEmpty) {
@@ -1501,7 +1565,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final imageNumber = ((imageIndex + 2) % 5) + 1;
 
     return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
+      width: MediaQuery.of(context).size.width * 0.9,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -1599,6 +1663,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
+                if (isReviewing) ...[
+                  Text(
+                    context.tr('next_unread_verse').toUpperCase(),
+                    style: GoogleFonts.inter(
+                      color: textColor.withValues(alpha: 0.7),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
                 Text(
                   widget.repository.getSurahName(continueSurah),
                   style: GoogleFonts.notoSansThai(
@@ -1609,7 +1685,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Current ayah $continueSurah:$continueVerse',
+                  '${context.tr('current_ayah')} $continueSurah:$continueVerse',
                   style: GoogleFonts.inter(
                     color: textColor.withValues(alpha: 0.85),
                     fontSize: 12,
@@ -1665,7 +1741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'TRANSLATION',
+                          context.tr('translation').toUpperCase(),
                           style: GoogleFonts.inter(
                             color: textColor.withValues(alpha: 0.6),
                             fontSize: 9,
@@ -1708,7 +1784,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Continue Reading',
+                          context.tr(
+                            isReviewing
+                                ? 'resume_progress'
+                                : 'continue_reading',
+                          ),
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
@@ -1720,6 +1800,52 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                if (isReviewing) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: textColor.withValues(alpha: 0.18),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${context.tr('last_viewed')}: ${widget.repository.getSurahName(lastViewedSurah)} $lastViewedSurah:$lastViewedVerse',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: textColor.withValues(alpha: 0.72),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: onJumpBack,
+                          style: TextButton.styleFrom(
+                            foregroundColor: textColor.withValues(alpha: 0.82),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            context.tr('jump_back'),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1736,11 +1862,9 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isFreeRead = profile.isFreeRead;
     double? progressPercent;
 
-    if (!isFreeRead &&
-        profile.startPage != null &&
-        profile.targetPage != null) {
-      final start = profile.startPage!;
-      final target = profile.targetPage!;
+    if (!isFreeRead) {
+      final start = profile.startPage;
+      final target = profile.targetPage;
       final current = profile.currentPage;
       if (target > start) {
         progressPercent = (current - start) / (target - start);
@@ -1797,7 +1921,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController nameCtrl = TextEditingController(
       text: profile.name,
     );
-    final colorScheme = Theme.of(context).colorScheme;
 
     await showDialog(
       context: context,
@@ -1821,7 +1944,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pop(ctx);
                   context.read<MushafReadingProvider>().updateProgress(
                     profileId: profile.id,
-                    pageNumber: profile.startPage ?? 1,
+                    pageNumber: profile.startPage,
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(context.tr('goal_progress_reset'))),
@@ -1857,7 +1980,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildMushafCardLayout(
       colorScheme: colorScheme,
       isFreeRead: true,
-      profileName: 'Just Read',
+      profileName: context.tr('just_read'),
       page: 1,
       imageIndex: index,
       onContinue: () => _navigateToMushafFreeReadPage(1),
@@ -1983,7 +2106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Page $page',
+                  '${context.tr('page')} $page',
                   style: GoogleFonts.notoSansThai(
                     color: textColor,
                     fontSize: 22,
@@ -2038,7 +2161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           const SizedBox(height: 2),
                           Text(
-                            '${widget.repository.getSurahName(surahId)} • Ayah $verseId',
+                            '${widget.repository.getSurahName(surahId)} • ${context.tr('ayah')} $verseId',
                             style: GoogleFonts.inter(
                               color: textColor.withValues(alpha: 0.85),
                               fontSize: 12,
@@ -2093,7 +2216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'Continue Reading',
+                          context.tr('continue_reading'),
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
@@ -2287,7 +2410,6 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setSheetState) {
-            final colorScheme = Theme.of(context).colorScheme;
             final textTheme = Theme.of(context).textTheme;
 
             return Padding(
@@ -2473,7 +2595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   tileColor: colorScheme.surface,
                   title: Text(
-                    '$surahName, Ayah ${verse.id}',
+                    '$surahName, ${context.tr('ayah')} ${verse.id}',
                     style: textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

@@ -129,6 +129,8 @@ class ReadingProfileInput {
   final VerseRef start;
   final VerseRef? target;
   final VerseRef current;
+  final int? furthestUnreadIndex;
+  final int? lastViewedIndex;
   final int? sortOrder;
 
   const ReadingProfileInput({
@@ -141,6 +143,8 @@ class ReadingProfileInput {
     required this.start,
     this.target,
     required this.current,
+    this.furthestUnreadIndex,
+    this.lastViewedIndex,
     this.sortOrder,
   });
 
@@ -158,6 +162,9 @@ class ReadingProfileInput {
       if (target != null) 'target_verse_id': target!.verseId,
       'current_surah_id': current.surahId,
       'current_verse_id': current.verseId,
+      if (furthestUnreadIndex != null)
+        'furthest_unread_index': furthestUnreadIndex,
+      if (lastViewedIndex != null) 'last_viewed_index': lastViewedIndex,
       if (sortOrder != null) 'sort_order': sortOrder,
     };
   }
