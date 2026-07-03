@@ -119,8 +119,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
         children: [
           TabBar(
             controller: _tabController,
-            labelStyle: GoogleFonts.prompt(fontWeight: FontWeight.w500, fontSize: 13),
-            unselectedLabelStyle: GoogleFonts.prompt(fontSize: 13),
+            labelStyle: GoogleFonts.notoSansThai(fontWeight: FontWeight.w500, fontSize: 13),
+            unselectedLabelStyle: GoogleFonts.notoSansThai(fontSize: 13),
             indicatorColor: Theme.of(context).primaryColor,
             labelColor: isDark ? Colors.white : Colors.black87,
             tabs: const [
@@ -152,10 +152,10 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
           Expanded(
             child: TextField(
               controller: _notesController,
-              style: GoogleFonts.prompt(fontSize: 14),
+              style: GoogleFonts.notoSansThai(fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'Write your reflection (Tadabbur)...',
-                hintStyle: GoogleFonts.prompt(fontSize: 13),
+                hintStyle: GoogleFonts.notoSansThai(fontSize: 13),
                 border: const OutlineInputBorder(),
                 contentPadding: const EdgeInsets.all(10),
               ),
@@ -169,8 +169,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             children: [
               Expanded(
                 child: SwitchListTile(
-                  title: Text('Public Note', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w500)),
-                  subtitle: Text('Share with community', style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey)),
+                  title: Text('Public Note', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500)),
+                  subtitle: Text('Share with community', style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey)),
                   value: _isPublic,
                   onChanged: (val) => setState(() => _isPublic = val),
                   contentPadding: EdgeInsets.zero,
@@ -180,8 +180,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
               if (_isPublic)
                 Expanded(
                   child: SwitchListTile(
-                    title: Text('Anonymous', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w500)),
-                    subtitle: Text('Hide my name', style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey)),
+                    title: Text('Anonymous', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500)),
+                    subtitle: Text('Hide my name', style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey)),
                     value: _isAnonymous,
                     onChanged: (val) => setState(() => _isAnonymous = val),
                     contentPadding: EdgeInsets.zero,
@@ -196,7 +196,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             children: [
               TextButton(
                 onPressed: widget.onCancel,
-                child: Text('Cancel', style: GoogleFonts.prompt(fontSize: 12)),
+                child: Text('Cancel', style: GoogleFonts.notoSansThai(fontSize: 12)),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -209,7 +209,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(
                         _saveSuccess ? 'Saved ✓' : 'Save Note',
-                        style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600),
                       ),
               ),
             ],
@@ -228,7 +228,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
       return Center(
         child: Text(
           'No public notes yet. Be the first to share your reflection!',
-          style: GoogleFonts.prompt(color: Colors.grey, fontSize: 13),
+          style: GoogleFonts.notoSansThai(color: Colors.grey, fontSize: 13),
           textAlign: TextAlign.center,
         ),
       );
@@ -252,25 +252,25 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
                   backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
                   child: Text(
                     authorName.substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),
+                    style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   authorName,
-                  style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 const Spacer(),
                 Text(
                   timeago.format(note.createdAt),
-                  style: GoogleFonts.prompt(fontSize: 10, color: Colors.grey),
+                  style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               note.noteText,
-              style: GoogleFonts.prompt(fontSize: 13, height: 1.5),
+              style: GoogleFonts.notoSansThai(fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 8),
             Row(
@@ -296,7 +296,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
                       const SizedBox(width: 4),
                       Text(
                         '${note.likesCount}',
-                        style: GoogleFonts.prompt(fontSize: 11, color: Colors.grey),
+                        style: GoogleFonts.notoSansThai(fontSize: 11, color: Colors.grey),
                       ),
                     ],
                   ),

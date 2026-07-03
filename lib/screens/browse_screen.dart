@@ -351,8 +351,9 @@ class BrowseScreenState extends State<BrowseScreen> {
 
             // ── Content List ────────────────────────────────────────────────
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
+              child: ClipRect(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
                 children: [
                   if (isSearching) ...[
                     // Surah matches
@@ -390,24 +391,45 @@ class BrowseScreenState extends State<BrowseScreen> {
                       ...verseMatches.map(
                         (m) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppTheme.radius),
-                              side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-                            ),
-                            tileColor: colorScheme.surfaceContainerLow,
-                            title: Text(
-                              '${m.surahName}, Ayah ${m.verseId}',
-                              style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              m.translationText,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
-                            ),
-                            trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant, size: 16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
                             onTap: () => widget.onOpen(m.surahId, m.verseId),
+                            child: _SectionCard(
+                              colors: widget.colors,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.menu_book_outlined, color: widget.colors.primary),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${m.surahName}, Ayah ${m.verseId}',
+                                          style: textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: widget.colors.textStrong,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          m.translationText,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: widget.colors.foreground,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(Icons.chevron_right, color: widget.colors.foreground),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -454,6 +476,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                   ],
                   const SizedBox(height: 24),
                 ],
+              ),
               ),
             ),
           ],

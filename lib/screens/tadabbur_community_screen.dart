@@ -164,35 +164,77 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLow,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Community Reflections',
-          style: GoogleFonts.prompt(fontWeight: FontWeight.w900, color: colorScheme.onSurface),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _filterSurahId != null ? Icons.filter_alt : Icons.filter_alt_outlined,
-              color: _filterSurahId != null ? primaryColor : colors.textStrong,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Community Reflections',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Global Insights',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _showFilters = !_showFilters),
+                        borderRadius: BorderRadius.circular(24),
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: _filterSurahId != null ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            _filterSurahId != null ? Icons.filter_alt : Icons.filter_alt_outlined,
+                            color: _filterSurahId != null ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () {
+                          settings.toggleDarkMode(!settings.isDarkMode);
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            color: colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            tooltip: 'Filter reflections',
-            onPressed: () => setState(() => _showFilters = !_showFilters),
-          ),
-          IconButton(
-            icon: Icon(settings.isDarkMode ? Icons.light_mode : Icons.dark_mode, color: primaryColor),
-            onPressed: () => settings.toggleDarkMode(!settings.isDarkMode),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (_showFilters) _buildFilterBar(colors, primaryColor),
+            const SizedBox(height: 20),
+            if (_showFilters) _buildFilterBar(colors, primaryColor),
           Expanded(
             child: _loading
                 ? Center(child: CircularProgressIndicator(color: primaryColor))
@@ -218,6 +260,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           ),
         ],
       ),
+      )
     );
   }
 
@@ -238,13 +281,13 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 isExpanded: true,
                 dropdownColor: colors.surface,
                 iconEnabledColor: colors.textStrong,
-                hint: Text('All Surahs', style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong)),
-                style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                hint: Text('All Surahs', style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong)),
+                style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
                 items: [
-                  DropdownMenuItem(value: null, child: Text('All Surahs', style: GoogleFonts.prompt(color: colors.textStrong))),
+                  DropdownMenuItem(value: null, child: Text('All Surahs', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
                   ...surahIds.map((id) => DropdownMenuItem(
                         value: id,
-                        child: Text('${widget.repository.getSurahName(id)} ($id)', style: GoogleFonts.prompt(color: colors.textStrong)),
+                        child: Text('${widget.repository.getSurahName(id)} ($id)', style: GoogleFonts.notoSansThai(color: colors.textStrong)),
                       )),
                 ],
                 onChanged: (val) {
@@ -267,13 +310,13 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                   isExpanded: true,
                   dropdownColor: colors.surface,
                   iconEnabledColor: colors.textStrong,
-                  hint: Text('Ayah', style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong)),
-                  style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                  hint: Text('Ayah', style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong)),
+                  style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
                   items: [
-                    DropdownMenuItem(value: null, child: Text('All', style: GoogleFonts.prompt(color: colors.textStrong))),
+                    DropdownMenuItem(value: null, child: Text('All', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
                     ...List.generate(
                       widget.repository.getSurahVerses(_filterSurahId!).length,
-                      (i) => DropdownMenuItem(value: (i + 1).toString(), child: Text('${i + 1}', style: GoogleFonts.prompt(color: colors.textStrong))),
+                      (i) => DropdownMenuItem(value: (i + 1).toString(), child: Text('${i + 1}', style: GoogleFonts.notoSansThai(color: colors.textStrong))),
                     ),
                   ],
                   onChanged: (val) {
@@ -318,7 +361,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         children: [
           Text(
             'SHARE A REFLECTION',
-            style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey.shade500),
+            style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 12),
           Row(
@@ -328,7 +371,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Surah', style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text('Surah', style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                     Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -340,7 +383,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         child: DropdownButton<String>(
                           value: _postSurahId,
                           isExpanded: true,
-                          style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                          style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
                           items: surahIds.map((id) => DropdownMenuItem(
                                 value: id,
                                 child: Text('${widget.repository.getSurahName(id)}'),
@@ -360,7 +403,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Ayah', style: GoogleFonts.prompt(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text('Ayah', style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
                     Container(
                       height: 36,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -372,7 +415,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         child: DropdownButton<String>(
                           value: _postVerseId,
                           isExpanded: true,
-                          style: GoogleFonts.prompt(fontSize: 12, color: colors.textStrong),
+                          style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textStrong),
                           items: List.generate(versesCount, (i) => DropdownMenuItem(
                             value: (i + 1).toString(), child: Text('${i + 1}'),
                           )),
@@ -407,7 +450,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 children: [
                   Text(
                     'Translation Preview ($_postSurahId:$_postVerseId)',
-                    style: GoogleFonts.prompt(
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: primaryColor,
@@ -416,7 +459,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                   const SizedBox(height: 4),
                   Text(
                     translationText,
-                    style: GoogleFonts.prompt(
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 12,
                       color: colors.foreground,
                       height: 1.4,
@@ -428,10 +471,10 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           }),
           TextField(
             controller: _postController,
-            style: GoogleFonts.prompt(fontSize: 14, color: colorScheme.onSurface),
+            style: GoogleFonts.notoSansThai(fontSize: 14, color: colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'What did you learn or reflect on from this Ayah?...',
-              hintStyle: GoogleFonts.prompt(fontSize: 12, color: colorScheme.onSurfaceVariant),
+              hintStyle: GoogleFonts.notoSansThai(fontSize: 12, color: colorScheme.onSurfaceVariant),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: colorScheme.outlineVariant)),
               contentPadding: const EdgeInsets.all(16),
@@ -455,7 +498,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         color: _isAnonymous ? primaryColor : Colors.grey,
                       ),
                       const SizedBox(width: 4),
-                      Text('Post anonymously', style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
+                      Text('Post anonymously', style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
                     ],
                   ),
                 ),
@@ -465,7 +508,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 style: ElevatedButton.styleFrom(backgroundColor: primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 child: _isPosting
                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Share Reflection', style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w700)),
+                    : Text('Share Reflection', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
@@ -483,12 +526,12 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           const SizedBox(height: 16),
           Text(
             'No reflections yet',
-            style: GoogleFonts.prompt(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey.shade600),
+            style: GoogleFonts.notoSansThai(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
             'Be the first to share your reflection!',
-            style: GoogleFonts.prompt(fontSize: 13, color: Colors.grey.shade500),
+            style: GoogleFonts.notoSansThai(fontSize: 13, color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -546,14 +589,14 @@ class _CommunityNoteCard extends StatelessWidget {
                   backgroundColor: primaryColor.withOpacity(0.15),
                   child: Text(
                     (note.isAnonymous ? 'A' : (note.userEmail?.split('@').first ?? 'R')).substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.prompt(fontSize: 12, fontWeight: FontWeight.w800, color: primaryColor),
+                    style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w800, color: primaryColor),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     note.isAnonymous ? 'Anonymous' : (note.userEmail ?? 'Reader'),
-                    style: GoogleFonts.prompt(fontSize: 14, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                    style: GoogleFonts.notoSansThai(fontSize: 14, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -567,7 +610,7 @@ class _CommunityNoteCard extends StatelessWidget {
                     ),
                     child: Text(
                       '${repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
-                      style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant),
+                      style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.bold, color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
@@ -576,7 +619,7 @@ class _CommunityNoteCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               timeago.format(note.updatedAt),
-              style: GoogleFonts.prompt(fontSize: 11, color: colorScheme.onSurfaceVariant),
+              style: GoogleFonts.notoSansThai(fontSize: 11, color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             Container(
@@ -591,7 +634,7 @@ class _CommunityNoteCard extends StatelessWidget {
               ),
               child: Text(
                 repository.getVerse(note.surahId, note.verseId)?.thaiV3 ?? '',
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: colorScheme.onSurfaceVariant,
@@ -599,7 +642,7 @@ class _CommunityNoteCard extends StatelessWidget {
                 ),
               ),
             ),
-            Text(note.noteText, style: GoogleFonts.prompt(fontSize: 14, height: 1.6, color: colorScheme.onSurface)),
+            Text(note.noteText, style: GoogleFonts.notoSansThai(fontSize: 14, height: 1.6, color: colorScheme.onSurface)),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -622,7 +665,7 @@ class _CommunityNoteCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${note.likesCount}',
-                          style: GoogleFonts.prompt(fontSize: 11, fontWeight: FontWeight.w700),
+                          style: GoogleFonts.notoSansThai(fontSize: 11, fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
@@ -635,7 +678,7 @@ class _CommunityNoteCard extends StatelessWidget {
                       const Text('📖 ', style: TextStyle(fontSize: 12)),
                       Text(
                         'Read in Mushaf',
-                        style: GoogleFonts.prompt(
+                        style: GoogleFonts.notoSansThai(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: primaryColor,

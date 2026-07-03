@@ -60,7 +60,7 @@ class VerseActionSheet extends StatelessWidget {
             children: [
               Text(
                 'Verse Actions — ${verse.surahId}:${verse.id}',
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: primaryColor,
@@ -79,7 +79,7 @@ class VerseActionSheet extends StatelessWidget {
             leading: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border, color: Colors.amber.shade700),
             title: Text(
               isBookmarked ? 'Remove Bookmark' : 'Bookmark Verse',
-              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -92,7 +92,7 @@ class VerseActionSheet extends StatelessWidget {
               leading: Icon(Icons.menu_book_outlined, color: primaryColor),
               title: Text(
                 'View Short Tafsir',
-                style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+                style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -104,7 +104,7 @@ class VerseActionSheet extends StatelessWidget {
             leading: Icon(Icons.edit_outlined, color: primaryColor),
             title: Text(
               'Add/Edit Reflection',
-              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -116,7 +116,7 @@ class VerseActionSheet extends StatelessWidget {
             leading: Icon(Icons.comment_outlined, color: primaryColor),
             title: Text(
               'My Thoughts ($noteCount)',
-              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -128,7 +128,7 @@ class VerseActionSheet extends StatelessWidget {
             leading: Icon(Icons.people_outline, color: primaryColor),
             title: Text(
               'Community Reflections',
-              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () async {
               Navigator.pop(context);
@@ -150,7 +150,7 @@ class VerseActionSheet extends StatelessWidget {
             leading: const Icon(Icons.report_problem_outlined, color: Colors.blueGrey),
             title: Text(
               'Report Error',
-              style: GoogleFonts.prompt(fontSize: 14, color: colors.textStrong),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -192,7 +192,7 @@ class VerseActionSheet extends StatelessWidget {
               ),
               title: Text(
                 'Report Error (Surah ${verse.surahId}:${verse.id})',
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   color: Colors.redAccent,
@@ -205,7 +205,7 @@ class VerseActionSheet extends StatelessWidget {
                   children: [
                     Text(
                       'Reported Verse Text:',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                         color: colors.foreground,
@@ -222,7 +222,7 @@ class VerseActionSheet extends StatelessWidget {
                       ),
                       child: Text(
                         verse.thaiV3.isNotEmpty ? verse.thaiV3 : verse.thaiV2,
-                        style: GoogleFonts.prompt(
+                        style: GoogleFonts.notoSansThai(
                           fontSize: 13,
                           color: colors.textStrong,
                         ),
@@ -231,7 +231,7 @@ class VerseActionSheet extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       'Your Comment / Explanation:',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                         color: colors.foreground,
@@ -241,10 +241,10 @@ class VerseActionSheet extends StatelessWidget {
                     TextField(
                       controller: commentController,
                       maxLines: 4,
-                      style: GoogleFonts.prompt(fontSize: 13, color: colors.textStrong),
+                      style: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textStrong),
                       decoration: InputDecoration(
                         hintText: 'Describe the issue (e.g. translation error, spelling)...',
-                        hintStyle: GoogleFonts.prompt(fontSize: 12, color: colors.foreground),
+                        hintStyle: GoogleFonts.notoSansThai(fontSize: 12, color: colors.foreground),
                         border: const OutlineInputBorder(),
                         contentPadding: const EdgeInsets.all(10),
                       ),
@@ -257,7 +257,7 @@ class VerseActionSheet extends StatelessWidget {
                   onPressed: isSaving ? null : () => Navigator.pop(context),
                   child: Text(
                     'Cancel',
-                    style: GoogleFonts.prompt(color: colors.foreground),
+                    style: GoogleFonts.notoSansThai(color: colors.foreground),
                   ),
                 ),
                 ElevatedButton(
@@ -329,7 +329,7 @@ class VerseActionSheet extends StatelessWidget {
                         )
                       : Text(
                           'Submit',
-                          style: GoogleFonts.prompt(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
                         ),
                 ),
               ],
@@ -361,7 +361,7 @@ class VerseActionSheet extends StatelessWidget {
           ),
           title: Text(
             'My Thoughts ($surahId:$verseId)',
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontWeight: FontWeight.bold,
               fontSize: 16,
               color: primaryColor,
@@ -372,7 +372,7 @@ class VerseActionSheet extends StatelessWidget {
             child: SingleChildScrollView(
               child: Text(
                 note.trim().isEmpty ? 'No personal reflection written for this verse.' : note,
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 14,
                   color: colors.textStrong,
                   height: 1.5,
@@ -403,7 +403,7 @@ class VerseActionSheet extends StatelessWidget {
                 children: [
                   Text(
                     'Community Reflections ↗',
-                    style: GoogleFonts.prompt(
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: primaryColor,
@@ -425,7 +425,7 @@ class VerseActionSheet extends StatelessWidget {
               ),
               child: Text(
                 'Close',
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),

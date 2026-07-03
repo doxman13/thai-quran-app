@@ -83,7 +83,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   List<TadabburNote> get _currentNotes {
-    if (_selectedSurahId == null) return [];
+    if (_selectedSurahId == null) return _notes;
     return _notes.where((n) => n.surahId == _selectedSurahId).toList();
   }
 
@@ -109,38 +109,86 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLow,
-        elevation: 0,
-        shape: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Favorites & Reflections',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colorScheme.onSurface),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(settings.isDarkMode ? Icons.light_mode : Icons.dark_mode, color: primaryColor),
-            onPressed: () => settings.toggleDarkMode(!settings.isDarkMode),
-          ),
-          IconButton(
-            icon: Icon(Icons.public, color: primaryColor),
-            tooltip: 'Community Reflections',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TadabburCommunityScreen(repository: widget.repository),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: _loading
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'บันทึกตะดับบุร',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'My Reflections',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Row(
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TadabburCommunityScreen(repository: widget.repository),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            Icons.public,
+                            color: colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () {
+                          // Note: Usually settings is here, but since this is from nav we can toggle theme
+                          settings.toggleDarkMode(!settings.isDarkMode);
+                        },
+                        borderRadius: BorderRadius.circular(24),
+                        child: CircleAvatar(
+                          radius: 24,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            settings.isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            color: colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: _loading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
           : _notes.isEmpty
               ? _buildEmptyState(colors)
@@ -158,6 +206,10 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                     return _buildMobileLayout(colors, primaryColor, notesProv);
                   },
                 ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -246,7 +298,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                           Expanded(
                             child: Text(
                               widget.repository.getSurahName(surahId),
-                              style: GoogleFonts.prompt(
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 13,
                                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                                 color: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurface,
@@ -347,50 +399,60 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   Widget _buildMobileLayout(AppThemeColors colors, Color primaryColor, NotesProvider notesProv) {
     return Column(
       children: [
-        _buildSurahTabs(colors, primaryColor),
+        _buildSurahDropdown(colors, primaryColor),
         Expanded(child: _buildMainContent(colors, primaryColor, notesProv)),
       ],
     );
   }
 
-  Widget _buildSurahTabs(AppThemeColors colors, Color primaryColor) {
+  Widget _buildSurahDropdown(AppThemeColors colors, Color primaryColor) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        border: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
+        border: Border(
+          top: BorderSide(color: colorScheme.outline, width: 1),
+          bottom: BorderSide(color: colorScheme.outline, width: 1),
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: _sortedSurahIds.map((surahId) {
-            final isActive = _selectedSurahId == surahId;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: isActive ? colorScheme.primaryContainer : colorScheme.surface,
-                  foregroundColor: isActive ? colorScheme.onPrimaryContainer : colorScheme.onSurfaceVariant,
-                  side: BorderSide(color: isActive ? colorScheme.primary : colorScheme.outline, width: isActive ? 1.5 : 1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () => setState(() => _selectedSurahId = surahId),
-                child: Text(
-                  '${widget.repository.getSurahName(surahId)} ($surahId)',
-                  style: GoogleFonts.prompt(
-                    fontSize: 12,
-                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                  ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedSurahId,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, color: colorScheme.onSurface),
+          dropdownColor: colorScheme.surfaceContainerLow,
+          items: [
+            DropdownMenuItem(
+              value: null,
+              child: Text(
+                'ทั้งหมด (All)',
+                style: GoogleFonts.notoSansThai(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
               ),
-            );
-          }).toList(),
+            ),
+            ..._sortedSurahIds.map((surahId) {
+              final count = _surahGroups[surahId]!.length;
+              return DropdownMenuItem(
+                value: surahId,
+                child: Text(
+                  '${surahId}. ${widget.repository.getSurahName(surahId)} ($count notes)',
+                  style: GoogleFonts.notoSansThai(
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              );
+            }).toList(),
+          ],
+          onChanged: (val) {
+            setState(() {
+              _selectedSurahId = val;
+            });
+          },
         ),
       ),
     );
@@ -502,7 +564,7 @@ class _NoteCardState extends State<_NoteCard> {
                   TextField(
                     controller: _editController,
                     maxLines: 5,
-                    style: GoogleFonts.prompt(fontSize: 14),
+                    style: GoogleFonts.notoSansThai(fontSize: 14),
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.all(12),
@@ -539,7 +601,7 @@ class _NoteCardState extends State<_NoteCard> {
                   note.noteText.isNotEmpty
                       ? Text(
                           note.noteText,
-                          style: GoogleFonts.prompt(fontSize: 14, height: 1.6),
+                          style: GoogleFonts.notoSansThai(fontSize: 14, height: 1.6),
                         )
                       : Text(
                           'Favorited this verse (no reflection text added)',

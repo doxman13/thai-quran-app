@@ -270,6 +270,7 @@ class LocalReadingProvider extends ChangeNotifier {
   List<LocalBookmarkCategory> _categories = [];
   List<LocalBookmark> _bookmarks = [];
   List<LocalRecentReading> _recentReadings = [];
+  Set<String> _readDates = {};
   String? _activeProfileId;
   final Completer<void> _loadCompleter = Completer<void>();
 
@@ -1058,6 +1059,7 @@ class LocalReadingProvider extends ChangeNotifier {
     }
 
     final now = DateTime.now();
+    markReadToday();
 
     // 1. Prepare updated profiles list (cloned in memory)
     final updatedProfiles = _profiles.map((profile) {
@@ -1557,6 +1559,9 @@ class LocalReadingProvider extends ChangeNotifier {
         decoded['recentReadings'],
         LocalRecentReading.fromJson,
       );
+      if (decoded['readDates'] != null) {
+        _readDates = Set<String>.from(decoded['readDates'] as List);
+      }
       _activeProfileId = decoded['activeProfileId']?.toString();
       _ensureDefaultProfile();
       _profiles = _profiles
@@ -1649,8 +1654,23 @@ class LocalReadingProvider extends ChangeNotifier {
         'recentReadings': _recentReadings
             .map((reading) => reading.toJson())
             .toList(),
+        'readDates': _readDates.toList(),
       }),
     );
+  }
+
+  bool hasReadOn(DateTime date) {
+    return _readDates.contains(date.toIso8601String().split('T')[0]);
+  }
+
+  void markReadToday() {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    if (!_readDates.contains(today)) {
+      _readDates.add(today);
+      _save(immediate: true);
+      // Removed notifyListeners() here to avoid redundant rebuilds, 
+      // since markReadToday is usually called alongside other state updates.
+    }
   }
 
   List<T> _decodeList<T>(

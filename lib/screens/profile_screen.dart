@@ -413,7 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Text(
                                 'ผู้อ่านทั่วไป (Guest Reader)',
-                                style: GoogleFonts.prompt(
+                                style: GoogleFonts.notoSansThai(
                                   fontSize: 12,
                                   color: colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
@@ -422,7 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 supabaseProv.displayName,
-                                style: GoogleFonts.prompt(
+                                style: GoogleFonts.notoSansThai(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                   color: colorScheme.onSurface,
@@ -458,7 +458,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 16),
                           Text(
                             'ซิงค์ข้อมูลกับคลาวด์',
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: colorScheme.onSurface,
@@ -468,7 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'เข้าสู่ระบบเพื่อสำรองข้อมูลและซิงค์การตั้งค่า บุ๊กมาร์ก และบันทึกต่าง ๆ ไปยังเว็บและอุปกรณ์อื่น ๆ',
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 14,
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -531,7 +531,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     )
                                   : Text(
                                       'ขอรหัสเข้าสู่ระบบ (Send OTP)',
-                                      style: GoogleFonts.prompt(
+                                      style: GoogleFonts.notoSansThai(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
                                       ),
@@ -540,7 +540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ] else ...[
                             Text(
                               'รหัสยืนยัน 6 หลักถูกส่งไปยัง ${_emailController.text} แล้ว',
-                              style: GoogleFonts.prompt(
+                              style: GoogleFonts.notoSansThai(
                                 fontWeight: FontWeight.w600,
                                 color: colorScheme.onSurface,
                               ),
@@ -593,7 +593,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     )
                                   : Text(
                                       'ยืนยันรหัส (Verify Code)',
-                                      style: GoogleFonts.prompt(
+                                      style: GoogleFonts.notoSansThai(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
                                       ),
@@ -647,7 +647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               supabaseProv.displayName,
-                              style: GoogleFonts.prompt(
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: colorScheme.onSurface,
@@ -720,7 +720,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     _isSyncing
                                         ? 'กำลังซิงค์ (Syncing...)'
                                         : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
-                                    style: GoogleFonts.prompt(
+                                    style: GoogleFonts.notoSansThai(
                                       color: colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
@@ -739,7 +739,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'สถิติการอ่านของคุณ (Your Reading Stats)',
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: colorScheme.onSurface,
@@ -861,7 +861,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'แผนการอ่านที่เก็บถาวร (Archived Plans)',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
@@ -884,7 +884,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         title: Text(
                           profile.name,
-                          style: GoogleFonts.prompt(
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onSurface,
                           ),
@@ -911,10 +911,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       borderRadius: BorderRadius.circular(AppTheme.radius),
                                       side: BorderSide(color: colorScheme.outline),
                                     ),
-                                    title: Text('ลบแผนการอ่าน?', style: GoogleFonts.prompt(fontWeight: FontWeight.bold)),
+                                    title: Text('ลบแผนการอ่าน?', style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold)),
                                     content: Text(
                                       'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
-                                      style: GoogleFonts.prompt(),
+                                      style: GoogleFonts.notoSansThai(),
                                     ),
                                     actions: [
                                       TextButton(
@@ -1021,7 +1021,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       : Text(
                           'ออกจากระบบ (Sign Out)',
-                          style: GoogleFonts.prompt(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold, fontSize: 15),
                         ),
                 ),
               ],
@@ -1070,7 +1070,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: GoogleFonts.prompt(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -1151,7 +1151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.prompt(
+        style: GoogleFonts.notoSansThai(
           fontSize: 10,
           fontWeight: FontWeight.bold,
           color: textColor,
@@ -1185,7 +1185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Text(
                   'รายงานข้อผิดพลาด (My Error Reports)',
-                  style: GoogleFonts.prompt(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
+                  style: GoogleFonts.notoSansThai(fontSize: 15, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
                 ),
                 IconButton(
                   icon: Icon(Icons.refresh, size: 20, color: colorScheme.primary),
@@ -1212,7 +1212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (snapshot.hasError) {
                   return Text(
                     'เกิดข้อผิดพลาดในการโหลดข้อมูล (Error loading reports)',
-                    style: GoogleFonts.prompt(color: colorScheme.error),
+                    style: GoogleFonts.notoSansThai(color: colorScheme.error),
                   );
                 }
                 final reports = snapshot.data ?? [];
@@ -1221,7 +1221,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Text(
                       'ไม่มีประวัติการรายงานข้อผิดพลาด (No error reports submitted yet)',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         color: colorScheme.onSurfaceVariant,
                         fontSize: 12,
                       ),
@@ -1283,7 +1283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     children: [
                                       Text(
                                         'อายะฮ์ $surahId:$ayahNum',
-                                        style: GoogleFonts.prompt(
+                                        style: GoogleFonts.notoSansThai(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
                                           color: colorScheme.primary,
@@ -1315,7 +1315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'ข้อความโองการที่รายงาน (Verse text):',
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.onSurfaceVariant,
@@ -1324,7 +1324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             reportedText,
                             softWrap: true,
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
                               color: colorScheme.onSurface,
@@ -1333,7 +1333,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'ความคิดเห็นของคุณ (Your comment):',
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: colorScheme.onSurfaceVariant,
@@ -1342,7 +1342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Text(
                             userComment,
                             softWrap: true,
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 13,
                               color: colorScheme.onSurface,
                             ),
@@ -1372,7 +1372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       const SizedBox(width: 6),
                                       Text(
                                         'บันทึกจากผู้ดูแล (Admin Note):',
-                                        style: GoogleFonts.prompt(
+                                        style: GoogleFonts.notoSansThai(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: colorScheme.primary,
@@ -1384,7 +1384,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Text(
                                     adminNotes,
                                     softWrap: true,
-                                    style: GoogleFonts.prompt(
+                                    style: GoogleFonts.notoSansThai(
                                       fontSize: 12,
                                       color: colorScheme.onSurfaceVariant,
                                     ),

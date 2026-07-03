@@ -441,7 +441,7 @@ class _VerseCardState extends State<VerseCard> {
                           children: [
                             Text(
                               'Verse ${widget.verse.id}',
-                              style: GoogleFonts.prompt(
+                              style: GoogleFonts.notoSansThai(
                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
@@ -460,7 +460,7 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                       Text(
                         _shareStatus,
-                        style: GoogleFonts.prompt(
+                        style: GoogleFonts.notoSansThai(
                           color: isDark
                               ? Colors.blueGrey.shade300
                               : Colors.blueGrey.shade500,
@@ -701,7 +701,7 @@ class _VerseCardState extends State<VerseCard> {
                             children: [
                               Text(
                                 'Short tafsir',
-                                style: GoogleFonts.prompt(
+                                style: GoogleFonts.notoSansThai(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: themeColor,
@@ -710,7 +710,7 @@ class _VerseCardState extends State<VerseCard> {
                               Text(
                                 widget.verse.shortTafsirSource ??
                                     'QuranEnc Thai Mokhtasar',
-                                style: GoogleFonts.prompt(
+                                style: GoogleFonts.notoSansThai(
                                   fontSize: 10,
                                   color: isDark
                                       ? Colors.blueGrey.shade300
@@ -722,7 +722,7 @@ class _VerseCardState extends State<VerseCard> {
                           const SizedBox(height: 8),
                           Text(
                             widget.verse.shortTafsir!,
-                            style: GoogleFonts.prompt(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 14,
                               height: 1.7,
                               color: isDark
@@ -751,11 +751,11 @@ class _VerseCardState extends State<VerseCard> {
                         children: [
                           TextField(
                             controller: _auditController,
-                            style: GoogleFonts.prompt(fontSize: 14),
+                            style: GoogleFonts.notoSansThai(fontSize: 14),
                             decoration: InputDecoration(
                               hintText:
                                   'Enter audit error report/fix details...',
-                              hintStyle: GoogleFonts.prompt(fontSize: 13),
+                              hintStyle: GoogleFonts.notoSansThai(fontSize: 13),
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.all(10),
                               isDense: true,
@@ -771,7 +771,7 @@ class _VerseCardState extends State<VerseCard> {
                                     setState(() => _showAuditBox = false),
                                 child: Text(
                                   'Cancel',
-                                  style: GoogleFonts.prompt(
+                                  style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     color: Colors.grey,
                                   ),
@@ -802,7 +802,7 @@ class _VerseCardState extends State<VerseCard> {
                                         _auditSaved
                                             ? 'Saved ✓'
                                             : 'Submit Audit',
-                                        style: GoogleFonts.prompt(fontSize: 12),
+                                        style: GoogleFonts.notoSansThai(fontSize: 12),
                                       ),
                               ),
                             ],
@@ -868,7 +868,7 @@ class _VerseCardState extends State<VerseCard> {
         text: text,
         locale: locale,
         labelFg: isDark ? Colors.blueGrey.shade500 : Colors.blueGrey.shade400,
-        textStyle: GoogleFonts.prompt(
+        textStyle: GoogleFonts.notoSansThai(
           fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
           height: 1.65,
           color: bodyTextColor,
@@ -906,7 +906,7 @@ class _VerseCardState extends State<VerseCard> {
           alignment: Alignment.centerRight,
           child: Text(
             label,
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w400,
               color: labelFg,

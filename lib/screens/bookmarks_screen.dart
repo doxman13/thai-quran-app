@@ -194,7 +194,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       leading: Icon(icon, color: colorScheme.primary, size: 20),
       title: Text(
         title,
-        style: GoogleFonts.prompt(
+        style: GoogleFonts.notoSansThai(
           color: colorScheme.onSurface,
           fontWeight: FontWeight.w600,
           fontSize: 13,
@@ -207,7 +207,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           Expanded(
             child: Text(
               subtitle,
-              style: GoogleFonts.prompt(
+              style: GoogleFonts.notoSansThai(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 11,
               ),

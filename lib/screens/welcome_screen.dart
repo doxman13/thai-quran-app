@@ -127,7 +127,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     // Translation
                     Text(
                       'ด้วยพระนามของอัลลอฮฺ\nผู้ทรงกรุณาปรานี ผู้ทรงเมตตาเสมอ',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                         color: colorScheme.onSurface.withValues(alpha: 0.8),
@@ -141,13 +141,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     Image.asset(
                       'assets/icons/mipmap-xxxhdpi/ic_launcher_foreground.png',
                       height: 96,
+                      color: isDark ? Colors.white : null,
                     ),
                     const SizedBox(height: 8),
                     
                     // App Name
                     Text(
                       'อ่านอัลกุรอาน',
-                      style: GoogleFonts.prompt(
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,

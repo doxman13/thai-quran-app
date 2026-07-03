@@ -749,7 +749,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               Expanded(
                 child: Text(
                   'เป้าหมายหลักของซูเราะฮ์',
-                  style: GoogleFonts.prompt(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: colors.primary,
@@ -761,7 +761,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 10),
           Text(
             objective.text,
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               height: 1.45,
@@ -771,7 +771,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 10),
           Text(
             'ที่มา: ${objective.source}',
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: colors.foreground.withOpacity(0.72),
@@ -799,7 +799,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       ),
       child: Text(
         getHeaderTitle(verseNumber),
-        style: GoogleFonts.prompt(
+        style: GoogleFonts.notoSansThai(
           fontSize: 14,
           fontWeight: FontWeight.w700,
           height: 1.45,
@@ -1286,7 +1286,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         children: [
           Text(
             '🎉 สิ้นสุดซูเราะฮฺแล้ว',
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: colors.textStrong,
@@ -1296,7 +1296,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           Text(
             'คุณอ่านมาถึงอายะฮฺสุดท้ายของซูเราะฮฺ $_currentSurah แล้ว ทำเครื่องหมายเพื่อบันทึกสถิติของคุณ',
             textAlign: TextAlign.center,
-            style: GoogleFonts.prompt(
+            style: GoogleFonts.notoSansThai(
               fontSize: 13,
               color: isDark ? Colors.blueGrey.shade300 : Colors.grey.shade600,
             ),
@@ -1311,7 +1311,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   SnackBar(
                     content: Text(
                       'บันทึกการอ่านซูเราะฮฺที่จบแล้ว!',
-                      style: GoogleFonts.prompt(color: Colors.white),
+                      style: GoogleFonts.notoSansThai(color: Colors.white),
                     ),
                     backgroundColor: Colors.green,
                     duration: const Duration(seconds: 2),
@@ -1329,7 +1329,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               child: Text(
                 '📖 อ่านจบแล้ว',
-                style: GoogleFonts.prompt(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1370,7 +1370,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           '⬅️ ซูเราะฮฺก่อนหน้า',
-                          style: GoogleFonts.prompt(
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1394,7 +1394,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           'ซูเราะฮฺถัดไป ➡️',
-                          style: GoogleFonts.prompt(
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),

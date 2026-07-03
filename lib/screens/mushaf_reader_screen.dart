@@ -1393,8 +1393,8 @@ class _MushafLayoutProfile {
       1 => const _MushafLayoutProfile(
         pageWidth: 410,
         lineWidth: 410,
-        lineHeight: 1.7,
-        lineVerticalPadding: 1.5,
+        lineHeight: 1.9,
+        lineVerticalPadding: 3.5,
         horizontalPadding: 16,
         wordPadding: 0,
       ),
@@ -1891,7 +1891,7 @@ class _TranslationPanel extends StatelessWidget {
                     children: HtmlParser.parseTranslationText(
                       context,
                       translation,
-                      GoogleFonts.prompt(
+                      GoogleFonts.notoSansThai(
                         color: colors.foreground,
                         fontSize: fontSize,
                         height: 1.55,

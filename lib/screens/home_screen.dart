@@ -13,6 +13,7 @@ import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/notes_provider.dart';
+import '../shared/quran_contract.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import 'reading_screen.dart';
@@ -114,6 +115,16 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   List<CustomQuickLink> _quickLinks = [];
+
+  // Juz boundary data (shared with Browse screen)
+  static const List<List<int>> _juzStarts = [
+    [1, 1], [2, 142], [2, 253], [3, 93], [4, 24],
+    [4, 148], [5, 82], [6, 111], [7, 88], [8, 41],
+    [9, 93], [11, 6], [12, 53], [15, 1], [17, 1],
+    [18, 75], [21, 1], [23, 1], [25, 21], [27, 56],
+    [29, 46], [33, 31], [36, 28], [39, 32], [41, 47],
+    [46, 1], [51, 31], [58, 1], [67, 1], [78, 1],
+  ];
 
   @override
   void initState() {
@@ -295,33 +306,41 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _buildDailyReadTracker(ColorScheme colorScheme) {
-    final days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final statuses = ['read', 'read', 'missed', 'read', 'today', 'future', 'future'];
+  Widget _buildDailyReadTracker(ColorScheme colorScheme, LocalReadingProvider provider) {
+    final now = DateTime.now();
     
+    // Compute the past 7 days ending today
+    final daysList = List.generate(7, (index) {
+      final date = now.subtract(Duration(days: 6 - index));
+      return date;
+    });
+
+    final dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16, left: 24, right: 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(7, (index) {
-          final isToday = statuses[index] == 'today';
-          final status = statuses[index];
+          final date = daysList[index];
+          final isToday = index == 6; // Last item is today
+          final isRead = provider.hasReadOn(date);
           
           Color circleColor;
-          if (status == 'read') {
+          if (isRead) {
             circleColor = Colors.green;
-          } else if (status == 'missed') {
-            circleColor = Colors.red;
-          } else if (status == 'today') {
+          } else if (isToday) {
             circleColor = colorScheme.primary;
           } else {
             circleColor = colorScheme.outlineVariant;
           }
 
+          final dayLabel = dayLabels[date.weekday - 1]; // weekday is 1(Mon) to 7(Sun)
+
           return Column(
             children: [
               Text(
-                days[index],
+                dayLabel,
                 style: GoogleFonts.inter(
                   fontSize: isToday ? 11 : 9,
                   fontWeight: isToday ? FontWeight.w900 : FontWeight.w600,
@@ -339,12 +358,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: circleColor, width: isToday ? 2.0 : 1.0),
                 ),
                 child: isToday 
-                    ? Icon(Icons.menu_book, size: 14, color: colorScheme.primary) 
-                    : (status == 'read' 
-                        ? Icon(Icons.check, size: 12, color: Colors.green)
-                        : (status == 'missed' 
-                            ? Icon(Icons.close, size: 12, color: Colors.red)
-                            : null)),
+                    ? (isRead 
+                        ? const Icon(Icons.check, size: 14, color: Colors.green)
+                        : Icon(Icons.menu_book, size: 14, color: colorScheme.primary))
+                    : (isRead 
+                        ? const Icon(Icons.check, size: 12, color: Colors.green)
+                        : null), // We can omit the red X or add it if needed. Let's just leave it blank if not read, or maybe a small dot.
               ),
             ],
           );
@@ -358,6 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final settings = context.watch<SettingsProvider>();
+    final readingProvider = context.watch<LocalReadingProvider>();
 
     if (!_isInit) {
       return Scaffold(
@@ -435,7 +455,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Salam, Chareef 👋',
+                                  'Salam, ${Provider.of<SupabaseProvider>(context).displayName} 👋',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: textTheme.headlineMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: colorScheme.onSurface,
@@ -519,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 
                 if (!isSearching) ...[
                   // Daily Read Checks Tracker
-                  _buildDailyReadTracker(colorScheme),
+                  _buildDailyReadTracker(colorScheme, readingProvider),
 
                   // ROW 2: HORIZONTAL CAPSULE MENUS
                   SizedBox(
@@ -723,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 320,
+          height: 275,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -804,7 +826,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 320,
+          height: 275,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -882,65 +904,318 @@ class _HomeScreenState extends State<HomeScreen> {
          context.read<LocalReadingProvider>().setActiveProfile(profile.id);
          _navigateToReading(context, profile.current.surahId, verseId: profile.current.verseId);
       },
-      onEdit: isFreeRead ? null : () => _showEditMeaningfulGoalDialog(profile),
+      onEdit: isFreeRead ? null : () => _showProfileDialog(context, profile: profile),
     );
   }
 
-  Future<void> _showEditMeaningfulGoalDialog(LocalReadingProfile profile) async {
-    final TextEditingController nameCtrl = TextEditingController(text: profile.name);
-    final colorScheme = Theme.of(context).colorScheme;
+  // ── Goal create / edit dialog ────────────────────────────────────────────
 
-    await showDialog(
+  Future<void> _showProfileDialog(
+    BuildContext context, {
+    LocalReadingProfile? profile,
+  }) async {
+    final provider = context.read<LocalReadingProvider>();
+    final colors = context.read<SettingsProvider>().getAppColors();
+    final nameController = TextEditingController(text: profile?.name ?? '');
+    var planMode = profile?.planMode ?? 'custom';
+    var startSurah = profile?.start.surahId ?? '1';
+    var startAyah = profile?.start.verseId ?? '1';
+    var endSurah = profile?.target?.surahId ?? startSurah;
+    var endAyah = profile?.target?.verseId ?? startAyah;
+    var startJuz = profile?.startJuz ?? 1;
+    var endJuz = profile?.targetJuz ?? startJuz;
+    String? error;
+
+    await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit Goal'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Goal Name'),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.restart_alt),
-                label: const Text('Reset Progress'),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.read<LocalReadingProvider>().updateProfileProgress(
-                    profile.id,
-                    profile.start,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Goal progress reset.')));
-                },
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final startAyahCount = widget.repository.getSurahVerses(startSurah).length;
+            final endAyahCount = widget.repository.getSurahVerses(endSurah).length;
+            startAyah = _clampAyah(startAyah, startAyahCount);
+            endAyah = _clampAyah(endAyah, endAyahCount);
+
+            return AlertDialog(
+              backgroundColor: colors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+                side: BorderSide(color: colors.borderSoft),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (nameCtrl.text.trim().isNotEmpty) {
-                context.read<LocalReadingProvider>().updateProfile(
-                  profileId: profile.id,
-                  name: nameCtrl.text.trim(),
-                  start: profile.start,
-                  target: profile.target,
-                  planMode: profile.planMode,
-                  startJuz: profile.startJuz,
-                  targetJuz: profile.targetJuz,
-                );
-              }
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+              title: Text(
+                profile == null ? 'Create Reading Goal' : 'Edit Reading Goal',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: colors.textStrong),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Goal name',
+                        hintText: 'e.g. Ramadan 2026',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: planMode,
+                      decoration: const InputDecoration(labelText: 'Plan type'),
+                      items: const [
+                        DropdownMenuItem(value: 'by_juz', child: Text('By Juz')),
+                        DropdownMenuItem(value: 'by_ayat', child: Text('By Ayat')),
+                        DropdownMenuItem(value: 'by_surah', child: Text('By Surah')),
+                        DropdownMenuItem(value: 'custom', child: Text('Custom')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) setDialogState(() => planMode = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (planMode == 'by_juz')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _numberDropdown(
+                              label: 'Start Juz',
+                              value: startJuz,
+                              max: 30,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  startJuz = value;
+                                  if (endJuz < startJuz) endJuz = startJuz;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _numberDropdown(
+                              label: 'End Juz',
+                              value: endJuz,
+                              min: startJuz,
+                              max: 30,
+                              onChanged: (value) => setDialogState(() => endJuz = value),
+                            ),
+                          ),
+                        ],
+                      )
+                    else ...[
+                      _surahDropdown(
+                        label: 'Start Surah',
+                        value: startSurah,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            startSurah = value;
+                            if (int.parse(endSurah) < int.parse(startSurah)) endSurah = startSurah;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _surahDropdown(
+                        label: 'End Surah',
+                        value: endSurah,
+                        min: int.parse(startSurah),
+                        onChanged: (value) => setDialogState(() => endSurah = value),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ayahDropdown(
+                              label: 'Start Ayah',
+                              value: planMode == 'by_surah' ? '1' : startAyah,
+                              max: startAyahCount,
+                              enabled: planMode != 'by_surah',
+                              onChanged: (value) => setDialogState(() => startAyah = value),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ayahDropdown(
+                              label: 'End Ayah',
+                              value: planMode == 'by_surah' ? endAyahCount.toString() : endAyah,
+                              max: endAyahCount,
+                              enabled: planMode != 'by_surah',
+                              onChanged: (value) => setDialogState(() => endAyah = value),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (profile != null) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.restart_alt),
+                        label: const Text('Reset Progress to Start'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          provider.updateProfileProgress(profile.id, profile.start);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Goal progress reset.')));
+                        },
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(error!, style: GoogleFonts.inter(
+                        color: Colors.red.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) {
+                      setDialogState(() => error = 'Enter a goal name first.');
+                      return;
+                    }
+
+                    final start = planMode == 'by_juz'
+                        ? _juzStartRef(startJuz)
+                        : toVerseRef(startSurah, planMode == 'by_surah' ? 1 : startAyah);
+                    final target = planMode == 'by_juz'
+                        ? _juzEndRef(endJuz)
+                        : toVerseRef(endSurah, planMode == 'by_surah'
+                            ? widget.repository.getSurahVerses(endSurah).length
+                            : endAyah);
+
+                    if (_verseOrdinal(target.surahId, target.verseId) <
+                        _verseOrdinal(start.surahId, start.verseId)) {
+                      setDialogState(() => error = 'End position must be after the start.');
+                      return;
+                    }
+
+                    Navigator.pop(dialogContext);
+
+                    if (profile == null) {
+                      provider.createProfile(
+                        name: name,
+                        planMode: planMode,
+                        startJuz: planMode == 'by_juz' ? startJuz : null,
+                        targetJuz: planMode == 'by_juz' ? endJuz : null,
+                        start: start,
+                        target: target,
+                        context: context,
+                      );
+                    } else {
+                      provider.updateProfile(
+                        profileId: profile.id,
+                        name: name,
+                        planMode: planMode,
+                        startJuz: planMode == 'by_juz' ? startJuz : null,
+                        targetJuz: planMode == 'by_juz' ? endJuz : null,
+                        start: start,
+                        target: target,
+                      );
+                    }
+                  },
+                  child: Text(profile == null ? 'Create' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameController.dispose();
+  }
+
+  int _verseOrdinal(String surahId, String verseId) {
+    var ordinal = 0;
+    for (var surah = 1; surah <= 114; surah++) {
+      final id = surah.toString();
+      final count = widget.repository.getSurahVerses(id).length;
+      if (id == surahId) return ordinal + (int.tryParse(verseId) ?? 1);
+      ordinal += count;
+    }
+    return ordinal;
+  }
+
+  String _clampAyah(String value, int max) {
+    final ayah = int.tryParse(value) ?? 1;
+    return ayah.clamp(1, max < 1 ? 1 : max).toString();
+  }
+
+  VerseRef _juzStartRef(int juz) {
+    final s = _juzStarts[(juz - 1).clamp(0, _juzStarts.length - 1)];
+    return toVerseRef(s[0], s[1]);
+  }
+
+  VerseRef _juzEndRef(int juz) {
+    if (juz >= _juzStarts.length) {
+      final lastCount = widget.repository.getSurahVerses('114').length;
+      return toVerseRef(114, lastCount);
+    }
+    final nextStart = _juzStarts[juz];
+    var surah = nextStart[0];
+    var ayah = nextStart[1] - 1;
+    if (ayah < 1) {
+      surah -= 1;
+      ayah = widget.repository.getSurahVerses(surah.toString()).length;
+    }
+    return toVerseRef(surah, ayah);
+  }
+
+  Widget _numberDropdown({
+    required String label,
+    required int value,
+    required int max,
+    int min = 1,
+    required ValueChanged<int> onChanged,
+  }) {
+    final safe = value.clamp(min, max);
+    return DropdownButtonFormField<int>(
+      value: safe,
+      decoration: InputDecoration(labelText: label),
+      items: [for (var n = min; n <= max; n++) DropdownMenuItem(value: n, child: Text(n.toString()))],
+      onChanged: (next) { if (next != null) onChanged(next); },
+    );
+  }
+
+  Widget _surahDropdown({
+    required String label,
+    required String value,
+    int min = 1,
+    required ValueChanged<String> onChanged,
+  }) {
+    final parsed = int.tryParse(value) ?? min;
+    final safe = parsed.clamp(min, 114);
+    return DropdownButtonFormField<String>(
+      value: safe.toString(),
+      decoration: InputDecoration(labelText: label),
+      items: [
+        for (var s = min; s <= 114; s++)
+          DropdownMenuItem(value: s.toString(), child: Text(widget.repository.getSurahName(s.toString()))),
+      ],
+      onChanged: (next) { if (next != null) onChanged(next); },
+    );
+  }
+
+  Widget _ayahDropdown({
+    required String label,
+    required String value,
+    required int max,
+    required ValueChanged<String> onChanged,
+    bool enabled = true,
+  }) {
+    final safe = _clampAyah(value, max);
+    return DropdownButtonFormField<String>(
+      value: safe,
+      decoration: InputDecoration(labelText: label),
+      items: [
+        for (var a = 1; a <= max; a++)
+          DropdownMenuItem(value: a.toString(), child: Text(a.toString())),
+      ],
+      onChanged: enabled ? (next) { if (next != null) onChanged(next); } : null,
     );
   }
 
@@ -1077,7 +1352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 Text(
                   widget.repository.getSurahName(continueSurah),
-                  style: GoogleFonts.prompt(
+                  style: GoogleFonts.notoSansThai(
                     color: textColor,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -1415,7 +1690,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Page $page',
-                  style: GoogleFonts.prompt(
+                  style: GoogleFonts.notoSansThai(
                     color: textColor,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -1549,11 +1824,7 @@ class _HomeScreenState extends State<HomeScreen> {
         border: Border.all(color: colorScheme.outline, width: 2),
       ),
       child: InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please switch to the main Home tab to create a goal for now.')),
-          );
-        },
+        onTap: () => _showProfileDialog(context),
         borderRadius: BorderRadius.circular(AppTheme.radius * 1.2),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
