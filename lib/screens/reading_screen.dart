@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -47,12 +46,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
   bool _isLoading = true;
   Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
   Map<String, _SurahObjective> _surahObjectives = {};
-  int? _oneVerseDragStartIndex;
-  bool _isSettlingOneVerseScroll = false;
+  late final PageController _versePageController;
+  bool _isProgrammaticPageMove = false;
+  double _edgeOverscroll = 0;
 
   @override
   void initState() {
     super.initState();
+    _versePageController = PageController();
     _initData();
 
     // Enable Wakelock if keepAwake setting is true
@@ -68,6 +69,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   @override
   void dispose() {
+    _versePageController.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -256,9 +258,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 150), () {
-        if (verses.isNotEmpty && provider.itemScrollController.isAttached) {
-          provider.setVerseIndexAndScroll(safeTargetIndex);
+        if (!mounted || verses.isEmpty) return;
+        _isProgrammaticPageMove = true;
+        if (_versePageController.hasClients) {
+          _versePageController.jumpToPage(safeTargetIndex);
         }
+        _isProgrammaticPageMove = false;
+        provider.setVerseIndexAndScroll(safeTargetIndex);
         // Safely re-enable listener after jump finishes
         Future.delayed(const Duration(milliseconds: 420), () {
           provider.setChangingSurah(false);
@@ -337,83 +343,174 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   void _selectVerseIndex(int index) {
+    _goToVerseIndex(index);
+  }
+
+  Future<void> _goToVerseIndex(int index) async {
+    if (verses.isEmpty) return;
     final provider = Provider.of<ProgressProvider>(context, listen: false);
-    provider.setVerseIndexAndScroll(index);
-  }
+    final targetIndex = index.clamp(0, verses.length - 1).toInt();
 
-  int? _nearestVisibleVerseIndex(ProgressProvider provider) {
-    final positions = provider.itemPositionsListener.itemPositions.value.where(
-      (position) => position.index >= 0 && position.index < verses.length,
-    );
-    if (positions.isEmpty) return null;
-
-    const targetY = 0.3;
-    var nearestIndex = positions.first.index;
-    var nearestDistance = double.infinity;
-    for (final position in positions) {
-      final center = (position.itemLeadingEdge + position.itemTrailingEdge) / 2;
-      final distance = (center - targetY).abs();
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = position.index;
-      }
-    }
-    return nearestIndex;
-  }
-
-  Future<void> _settleOneVerseScroll(ProgressProvider provider) async {
-    final startIndex = _oneVerseDragStartIndex;
-    if (startIndex == null ||
-        _isSettlingOneVerseScroll ||
-        provider.isChangingSurah ||
-        verses.isEmpty) {
-      return;
-    }
-
-    final nearestIndex = _nearestVisibleVerseIndex(provider);
-    if (nearestIndex == null) {
-      _oneVerseDragStartIndex = null;
-      return;
-    }
-
-    final direction = nearestIndex.compareTo(startIndex);
-    final targetIndex = direction == 0
-        ? startIndex
-        : (startIndex + direction).clamp(0, verses.length - 1).toInt();
-
-    _oneVerseDragStartIndex = null;
-    _isSettlingOneVerseScroll = true;
+    _isProgrammaticPageMove = true;
     try {
       await provider.setVerseIndexAndScroll(targetIndex);
+      if (_versePageController.hasClients) {
+        await _versePageController.animateToPage(
+          targetIndex,
+          duration: const Duration(milliseconds: 520),
+          curve: Curves.easeInOutCubic,
+        );
+      }
     } finally {
-      _isSettlingOneVerseScroll = false;
+      _isProgrammaticPageMove = false;
     }
   }
 
-  Widget _buildOneVerseScrollLimiter({
+  void _handleVersePageChanged(int index, ProgressProvider provider) {
+    if (_isProgrammaticPageMove || provider.isChangingSurah) return;
+    if (index >= verses.length) return;
+
+    final currentIndex = provider.lastVerseIndex;
+    final delta = index - currentIndex;
+    final targetIndex = delta.abs() <= 1
+        ? index
+        : (currentIndex + delta.sign).clamp(0, verses.length - 1).toInt();
+
+    provider.setVerseIndexAndScroll(targetIndex);
+    if (targetIndex != index && _versePageController.hasClients) {
+      _isProgrammaticPageMove = true;
+      _versePageController
+          .animateToPage(
+            targetIndex,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() => _isProgrammaticPageMove = false);
+    }
+  }
+
+  bool _handleVerseEdgeScroll(ScrollNotification notification, int index) {
+    if (_isProgrammaticPageMove || index >= verses.length) return false;
+
+    if (notification is ScrollStartNotification) {
+      _edgeOverscroll = 0;
+      return false;
+    }
+
+    if (notification is OverscrollNotification) {
+      _edgeOverscroll += notification.overscroll;
+      return false;
+    }
+
+    if (notification is ScrollEndNotification) {
+      const threshold = 48.0;
+      final currentIndex = Provider.of<ProgressProvider>(
+        context,
+        listen: false,
+      ).lastVerseIndex;
+      final shouldGoNext =
+          _edgeOverscroll > threshold && currentIndex < verses.length - 1;
+      final shouldGoPrevious = _edgeOverscroll < -threshold && currentIndex > 0;
+
+      _edgeOverscroll = 0;
+      if (shouldGoNext) {
+        _goToVerseIndex(currentIndex + 1);
+      } else if (shouldGoPrevious) {
+        _goToVerseIndex(currentIndex - 1);
+      }
+    }
+
+    return false;
+  }
+
+  Widget _buildFocusedVersePage({
+    required int index,
     required ProgressProvider provider,
-    required Widget child,
+    required SettingsProvider settings,
+    required bool isDark,
   }) {
-    return Listener(
-      onPointerDown: (_) {
-        if (!_isLoading && !_isSettlingOneVerseScroll) {
-          _oneVerseDragStartIndex = provider.lastVerseIndex;
-        }
-      },
-      onPointerCancel: (_) => _settleOneVerseScroll(provider),
-      onPointerUp: (_) {
-        Future<void>.delayed(const Duration(milliseconds: 80), () {
-          if (mounted) {
-            _settleOneVerseScroll(provider);
-          }
-        });
-      },
-      child: NotificationListener<ScrollEndNotification>(
-        onNotification: (_) {
-          _settleOneVerseScroll(provider);
-          return false;
+    if (index == verses.length) {
+      return NotificationListener<ScrollNotification>(
+        onNotification: (notification) =>
+            _handleVerseEdgeScroll(notification, index),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - 48).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: Center(
+                  child: _buildCompletionCard(
+                    context,
+                    provider,
+                    settings,
+                    isDark,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    final localReading = Provider.of<LocalReadingProvider>(
+      context,
+      listen: false,
+    );
+    final progressProfile = _progressProfile(localReading);
+    final currentVerse = verses[index];
+    final verseNumber = int.tryParse(currentVerse.id);
+    final showThemeHeader =
+        verseNumber != null && shouldShowHeader(verseNumber);
+
+    final card = VerseCard(
+      key: ValueKey('${currentVerse.surahId}_${currentVerse.id}'),
+      verse: currentVerse,
+      repository: widget.repository,
+      index: index,
+      progressProfileId: progressProfile?.id,
+      useExplicitProgressProfile: true,
+    );
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) =>
+          _handleVerseEdgeScroll(notification, index),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 48).clamp(
+                  0.0,
+                  double.infinity,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (index == 0 && _currentSurah != '9')
+                      _buildBismillahBanner(settings, isDark),
+                    if (index == 0)
+                      _buildObjectivesBanner(_currentSurah, settings, isDark),
+                    if (showThemeHeader)
+                      _buildThemeHeader(settings, isDark, verseNumber),
+                    card,
+                  ],
+                ),
+              ),
+            ),
+          );
         },
-        child: child,
       ),
     );
   }
@@ -1210,66 +1307,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : _buildOneVerseScrollLimiter(
-              provider: provider,
-              child: ScrollablePositionedList.builder(
-                itemCount: verses.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == verses.length) {
-                    return _buildCompletionCard(
-                      context,
-                      provider,
-                      settings,
-                      isDark,
-                    );
-                  }
-
-                  final localReading = Provider.of<LocalReadingProvider>(
-                    context,
-                    listen: false,
-                  );
-                  final progressProfile = _progressProfile(localReading);
-                  final card = VerseCard(
-                    key: ValueKey(
-                      '${verses[index].surahId}_${verses[index].id}',
-                    ),
-                    verse: verses[index],
-                    repository: widget.repository,
-                    index: index,
-                    progressProfileId: progressProfile?.id,
-                    useExplicitProgressProfile: true,
-                  );
-                  final verseNumber = int.tryParse(verses[index].id);
-                  final showThemeHeader =
-                      verseNumber != null && shouldShowHeader(verseNumber);
-
-                  if (index == 0) {
-                    return Column(
-                      children: [
-                        if (_currentSurah != '9')
-                          _buildBismillahBanner(settings, isDark),
-                        _buildObjectivesBanner(_currentSurah, settings, isDark),
-                        if (showThemeHeader)
-                          _buildThemeHeader(settings, isDark, verseNumber),
-                        card,
-                      ],
-                    );
-                  }
-
-                  if (showThemeHeader) {
-                    return Column(
-                      children: [
-                        if (showThemeHeader)
-                          _buildThemeHeader(settings, isDark, verseNumber),
-                        card,
-                      ],
-                    );
-                  }
-                  return card;
-                },
-                itemScrollController: provider.itemScrollController,
-                itemPositionsListener: provider.itemPositionsListener,
-                padding: const EdgeInsets.only(top: 12, bottom: 100),
+          : PageView.builder(
+              controller: _versePageController,
+              scrollDirection: Axis.vertical,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: verses.length + 1,
+              onPageChanged: (index) =>
+                  _handleVersePageChanged(index, provider),
+              itemBuilder: (context, index) => _buildFocusedVersePage(
+                index: index,
+                provider: provider,
+                settings: settings,
+                isDark: isDark,
               ),
             ),
       bottomNavigationBar: _isLoading
@@ -1316,9 +1365,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           compact: true,
                           onPressed: hasPrev
                               ? () {
-                                  progressProv.setVerseIndexAndScroll(
-                                    currentIndex - 1,
-                                  );
+                                  _goToVerseIndex(currentIndex - 1);
                                 }
                               : null,
                           backgroundColor: colors.primaryLight,
@@ -1377,9 +1424,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           compact: true,
                           onPressed: hasNext
                               ? () {
-                                  progressProv.setVerseIndexAndScroll(
-                                    currentIndex + 1,
-                                  );
+                                  _goToVerseIndex(currentIndex + 1);
                                 }
                               : null,
                           backgroundColor: colors.primaryLight,
