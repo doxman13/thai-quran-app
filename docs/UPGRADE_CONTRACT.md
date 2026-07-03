@@ -228,6 +228,13 @@ free_read
 
 Do not model "Last Read" as a reading profile. Use recent readings instead.
 
+```text
+mushaf_profiles
+- current_page
+- furthest_unread_page
+- last_viewed_page
+```
+
 ## Bookmarks
 
 Bookmarks are saved verse references. Users can have multiple bookmarks per

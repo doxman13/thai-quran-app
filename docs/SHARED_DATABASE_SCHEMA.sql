@@ -103,9 +103,10 @@ create table if not exists public.recent_readings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   surah_id text not null,
-  last_read_verse text not null,
+  verse_id text not null,
+  verse_key text generated always as (surah_id || ':' || verse_id) stored,
   profile_id uuid references public.reading_profiles(id) on delete set null,
-  updated_at timestamptz not null default now(),
+  read_at timestamptz not null default now(),
   unique (user_id, surah_id)
 );
 
@@ -183,6 +184,8 @@ create table if not exists public.mushaf_profiles (
   start_page integer not null check (start_page > 0),
   target_page integer not null check (target_page >= start_page),
   current_page integer not null check (current_page >= start_page),
+  furthest_unread_page integer not null default 1 check (furthest_unread_page > 0),
+  last_viewed_page integer not null default 1 check (last_viewed_page > 0),
   sort_order integer not null default 0,
   is_archived boolean not null default false,
   created_at timestamptz not null default now(),
@@ -272,7 +275,7 @@ create index if not exists verse_tafsir_verse_key_idx on public.verse_tafsir (ve
 create index if not exists surah_summaries_surah_idx on public.surah_summaries (surah_id, language);
 create index if not exists reading_profiles_user_idx on public.reading_profiles (user_id, is_archived, sort_order);
 create index if not exists bookmarks_category_idx on public.bookmarks (category_id, sort_order);
-create index if not exists recent_readings_user_idx on public.recent_readings (user_id, updated_at desc);
+create index if not exists recent_readings_user_idx on public.recent_readings (user_id, read_at desc);
 create index if not exists tadabbur_public_verse_idx on public.tadabbur_notes (verse_key)
   where visibility = 'public' and status = 'active';
 create index if not exists translation_reports_status_idx on public.translation_reports (status, created_at);

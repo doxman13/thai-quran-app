@@ -13,7 +13,6 @@ import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
-import '../providers/thai_text_protection_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
@@ -24,12 +23,14 @@ class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
   final QuranFoundationRepository foundationRepository;
   final String profileId;
+  final int? initialPage;
 
   const MushafReaderScreen({
     Key? key,
     required this.quranRepository,
     required this.foundationRepository,
     required this.profileId,
+    this.initialPage,
   }) : super(key: key);
 
   @override
@@ -53,7 +54,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final profile = context.read<MushafReadingProvider>().profileById(
       widget.profileId,
     );
-    _pageNumber = profile?.currentPage ?? 1;
+    _pageNumber = widget.initialPage ?? profile?.currentPage ?? 1;
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
@@ -64,6 +65,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.keepAwake) {
           WakelockPlus.enable();
+        }
+        final currentProfile = context
+            .read<MushafReadingProvider>()
+            .profileById(widget.profileId);
+        if (currentProfile != null) {
+          context.read<MushafReadingProvider>().updateProgress(
+            profileId: currentProfile.id,
+            pageNumber: _pageNumber,
+          );
         }
       }
     });
@@ -1006,9 +1016,9 @@ class _ReaderBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 46,
+      height: 56,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 3, 12, 7),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: Row(
           children: [
             Expanded(
@@ -1016,16 +1026,14 @@ class _ReaderBottomBar extends StatelessWidget {
                 icon: Icons.chevron_left,
                 label: 'Next',
                 onPressed: onNext,
-                filled: true,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _SmallReaderButton(
-                icon: Icons.done,
-                label: 'Done',
+                icon: Icons.save_outlined,
+                label: 'Save Progress',
                 onPressed: onDone,
-                filled: false,
               ),
             ),
             const SizedBox(width: 8),
@@ -1034,7 +1042,6 @@ class _ReaderBottomBar extends StatelessWidget {
                 icon: Icons.chevron_right,
                 label: 'Previous',
                 onPressed: onPrevious,
-                filled: false,
               ),
             ),
           ],
@@ -1048,17 +1055,16 @@ class _SmallReaderButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
-  final bool filled;
 
   const _SmallReaderButton({
     required this.icon,
     required this.label,
     required this.onPressed,
-    required this.filled,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isPrevious = label == 'Previous';
     final child = Row(
       mainAxisSize: MainAxisSize.min,
@@ -1070,51 +1076,48 @@ class _SmallReaderButton extends StatelessWidget {
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Icon(icon, size: 16),
             ]
           : [
               Icon(icon, size: 16),
-              const SizedBox(width: 3),
+              const SizedBox(width: 4),
               Flexible(
                 child: Text(
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ],
     );
-    final style = filled
-        ? FilledButton.styleFrom(
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.surfaceContainerHighest,
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            minimumSize: const Size(0, 32),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          )
-        : OutlinedButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.onSurface,
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            minimumSize: const Size(0, 32),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          );
-    return filled
-        ? FilledButton(onPressed: onPressed, style: style, child: child)
-        : OutlinedButton(onPressed: onPressed, style: style, child: child);
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        foregroundColor: colorScheme.onSurface,
+        disabledBackgroundColor: colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.45,
+        ),
+        disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
+          alpha: 0.55,
+        ),
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        minimumSize: const Size(0, 40),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: child,
+    );
   }
 }
 

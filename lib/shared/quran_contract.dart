@@ -269,9 +269,9 @@ class RecentReadingInput extends VerseRef {
     return {
       'user_id': userId,
       'surah_id': surahId,
-      'last_read_verse': verseId,
+      'verse_id': verseId,
       if (profileId != null) 'profile_id': profileId,
-      if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
+      if (updatedAt != null) 'read_at': updatedAt!.toIso8601String(),
     };
   }
 }

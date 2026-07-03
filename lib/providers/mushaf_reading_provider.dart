@@ -210,8 +210,12 @@ class MushafReadingProvider extends ChangeNotifier {
     if (index == -1) return;
     final profile = _profiles[index];
     final page = _clampInt(pageNumber, profile.startPage, profile.targetPage);
+    final furthestPage = page > profile.furthestUnreadPage
+        ? page
+        : profile.furthestUnreadPage;
     final updated = profile.copyWith(
-      currentPage: page,
+      currentPage: furthestPage,
+      lastViewedPage: page,
       updatedAt: DateTime.now(),
     );
     _profiles[index] = updated;
@@ -221,17 +225,11 @@ class MushafReadingProvider extends ChangeNotifier {
     _syncProfileToSupabase(updated);
   }
 
-  Future<void> updateProfile(
-    String profileId, {
-    required String name,
-  }) async {
+  Future<void> updateProfile(String profileId, {required String name}) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
     if (index == -1) return;
     final profile = _profiles[index];
-    final updated = profile.copyWith(
-      name: name,
-      updatedAt: DateTime.now(),
-    );
+    final updated = profile.copyWith(name: name, updatedAt: DateTime.now());
     _profiles[index] = updated;
     await _save();
     notifyListeners();
@@ -448,6 +446,7 @@ class MushafReadingProvider extends ChangeNotifier {
   }
 
   void _upsertRecentReading(MushafProfile profile) {
+    final page = profile.lastViewedPage;
     _recentReadings.removeWhere(
       (reading) =>
           reading.mushafId == profile.mushafId &&
@@ -455,7 +454,7 @@ class MushafReadingProvider extends ChangeNotifier {
     );
     final recent = MushafRecentReading(
       mushafId: profile.mushafId,
-      pageNumber: profile.currentPage,
+      pageNumber: page,
       profileId: profile.id,
       updatedAt: DateTime.now(),
     );
@@ -466,12 +465,7 @@ class MushafReadingProvider extends ChangeNotifier {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      _debounceRecentReadingSync(
-        user.id,
-        profile.mushafId,
-        profile.currentPage,
-        profile.id,
-      );
+      _debounceRecentReadingSync(user.id, profile.mushafId, page, profile.id);
     }
   }
 
@@ -567,7 +561,11 @@ class MushafReadingProvider extends ChangeNotifier {
                 planMode: dbP['plan_mode'],
                 startPage: dbP['start_page'],
                 targetPage: dbP['target_page'],
-                currentPage: dbP['current_page'],
+                currentPage: dbP['furthest_unread_page'] ?? dbP['current_page'],
+                lastViewedPage:
+                    dbP['last_viewed_page'] ??
+                    dbP['furthest_unread_page'] ??
+                    dbP['current_page'],
                 sortOrder: dbP['sort_order'],
                 isArchived: dbP['is_archived'] ?? false,
                 createdAt:
@@ -600,7 +598,11 @@ class MushafReadingProvider extends ChangeNotifier {
             planMode: dbP['plan_mode'],
             startPage: dbP['start_page'],
             targetPage: dbP['target_page'],
-            currentPage: dbP['current_page'],
+            currentPage: dbP['furthest_unread_page'] ?? dbP['current_page'],
+            lastViewedPage:
+                dbP['last_viewed_page'] ??
+                dbP['furthest_unread_page'] ??
+                dbP['current_page'],
             sortOrder: dbP['sort_order'],
             isArchived: dbP['is_archived'] ?? false,
             createdAt:
@@ -729,15 +731,22 @@ class MushafReadingProvider extends ChangeNotifier {
               item['profile_id'] == localR.profileId,
           orElse: () => null,
         );
-        
+
         if (dbR != null) {
           matchedRecentKeys.add('${localR.mushafId}-${localR.profileId}');
-          final remoteDate = DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
-          
+          final remoteDate =
+              DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+
           if (localR.updatedAt.isAfter(remoteDate)) {
             // Local is newer, keep it and push it
             reconciledRecent.add(localR);
-            _debounceRecentReadingSync(userId, localR.mushafId, localR.pageNumber, localR.profileId);
+            _debounceRecentReadingSync(
+              userId,
+              localR.mushafId,
+              localR.pageNumber,
+              localR.profileId,
+            );
           } else {
             // Remote is newer, keep it
             reconciledRecent.add(
@@ -746,13 +755,18 @@ class MushafReadingProvider extends ChangeNotifier {
                 pageNumber: dbR['page_number'],
                 profileId: dbR['profile_id']?.toString(),
                 updatedAt: remoteDate,
-              )
+              ),
             );
           }
         } else {
           // Local only, keep it and push it
           reconciledRecent.add(localR);
-          _debounceRecentReadingSync(userId, localR.mushafId, localR.pageNumber, localR.profileId);
+          _debounceRecentReadingSync(
+            userId,
+            localR.mushafId,
+            localR.pageNumber,
+            localR.profileId,
+          );
         }
       }
 
@@ -798,6 +812,8 @@ class MushafReadingProvider extends ChangeNotifier {
           'start_page': p.startPage,
           'target_page': p.targetPage,
           'current_page': p.currentPage,
+          'furthest_unread_page': p.furthestUnreadPage,
+          'last_viewed_page': p.lastViewedPage,
           'sort_order': p.sortOrder,
           'is_archived': p.isArchived,
           'updated_at': p.updatedAt.toIso8601String(),

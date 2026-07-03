@@ -744,14 +744,22 @@ class LocalReadingProvider extends ChangeNotifier {
 
         // Fetch remote recent readings
         try {
-          final recentResponse = await client
-              .from('recent_readings')
-              .select('id, surah_id, last_read_verse, updated_at, profile_id')
-              .eq('user_id', userId)
-              .order('updated_at', ascending: false)
-              .limit(20);
-
-          final List<dynamic> dbRecent = recentResponse;
+          List<dynamic> dbRecent;
+          try {
+            dbRecent = await client
+                .from('recent_readings')
+                .select('id, surah_id, verse_id, read_at, profile_id')
+                .eq('user_id', userId)
+                .order('read_at', ascending: false)
+                .limit(20);
+          } catch (_) {
+            dbRecent = await client
+                .from('recent_readings')
+                .select('id, surah_id, last_read_verse, updated_at, profile_id')
+                .eq('user_id', userId)
+                .order('updated_at', ascending: false)
+                .limit(20);
+          }
 
           final otherRecent = _recentReadings
               .where((r) => r.userId != userId)
@@ -774,8 +782,12 @@ class LocalReadingProvider extends ChangeNotifier {
             if (dbR != null) {
               matchedKeys.add('${localR.verse.surahId}-${localR.profileId}');
               final remoteDate =
-                  DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+                  DateTime.tryParse(
+                    (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
+                  ) ??
                   DateTime.fromMillisecondsSinceEpoch(0);
+              final remoteVerseId = (dbR['verse_id'] ?? dbR['last_read_verse'])
+                  .toString();
 
               if (localR.readAt.isAfter(remoteDate)) {
                 // Local is newer, keep it and push it
@@ -791,7 +803,7 @@ class LocalReadingProvider extends ChangeNotifier {
                   LocalRecentReading(
                     id: dbR['id'].toString(),
                     userId: userId,
-                    verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
+                    verse: toVerseRef(dbR['surah_id'], remoteVerseId),
                     profileId: dbR['profile_id']?.toString(),
                     readAt: remoteDate,
                   ),
@@ -811,15 +823,19 @@ class LocalReadingProvider extends ChangeNotifier {
           for (final dbR in dbRecent) {
             final key = '${dbR['surah_id']}-${dbR['profile_id']}';
             if (matchedKeys.contains(key)) continue;
+            final remoteVerseId = (dbR['verse_id'] ?? dbR['last_read_verse'])
+                .toString();
 
             reconciledRecent.add(
               LocalRecentReading(
                 id: dbR['id'].toString(),
                 userId: userId,
-                verse: toVerseRef(dbR['surah_id'], dbR['last_read_verse']),
+                verse: toVerseRef(dbR['surah_id'], remoteVerseId),
                 profileId: dbR['profile_id']?.toString(),
                 readAt:
-                    DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
+                    DateTime.tryParse(
+                      (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
+                    ) ??
                     DateTime.now(),
               ),
             );
@@ -1595,14 +1611,32 @@ class LocalReadingProvider extends ChangeNotifier {
 
       try {
         final client = Supabase.instance.client;
+        final now = DateTime.now().toIso8601String();
         await client.from('recent_readings').upsert({
           'user_id': uId,
           'surah_id': sId,
-          'last_read_verse': vId,
-          'updated_at': DateTime.now().toIso8601String(),
+          'verse_id': vId,
+          'read_at': now,
         }, onConflict: 'user_id,surah_id');
       } catch (e) {
-        debugPrint('Error syncing recent reading to Supabase: $e');
+        if (!e.toString().contains('verse_id') &&
+            !e.toString().contains('read_at')) {
+          debugPrint('Error syncing recent reading to Supabase: $e');
+          return;
+        }
+        try {
+          final client = Supabase.instance.client;
+          await client.from('recent_readings').upsert({
+            'user_id': uId,
+            'surah_id': sId,
+            'last_read_verse': vId,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,surah_id');
+        } catch (fallbackError) {
+          debugPrint(
+            'Error syncing recent reading to Supabase: $fallbackError',
+          );
+        }
       }
     });
   }

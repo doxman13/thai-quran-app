@@ -291,6 +291,7 @@ class MushafProfile {
   final int startPage;
   final int targetPage;
   final int currentPage;
+  final int lastViewedPage;
   final int sortOrder;
   final bool isArchived;
   final DateTime createdAt;
@@ -306,14 +307,16 @@ class MushafProfile {
     required this.startPage,
     required this.targetPage,
     required this.currentPage,
+    int? lastViewedPage,
     required this.sortOrder,
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : lastViewedPage = lastViewedPage ?? currentPage;
 
   bool get isFreeRead => slug == mushafFreeReadSlug;
   bool get isComplete => !isFreeRead && currentPage >= targetPage;
+  int get furthestUnreadPage => currentPage;
 
   MushafProfile copyWith({
     String? id,
@@ -325,6 +328,7 @@ class MushafProfile {
     int? startPage,
     int? targetPage,
     int? currentPage,
+    int? lastViewedPage,
     bool? isArchived,
     DateTime? updatedAt,
   }) {
@@ -338,6 +342,7 @@ class MushafProfile {
       startPage: startPage ?? this.startPage,
       targetPage: targetPage ?? this.targetPage,
       currentPage: currentPage ?? this.currentPage,
+      lastViewedPage: lastViewedPage ?? this.lastViewedPage,
       sortOrder: sortOrder,
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt,
@@ -356,6 +361,8 @@ class MushafProfile {
       'startPage': startPage,
       'targetPage': targetPage,
       'currentPage': currentPage,
+      'furthestUnreadPage': furthestUnreadPage,
+      'lastViewedPage': lastViewedPage,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
       'createdAt': createdAt.toIso8601String(),
@@ -377,7 +384,17 @@ class MushafProfile {
       pageCount,
     );
     final currentPage = _clampInt(
-      int.tryParse(json['currentPage']?.toString() ?? '') ?? startPage,
+      int.tryParse(
+            json['furthestUnreadPage']?.toString() ??
+                json['currentPage']?.toString() ??
+                '',
+          ) ??
+          startPage,
+      startPage,
+      targetPage,
+    );
+    final lastViewedPage = _clampInt(
+      int.tryParse(json['lastViewedPage']?.toString() ?? '') ?? currentPage,
       startPage,
       targetPage,
     );
@@ -392,6 +409,7 @@ class MushafProfile {
       startPage: startPage,
       targetPage: targetPage,
       currentPage: currentPage,
+      lastViewedPage: lastViewedPage,
       sortOrder: int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
       isArchived: json['isArchived'] == true,
       createdAt:

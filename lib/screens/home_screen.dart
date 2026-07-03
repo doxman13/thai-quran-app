@@ -262,10 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _navigateToMushafFreeReadPage(int pageNumber) async {
     final mushafProvider = context.read<MushafReadingProvider>();
     final profile = await mushafProvider.openUnifiedFreeRead();
-    await mushafProvider.updateProgress(
-      profileId: profile.id,
-      pageNumber: pageNumber,
-    );
     if (!mounted) return;
     Navigator.push(
       context,
@@ -274,6 +270,21 @@ class _HomeScreenState extends State<HomeScreen> {
           quranRepository: widget.repository,
           foundationRepository: _foundationRepository,
           profileId: profile.id,
+          initialPage: pageNumber,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToMushafProfile(MushafProfile profile, {int? initialPage}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.repository,
+          foundationRepository: _foundationRepository,
+          profileId: profile.id,
+          initialPage: initialPage,
         ),
       ),
     );
@@ -871,11 +882,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               FilledButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(context.tr('switch_home_tab_create_goal')),
-                    ),
-                  );
+                  _showProfileDialog(context);
                 },
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(context.tr('goal')),
@@ -934,9 +941,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildMushafReadSection(ColorScheme colorScheme, TextTheme textTheme) {
     final mushafReading = Provider.of<MushafReadingProvider>(context);
     final customProfiles = mushafReading.activeCustomProfiles;
-    final freeReadProfile = mushafReading.profiles
-        .where((p) => p.isFreeRead && !p.isArchived)
+    final freeReadProfiles =
+        mushafReading.profiles
+            .where((p) => p.isFreeRead && !p.isArchived)
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final recentFreeRead = mushafReading.recentReadings
+        .map((reading) => mushafReading.profileById(reading.profileId))
+        .whereType<MushafProfile>()
+        .where((profile) => profile.isFreeRead && !profile.isArchived)
         .firstOrNull;
+    final freeReadProfile = recentFreeRead ?? freeReadProfiles.firstOrNull;
 
     final allItems = [
       ...customProfiles,
@@ -962,11 +977,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               FilledButton.icon(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(context.tr('switch_home_tab_create_goal')),
-                    ),
-                  );
+                  _showCreateMushafGoalDialog();
                 },
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(context.tr('goal')),
@@ -995,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 275,
+          height: 328,
           child: ListView.builder(
             controller: _mushafCardsScrollController,
             scrollDirection: Axis.horizontal,
@@ -1004,7 +1015,10 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final item = allItems[index];
               if (item == 'add_goal') {
-                return _buildAddGoalCard(colorScheme);
+                return _buildAddGoalCard(
+                  colorScheme,
+                  onTap: _showCreateMushafGoalDialog,
+                );
               }
               if (item == 'guest_read') {
                 return _buildMushafGuestCard(colorScheme, index);
@@ -1150,6 +1164,29 @@ class _HomeScreenState extends State<HomeScreen> {
             startAyah = _clampAyah(startAyah, startAyahCount);
             endAyah = _clampAyah(endAyah, endAyahCount);
 
+            // Pre-compute translations to avoid context capture in DropdownOverlay
+            final trGoalName = context.tr('goal_name');
+            final trPlanType = context.tr('plan_type');
+            final trJuzMode = context.tr('juz_mode');
+            final trAyahMode = context.tr('ayah_mode');
+            final trSurahMode = context.tr('surah_mode');
+            final trCustomMode = context.tr('custom_mode');
+            final trStartJuz = context.tr('start_juz');
+            final trTargetJuz = context.tr('target_juz');
+            final trStartSurah = context.tr('start_surah');
+            final trTargetSurah = context.tr('target_surah');
+            final trStartAyah = context.tr('start_ayah');
+            final trTargetAyah = context.tr('target_ayah');
+            final trResetProgress = context.tr('reset_progress');
+            final trGoalProgressReset = context.tr('goal_progress_reset');
+            final trCancel = context.tr('cancel');
+            final trCreate = context.tr('create');
+            final trSave = context.tr('save');
+            final trEnterGoalName = context.tr('enter_goal_name');
+            final trEndMustBeAfterStart = context.tr('end_must_be_after_start');
+            final trCreateGoal = context.tr('create_goal');
+            final trEditGoal = context.tr('edit_goal');
+
             return AlertDialog(
               backgroundColor: colors.surface,
               shape: RoundedRectangleBorder(
@@ -1157,9 +1194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 side: BorderSide(color: colors.borderSoft),
               ),
               title: Text(
-                profile == null
-                    ? context.tr('create_goal')
-                    : context.tr('edit_goal'),
+                profile == null ? trCreateGoal : trEditGoal,
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800,
                   color: colors.textStrong,
@@ -1173,32 +1208,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     TextField(
                       controller: nameController,
                       decoration: InputDecoration(
-                        labelText: context.tr('goal_name'),
+                        labelText: trGoalName,
                         hintText: 'e.g. Ramadan 2026',
                       ),
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: planMode,
-                      decoration: InputDecoration(
-                        labelText: context.tr('plan_type'),
-                      ),
+                      decoration: InputDecoration(labelText: trPlanType),
                       items: [
                         DropdownMenuItem(
                           value: 'by_juz',
-                          child: Text(context.tr('juz_mode')),
+                          child: Text(trJuzMode),
                         ),
                         DropdownMenuItem(
                           value: 'by_ayat',
-                          child: Text(context.tr('ayah_mode')),
+                          child: Text(trAyahMode),
                         ),
                         DropdownMenuItem(
                           value: 'by_surah',
-                          child: Text(context.tr('surah_mode')),
+                          child: Text(trSurahMode),
                         ),
                         DropdownMenuItem(
                           value: 'custom',
-                          child: Text(context.tr('custom_mode')),
+                          child: Text(trCustomMode),
                         ),
                       ],
                       onChanged: (value) {
@@ -1212,7 +1245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Expanded(
                             child: _numberDropdown(
-                              label: context.tr('start_juz'),
+                              label: trStartJuz,
                               value: startJuz,
                               max: 30,
                               onChanged: (value) {
@@ -1226,7 +1259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _numberDropdown(
-                              label: context.tr('target_juz'),
+                              label: trTargetJuz,
                               value: endJuz,
                               min: startJuz,
                               max: 30,
@@ -1238,7 +1271,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     else ...[
                       _surahDropdown(
-                        label: context.tr('start_surah'),
+                        label: trStartSurah,
                         value: startSurah,
                         onChanged: (value) {
                           setDialogState(() {
@@ -1250,7 +1283,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       _surahDropdown(
-                        label: context.tr('target_surah'),
+                        label: trTargetSurah,
                         value: endSurah,
                         min: int.parse(startSurah),
                         onChanged: (value) =>
@@ -1261,7 +1294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Expanded(
                             child: _ayahDropdown(
-                              label: context.tr('start_ayah'),
+                              label: trStartAyah,
                               value: planMode == 'by_surah' ? '1' : startAyah,
                               max: startAyahCount,
                               enabled: planMode != 'by_surah',
@@ -1272,7 +1305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _ayahDropdown(
-                              label: context.tr('target_ayah'),
+                              label: trTargetAyah,
                               value: planMode == 'by_surah'
                                   ? endAyahCount.toString()
                                   : endAyah,
@@ -1289,7 +1322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         icon: const Icon(Icons.restart_alt),
-                        label: Text(context.tr('reset_progress')),
+                        label: Text(trResetProgress),
                         onPressed: () {
                           Navigator.pop(dialogContext);
                           provider.updateProfileProgress(
@@ -1297,9 +1330,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             profile.start,
                           );
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(context.tr('goal_progress_reset')),
-                            ),
+                            SnackBar(content: Text(trGoalProgressReset)),
                           );
                         },
                       ),
@@ -1321,15 +1352,13 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(context.tr('cancel')),
+                  child: Text(trCancel),
                 ),
                 FilledButton(
                   onPressed: () {
                     final name = nameController.text.trim();
                     if (name.isEmpty) {
-                      setDialogState(
-                        () => error = context.tr('enter_goal_name'),
-                      );
+                      setDialogState(() => error = trEnterGoalName);
                       return;
                     }
 
@@ -1352,9 +1381,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     if (_verseOrdinal(target.surahId, target.verseId) <
                         _verseOrdinal(start.surahId, start.verseId)) {
-                      setDialogState(
-                        () => error = context.tr('end_must_be_after_start'),
-                      );
+                      setDialogState(() => error = trEndMustBeAfterStart);
                       return;
                     }
 
@@ -1382,9 +1409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }
                   },
-                  child: Text(
-                    profile == null ? context.tr('create') : context.tr('save'),
-                  ),
+                  child: Text(profile == null ? trCreate : trSave),
                 ),
               ],
             );
@@ -1861,6 +1886,12 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     bool isFreeRead = profile.isFreeRead;
     double? progressPercent;
+    final displayPage = isFreeRead
+        ? profile.lastViewedPage
+        : profile.currentPage;
+    final continuePage = isFreeRead
+        ? profile.lastViewedPage
+        : profile.furthestUnreadPage;
 
     if (!isFreeRead) {
       final start = profile.startPage;
@@ -1877,7 +1908,7 @@ class _HomeScreenState extends State<HomeScreen> {
       colorScheme: colorScheme,
       isFreeRead: isFreeRead,
       profileName: profile.name,
-      page: profile.currentPage,
+      page: displayPage,
       imageIndex: index,
       progressPercent: progressPercent,
       onDelete: isFreeRead
@@ -1912,7 +1943,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               }
             },
-      onContinue: () => _navigateToMushafFreeReadPage(profile.currentPage),
+      onContinue: () =>
+          _navigateToMushafProfile(profile, initialPage: continuePage),
+      onJumpBack: (!isFreeRead && profile.lastViewedPage < profile.currentPage)
+          ? () => _navigateToMushafProfile(
+              profile,
+              initialPage: profile.lastViewedPage,
+            )
+          : null,
+      lastViewedPage: profile.lastViewedPage,
       onEdit: isFreeRead ? null : () => _showEditMushafGoalDialog(profile),
     );
   }
@@ -1976,6 +2015,152 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _showCreateMushafGoalDialog() async {
+    final provider = context.read<MushafReadingProvider>();
+    final nameController = TextEditingController();
+    final pageCount = mushafTypeById(provider.displayMushafId).pageCount;
+    var startPage = 1;
+    var targetPage = pageCount;
+    var isSaving = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final colorScheme = Theme.of(context).colorScheme;
+            return AlertDialog(
+              backgroundColor: colorScheme.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              title: Text(context.tr('create_goal')),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: context.tr('goal_name'),
+                        hintText: 'e.g. Mushaf goal',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _numberDropdown(
+                            label: context.tr('start_page'),
+                            value: startPage,
+                            max: pageCount,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                startPage = value;
+                                error = null;
+                                if (targetPage < startPage) {
+                                  targetPage = startPage;
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _numberDropdown(
+                            label: context.tr('target_page'),
+                            value: targetPage,
+                            min: startPage,
+                            max: pageCount,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                targetPage = value;
+                                error = null;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.errorContainer,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          error!,
+                          style: GoogleFonts.inter(
+                            color: colorScheme.onErrorContainer,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text(context.tr('cancel')),
+                ),
+                FilledButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          if (name.isEmpty) {
+                            setDialogState(() {
+                              error = context.tr('enter_goal_name');
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            isSaving = true;
+                            error = null;
+                          });
+                          try {
+                            await provider.createPageRangeProfile(
+                              name: name,
+                              mushafId: provider.displayMushafId,
+                              startPage: startPage,
+                              targetPage: targetPage,
+                              planMode: 'page_range',
+                            );
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                          } catch (e) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() {
+                              isSaving = false;
+                              error = e.toString();
+                            });
+                          }
+                        },
+                  child: Text(
+                    isSaving ? context.tr('saving') : context.tr('create'),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameController.dispose();
+  }
+
   Widget _buildMushafGuestCard(ColorScheme colorScheme, int index) {
     return _buildMushafCardLayout(
       colorScheme: colorScheme,
@@ -1994,16 +2179,19 @@ class _HomeScreenState extends State<HomeScreen> {
     required int page,
     required int imageIndex,
     required VoidCallback onContinue,
+    VoidCallback? onJumpBack,
     VoidCallback? onDelete,
     VoidCallback? onEdit,
     double? progressPercent,
+    int? lastViewedPage,
   }) {
+    final bool isReviewing = onJumpBack != null && lastViewedPage != null;
     final textColor = Colors.white;
     // Offset image for Mushaf Read so it looks different (e.g., 5, 1, 2, 3, 4)
     final imageNumber = ((imageIndex + 4) % 5) + 1;
 
     return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
+      width: MediaQuery.of(context).size.width * 0.90,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -2216,7 +2404,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          context.tr('continue_reading'),
+                          context.tr(
+                            isReviewing
+                                ? 'resume_progress'
+                                : 'continue_reading',
+                          ),
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
@@ -2228,6 +2420,52 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                if (isReviewing) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: textColor.withValues(alpha: 0.18),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${context.tr('last_viewed')}: ${context.tr('page')} $lastViewedPage',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              color: textColor.withValues(alpha: 0.72),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: onJumpBack,
+                          style: TextButton.styleFrom(
+                            foregroundColor: textColor.withValues(alpha: 0.82),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            context.tr('jump_back'),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -2236,7 +2474,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAddGoalCard(ColorScheme colorScheme) {
+  Widget _buildAddGoalCard(ColorScheme colorScheme, {VoidCallback? onTap}) {
     return Container(
       width: MediaQuery.of(context).size.width * 0.85,
       margin: const EdgeInsets.only(right: 16),
@@ -2246,7 +2484,7 @@ class _HomeScreenState extends State<HomeScreen> {
         border: Border.all(color: colorScheme.outline, width: 2),
       ),
       child: InkWell(
-        onTap: () => _showProfileDialog(context),
+        onTap: onTap ?? () => _showProfileDialog(context),
         borderRadius: BorderRadius.circular(AppTheme.radius * 1.2),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

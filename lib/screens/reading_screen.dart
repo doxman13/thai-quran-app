@@ -1224,99 +1224,85 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                   return Row(
                     children: [
-                      IconButton.filledTonal(
-                        onPressed: hasPrev
-                            ? () {
-                                progressProv.setVerseIndexAndScroll(
-                                  currentIndex - 1,
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.chevron_left_rounded),
-                        tooltip: 'Previous ayah',
-                        style: IconButton.styleFrom(
-                          foregroundColor: primaryColor,
-                          disabledForegroundColor: colors.foreground
-                              .withOpacity(0.35),
-                          backgroundColor: colors.primaryLight,
-                          disabledBackgroundColor: colors.surfaceMuted,
-                        ),
-                      ),
                       Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: colors.textInverse,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              elevation: 0,
-                            ),
-                            onPressed: () async {
-                              final progressProfile = _progressProfile(
-                                localReading,
-                              );
-                              final currentIndex = progressProv.lastVerseIndex;
-                              if (progressProfile != null &&
-                                  currentIndex >= 0 &&
-                                  currentIndex < verses.length) {
-                                final currentVerse = verses[currentIndex];
-                                final verseRef = toVerseRef(
-                                  currentVerse.surahId,
-                                  currentVerse.id,
-                                );
-
-                                await localReading.updateProfileProgress(
-                                  progressProfile.id,
-                                  verseRef,
-                                  context: context,
-                                );
-                                await localReading.addRecentReading(
-                                  verse: verseRef,
-                                  profileId: progressProfile.id,
-                                );
-                              }
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                              }
-                            },
-                            icon: const Icon(
-                              Icons.pause_circle_outline_rounded,
-                              size: 18,
-                            ),
-                            label: Text(
-                              'Take a break',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                        flex: 2,
+                        child: _VerseReaderActionButton(
+                          icon: Icons.keyboard_arrow_down_rounded,
+                          label: context.tr('previous_ayah'),
+                          compact: true,
+                          onPressed: hasPrev
+                              ? () {
+                                  progressProv.setVerseIndexAndScroll(
+                                    currentIndex - 1,
+                                  );
+                                }
+                              : null,
+                          backgroundColor: colors.primaryLight,
+                          foregroundColor: primaryColor,
+                          disabledBackgroundColor: colors.surfaceMuted,
+                          disabledForegroundColor: colors.foreground.withValues(
+                            alpha: 0.35,
                           ),
                         ),
                       ),
-                      IconButton.filledTonal(
-                        onPressed: hasNext
-                            ? () {
-                                progressProv.setVerseIndexAndScroll(
-                                  currentIndex + 1,
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.chevron_right_rounded),
-                        tooltip: 'Next ayah',
-                        style: IconButton.styleFrom(
-                          foregroundColor: primaryColor,
-                          disabledForegroundColor: colors.foreground
-                              .withOpacity(0.35),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 5,
+                        child: _VerseReaderActionButton(
+                          icon: Icons.save_outlined,
+                          label: context.tr('save_progress'),
+                          onPressed: () async {
+                            final progressProfile = _progressProfile(
+                              localReading,
+                            );
+                            final currentIndex = progressProv.lastVerseIndex;
+                            if (progressProfile != null &&
+                                currentIndex >= 0 &&
+                                currentIndex < verses.length) {
+                              final currentVerse = verses[currentIndex];
+                              final verseRef = toVerseRef(
+                                currentVerse.surahId,
+                                currentVerse.id,
+                              );
+
+                              await localReading.updateProfileProgress(
+                                progressProfile.id,
+                                verseRef,
+                                context: context,
+                              );
+                              await localReading.addRecentReading(
+                                verse: verseRef,
+                                profileId: progressProfile.id,
+                              );
+                            }
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          backgroundColor: primaryColor,
+                          foregroundColor: colors.textInverse,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: _VerseReaderActionButton(
+                          icon: Icons.keyboard_arrow_up_rounded,
+                          label: context.tr('next_ayah'),
+                          compact: true,
+                          onPressed: hasNext
+                              ? () {
+                                  progressProv.setVerseIndexAndScroll(
+                                    currentIndex + 1,
+                                  );
+                                }
+                              : null,
                           backgroundColor: colors.primaryLight,
+                          foregroundColor: primaryColor,
                           disabledBackgroundColor: colors.surfaceMuted,
+                          disabledForegroundColor: colors.foreground.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
                       ),
                     ],
@@ -1479,6 +1465,59 @@ class _ReadingScreenState extends State<ReadingScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VerseReaderActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color? disabledBackgroundColor;
+  final Color? disabledForegroundColor;
+  final bool compact;
+
+  const _VerseReaderActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.disabledBackgroundColor,
+    this.disabledForegroundColor,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconSize = compact ? 16.0 : 18.0;
+    final fontSize = compact ? 10.0 : 11.0;
+    return FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        disabledBackgroundColor: disabledBackgroundColor,
+        disabledForegroundColor: disabledForegroundColor,
+        elevation: 0,
+        minimumSize: const Size(0, 44),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: Icon(icon, size: iconSize),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.inter(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

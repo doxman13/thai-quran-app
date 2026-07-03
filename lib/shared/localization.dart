@@ -39,7 +39,11 @@ const Map<String, Map<String, String>> _localizedValues = {
     'just_read': 'อ่านเลย',
     'continue_reading': 'อ่านต่อ',
     'resume_progress': 'อ่านต่อเป้าหมาย',
+    'save_progress': 'บันทึกความคืบหน้า',
+    'next_ayah': 'เลื่อนขึ้น',
+    'previous_ayah': 'เลื่อนลง',
     'next_unread_verse': 'อายะฮ์ถัดไป',
+    'next_unread_page': 'หน้าถัดไป',
     'last_viewed': 'ดูล่าสุด',
     'jump_back': 'กลับไปดู',
     'select_reading_mode': 'เลือกรูปแบบการอ่าน',
@@ -104,11 +108,14 @@ const Map<String, Map<String, String>> _localizedValues = {
     'translation': 'บทแปล',
     'reset': 'รีเซ็ต',
     'save': 'บันทึก',
+    'saving': 'กำลังบันทึก...',
     'cancel': 'ยกเลิก',
     'search_hint': 'ค้นหา สูเราะฮ์, ยุซ, หน้า, หรือคำแปล...',
     'no_results': 'ไม่พบผลลัพธ์การค้นหา',
     'juz': 'ยุซ',
     'page': 'หน้า',
+    'start_page': 'หน้าเริ่มต้น',
+    'target_page': 'หน้าสิ้นสุด',
     'surah': 'สูเราะฮ์',
     'ayah': 'อายะฮ์',
     'ayah_matches': 'ผลลัพธ์อายะห์',
@@ -241,7 +248,11 @@ const Map<String, Map<String, String>> _localizedValues = {
     'just_read': 'Just Read',
     'continue_reading': 'Continue Reading',
     'resume_progress': 'Resume Progress',
+    'save_progress': 'Save Progress',
+    'next_ayah': 'Up',
+    'previous_ayah': 'Down',
     'next_unread_verse': 'Next Unread Verse',
+    'next_unread_page': 'Next Unread Page',
     'last_viewed': 'Last viewed',
     'jump_back': 'Jump Back',
     'select_reading_mode': 'Select Reading Mode',
@@ -306,11 +317,14 @@ const Map<String, Map<String, String>> _localizedValues = {
     'translation': 'Translation',
     'reset': 'Reset',
     'save': 'Save',
+    'saving': 'Saving...',
     'cancel': 'Cancel',
     'search_hint': 'Search Surah, Juz, Page, Meaning...',
     'no_results': 'No results found',
     'juz': 'Juz',
     'page': 'Page',
+    'start_page': 'Start page',
+    'target_page': 'Target page',
     'surah': 'Surah',
     'ayah': 'Ayah',
     'ayah_matches': 'Ayah matches',
@@ -411,7 +425,7 @@ const Map<String, Map<String, String>> _localizedValues = {
 
 extension LocalizationExtension on BuildContext {
   String tr(String key, {Map<String, String>? args}) {
-    final settings = Provider.of<SettingsProvider>(this);
+    final settings = Provider.of<SettingsProvider>(this, listen: false);
     final lang = settings.languageCode;
     var value =
         _localizedValues[lang]?[key] ?? _localizedValues['en']?[key] ?? key;

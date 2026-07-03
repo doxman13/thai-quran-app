@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/progress_provider.dart';
@@ -13,6 +12,7 @@ import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import '../models/mushaf_models.dart';
 import 'settings_screen.dart';
+import 'reading_screen.dart';
 import '../shared/shared.dart';
 
 class BookmarksScreen extends StatefulWidget {
@@ -27,22 +27,42 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
 
+  void _openReading({
+    required String surahId,
+    String? verseId,
+    int? verseIndex,
+    bool saveToFreeReadOnly = false,
+  }) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReadingScreen(
+          repository: widget.repository,
+          initialSurah: surahId,
+          initialVerseId: verseId,
+          initialVerseIndex:
+              verseIndex ?? ((int.tryParse(verseId ?? '1') ?? 1) - 1),
+          saveToFreeReadOnly: saveToFreeReadOnly,
+        ),
+      ),
+    );
+  }
+
   void _openMushaf(String? profileId, int mushafId, {int? pageNumber}) async {
     final provider = context.read<MushafReadingProvider>();
     String targetProfileId = profileId ?? '';
 
-    if (targetProfileId.isEmpty || targetProfileId.startsWith('free-read')) {
+    final isFreeReadId =
+        targetProfileId.startsWith('free-read') ||
+        targetProfileId.startsWith('mushaf-free');
+    if (targetProfileId.isEmpty || isFreeReadId) {
       final profile = await provider.openFreeRead(mushafId);
       targetProfileId = profile.id;
-    } else {
+    } else if (provider.profileById(targetProfileId) != null) {
       await provider.setActiveProfile(targetProfileId);
-    }
-
-    if (pageNumber != null) {
-      await provider.updateProgress(
-        profileId: targetProfileId,
-        pageNumber: pageNumber,
-      );
+    } else {
+      final profile = await provider.openFreeRead(mushafId);
+      targetProfileId = profile.id;
     }
 
     if (!mounted) return;
@@ -53,6 +73,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           quranRepository: widget.repository,
           foundationRepository: _foundationRepository,
           profileId: targetProfileId,
+          initialPage: pageNumber,
         ),
       ),
     );
@@ -61,9 +82,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   void _handleMushafRecentTap(
     MushafRecentReading reading,
     MushafReadingProvider provider,
-    bool matchesGoal,
   ) {
-    if (matchesGoal && reading.profileId != null) {
+    if (reading.profileId != null &&
+        provider.profileById(reading.profileId!) != null) {
       _openMushaf(
         reading.profileId,
         reading.mushafId,
@@ -77,33 +98,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   void _handleVerseRecentTap(
     dynamic reading,
     LocalReadingProvider provider,
-    bool matchesGoal,
-  ) {
-    final surahId = reading is Map ? reading['surahId'] : reading.verse.surahId;
+  ) async {
+    final surahId =
+        (reading is Map ? reading['surahId'] : reading.verse.surahId)
+            ?.toString();
     final verseId = reading is Map
         ? reading['verseId']?.toString()
         : reading.verse.verseId;
     final profileId = reading is Map ? null : reading.profileId;
     final verseIndex = reading is Map ? reading['verseIndex'] : null;
+    if (surahId == null || surahId.isEmpty) return;
 
-    if (matchesGoal && profileId != null && profileId.isNotEmpty) {
-      provider.setActiveProfile(profileId).then((_) {
-        if (!mounted) return;
-        Navigator.pop(context, {
-          'surahId': surahId,
-          'verseId': verseId,
-          'verseIndex': verseIndex,
-          'useActiveProfile': true,
-        });
-      });
+    final hasProfile =
+        profileId != null &&
+        profileId.isNotEmpty &&
+        provider.profiles.any((profile) => profile.id == profileId);
+    if (hasProfile) {
+      await provider.setActiveProfile(profileId);
+      if (!mounted) return;
+      _openReading(surahId: surahId, verseId: verseId, verseIndex: verseIndex);
       return;
     }
 
-    Navigator.pop(context, {
-      'surahId': surahId,
-      'verseId': verseId,
-      'verseIndex': verseIndex,
-    });
+    _openReading(
+      surahId: surahId,
+      verseId: verseId,
+      verseIndex: verseIndex,
+      saveToFreeReadOnly: true,
+    );
   }
 
   void _showSeeMoreDialog(
@@ -380,7 +402,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   @override
   Widget build(BuildContext context) {
     final progress = Provider.of<ProgressProvider>(context);
-    final settings = Provider.of<SettingsProvider>(context);
     final localReading = Provider.of<LocalReadingProvider>(context);
     final mushafReading = Provider.of<MushafReadingProvider>(context);
     final colorScheme = Theme.of(context).colorScheme;
@@ -391,14 +412,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         icon: Icons.history,
         title: widget.repository.getSurahName(progress.currentSurahId),
         subtitle: 'อายะฮฺที่: ${progress.lastVerseIndex}',
-        onTap: () => _handleVerseRecentTap(
-          {
-            'surahId': progress.currentSurahId,
-            'verseIndex': progress.lastVerseIndex,
-          },
-          localReading,
-          false,
-        ),
+        onTap: () => _handleVerseRecentTap({
+          'surahId': progress.currentSurahId,
+          'verseIndex': progress.lastVerseIndex,
+        }, localReading),
       ),
     ];
 
@@ -410,13 +427,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     .where((p) => p.id == reading.profileId)
                     .firstOrNull
               : null;
-          bool matchesGoal = false;
-          if (profile != null) {
-            matchesGoal =
-                (profile.current.surahId == reading.verse.surahId &&
-                profile.current.verseId == reading.verse.verseId);
-          }
-
           return _buildVerseItem(
             colorScheme,
             icon: Icons.history,
@@ -427,9 +437,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                 'number': '${reading.verse.surahId}:${reading.verse.verseId}',
               },
             ),
-            badgeText: matchesGoal ? profile?.name : null,
-            onTap: () =>
-                _handleVerseRecentTap(reading, localReading, matchesGoal),
+            badgeText: profile?.name,
+            onTap: () => _handleVerseRecentTap(reading, localReading),
           );
         }),
       );
@@ -444,19 +453,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           ? mushafReading.profileById(reading.profileId!)
           : null;
 
-      bool matchesGoal = false;
-      if (profile != null && profile.currentPage == reading.pageNumber) {
-        matchesGoal = true;
-      }
-
       return _buildVerseItem(
         colorScheme,
         icon: Icons.import_contacts,
         title: 'Mushaf (${context.tr('page')} ${reading.pageNumber})',
         subtitle: surahName,
-        badgeText: matchesGoal ? profile?.name : null,
-        onTap: () =>
-            _handleMushafRecentTap(reading, mushafReading, matchesGoal),
+        badgeText: profile?.name,
+        onTap: () => _handleMushafRecentTap(reading, mushafReading),
       );
     }).toList();
 
@@ -470,12 +473,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             '${widget.repository.getSurahName(rawSurahId)}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
         subtitle:
             '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
-        onTap: () {
-          Navigator.pop(context, {
-            'surahId': rawSurahId,
-            'verseId': rawVerseId,
-          });
-        },
+        onTap: () => _openReading(
+          surahId: rawSurahId,
+          verseId: rawVerseId,
+          saveToFreeReadOnly: true,
+        ),
         trailing: IconButton(
           icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 24),
           onPressed: () => localReading.removeBookmark(bookmark.id),

@@ -53,6 +53,7 @@ class _VerseCardState extends State<VerseCard> {
   bool _isSavingAudit = false;
   bool _auditSaved = false;
   String _shareStatus = '';
+  String? _lastTrackedVerseKey;
 
   @override
   void initState() {
@@ -294,12 +295,13 @@ class _VerseCardState extends State<VerseCard> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final progress = Provider.of<ProgressProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isHighlighted = widget.index == progress.lastVerseIndex;
+    final isHighlighted = context.select<ProgressProvider, bool>(
+      (progress) => widget.index == progress.lastVerseIndex,
+    );
     final colors = settings.getAppColors();
     final themeColor = settings.getPrimaryColor();
     final highlightColor = settings.getHighlightColor();
@@ -307,12 +309,16 @@ class _VerseCardState extends State<VerseCard> {
     final arabicTextColor = isDark
         ? const Color(0xFFD7E0EA)
         : const Color(0xFF334155);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final showArabicText = settings.showArabicText;
 
-    if (isHighlighted) {
+    final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
+    if (isHighlighted && _lastTrackedVerseKey != verseRef.verseKey) {
+      _lastTrackedVerseKey = verseRef.verseKey;
       // Log reading stat
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         statsProv.logVerseRead(widget.verse.surahId, widget.verse.id);
         final localReading = Provider.of<LocalReadingProvider>(
           context,
@@ -323,7 +329,6 @@ class _VerseCardState extends State<VerseCard> {
                   ? null
                   : localReading.profileById(widget.progressProfileId!))
             : localReading.activeProfile;
-        final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
         if (progressProfile != null &&
             progressProfile.current.verseKey != verseRef.verseKey) {
           localReading.updateProfileProgress(
@@ -366,7 +371,7 @@ class _VerseCardState extends State<VerseCard> {
     return GestureDetector(
       onTap: () {
         if (!isHighlighted) {
-          progress.setVerseIndexAndScroll(widget.index);
+          context.read<ProgressProvider>().setVerseIndexAndScroll(widget.index);
         } else {
           setState(() {
             _isMenuVisible = !_isMenuVisible;
@@ -388,10 +393,10 @@ class _VerseCardState extends State<VerseCard> {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant,
+                    color: colorScheme.outlineVariant,
                     width: 1,
                   ),
                 ),
@@ -402,16 +407,31 @@ class _VerseCardState extends State<VerseCard> {
             Positioned.fill(
               child: AnimatedOpacity(
                 opacity: isHighlighted ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 350),
+                duration: const Duration(milliseconds: 180),
                 curve: Curves.easeInOut,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.08),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.34),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                      width: 1.5,
+                      color: colorScheme.primary.withValues(alpha: 0.72),
+                      width: 2,
                     ),
+                  ),
+                ),
+              ),
+            ),
+            PositionedDirectional(
+              top: 14,
+              bottom: 14,
+              start: 0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: isHighlighted ? 5 : 0,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: const BorderRadiusDirectional.horizontal(
+                    end: Radius.circular(999),
                   ),
                 ),
               ),
@@ -433,7 +453,9 @@ class _VerseCardState extends State<VerseCard> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: isHighlighted
+                              ? colorScheme.primary
+                              : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -442,11 +464,21 @@ class _VerseCardState extends State<VerseCard> {
                             Text(
                               'Verse ${widget.verse.id}',
                               style: GoogleFonts.notoSansThai(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                color: isHighlighted
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
                             ),
+                            if (isHighlighted) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.radio_button_checked_rounded,
+                                size: 12,
+                                color: colorScheme.onPrimary,
+                              ),
+                            ],
                             if (isFavorited) ...[
                               const SizedBox(width: 6),
                               Icon(
@@ -518,27 +550,25 @@ class _VerseCardState extends State<VerseCard> {
                   if (settings.showTranslationText) ...[
                     if (settings.primaryTranslationId.isNotEmpty)
                       _buildDynamicTranslation(
-                        context, 
-                        settings.primaryTranslationId, 
-                        settings, 
-                        isDark, 
-                        bodyTextColor, 
+                        context,
+                        settings.primaryTranslationId,
+                        settings,
+                        isDark,
+                        bodyTextColor,
                         thaiTextProtection,
                         isPrimary: true,
                       ),
                     if (settings.secondaryTranslationId != null)
                       _buildDynamicTranslation(
-                        context, 
-                        settings.secondaryTranslationId!, 
-                        settings, 
-                        isDark, 
-                        bodyTextColor, 
+                        context,
+                        settings.secondaryTranslationId!,
+                        settings,
+                        isDark,
+                        bodyTextColor,
                         thaiTextProtection,
                         isPrimary: false,
                       ),
                   ],
-
-
 
                   // Action buttons
                   if (_isMenuVisible) ...[
@@ -802,7 +832,9 @@ class _VerseCardState extends State<VerseCard> {
                                         _auditSaved
                                             ? 'Saved ✓'
                                             : 'Submit Audit',
-                                        style: GoogleFonts.notoSansThai(fontSize: 12),
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 12,
+                                        ),
                                       ),
                               ),
                             ],
@@ -826,9 +858,9 @@ class _VerseCardState extends State<VerseCard> {
     SettingsProvider settings,
     bool isDark,
     Color bodyTextColor,
-    ThaiTextProtectionProvider thaiTextProtection,
-    {required bool isPrimary}
-  ) {
+    ThaiTextProtectionProvider thaiTextProtection, {
+    required bool isPrimary,
+  }) {
     String label = '';
     String text = '';
     Locale? locale;
@@ -852,8 +884,11 @@ class _VerseCardState extends State<VerseCard> {
         orElse: () => <String, dynamic>{},
       );
       label = tInfo['name'] as String? ?? 'Downloaded';
-      
-      final customText = transManager.getVerseTranslation(idInt, widget.verse.verseKey);
+
+      final customText = transManager.getVerseTranslation(
+        idInt,
+        widget.verse.verseKey,
+      );
       text = customText ?? 'Loading translation...';
       if (tInfo['language'] == 'Thai') {
         locale = const Locale('th', 'TH');
