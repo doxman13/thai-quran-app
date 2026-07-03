@@ -10,42 +10,75 @@ import '../shared/shared.dart';
 class WelcomeScreen extends StatefulWidget {
   final QuranRepository repository;
 
-  const WelcomeScreen({Key? key, required this.repository}) : super(key: key);
+  const WelcomeScreen({super.key, required this.repository});
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  Timer? _timeoutTimer;
+  static const _minimumWelcomeDuration = Duration(milliseconds: 4200);
+
+  Timer? _fallbackTimer;
   bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
-    _timeoutTimer = Timer(const Duration(seconds: 3), () {
-      _completeWelcome();
-    });
+    _prepareHome();
   }
 
   @override
   void dispose() {
-    _timeoutTimer?.cancel();
+    _fallbackTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _completeWelcome() async {
+  Future<void> _prepareHome() async {
+    _fallbackTimer = Timer(const Duration(seconds: 8), () {
+      _completeWelcome(repositoryReady: false);
+    });
+
+    var repositoryReady = false;
+    await Future.wait([
+      Future<void>.delayed(_minimumWelcomeDuration),
+      widget.repository
+          .init()
+          .then((_) {
+            repositoryReady = true;
+          })
+          .catchError((_) {
+            repositoryReady = false;
+          }),
+    ]);
+
+    await _completeWelcome(repositoryReady: repositoryReady);
+  }
+
+  Future<void> _completeWelcome({required bool repositoryReady}) async {
     if (_navigated) return;
     _navigated = true;
-    _timeoutTimer?.cancel();
+    _fallbackTimer?.cancel();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('has_seen_welcome', true);
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(repository: widget.repository),
+        PageRouteBuilder<void>(
+          transitionDuration: const Duration(milliseconds: 520),
+          reverseTransitionDuration: const Duration(milliseconds: 320),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                ),
+                child: HomeScreen(
+                  repository: widget.repository,
+                  repositoryReady: repositoryReady,
+                ),
+              ),
         ),
       );
     }
@@ -88,7 +121,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: primaryColor.withOpacity(0.08),
+                color: primaryColor.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -100,7 +133,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accentColor.withOpacity(0.08),
+                color: accentColor.withValues(alpha: 0.08),
               ),
             ),
           ),

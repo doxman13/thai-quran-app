@@ -451,7 +451,7 @@ class LocalRecentReading {
   }
 }
 
-class LocalReadingProvider extends ChangeNotifier {
+class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const _storageKey = 'thai_quran_local_reading_store_v1';
   static const _localUserId = 'local';
 
@@ -466,9 +466,12 @@ class LocalReadingProvider extends ChangeNotifier {
   StreamSubscription<AuthState>? _authSubscription;
   Timer? _saveTimer;
   Timer? _recentReadingSyncTimer;
+  Timer? _profileSyncTimer;
   String? _pendingSyncSurahId;
   String? _pendingSyncVerseId;
   String? _pendingSyncUserId;
+  bool _isFlushingProfileSync = false;
+  final Map<String, LocalReadingProfile> _pendingProfileSyncs = {};
 
   Timer? _readingStateSyncTimer;
   int? _pendingReadingStateVerseIndex;
@@ -604,8 +607,20 @@ class LocalReadingProvider extends ChangeNotifier {
   }
 
   LocalReadingProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _listenToAuthChanges();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _profileSyncTimer?.cancel();
+      _profileSyncTimer = null;
+      unawaited(flushPendingProfileSyncs());
+    }
   }
 
   void _listenToAuthChanges() {
@@ -655,8 +670,11 @@ class LocalReadingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _recentReadingSyncTimer?.cancel();
+    _profileSyncTimer?.cancel();
+    unawaited(flushPendingProfileSyncs());
     _readingStateSyncTimer?.cancel();
     if (_saveTimer != null) {
       _saveTimer!.cancel();
@@ -1125,7 +1143,74 @@ class LocalReadingProvider extends ChangeNotifier {
         }
       } catch (e) {
         debugPrint('Error syncing profile to Supabase: $e');
+        rethrow;
       }
+    }
+  }
+
+  void _queueProfileSync(
+    LocalReadingProfile profile, {
+    Duration delay = const Duration(milliseconds: 900),
+  }) {
+    if (profile.userId == _localUserId) return;
+    if (Supabase.instance.client.auth.currentUser == null) return;
+
+    _pendingProfileSyncs[profile.id] = profile;
+    _profileSyncTimer?.cancel();
+    _profileSyncTimer = Timer(delay, () {
+      unawaited(flushPendingProfileSyncs());
+    });
+  }
+
+  Future<bool> flushPendingProfileSyncs() async {
+    if (_pendingProfileSyncs.isEmpty) return true;
+    if (_isFlushingProfileSync) return false;
+
+    _isFlushingProfileSync = true;
+    final pending = Map<String, LocalReadingProfile>.from(_pendingProfileSyncs);
+    _pendingProfileSyncs.clear();
+
+    try {
+      for (final profile in pending.values) {
+        await _syncProfileToSupabase(profile);
+      }
+    } catch (_) {
+      _pendingProfileSyncs.addAll(pending);
+      return false;
+    } finally {
+      _isFlushingProfileSync = false;
+      if (_pendingProfileSyncs.isNotEmpty) {
+        _profileSyncTimer?.cancel();
+        _profileSyncTimer = Timer(const Duration(seconds: 5), () {
+          unawaited(flushPendingProfileSyncs());
+        });
+      }
+    }
+    return _pendingProfileSyncs.isEmpty;
+  }
+
+  Future<void> _deleteProfileFromSupabase(LocalReadingProfile profile) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || profile.userId == 'local') return;
+
+    try {
+      final uuidRegExp = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      );
+      if (uuidRegExp.hasMatch(profile.id)) {
+        await Supabase.instance.client
+            .from('user_reading_profiles')
+            .delete()
+            .eq('id', profile.id);
+      } else {
+        await Supabase.instance.client
+            .from('user_reading_profiles')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('profile_name', profile.name);
+      }
+    } catch (e) {
+      debugPrint('Error deleting reading profile from Supabase: $e');
     }
   }
 
@@ -1191,7 +1276,7 @@ class LocalReadingProvider extends ChangeNotifier {
       _activeProfileId = profile.id;
       notifyListeners();
 
-      _syncProfileToSupabase(profile);
+      _queueProfileSync(profile, delay: Duration.zero);
       return profile;
     } catch (e) {
       if (context != null && context.mounted) {
@@ -1237,7 +1322,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    _syncProfileToSupabase(updated);
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   Future<void> deleteProfile(String profileId) async {
@@ -1256,28 +1341,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null && profile.userId != 'local') {
-      try {
-        final uuidRegExp = RegExp(
-          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-        );
-        if (uuidRegExp.hasMatch(profile.id)) {
-          await Supabase.instance.client
-              .from('user_reading_profiles')
-              .delete()
-              .eq('id', profile.id);
-        } else {
-          await Supabase.instance.client
-              .from('user_reading_profiles')
-              .delete()
-              .eq('user_id', user.id)
-              .eq('profile_name', profile.name);
-        }
-      } catch (e) {
-        debugPrint('Error deleting reading profile from Supabase: $e');
-      }
-    }
+    await _deleteProfileFromSupabase(profile);
   }
 
   Future<void> setActiveProfile(String profileId) async {
@@ -1364,11 +1428,11 @@ class LocalReadingProvider extends ChangeNotifier {
           .where((item) => item.id == profileId)
           .firstOrNull;
       if (updatedProfile != null) {
-        _syncProfileToSupabase(updatedProfile);
+        _queueProfileSync(updatedProfile);
       }
 
       final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
+      if (user != null && isFreeReadProfile(existingProfile)) {
         _debounceReadingStateSync(user.id, currentIndex);
       }
     } catch (e) {
@@ -1407,7 +1471,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    _syncProfileToSupabase(updated);
+    await _deleteProfileFromSupabase(updated);
   }
 
   Future<void> restoreProfile(String profileId) async {
@@ -1429,7 +1493,7 @@ class LocalReadingProvider extends ChangeNotifier {
     await _save(immediate: true);
     notifyListeners();
 
-    _syncProfileToSupabase(updated);
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   Future<LocalBookmarkCategory> ensureBookmarkCategory({
@@ -1774,23 +1838,10 @@ class LocalReadingProvider extends ChangeNotifier {
               ? remoteFurthestRef
               : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
 
-          final targetProfile =
-              _profiles.where(isFreeReadProfile).firstOrNull ??
-              _profiles.firstOrNull;
+          final targetProfile = freeReadProfile;
           if (targetProfile != null) {
-            final active = activeProfile;
-            final remoteIsInsideActive =
-                active != null &&
-                isVerseInsideProfile(
-                  active,
-                  remoteLastViewedRef.surahId,
-                  remoteLastViewedRef.verseId,
-                );
-            final targetProfileId = remoteIsInsideActive
-                ? active.id
-                : targetProfile.id;
             _profiles = _profiles.map((p) {
-              if (p.id == targetProfileId) {
+              if (p.id == targetProfile.id) {
                 return p.copyWith(
                   current: remoteFurthestRef,
                   lastViewed: remoteLastViewedRef,
@@ -1799,9 +1850,6 @@ class LocalReadingProvider extends ChangeNotifier {
               }
               return p;
             }).toList();
-            if (!remoteIsInsideActive) {
-              _activeProfileId = targetProfileId;
-            }
           }
 
           await prefs.setString(

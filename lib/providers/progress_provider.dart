@@ -183,8 +183,8 @@ class ProgressProvider extends ChangeNotifier {
     if (itemScrollController.isAttached) {
       await itemScrollController.scrollTo(
         index: index,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 620),
+        curve: Curves.easeInOutCubic,
       );
     }
   }

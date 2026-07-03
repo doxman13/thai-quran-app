@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/quran_foundation_repository.dart';
 import '../models/mushaf_models.dart';
 
-class MushafReadingProvider extends ChangeNotifier {
+class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<MushafProfile> _profiles = [];
   List<MushafPageBookmark> _pageBookmarks = [];
   List<MushafVerseBookmark> _verseBookmarks = [];
@@ -19,14 +19,29 @@ class MushafReadingProvider extends ChangeNotifier {
 
   StreamSubscription<AuthState>? _authSubscription;
   Timer? _recentReadingSyncTimer;
+  Timer? _profileSyncTimer;
   String? _pendingRecentUserId;
   int? _pendingRecentMushafId;
   int? _pendingRecentPageNumber;
   String? _pendingRecentProfileId;
+  bool _isFlushingProfileSync = false;
+  final Map<String, MushafProfile> _pendingProfileSyncs = {};
 
   MushafReadingProvider() {
+    WidgetsBinding.instance.addObserver(this);
     load();
     _listenToAuthChanges();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _profileSyncTimer?.cancel();
+      _profileSyncTimer = null;
+      unawaited(flushPendingProfileSyncs());
+    }
   }
 
   void _listenToAuthChanges() {
@@ -222,7 +237,7 @@ class MushafReadingProvider extends ChangeNotifier {
     _upsertRecentReading(updated);
     await _save();
     notifyListeners();
-    _syncProfileToSupabase(updated);
+    _queueProfileSync(updated);
   }
 
   Future<void> updateProfile(String profileId, {required String name}) async {
@@ -233,7 +248,7 @@ class MushafReadingProvider extends ChangeNotifier {
     _profiles[index] = updated;
     await _save();
     notifyListeners();
-    _syncProfileToSupabase(updated);
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   Future<void> createPageRangeProfile({
@@ -272,7 +287,7 @@ class MushafReadingProvider extends ChangeNotifier {
     _activeProfileId = profile.id;
     await _save();
     notifyListeners();
-    _syncProfileToSupabase(profile);
+    _queueProfileSync(profile, delay: Duration.zero);
   }
 
   Future<void> createSurahProfile({
@@ -320,7 +335,7 @@ class MushafReadingProvider extends ChangeNotifier {
     }
     await _save();
     notifyListeners();
-    _syncProfileToSupabase(updated);
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   bool isPageBookmarked(int mushafId, int pageNumber) {
@@ -846,9 +861,51 @@ class MushafReadingProvider extends ChangeNotifier {
         }
       } catch (e) {
         debugPrint('Error syncing Mushaf profile to Supabase: $e');
+        rethrow;
       }
     }
     return null;
+  }
+
+  void _queueProfileSync(
+    MushafProfile profile, {
+    Duration delay = const Duration(milliseconds: 900),
+  }) {
+    if (profile.userId == 'local') return;
+    if (Supabase.instance.client.auth.currentUser == null) return;
+
+    _pendingProfileSyncs[profile.id] = profile;
+    _profileSyncTimer?.cancel();
+    _profileSyncTimer = Timer(delay, () {
+      unawaited(flushPendingProfileSyncs());
+    });
+  }
+
+  Future<bool> flushPendingProfileSyncs() async {
+    if (_pendingProfileSyncs.isEmpty) return true;
+    if (_isFlushingProfileSync) return false;
+
+    _isFlushingProfileSync = true;
+    final pending = Map<String, MushafProfile>.from(_pendingProfileSyncs);
+    _pendingProfileSyncs.clear();
+
+    try {
+      for (final profile in pending.values) {
+        await _syncProfileToSupabase(profile);
+      }
+    } catch (_) {
+      _pendingProfileSyncs.addAll(pending);
+      return false;
+    } finally {
+      _isFlushingProfileSync = false;
+      if (_pendingProfileSyncs.isNotEmpty) {
+        _profileSyncTimer?.cancel();
+        _profileSyncTimer = Timer(const Duration(seconds: 5), () {
+          unawaited(flushPendingProfileSyncs());
+        });
+      }
+    }
+    return _pendingProfileSyncs.isEmpty;
   }
 
   void _debounceRecentReadingSync(
@@ -895,8 +952,11 @@ class MushafReadingProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _recentReadingSyncTimer?.cancel();
+    _profileSyncTimer?.cancel();
+    unawaited(flushPendingProfileSyncs());
     super.dispose();
   }
 }

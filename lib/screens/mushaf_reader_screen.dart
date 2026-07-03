@@ -629,7 +629,16 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                 onNext: _pageNumber < profile.targetPage
                     ? () => _goToPage(_pageNumber + 1)
                     : null,
-                onDone: () => Navigator.pop(context),
+                onDone: () async {
+                  await provider.updateProgress(
+                    profileId: profile.id,
+                    pageNumber: _pageNumber,
+                  );
+                  await provider.flushPendingProfileSyncs();
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
+                },
                 onPrevious: _pageNumber > profile.startPage
                     ? () => _goToPage(_pageNumber - 1)
                     : null,

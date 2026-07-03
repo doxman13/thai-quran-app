@@ -304,12 +304,14 @@ class _VerseCardState extends State<VerseCard> {
     );
     final colors = settings.getAppColors();
     final themeColor = settings.getPrimaryColor();
-    final highlightColor = settings.getHighlightColor();
     final bodyTextColor = colors.textStrong;
     final arabicTextColor = isDark
         ? const Color(0xFFD7E0EA)
         : const Color(0xFF334155);
     final colorScheme = Theme.of(context).colorScheme;
+    final glowColor =
+        Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.45) ??
+        colorScheme.primary;
 
     final showArabicText = settings.showArabicText;
 
@@ -389,50 +391,20 @@ class _VerseCardState extends State<VerseCard> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Stack(
           children: [
-            // Base Card Background (Normal)
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
                   color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant,
-                    width: 1,
-                  ),
-                ),
-              ),
-            ),
-
-            // Highlighted Card Background (Fades in/out)
-            Positioned.fill(
-              child: AnimatedOpacity(
-                opacity: isHighlighted ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeInOut,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer.withValues(alpha: 0.34),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colorScheme.primary.withValues(alpha: 0.72),
-                      width: 2,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(
+                        alpha: isDark ? 0.12 : 0.04,
+                      ),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                ),
-              ),
-            ),
-            PositionedDirectional(
-              top: 14,
-              bottom: 14,
-              start: 0,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                width: isHighlighted ? 5 : 0,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary,
-                  borderRadius: const BorderRadiusDirectional.horizontal(
-                    end: Radius.circular(999),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -447,38 +419,48 @@ class _VerseCardState extends State<VerseCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: isHighlighted
-                              ? colorScheme.primary
+                              ? glowColor.withValues(
+                                  alpha: isDark ? 0.24 : 0.16,
+                                )
                               : colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(8),
+                          boxShadow: isHighlighted
+                              ? [
+                                  BoxShadow(
+                                    color: glowColor.withValues(
+                                      alpha: isDark ? 0.28 : 0.20,
+                                    ),
+                                    blurRadius: 14,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'Verse ${widget.verse.id}',
+                              context.tr(
+                                'ayah_number',
+                                args: {'number': widget.verse.id},
+                              ),
                               style: GoogleFonts.notoSansThai(
                                 color: isHighlighted
-                                    ? colorScheme.onPrimary
+                                    ? colorScheme.onSurface
                                     : colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
                             ),
-                            if (isHighlighted) ...[
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.radio_button_checked_rounded,
-                                size: 12,
-                                color: colorScheme.onPrimary,
-                              ),
-                            ],
                             if (isFavorited) ...[
                               const SizedBox(width: 6),
                               Icon(

@@ -47,6 +47,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
   bool _isLoading = true;
   Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
   Map<String, _SurahObjective> _surahObjectives = {};
+  int? _oneVerseDragStartIndex;
+  bool _isSettlingOneVerseScroll = false;
 
   @override
   void initState() {
@@ -337,6 +339,83 @@ class _ReadingScreenState extends State<ReadingScreen> {
   void _selectVerseIndex(int index) {
     final provider = Provider.of<ProgressProvider>(context, listen: false);
     provider.setVerseIndexAndScroll(index);
+  }
+
+  int? _nearestVisibleVerseIndex(ProgressProvider provider) {
+    final positions = provider.itemPositionsListener.itemPositions.value.where(
+      (position) => position.index >= 0 && position.index < verses.length,
+    );
+    if (positions.isEmpty) return null;
+
+    const targetY = 0.3;
+    var nearestIndex = positions.first.index;
+    var nearestDistance = double.infinity;
+    for (final position in positions) {
+      final center = (position.itemLeadingEdge + position.itemTrailingEdge) / 2;
+      final distance = (center - targetY).abs();
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = position.index;
+      }
+    }
+    return nearestIndex;
+  }
+
+  Future<void> _settleOneVerseScroll(ProgressProvider provider) async {
+    final startIndex = _oneVerseDragStartIndex;
+    if (startIndex == null ||
+        _isSettlingOneVerseScroll ||
+        provider.isChangingSurah ||
+        verses.isEmpty) {
+      return;
+    }
+
+    final nearestIndex = _nearestVisibleVerseIndex(provider);
+    if (nearestIndex == null) {
+      _oneVerseDragStartIndex = null;
+      return;
+    }
+
+    final direction = nearestIndex.compareTo(startIndex);
+    final targetIndex = direction == 0
+        ? startIndex
+        : (startIndex + direction).clamp(0, verses.length - 1).toInt();
+
+    _oneVerseDragStartIndex = null;
+    _isSettlingOneVerseScroll = true;
+    try {
+      await provider.setVerseIndexAndScroll(targetIndex);
+    } finally {
+      _isSettlingOneVerseScroll = false;
+    }
+  }
+
+  Widget _buildOneVerseScrollLimiter({
+    required ProgressProvider provider,
+    required Widget child,
+  }) {
+    return Listener(
+      onPointerDown: (_) {
+        if (!_isLoading && !_isSettlingOneVerseScroll) {
+          _oneVerseDragStartIndex = provider.lastVerseIndex;
+        }
+      },
+      onPointerCancel: (_) => _settleOneVerseScroll(provider),
+      onPointerUp: (_) {
+        Future<void>.delayed(const Duration(milliseconds: 80), () {
+          if (mounted) {
+            _settleOneVerseScroll(provider);
+          }
+        });
+      },
+      child: NotificationListener<ScrollEndNotification>(
+        onNotification: (_) {
+          _settleOneVerseScroll(provider);
+          return false;
+        },
+        child: child,
+      ),
+    );
   }
 
   LocalReadingProfile? _progressProfile(LocalReadingProvider localReading) {
@@ -1131,62 +1210,67 @@ class _ReadingScreenState extends State<ReadingScreen> {
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : ScrollablePositionedList.builder(
-              itemCount: verses.length + 1,
-              itemBuilder: (context, index) {
-                if (index == verses.length) {
-                  return _buildCompletionCard(
+          : _buildOneVerseScrollLimiter(
+              provider: provider,
+              child: ScrollablePositionedList.builder(
+                itemCount: verses.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == verses.length) {
+                    return _buildCompletionCard(
+                      context,
+                      provider,
+                      settings,
+                      isDark,
+                    );
+                  }
+
+                  final localReading = Provider.of<LocalReadingProvider>(
                     context,
-                    provider,
-                    settings,
-                    isDark,
+                    listen: false,
                   );
-                }
-
-                final localReading = Provider.of<LocalReadingProvider>(
-                  context,
-                  listen: false,
-                );
-                final progressProfile = _progressProfile(localReading);
-                final card = VerseCard(
-                  key: ValueKey('${verses[index].surahId}_${verses[index].id}'),
-                  verse: verses[index],
-                  repository: widget.repository,
-                  index: index,
-                  progressProfileId: progressProfile?.id,
-                  useExplicitProgressProfile: true,
-                );
-                final verseNumber = int.tryParse(verses[index].id);
-                final showThemeHeader =
-                    verseNumber != null && shouldShowHeader(verseNumber);
-
-                if (index == 0) {
-                  return Column(
-                    children: [
-                      if (_currentSurah != '9')
-                        _buildBismillahBanner(settings, isDark),
-                      _buildObjectivesBanner(_currentSurah, settings, isDark),
-                      if (showThemeHeader)
-                        _buildThemeHeader(settings, isDark, verseNumber),
-                      card,
-                    ],
+                  final progressProfile = _progressProfile(localReading);
+                  final card = VerseCard(
+                    key: ValueKey(
+                      '${verses[index].surahId}_${verses[index].id}',
+                    ),
+                    verse: verses[index],
+                    repository: widget.repository,
+                    index: index,
+                    progressProfileId: progressProfile?.id,
+                    useExplicitProgressProfile: true,
                   );
-                }
+                  final verseNumber = int.tryParse(verses[index].id);
+                  final showThemeHeader =
+                      verseNumber != null && shouldShowHeader(verseNumber);
 
-                if (showThemeHeader) {
-                  return Column(
-                    children: [
-                      if (showThemeHeader)
-                        _buildThemeHeader(settings, isDark, verseNumber),
-                      card,
-                    ],
-                  );
-                }
-                return card;
-              },
-              itemScrollController: provider.itemScrollController,
-              itemPositionsListener: provider.itemPositionsListener,
-              padding: const EdgeInsets.only(top: 12, bottom: 100),
+                  if (index == 0) {
+                    return Column(
+                      children: [
+                        if (_currentSurah != '9')
+                          _buildBismillahBanner(settings, isDark),
+                        _buildObjectivesBanner(_currentSurah, settings, isDark),
+                        if (showThemeHeader)
+                          _buildThemeHeader(settings, isDark, verseNumber),
+                        card,
+                      ],
+                    );
+                  }
+
+                  if (showThemeHeader) {
+                    return Column(
+                      children: [
+                        if (showThemeHeader)
+                          _buildThemeHeader(settings, isDark, verseNumber),
+                        card,
+                      ],
+                    );
+                  }
+                  return card;
+                },
+                itemScrollController: provider.itemScrollController,
+                itemPositionsListener: provider.itemPositionsListener,
+                padding: const EdgeInsets.only(top: 12, bottom: 100),
+              ),
             ),
       bottomNavigationBar: _isLoading
           ? null
@@ -1274,6 +1358,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 verse: verseRef,
                                 profileId: progressProfile.id,
                               );
+                              await localReading.flushPendingProfileSyncs();
                             }
                             if (context.mounted) {
                               Navigator.pop(context);
