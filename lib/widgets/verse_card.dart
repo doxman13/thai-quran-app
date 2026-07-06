@@ -331,8 +331,7 @@ class _VerseCardState extends State<VerseCard> {
                   ? null
                   : localReading.profileById(widget.progressProfileId!))
             : localReading.activeProfile;
-        if (progressProfile != null &&
-            progressProfile.current.verseKey != verseRef.verseKey) {
+        if (progressProfile != null) {
           localReading.updateProfileProgress(
             progressProfile.id,
             verseRef,

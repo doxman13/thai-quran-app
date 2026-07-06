@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppThemeColors {
   final Color background;
@@ -33,7 +34,7 @@ class AppThemeColors {
 
 class AppTheme {
   // 1. Upgrade radius from 8.0 to 16.0 for a softer, premium, modern feel
-  static const radius = 16.0; 
+  static const radius = 16.0;
 
   static Future<void> prewarmFonts() async {
     try {
@@ -45,7 +46,10 @@ class AppTheme {
     }
   }
 
-  static AppThemeColors colors({required bool isDark, required String palette}) {
+  static AppThemeColors colors({
+    required bool isDark,
+    required String palette,
+  }) {
     if (isDark) {
       return const AppThemeColors(
         background: Color(0xFF111827),
@@ -80,14 +84,27 @@ class AppTheme {
   }
 
   // 2. NEW: Native ThemeData bridge generator so your AI and Flutter Widgets recognize your styles instantly
-  static ThemeData toThemeData({required bool isDark, String palette = 'default'}) {
+  static ThemeData toThemeData({
+    required bool isDark,
+    String palette = 'default',
+  }) {
     final c = colors(isDark: isDark, palette: palette);
-    
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      brightness: isDark ? Brightness.dark : Brightness.light,
+    );
+    final textTheme = GoogleFonts.notoSansThaiTextTheme(
+      baseTheme.textTheme,
+    ).apply(bodyColor: c.textStrong, displayColor: c.textStrong);
+
     return ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: c.background,
-      
+      fontFamily: GoogleFonts.notoSansThai().fontFamily,
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
+
       // Map your clean color variables directly into Flutter's native system
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,
@@ -112,12 +129,16 @@ class AppTheme {
           side: BorderSide(color: c.borderSoft, width: 1),
         ),
       ),
-      
+
       appBarTheme: AppBarTheme(
         backgroundColor: c.surface,
         elevation: 0,
         iconTheme: IconThemeData(color: c.textStrong),
-        titleTextStyle: TextStyle(color: c.textStrong, fontSize: 20, fontWeight: FontWeight.bold),
+        titleTextStyle: GoogleFonts.notoSansThai(
+          color: c.textStrong,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -127,10 +148,10 @@ class AppTheme {
 extension BuildContextThemeExt on BuildContext {
   ThemeData get theme => Theme.of(this);
   ColorScheme get colorScheme => Theme.of(this).colorScheme;
-  
+
   // This lets you call your custom palette from anywhere instantly!
   AppThemeColors get appColors => AppTheme.colors(
-        isDark: Theme.of(this).brightness == Brightness.dark,
-        palette: 'default',
-      );
+    isDark: Theme.of(this).brightness == Brightness.dark,
+    palette: 'default',
+  );
 }

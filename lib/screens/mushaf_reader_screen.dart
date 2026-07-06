@@ -634,6 +634,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     profileId: profile.id,
                     pageNumber: _pageNumber,
                   );
+                  await provider.flushPendingRecentReadingSync();
                   await provider.flushPendingProfileSyncs();
                   if (context.mounted) {
                     Navigator.pop(context);

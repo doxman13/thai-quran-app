@@ -71,7 +71,7 @@ class _ModeSelectionCard extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -81,7 +81,7 @@ class _ModeSelectionCard extends StatelessWidget {
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurfaceVariant,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -488,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 context.tr('select_reading_mode'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -604,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 dayLabel,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontSize: isToday ? 11 : 9,
                   fontWeight: isToday ? FontWeight.w900 : FontWeight.w600,
                   color: isToday
@@ -768,13 +768,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                               color: colorScheme.primary,
                                             ),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        context.tr('which_surah_to_read'),
-                                        style: textTheme.bodyLarge?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -820,14 +813,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         // ROW 2: HORIZONTAL CAPSULE MENUS
                         SizedBox(
-                          height: 38,
+                          height: 56,
                           child: ListView.separated(
                             controller: _capsuleScrollController,
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             itemCount: _tabs.length,
                             separatorBuilder: (context, index) =>
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 8),
                             itemBuilder: (context, index) {
                               final isActive = _selectedTabIndex == index;
                               final tab = _tabs[index];
@@ -840,7 +833,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   WidgetsBinding.instance.addPostFrameCallback((
                                     _,
                                   ) {
-                                    if (mounted) _resetCardsForTab(index);
+                                    if (mounted) {
+                                      _resetCardsForTab(index);
+                                    }
                                   });
                                   final screenWidth = MediaQuery.of(
                                     context,
@@ -862,40 +857,50 @@ class _HomeScreenState extends State<HomeScreen> {
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isActive ? 24 : 12,
+                                    vertical: isActive ? 12 : 5,
                                   ),
                                   decoration: BoxDecoration(
                                     color: isActive
                                         ? colorScheme.primary
-                                        : Colors.transparent,
+                                        : colorScheme.surfaceContainerLow,
                                     borderRadius: BorderRadius.circular(24),
-                                    border: isActive
-                                        ? null
-                                        : Border.all(
-                                            color: colorScheme.outline,
-                                          ),
+                                    border: Border.all(
+                                      color: isActive
+                                          ? colorScheme.primary
+                                          : colorScheme.outline,
+                                    ),
+                                    boxShadow: isActive
+                                        ? [
+                                            BoxShadow(
+                                              color: colorScheme.primary
+                                                  .withValues(alpha: 0.24),
+                                              blurRadius: 16,
+                                              offset: const Offset(0, 8),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         tab['icon'] as IconData,
-                                        size: 16,
+                                        size: isActive ? 20 : 13,
                                         color: isActive
                                             ? colorScheme.onPrimary
                                             : colorScheme.onSurfaceVariant,
                                       ),
-                                      const SizedBox(width: 6),
+                                      SizedBox(width: isActive ? 8 : 6),
                                       Text(
                                         context.tr(tab['title'] as String),
-                                        style: TextStyle(
+                                        style: textTheme.labelLarge?.copyWith(
                                           color: isActive
                                               ? colorScheme.onPrimary
                                               : colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: isActive ? 14 : 11,
                                         ),
                                       ),
                                     ],
@@ -1024,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 context.tr('meaningful_read'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -1119,7 +1124,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 context.tr('mushaf_read'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -1349,7 +1354,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               title: Text(
                 profile == null ? trCreateGoal : trEditGoal,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.w800,
                   color: colors.textStrong,
                 ),
@@ -1493,7 +1498,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 12),
                       Text(
                         error!,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: Colors.red.shade700,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -1788,7 +1793,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 4),
                           Text(
                             profileName.toUpperCase(),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               color: textColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -1845,7 +1850,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (isReviewing) ...[
                   Text(
                     context.tr('next_unread_verse').toUpperCase(),
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: textColor.withValues(alpha: 0.7),
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
@@ -1865,7 +1870,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 2),
                 Text(
                   '${context.tr('current_ayah')} $continueSurah:$continueVerse',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansThai(
                     color: textColor.withValues(alpha: 0.85),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1889,7 +1894,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Text(
                         '${(progressPercent * 100).toInt()}%',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: textColor,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -1921,7 +1926,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           context.tr('translation').toUpperCase(),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: textColor.withValues(alpha: 0.6),
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
@@ -1933,7 +1938,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           translationText,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: textColor.withValues(alpha: 0.95),
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -1968,7 +1973,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? 'resume_progress'
                                 : 'continue_reading',
                           ),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
                           ),
@@ -1997,7 +2002,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             '${context.tr('last_viewed')}: ${widget.repository.getSurahName(lastViewedSurah)} $lastViewedSurah:$lastViewedVerse',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               color: textColor.withValues(alpha: 0.72),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -2015,7 +2020,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: Text(
                             context.tr('jump_back'),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                             ),
@@ -2099,7 +2104,8 @@ class _HomeScreenState extends State<HomeScreen> {
             },
       onContinue: () =>
           _navigateToMushafProfile(profile, initialPage: continuePage),
-      onJumpBack: (!isFreeRead && profile.lastViewedPage < profile.currentPage)
+      onJumpBack:
+          (!isFreeRead && profile.lastViewedPage < profile.furthestUnreadPage)
           ? () => _navigateToMushafProfile(
               profile,
               initialPage: profile.lastViewedPage,
@@ -2249,7 +2255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: Text(
                           error!,
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: colorScheme.onErrorContainer,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -2393,7 +2399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 4),
                           Text(
                             profileName.toUpperCase(),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               color: textColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -2473,7 +2479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Text(
                         '${(progressPercent * 100).toInt()}%',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: textColor,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -2490,6 +2496,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, snapshot) {
                       final data = snapshot.data ?? {};
                       final arabicText = data['arabic'] ?? '';
+                      final previewArabicText = arabicText
+                          .split(' | ')
+                          .join(' ');
                       final surahId = data['surahId'] ?? '';
                       final verseId = data['verseId'] ?? '';
 
@@ -2504,7 +2513,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 2),
                           Text(
                             '${widget.repository.getSurahName(surahId)} • ${context.tr('ayah')} $verseId',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               color: textColor.withValues(alpha: 0.85),
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -2521,16 +2530,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: textColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(
-                              arabicText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.right,
-                              style: TextStyle(
-                                fontFamily: 'UthmanicHafs',
-                                color: textColor.withValues(alpha: 0.95),
-                                fontSize: 24,
-                                height: 1.5,
+                            child: Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: Text(
+                                previewArabicText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontFamily: 'UthmanicHafs',
+                                  color: textColor.withValues(alpha: 0.95),
+                                  fontSize: 24,
+                                  height: 1.5,
+                                ),
                               ),
                             ),
                           ),
@@ -2563,7 +2575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? 'resume_progress'
                                 : 'continue_reading',
                           ),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
                           ),
@@ -2592,7 +2604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             '${context.tr('last_viewed')}: ${context.tr('page')} $lastViewedPage',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               color: textColor.withValues(alpha: 0.72),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -2610,7 +2622,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: Text(
                             context.tr('jump_back'),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                             ),
@@ -2658,7 +2670,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             Text(
               context.tr('create_goal'),
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansThai(
                 color: colorScheme.onSurface,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,

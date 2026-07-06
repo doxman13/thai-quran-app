@@ -1,5 +1,5 @@
-// lib/screens/reading_screen.dart
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -188,17 +188,42 @@ class _ReadingScreenState extends State<ReadingScreen> {
     return match == null ? null : int.tryParse(match.group(0)!);
   }
 
-  bool shouldShowHeader(int verseNumber) {
+  _ThaiThemeSection? _getActiveTheme(int verseNumber) {
     final surah = int.tryParse(_currentSurah);
-    if (surah == null) return false;
-    return _themeSectionsBySurah[surah]?.containsKey(verseNumber) ?? false;
+    if (surah == null) return null;
+
+    final themes = _themeSectionsBySurah[surah];
+    if (themes == null || themes.isEmpty) return null;
+
+    int activeStartVerse = -1;
+    for (final startVerse in themes.keys) {
+      if (startVerse <= verseNumber && startVerse > activeStartVerse) {
+        activeStartVerse = startVerse;
+      }
+    }
+
+    if (activeStartVerse == -1) return null;
+    final activeTheme = themes[activeStartVerse]!;
+
+    // Ensure verseNumber is within the end verse of this theme
+    final rangeParts = activeTheme.verseRange.split('-');
+    if (rangeParts.isNotEmpty) {
+      final endVerseStr = rangeParts.length > 1 ? rangeParts[1] : rangeParts[0];
+      final endVerse =
+          int.tryParse(endVerseStr.trim().replaceAll(RegExp(r'[^0-9]'), '')) ??
+          9999;
+      if (verseNumber > endVerse) return null;
+    }
+
+    return activeTheme;
+  }
+
+  bool shouldShowHeader(int verseNumber) {
+    return _getActiveTheme(verseNumber) != null;
   }
 
   String getHeaderTitle(int verseNumber) {
-    final surah = int.tryParse(_currentSurah);
-    final section = surah == null
-        ? null
-        : _themeSectionsBySurah[surah]?[verseNumber];
+    final section = _getActiveTheme(verseNumber);
     if (section == null) return '';
     return '${section.themeTh} (อายะห์ ${section.verseRange})';
   }
@@ -342,6 +367,79 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
+  String? _adjacentVisibleSurahId(int direction) {
+    final currentSurahInt = int.tryParse(_currentSurah);
+    if (currentSurahInt == null || direction == 0) return null;
+
+    var candidate = currentSurahInt + direction.sign;
+    while (candidate >= 1 && candidate <= 114) {
+      final surahId = candidate.toString();
+      if (_activeProfileHasVisibleVersesInSurah(surahId)) return surahId;
+      candidate += direction.sign;
+    }
+    return null;
+  }
+
+  Future<void> _goToAdjacentSurah(int direction) async {
+    final surahId = _adjacentVisibleSurahId(direction);
+    if (surahId == null) return;
+
+    final completedSurahId = _currentSurah;
+    final completedSurahName = widget.repository.getSurahName(_currentSurah);
+    final targetVerses = _visibleVersesForActiveProfile(
+      surahId,
+      widget.repository.getSurahVerses(surahId),
+    );
+    final targetVerseId = direction.isNegative && targetVerses.isNotEmpty
+        ? targetVerses.last.id
+        : null;
+
+    await _loadSurah(surahId, jumpToVerseId: targetVerseId);
+    if (!mounted) return;
+
+    final surahName = widget.repository.getSurahName(surahId);
+    final ayahCount = widget.repository.getSurahVerses(surahId).length;
+    if (direction > 0) {
+      _showSurahCompletionDialog(
+        completedSurahId: completedSurahId,
+        completedSurahName: completedSurahName,
+        nextSurahId: surahId,
+        nextSurahName: surahName,
+        nextAyahCount: ayahCount,
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Surah $surahId: $surahName - $ayahCount ayat'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _showSurahCompletionDialog({
+    required String completedSurahId,
+    required String completedSurahName,
+    required String nextSurahId,
+    required String nextSurahName,
+    required int nextAyahCount,
+  }) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return _SurahCompletionDialog(
+          completedSurahId: completedSurahId,
+          completedSurahName: completedSurahName,
+          nextSurahId: nextSurahId,
+          nextSurahName: nextSurahName,
+          nextAyahCount: nextAyahCount,
+        );
+      },
+    );
+  }
+
   void _selectVerseIndex(int index) {
     _goToVerseIndex(index);
   }
@@ -410,13 +508,25 @@ class _ReadingScreenState extends State<ReadingScreen> {
       ).lastVerseIndex;
       final shouldGoNext =
           _edgeOverscroll > threshold && currentIndex < verses.length - 1;
+      final shouldGoNextSurah =
+          _edgeOverscroll > threshold &&
+          currentIndex == verses.length - 1 &&
+          _adjacentVisibleSurahId(1) != null;
       final shouldGoPrevious = _edgeOverscroll < -threshold && currentIndex > 0;
+      final shouldGoPreviousSurah =
+          _edgeOverscroll < -threshold &&
+          currentIndex == 0 &&
+          _adjacentVisibleSurahId(-1) != null;
 
       _edgeOverscroll = 0;
       if (shouldGoNext) {
         _goToVerseIndex(currentIndex + 1);
+      } else if (shouldGoNextSurah) {
+        _goToAdjacentSurah(1);
       } else if (shouldGoPrevious) {
         _goToVerseIndex(currentIndex - 1);
+      } else if (shouldGoPreviousSurah) {
+        _goToAdjacentSurah(-1);
       }
     }
 
@@ -445,7 +555,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     double.infinity,
                   ),
                 ),
-                child: Center(
+                child: Align(
+                  alignment: const Alignment(0.0, -0.7),
                   child: _buildCompletionCard(
                     context,
                     provider,
@@ -494,7 +605,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   double.infinity,
                 ),
               ),
-              child: Center(
+              child: Align(
+                alignment: const Alignment(0.0, -0.7),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1267,8 +1379,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         progressProv.lastVerseIndex < verses.length)
                     ? verses[progressProv.lastVerseIndex].id
                     : '1';
+                final surahAyahCount = widget.repository
+                    .getSurahVerses(_currentSurah)
+                    .length;
+                final surahProgressLabel = surahAyahCount > 0
+                    ? '$activeVerseId/$surahAyahCount'
+                    : activeVerseId;
                 return Text(
-                  '$profileName - $_currentSurah:$activeVerseId',
+                  '$profileName - $_currentSurah:$activeVerseId - $surahProgressLabel',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
@@ -1354,6 +1472,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   final totalCount = verses.length;
                   final hasPrev = currentIndex > 0;
                   final hasNext = currentIndex < totalCount - 1;
+                  final hasPrevSurah =
+                      !hasPrev && _adjacentVisibleSurahId(-1) != null;
+                  final hasNextSurah =
+                      !hasNext && _adjacentVisibleSurahId(1) != null;
 
                   return Row(
                     children: [
@@ -1366,6 +1488,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           onPressed: hasPrev
                               ? () {
                                   _goToVerseIndex(currentIndex - 1);
+                                }
+                              : hasPrevSurah
+                              ? () {
+                                  _goToAdjacentSurah(-1);
                                 }
                               : null,
                           backgroundColor: colors.primaryLight,
@@ -1405,6 +1531,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 verse: verseRef,
                                 profileId: progressProfile.id,
                               );
+                              await localReading
+                                  .flushPendingRecentReadingSync();
+                              await localReading.flushPendingReadingStateSync();
                               await localReading.flushPendingProfileSyncs();
                             }
                             if (context.mounted) {
@@ -1425,6 +1554,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           onPressed: hasNext
                               ? () {
                                   _goToVerseIndex(currentIndex + 1);
+                                }
+                              : hasNextSurah
+                              ? () {
+                                  _goToAdjacentSurah(1);
                                 }
                               : null,
                           backgroundColor: colors.primaryLight,
@@ -1650,6 +1783,218 @@ class _VerseReaderActionButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SurahCompletionDialog extends StatefulWidget {
+  final String completedSurahId;
+  final String completedSurahName;
+  final String nextSurahId;
+  final String nextSurahName;
+  final int nextAyahCount;
+
+  const _SurahCompletionDialog({
+    required this.completedSurahId,
+    required this.completedSurahName,
+    required this.nextSurahId,
+    required this.nextSurahName,
+    required this.nextAyahCount,
+  });
+
+  @override
+  State<_SurahCompletionDialog> createState() => _SurahCompletionDialogState();
+}
+
+class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final ribbonColors = [
+      colorScheme.primary,
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.primaryContainer,
+      colorScheme.secondaryContainer,
+    ];
+
+    return Dialog(
+      elevation: 0,
+      backgroundColor: colorScheme.surface,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: _RibbonFallPainter(
+                      progress: _controller.value,
+                      colors: ribbonColors,
+                    ),
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      color: colorScheme.onPrimaryContainer,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Surah completed',
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Congratulations, you completed Surah ${widget.completedSurahId}: ${widget.completedSurahName}.',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Now reading',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Surah ${widget.nextSurahId}: ${widget.nextSurahName}',
+                          textAlign: TextAlign.center,
+                          style: textTheme.titleMedium?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${widget.nextAyahCount} ayat',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text('Continue'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RibbonFallPainter extends CustomPainter {
+  final double progress;
+  final List<Color> colors;
+
+  const _RibbonFallPainter({required this.progress, required this.colors});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (colors.isEmpty || size.isEmpty) return;
+
+    for (var index = 0; index < 28; index++) {
+      final lane = (index * 37) % 100 / 100;
+      final speed = 0.55 + ((index * 11) % 40) / 100;
+      final phase = (progress * speed + index * 0.071) % 1.0;
+      final xWave = math.sin((progress * math.pi * 2) + index) * 16;
+      final x = (lane * size.width) + xWave;
+      final y = (phase * (size.height + 96)) - 64;
+      final width = 6.0 + (index % 3) * 2;
+      final height = 16.0 + (index % 4) * 4;
+      final angle = progress * math.pi * 2 + index;
+      final color = colors[index % colors.length].withValues(alpha: 0.68);
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(angle);
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: width, height: height),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(rect, Paint()..color = color);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RibbonFallPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.colors != colors;
   }
 }
 

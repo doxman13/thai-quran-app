@@ -38,9 +38,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      _profileSyncTimer?.cancel();
-      _profileSyncTimer = null;
       unawaited(flushPendingProfileSyncs());
+      unawaited(flushPendingRecentReadingSync());
     }
   }
 
@@ -237,7 +236,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _upsertRecentReading(updated);
     await _save();
     notifyListeners();
-    _queueProfileSync(updated);
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   Future<void> updateProfile(String profileId, {required String name}) async {
@@ -921,42 +920,61 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _recentReadingSyncTimer?.cancel();
     _recentReadingSyncTimer = Timer(const Duration(seconds: 2), () async {
-      final uId = _pendingRecentUserId;
-      final mId = _pendingRecentMushafId;
-      final pNum = _pendingRecentPageNumber;
-      final profId = _pendingRecentProfileId;
-      if (uId == null || mId == null || pNum == null) return;
-
-      try {
-        final uuidRegExp = RegExp(
-          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-        );
-        if (profId == null || !uuidRegExp.hasMatch(profId)) {
-          // Omit syncing recent readings for unsynced profiles (e.g. Free/Just Read when offline/not reconciled yet)
-          return;
-        }
-
-        final client = Supabase.instance.client;
-        await client.from('mushaf_recent_readings').upsert({
-          'user_id': uId,
-          'mushaf_id': mId,
-          'page_number': pNum,
-          'profile_id': profId,
-          'updated_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'user_id,mushaf_id,profile_id');
-      } catch (e) {
-        debugPrint('Error syncing Mushaf recent reading to Supabase: $e');
-      }
+      unawaited(flushPendingRecentReadingSync());
     });
+  }
+
+  Future<void> _syncRecentReadingToSupabase(
+    String userId,
+    int mushafId,
+    int pageNumber,
+    String? profileId,
+  ) async {
+    try {
+      final uuidRegExp = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      );
+      if (profileId == null || !uuidRegExp.hasMatch(profileId)) {
+        return;
+      }
+
+      final client = Supabase.instance.client;
+      await client.from('mushaf_recent_readings').upsert({
+        'user_id': userId,
+        'mushaf_id': mushafId,
+        'page_number': pageNumber,
+        'profile_id': profileId,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id,mushaf_id,profile_id');
+    } catch (e) {
+      debugPrint('Error syncing Mushaf recent reading to Supabase: $e');
+    }
+  }
+
+  Future<void> flushPendingRecentReadingSync() async {
+    _recentReadingSyncTimer?.cancel();
+    _recentReadingSyncTimer = null;
+
+    final userId = _pendingRecentUserId;
+    final mushafId = _pendingRecentMushafId;
+    final pageNumber = _pendingRecentPageNumber;
+    final profileId = _pendingRecentProfileId;
+    if (userId == null || mushafId == null || pageNumber == null) return;
+
+    _pendingRecentUserId = null;
+    _pendingRecentMushafId = null;
+    _pendingRecentPageNumber = null;
+    _pendingRecentProfileId = null;
+
+    await _syncRecentReadingToSupabase(userId, mushafId, pageNumber, profileId);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
-    _recentReadingSyncTimer?.cancel();
-    _profileSyncTimer?.cancel();
     unawaited(flushPendingProfileSyncs());
+    unawaited(flushPendingRecentReadingSync());
     super.dispose();
   }
 }

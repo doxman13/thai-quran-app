@@ -26,7 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: Text(
           context.tr('settings'),
-          style: GoogleFonts.inter(
+          style: GoogleFonts.notoSansThai(
             fontWeight: FontWeight.w800,
             color: colorScheme.onSurface,
           ),
@@ -52,7 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   title: Text(
                     context.tr('dark_mode'),
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -70,7 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   title: Text(
                     context.tr('keep_screen_awake'),
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: colorScheme.onSurface,
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
@@ -78,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   subtitle: Text(
                     context.tr('keep_screen_awake_desc'),
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 12,
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -95,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     dropdownColor: colorScheme.surfaceContainerLow,
                     decoration: InputDecoration(
                       labelText: context.tr('language'),
-                      labelStyle: GoogleFonts.inter(
+                      labelStyle: GoogleFonts.notoSansThai(
                         color: colorScheme.onSurfaceVariant,
                         fontSize: 13,
                       ),
@@ -154,7 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Text(
                     context.tr('reading_mode'),
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       fontWeight: FontWeight.w600,
                       color: colorScheme.onSurface,
                       fontSize: 15,
@@ -198,7 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: SettingsProvider.quranOnlyMode,
                         child: Text(
                           context.tr('quran_only'),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: colorScheme.onSurface,
                           ),
                         ),
@@ -207,7 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: SettingsProvider.translationOnlyMode,
                         child: Text(
                           context.tr('translation_only'),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: colorScheme.onSurface,
                           ),
                         ),
@@ -216,7 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: SettingsProvider.quranTranslationMode,
                         child: Text(
                           context.tr('quran_translation'),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             color: colorScheme.onSurface,
                           ),
                         ),
@@ -232,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         context.tr('arabic_font_size'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.onSurface,
                           fontSize: 15,
@@ -240,7 +240,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       Text(
                         '${settings.arabicFontSize.toInt()} px',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
                           fontSize: 14,
@@ -269,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         context.tr('translation_font_size'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.onSurface,
                           fontSize: 15,
@@ -277,7 +277,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       Text(
                         '${settings.translationFontSize.toInt()} px',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
                           fontSize: 14,
@@ -316,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(left: 4, bottom: 4),
       child: Text(
         title.toUpperCase(),
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansThai(
           color: colorScheme.primary,
           fontSize: 11,
           fontWeight: FontWeight.w900,

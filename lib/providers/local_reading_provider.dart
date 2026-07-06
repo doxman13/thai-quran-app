@@ -617,9 +617,9 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      _profileSyncTimer?.cancel();
-      _profileSyncTimer = null;
       unawaited(flushPendingProfileSyncs());
+      unawaited(flushPendingRecentReadingSync());
+      unawaited(flushPendingReadingStateSync());
     }
   }
 
@@ -672,10 +672,9 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
-    _recentReadingSyncTimer?.cancel();
-    _profileSyncTimer?.cancel();
     unawaited(flushPendingProfileSyncs());
-    _readingStateSyncTimer?.cancel();
+    unawaited(flushPendingRecentReadingSync());
+    unawaited(flushPendingReadingStateSync());
     if (_saveTimer != null) {
       _saveTimer!.cancel();
       _executeSave();
@@ -1428,7 +1427,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           .where((item) => item.id == profileId)
           .firstOrNull;
       if (updatedProfile != null) {
-        _queueProfileSync(updatedProfile);
+        _queueProfileSync(updatedProfile, delay: Duration.zero);
       }
 
       final user = Supabase.instance.client.auth.currentUser;
@@ -1668,41 +1667,57 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _recentReadingSyncTimer?.cancel();
     _recentReadingSyncTimer = Timer(const Duration(seconds: 2), () async {
-      final uId = _pendingSyncUserId;
-      final sId = _pendingSyncSurahId;
-      final vId = _pendingSyncVerseId;
-      if (uId == null || sId == null || vId == null) return;
+      unawaited(flushPendingRecentReadingSync());
+    });
+  }
 
+  Future<void> _syncRecentReadingToSupabase(
+    String userId,
+    String surahId,
+    String verseId,
+  ) async {
+    try {
+      final client = Supabase.instance.client;
+      final now = DateTime.now().toIso8601String();
+      await client.from('recent_readings').upsert({
+        'user_id': userId,
+        'surah_id': surahId,
+        'verse_id': verseId,
+        'read_at': now,
+      }, onConflict: 'user_id,surah_id');
+    } catch (e) {
+      if (!e.toString().contains('verse_id') &&
+          !e.toString().contains('read_at')) {
+        debugPrint('Error syncing recent reading to Supabase: $e');
+        return;
+      }
       try {
         final client = Supabase.instance.client;
-        final now = DateTime.now().toIso8601String();
         await client.from('recent_readings').upsert({
-          'user_id': uId,
-          'surah_id': sId,
-          'verse_id': vId,
-          'read_at': now,
+          'user_id': userId,
+          'surah_id': surahId,
+          'last_read_verse': verseId,
+          'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id,surah_id');
-      } catch (e) {
-        if (!e.toString().contains('verse_id') &&
-            !e.toString().contains('read_at')) {
-          debugPrint('Error syncing recent reading to Supabase: $e');
-          return;
-        }
-        try {
-          final client = Supabase.instance.client;
-          await client.from('recent_readings').upsert({
-            'user_id': uId,
-            'surah_id': sId,
-            'last_read_verse': vId,
-            'updated_at': DateTime.now().toIso8601String(),
-          }, onConflict: 'user_id,surah_id');
-        } catch (fallbackError) {
-          debugPrint(
-            'Error syncing recent reading to Supabase: $fallbackError',
-          );
-        }
+      } catch (fallbackError) {
+        debugPrint('Error syncing recent reading to Supabase: $fallbackError');
       }
-    });
+    }
+  }
+
+  Future<void> flushPendingRecentReadingSync() async {
+    _recentReadingSyncTimer?.cancel();
+    _recentReadingSyncTimer = null;
+
+    final userId = _pendingSyncUserId;
+    final surahId = _pendingSyncSurahId;
+    final verseId = _pendingSyncVerseId;
+    if (userId == null || surahId == null || verseId == null) return;
+
+    _pendingSyncUserId = null;
+    _pendingSyncSurahId = null;
+    _pendingSyncVerseId = null;
+    await _syncRecentReadingToSupabase(userId, surahId, verseId);
   }
 
   Future<void> addRecentReading({
@@ -1762,37 +1777,53 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _readingStateSyncTimer?.cancel();
     _readingStateSyncTimer = Timer(const Duration(seconds: 2), () async {
-      final uId = _pendingReadingStateUserId;
-      final viewedIndex = _pendingReadingStateVerseIndex;
-      if (uId == null || viewedIndex == null) return;
-
-      try {
-        final client = Supabase.instance.client;
-        final existing = await client
-            .from('user_reading_state')
-            .select('furthest_unread_index')
-            .eq('user_id', uId)
-            .maybeSingle();
-        final existingFurthest = int.tryParse(
-          existing?['furthest_unread_index']?.toString() ?? '',
-        );
-        final nextFurthest =
-            existingFurthest == null || viewedIndex > existingFurthest
-            ? viewedIndex
-            : existingFurthest;
-        final viewedRef = verseRefFromAbsoluteIndex(viewedIndex);
-        await client.from('user_reading_state').upsert({
-          'user_id': uId,
-          'surah_id': int.tryParse(viewedRef.surahId) ?? 1,
-          'verse_id': int.tryParse(viewedRef.verseId) ?? 1,
-          'last_viewed_index': viewedIndex,
-          'furthest_unread_index': nextFurthest,
-          'updated_at': DateTime.now().toIso8601String(),
-        }, onConflict: 'user_id');
-      } catch (e) {
-        debugPrint('Error syncing reading state to Supabase: $e');
-      }
+      unawaited(flushPendingReadingStateSync());
     });
+  }
+
+  Future<void> _syncReadingStateToSupabase(
+    String userId,
+    int viewedIndex,
+  ) async {
+    try {
+      final client = Supabase.instance.client;
+      final existing = await client
+          .from('user_reading_state')
+          .select('furthest_unread_index')
+          .eq('user_id', userId)
+          .maybeSingle();
+      final existingFurthest = int.tryParse(
+        existing?['furthest_unread_index']?.toString() ?? '',
+      );
+      final nextFurthest =
+          existingFurthest == null || viewedIndex > existingFurthest
+          ? viewedIndex
+          : existingFurthest;
+      final viewedRef = verseRefFromAbsoluteIndex(viewedIndex);
+      await client.from('user_reading_state').upsert({
+        'user_id': userId,
+        'surah_id': int.tryParse(viewedRef.surahId) ?? 1,
+        'verse_id': int.tryParse(viewedRef.verseId) ?? 1,
+        'last_viewed_index': viewedIndex,
+        'furthest_unread_index': nextFurthest,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+    } catch (e) {
+      debugPrint('Error syncing reading state to Supabase: $e');
+    }
+  }
+
+  Future<void> flushPendingReadingStateSync() async {
+    _readingStateSyncTimer?.cancel();
+    _readingStateSyncTimer = null;
+
+    final userId = _pendingReadingStateUserId;
+    final viewedIndex = _pendingReadingStateVerseIndex;
+    if (userId == null || viewedIndex == null) return;
+
+    _pendingReadingStateUserId = null;
+    _pendingReadingStateVerseIndex = null;
+    await _syncReadingStateToSupabase(userId, viewedIndex);
   }
 
   Future<void> syncReadingStateWithSupabase(String userId) async {
