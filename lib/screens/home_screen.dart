@@ -1859,13 +1859,39 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 2),
                 ],
-                Text(
-                  widget.repository.getSurahName(continueSurah),
-                  style: GoogleFonts.notoSansThai(
-                    color: textColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.repository.getSurahName(continueSurah),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          color: textColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Text(
+                        mushafSurahArabicName(continueSurah),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          color: textColor.withValues(alpha: 0.9),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -2349,6 +2375,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final textColor = Colors.white;
     // Offset image for Mushaf Read so it looks different (e.g., 5, 1, 2, 3, 4)
     final imageNumber = ((imageIndex + 4) % 5) + 1;
+    final previewFuture = _fetchArabicPreviewForPage(page);
 
     return Container(
       width: MediaQuery.of(context).size.width * 0.90,
@@ -2453,13 +2480,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${context.tr('page')} $page',
-                  style: GoogleFonts.notoSansThai(
-                    color: textColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                FutureBuilder<Map<String, String>>(
+                  future: previewFuture,
+                  builder: (context, snapshot) {
+                    final data = snapshot.data ?? {};
+                    final surahId = data['surahId'] ?? '';
+                    final title = surahId.isEmpty
+                        ? '${context.tr('page')} $page'
+                        : widget.repository.getSurahName(surahId);
+                    final arabicName = surahId.isEmpty
+                        ? ''
+                        : mushafSurahArabicName(surahId);
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              color: textColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (arabicName.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Text(
+                              arabicName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontFamily: 'UthmanicHafs',
+                                color: textColor.withValues(alpha: 0.9),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                                height: 1.1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
                 if (progressPercent != null) ...[
                   const SizedBox(height: 12),
@@ -2492,14 +2561,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Fetch and render the Arabic Text from Repository
                 Expanded(
                   child: FutureBuilder<Map<String, String>>(
-                    future: _fetchArabicPreviewForPage(page),
+                    future: previewFuture,
                     builder: (context, snapshot) {
                       final data = snapshot.data ?? {};
                       final arabicText = data['arabic'] ?? '';
                       final previewArabicText = arabicText
                           .split(' | ')
                           .join(' ');
-                      final surahId = data['surahId'] ?? '';
                       final verseId = data['verseId'] ?? '';
 
                       if (arabicText.isEmpty) {
@@ -2511,13 +2579,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 2),
-                          Text(
-                            '${widget.repository.getSurahName(surahId)} • ${context.tr('ayah')} $verseId',
-                            style: GoogleFonts.notoSansThai(
-                              color: textColor.withValues(alpha: 0.85),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${context.tr('page')} $page - ${context.tr('ayah')} $verseId',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.notoSansThai(
+                                    color: textColor.withValues(alpha: 0.85),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const Spacer(),
                           Container(
@@ -2534,7 +2611,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               textDirection: TextDirection.rtl,
                               child: Text(
                                 previewArabicText,
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 textAlign: TextAlign.right,
                                 style: TextStyle(
