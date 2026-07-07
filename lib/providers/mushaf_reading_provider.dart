@@ -1140,6 +1140,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }, onConflict: 'user_id,mushaf_id,profile_id');
     } catch (e) {
       debugPrint('Error syncing Mushaf recent reading to Supabase: $e');
+      rethrow;
     }
   }
 
@@ -1158,7 +1159,20 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _pendingRecentPageNumber = null;
     _pendingRecentProfileId = null;
 
-    await _syncRecentReadingToSupabase(userId, mushafId, pageNumber, profileId);
+    try {
+      await _syncRecentReadingToSupabase(
+        userId,
+        mushafId,
+        pageNumber,
+        profileId,
+      );
+    } catch (_) {
+      _pendingRecentUserId = userId;
+      _pendingRecentMushafId = mushafId;
+      _pendingRecentPageNumber = pageNumber;
+      _pendingRecentProfileId = profileId;
+      rethrow;
+    }
   }
 
   @override

@@ -253,7 +253,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await readingProv.flushPendingProfileSyncs();
       await readingProv.flushPendingRecentReadingSync();
       await readingProv.flushPendingReadingStateSync();
-      await mushafProv.flushPendingProfileSyncs();
+      final mushafProfilesFlushed = await mushafProv.flushPendingProfileSyncs();
+      if (!mushafProfilesFlushed) {
+        throw StateError('Mushaf profile changes are still pending sync.');
+      }
       await mushafProv.flushPendingRecentReadingSync();
       await statsProv.flushPendingSave();
 
