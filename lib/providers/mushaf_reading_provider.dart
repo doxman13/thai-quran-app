@@ -613,6 +613,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (dbP != null) {
           final remoteId = dbP['id'].toString();
           matchedRemoteIds.add(remoteId);
+          if (localP.id != remoteId) {
+            await _replaceProfileReferences(localP.id, remoteId);
+          }
 
           final remoteUpdatedAt =
               DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
@@ -653,6 +656,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             syncedLocal,
             userId: userId,
           );
+          if (returnedId != null && returnedId != localP.id) {
+            await _replaceProfileReferences(localP.id, returnedId);
+          }
           reconciledProfiles.add(
             syncedLocal.copyWith(id: returnedId ?? syncedLocal.id),
           );
@@ -948,8 +954,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             if (_activeProfileId == p.id) {
               _activeProfileId = returnedId;
             }
-            await _save();
           }
+          await _replaceProfileReferences(p.id, returnedId);
+          await _save();
           return returnedId;
         }
       }
@@ -958,6 +965,51 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       rethrow;
     }
     return null;
+  }
+
+  Future<void> _replaceProfileReferences(String oldId, String newId) async {
+    if (oldId == newId) return;
+
+    var changed = false;
+    if (_activeProfileId == oldId) {
+      _activeProfileId = newId;
+      changed = true;
+    }
+    if (_pendingRecentProfileId == oldId) {
+      _pendingRecentProfileId = newId;
+      changed = true;
+    }
+
+    final seenKeys = <String>{};
+    final updatedRecent = <MushafRecentReading>[];
+    for (final reading in _recentReadings) {
+      final profileId = reading.profileId == oldId ? newId : reading.profileId;
+      final key = '${reading.mushafId}-$profileId';
+      if (seenKeys.contains(key)) {
+        changed = true;
+        continue;
+      }
+      seenKeys.add(key);
+
+      if (profileId != reading.profileId) {
+        changed = true;
+        updatedRecent.add(
+          MushafRecentReading(
+            mushafId: reading.mushafId,
+            pageNumber: reading.pageNumber,
+            profileId: profileId,
+            updatedAt: reading.updatedAt,
+          ),
+        );
+      } else {
+        updatedRecent.add(reading);
+      }
+    }
+
+    if (changed) {
+      _recentReadings = updatedRecent;
+      await _save();
+    }
   }
 
   Future<void> _flushDeletedPageBookmarks(String userId) async {
