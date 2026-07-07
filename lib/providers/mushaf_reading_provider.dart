@@ -13,6 +13,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<MushafPageBookmark> _pageBookmarks = [];
   List<MushafVerseBookmark> _verseBookmarks = [];
   List<MushafRecentReading> _recentReadings = [];
+  final Set<String> _deletedPageBookmarkKeys = {};
+  final Set<String> _deletedVerseBookmarkKeys = {};
   String? _activeProfileId;
   int _displayMushafId = 2;
   bool _isLoaded = false;
@@ -167,6 +169,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           decoded['verseBookmarks'],
           MushafVerseBookmark.fromJson,
         );
+        _deletedPageBookmarkKeys
+          ..clear()
+          ..addAll(_decodeStringSet(decoded['deletedPageBookmarkKeys']));
+        _deletedVerseBookmarkKeys
+          ..clear()
+          ..addAll(_decodeStringSet(decoded['deletedVerseBookmarkKeys']));
         _recentReadings = _decodeList(
           decoded['recentReadings'],
           MushafRecentReading.fromJson,
@@ -183,6 +191,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pageBookmarks = [];
       _verseBookmarks = [];
       _recentReadings = [];
+      _deletedPageBookmarkKeys.clear();
+      _deletedVerseBookmarkKeys.clear();
       _activeProfileId = null;
     }
 
@@ -378,6 +388,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     if (index >= 0) {
       _pageBookmarks.removeAt(index);
+      final key = _pageBookmarkKey(mushafId, pageNumber);
+      _deletedPageBookmarkKeys.add(key);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         try {
@@ -387,6 +399,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               .eq('user_id', user.id)
               .eq('mushaf_id', mushafId)
               .eq('page_number', pageNumber);
+          _deletedPageBookmarkKeys.remove(key);
         } catch (e) {
           debugPrint('Error deleting page bookmark from Supabase: $e');
         }
@@ -398,6 +411,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         pageNumber: pageNumber,
         createdAt: DateTime.now(),
       );
+      _deletedPageBookmarkKeys.remove(_pageBookmarkKey(mushafId, pageNumber));
       _pageBookmarks.add(bookmark);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
@@ -439,6 +453,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     if (index >= 0) {
       _verseBookmarks.removeAt(index);
+      final key = _verseBookmarkKey(mushafId, pageNumber, verseKey);
+      _deletedVerseBookmarkKeys.add(key);
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         try {
@@ -449,6 +465,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               .eq('mushaf_id', mushafId)
               .eq('page_number', pageNumber)
               .eq('verse_key', verseKey);
+          _deletedVerseBookmarkKeys.remove(key);
         } catch (e) {
           debugPrint('Error deleting verse bookmark from Supabase: $e');
         }
@@ -460,6 +477,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         pageNumber: pageNumber,
         verseKey: verseKey,
         createdAt: DateTime.now(),
+      );
+      _deletedVerseBookmarkKeys.remove(
+        _verseBookmarkKey(mushafId, pageNumber, verseKey),
       );
       _verseBookmarks.add(bookmark);
       final user = Supabase.instance.client.auth.currentUser;
@@ -524,6 +544,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         'verseBookmarks': _verseBookmarks
             .map((bookmark) => bookmark.toJson())
             .toList(),
+        'deletedPageBookmarkKeys': _deletedPageBookmarkKeys.toList(),
+        'deletedVerseBookmarkKeys': _deletedVerseBookmarkKeys.toList(),
         'recentReadings': _recentReadings
             .map((reading) => reading.toJson())
             .toList(),
@@ -540,6 +562,14 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         .whereType<Map>()
         .map((item) => decoder(Map<String, dynamic>.from(item)))
         .toList();
+  }
+
+  Set<String> _decodeStringSet(dynamic raw) {
+    if (raw is! List) return {};
+    return raw
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toSet();
   }
 
   String _slugify(String value) {
@@ -667,6 +697,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       // 2. Sync Page Bookmarks
+      await _flushDeletedPageBookmarks(userId);
       final remotePageBookRes = await client
           .from('mushaf_page_bookmarks')
           .select('*')
@@ -676,6 +707,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       final Set<String> matchedPageBookKeys = {};
 
       for (final localB in _pageBookmarks) {
+        final key = _pageBookmarkKey(localB.mushafId, localB.pageNumber);
+        if (_deletedPageBookmarkKeys.contains(key)) continue;
+
         final dbB = dbPageBook.firstWhere(
           (item) =>
               item['mushaf_id'] == localB.mushafId &&
@@ -683,7 +717,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           orElse: () => null,
         );
         if (dbB != null) {
-          matchedPageBookKeys.add('${localB.mushafId}-${localB.pageNumber}');
+          matchedPageBookKeys.add(key);
         } else {
           await client.from('mushaf_page_bookmarks').upsert({
             'user_id': userId,
@@ -696,8 +730,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       for (final dbB in dbPageBook) {
-        final key = '${dbB['mushaf_id']}-${dbB['page_number']}';
+        final key = _pageBookmarkKey(dbB['mushaf_id'], dbB['page_number']);
         if (matchedPageBookKeys.contains(key)) continue;
+        if (_deletedPageBookmarkKeys.contains(key)) continue;
         reconciledPageBook.add(
           MushafPageBookmark(
             id: dbB['id'].toString(),
@@ -712,6 +747,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pageBookmarks = reconciledPageBook;
 
       // 3. Sync Verse Bookmarks
+      await _flushDeletedVerseBookmarks(userId);
       final remoteVerseBookRes = await client
           .from('mushaf_verse_bookmarks')
           .select('*')
@@ -721,6 +757,13 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       final Set<String> matchedVerseBookKeys = {};
 
       for (final localB in _verseBookmarks) {
+        final key = _verseBookmarkKey(
+          localB.mushafId,
+          localB.pageNumber,
+          localB.verseKey,
+        );
+        if (_deletedVerseBookmarkKeys.contains(key)) continue;
+
         final dbB = dbVerseBook.firstWhere(
           (item) =>
               item['mushaf_id'] == localB.mushafId &&
@@ -729,9 +772,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           orElse: () => null,
         );
         if (dbB != null) {
-          matchedVerseBookKeys.add(
-            '${localB.mushafId}-${localB.pageNumber}-${localB.verseKey}',
-          );
+          matchedVerseBookKeys.add(key);
         } else {
           await client.from('mushaf_verse_bookmarks').upsert({
             'user_id': userId,
@@ -745,9 +786,13 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       for (final dbB in dbVerseBook) {
-        final key =
-            '${dbB['mushaf_id']}-${dbB['page_number']}-${dbB['verse_key']}';
+        final key = _verseBookmarkKey(
+          dbB['mushaf_id'],
+          dbB['page_number'],
+          dbB['verse_key'],
+        );
         if (matchedVerseBookKeys.contains(key)) continue;
+        if (_deletedVerseBookmarkKeys.contains(key)) continue;
         reconciledVerseBook.add(
           MushafVerseBookmark(
             id: dbB['id'].toString(),
@@ -915,6 +960,52 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     return null;
   }
 
+  Future<void> _flushDeletedPageBookmarks(String userId) async {
+    if (_deletedPageBookmarkKeys.isEmpty) return;
+    final client = Supabase.instance.client;
+    final deletedKeys = Set<String>.from(_deletedPageBookmarkKeys);
+    for (final key in deletedKeys) {
+      final parts = key.split('-');
+      if (parts.length != 2) continue;
+      final mushafId = int.tryParse(parts[0]);
+      final pageNumber = int.tryParse(parts[1]);
+      if (mushafId == null || pageNumber == null) continue;
+
+      await client
+          .from('mushaf_page_bookmarks')
+          .delete()
+          .eq('user_id', userId)
+          .eq('mushaf_id', mushafId)
+          .eq('page_number', pageNumber);
+      _deletedPageBookmarkKeys.remove(key);
+    }
+  }
+
+  Future<void> _flushDeletedVerseBookmarks(String userId) async {
+    if (_deletedVerseBookmarkKeys.isEmpty) return;
+    final client = Supabase.instance.client;
+    final deletedKeys = Set<String>.from(_deletedVerseBookmarkKeys);
+    for (final key in deletedKeys) {
+      final parts = key.split('|');
+      if (parts.length != 3) continue;
+      final mushafId = int.tryParse(parts[0]);
+      final pageNumber = int.tryParse(parts[1]);
+      final verseKey = parts[2];
+      if (mushafId == null || pageNumber == null || verseKey.isEmpty) {
+        continue;
+      }
+
+      await client
+          .from('mushaf_verse_bookmarks')
+          .delete()
+          .eq('user_id', userId)
+          .eq('mushaf_id', mushafId)
+          .eq('page_number', pageNumber)
+          .eq('verse_key', verseKey);
+      _deletedVerseBookmarkKeys.remove(key);
+    }
+  }
+
   void _queueProfileSync(
     MushafProfile profile, {
     Duration delay = const Duration(milliseconds: 900),
@@ -1032,6 +1123,18 @@ int _clampInt(int value, int min, int max) {
   if (value < min) return min;
   if (value > max) return max;
   return value;
+}
+
+String _pageBookmarkKey(dynamic mushafId, dynamic pageNumber) {
+  return '$mushafId-$pageNumber';
+}
+
+String _verseBookmarkKey(
+  dynamic mushafId,
+  dynamic pageNumber,
+  dynamic verseKey,
+) {
+  return '$mushafId|$pageNumber|$verseKey';
 }
 
 int _madaniStartPageForSurah(int surahNumber) {
