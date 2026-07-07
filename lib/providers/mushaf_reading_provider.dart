@@ -602,12 +602,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           continue;
         }
 
-        final dbP = dbProfiles.firstWhere(
+        final dbP = _firstMapWhereOrNull(
+          dbProfiles,
           (item) =>
               item['id'] == localP.id ||
               (item['slug'] == localP.slug &&
                   item['mushaf_id'] == localP.mushafId),
-          orElse: () => null,
         );
 
         if (dbP != null) {
@@ -716,11 +716,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final key = _pageBookmarkKey(localB.mushafId, localB.pageNumber);
         if (_deletedPageBookmarkKeys.contains(key)) continue;
 
-        final dbB = dbPageBook.firstWhere(
+        final dbB = _firstMapWhereOrNull(
+          dbPageBook,
           (item) =>
               item['mushaf_id'] == localB.mushafId &&
               item['page_number'] == localB.pageNumber,
-          orElse: () => null,
         );
         if (dbB != null) {
           matchedPageBookKeys.add(key);
@@ -770,12 +770,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
         if (_deletedVerseBookmarkKeys.contains(key)) continue;
 
-        final dbB = dbVerseBook.firstWhere(
+        final dbB = _firstMapWhereOrNull(
+          dbVerseBook,
           (item) =>
               item['mushaf_id'] == localB.mushafId &&
               item['page_number'] == localB.pageNumber &&
               item['verse_key'] == localB.verseKey,
-          orElse: () => null,
         );
         if (dbB != null) {
           matchedVerseBookKeys.add(key);
@@ -825,11 +825,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       final Set<String> matchedRecentKeys = {};
 
       for (final localR in _recentReadings) {
-        final dbR = dbRecent.firstWhere(
+        final dbR = _firstMapWhereOrNull(
+          dbRecent,
           (item) =>
               item['mushaf_id'] == localR.mushafId &&
               item['profile_id'] == localR.profileId,
-          orElse: () => null,
         );
 
         if (dbR != null) {
@@ -1189,6 +1189,18 @@ int _clampInt(int value, int min, int max) {
   if (value < min) return min;
   if (value > max) return max;
   return value;
+}
+
+Map<String, dynamic>? _firstMapWhereOrNull(
+  Iterable<dynamic> items,
+  bool Function(Map<String, dynamic> item) test,
+) {
+  for (final item in items) {
+    if (item is! Map) continue;
+    final map = Map<String, dynamic>.from(item);
+    if (test(map)) return map;
+  }
+  return null;
 }
 
 String _pageBookmarkKey(dynamic mushafId, dynamic pageNumber) {

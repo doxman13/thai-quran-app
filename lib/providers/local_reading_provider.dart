@@ -791,11 +791,11 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           final Set<String> matchedKeys = {};
 
           for (final localR in userRecent) {
-            final dbR = dbRecent.firstWhere(
+            final dbR = _firstMapWhereOrNull(
+              dbRecent,
               (item) =>
                   item['surah_id'].toString() == localR.verse.surahId &&
                   item['profile_id']?.toString() == localR.profileId,
-              orElse: () => null,
             );
 
             if (dbR != null) {
@@ -2204,6 +2204,18 @@ bool isFreeReadProfile(LocalReadingProfile profile) {
       profile.slug == 'main_read' ||
       profile.name == 'Just Read' ||
       profile.name == 'Free Read';
+}
+
+Map<String, dynamic>? _firstMapWhereOrNull(
+  Iterable<dynamic> items,
+  bool Function(Map<String, dynamic> item) test,
+) {
+  for (final item in items) {
+    if (item is! Map) continue;
+    final map = Map<String, dynamic>.from(item);
+    if (test(map)) return map;
+  }
+  return null;
 }
 
 bool isFreeReadProfileName(String name) {
