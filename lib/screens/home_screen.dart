@@ -14,6 +14,7 @@ import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/notes_provider.dart';
+import '../providers/stats_provider.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
@@ -976,18 +977,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
     if (supabaseProv.isLoggedIn && supabaseProv.user != null) {
       final userId = supabaseProv.user!.id;
-      await Provider.of<NotesProvider>(
-        context,
-        listen: false,
-      ).syncWithSupabase();
-      await Provider.of<LocalReadingProvider>(
-        context,
-        listen: false,
-      ).syncBookmarksAndProfilesWithSupabase(userId);
-      await Provider.of<MushafReadingProvider>(
-        context,
-        listen: false,
-      ).syncWithSupabase(userId);
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      final reading = Provider.of<LocalReadingProvider>(context, listen: false);
+      final mushaf = Provider.of<MushafReadingProvider>(context, listen: false);
+      final notes = Provider.of<NotesProvider>(context, listen: false);
+      final stats = Provider.of<StatsProvider>(context, listen: false);
+
+      await reading.flushPendingProfileSyncs();
+      await reading.flushPendingRecentReadingSync();
+      await reading.flushPendingReadingStateSync();
+      await mushaf.flushPendingProfileSyncs();
+      await mushaf.flushPendingRecentReadingSync();
+      await stats.flushPendingSave();
+      await settings.syncWithSupabase(userId);
+      await notes.syncWithSupabase();
+      await reading.syncBookmarksAndProfilesWithSupabase(userId);
+      await reading.syncReadingStateWithSupabase(userId);
+      await mushaf.syncWithSupabase(userId);
+      await stats.syncWithSupabase(userId);
     }
   }
 

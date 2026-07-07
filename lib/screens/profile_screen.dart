@@ -11,7 +11,6 @@ import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
 import '../data/quran_repository.dart';
 import 'bookmarks_screen.dart';
-import 'notes_screen.dart';
 import 'reading_screen.dart';
 import 'tadabbur_private_screen.dart';
 import '../theme/app_theme.dart';
@@ -237,9 +236,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleManualSync(
     SupabaseProvider supabaseProv,
+    SettingsProvider settingsProv,
     LocalReadingProvider readingProv,
     MushafReadingProvider mushafProv,
     NotesProvider notesProv,
+    StatsProvider statsProv,
   ) async {
     if (_isSyncing) return;
     setState(() {
@@ -249,12 +250,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
+      await readingProv.flushPendingProfileSyncs();
+      await readingProv.flushPendingRecentReadingSync();
+      await readingProv.flushPendingReadingStateSync();
+      await mushafProv.flushPendingProfileSyncs();
+      await mushafProv.flushPendingRecentReadingSync();
+      await statsProv.flushPendingSave();
+
+      await settingsProv.syncWithSupabase(supabaseProv.userId);
       await readingProv.syncBookmarksAndProfilesWithSupabase(
         supabaseProv.userId,
       );
       await readingProv.syncReadingStateWithSupabase(supabaseProv.userId);
       await mushafProv.syncWithSupabase(supabaseProv.userId);
       await notesProv.syncWithSupabase();
+      await statsProv.syncWithSupabase(supabaseProv.userId);
       if (mounted) {
         setState(() {
           _successMessage =
@@ -311,16 +321,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _openNotes() {
-    final repository = widget.repository;
-    if (repository == null) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => NotesScreen(repository: repository)),
-    );
-  }
-
   void _openTadabbur() {
     final repository = widget.repository;
     if (repository == null) return;
@@ -330,6 +330,204 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(
         builder: (_) => TadabburPrivateScreen(repository: repository),
       ),
+    );
+  }
+
+  Future<void> _openReadingProfile(LocalReadingProfile profile) async {
+    await context.read<LocalReadingProvider>().setActiveProfile(profile.id);
+    _openReading(
+      profile.furthestUnread.surahId,
+      profile.furthestUnread.verseId,
+    );
+  }
+
+  void _showReadingProfilesSheet(LocalReadingProvider readingProv) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colorScheme.outline, width: 1),
+      ),
+      builder: (sheetContext) {
+        final activeProfiles = readingProv.activeProfiles;
+        final archivedProfiles = readingProv.archivedProfiles;
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            shrinkWrap: true,
+            children: [
+              _buildSheetHeader(
+                colorScheme,
+                'โปรไฟล์การอ่าน',
+                '${activeProfiles.length} ใช้งาน / ${archivedProfiles.length} เก็บถาวร',
+              ),
+              const SizedBox(height: 16),
+              if (activeProfiles.isEmpty)
+                _buildEmptyState(
+                  colorScheme,
+                  Icons.menu_book_outlined,
+                  'ยังไม่มีแผนการอ่านที่ใช้งาน',
+                  'สร้างเป้าหมายการอ่านจากหน้าแรก',
+                )
+              else
+                ...activeProfiles.map(
+                  (profile) => _buildProfileRow(
+                    colorScheme: colorScheme,
+                    title: profile.name,
+                    subtitle:
+                        '${profile.furthestUnread.surahId}:${profile.furthestUnread.verseId}',
+                    icon: isFreeReadProfile(profile)
+                        ? Icons.auto_stories_outlined
+                        : Icons.flag_outlined,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _openReadingProfile(profile);
+                    },
+                    trailing: isFreeReadProfile(profile)
+                        ? null
+                        : IconButton(
+                            tooltip: 'Archive',
+                            icon: Icon(
+                              Icons.archive_outlined,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            onPressed: () async {
+                              await readingProv.deleteProfile(profile.id);
+                              if (sheetContext.mounted) {
+                                Navigator.pop(sheetContext);
+                              }
+                            },
+                          ),
+                  ),
+                ),
+              if (archivedProfiles.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildSheetHeader(
+                  colorScheme,
+                  'รายการที่เก็บถาวร',
+                  'ซ่อนจากแผนการอ่านที่ใช้งาน',
+                ),
+                const SizedBox(height: 12),
+                ...archivedProfiles.map(
+                  (profile) => _buildProfileRow(
+                    colorScheme: colorScheme,
+                    title: profile.name,
+                    subtitle: 'แผนที่เก็บถาวร',
+                    icon: Icons.archive_outlined,
+                    onTap: null,
+                    trailing: TextButton(
+                      onPressed: () async {
+                        await readingProv.restoreProfile(profile.id);
+                        if (sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                        }
+                      },
+                      child: const Text('กู้คืน'),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMushafProfilesSheet(MushafReadingProvider mushafProv) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final activeProfiles = mushafProv.activeCustomProfiles;
+    final archivedProfiles =
+        mushafProv.profiles
+            .where((profile) => !profile.isFreeRead && profile.isArchived)
+            .toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colorScheme.outline, width: 1),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            shrinkWrap: true,
+            children: [
+              _buildSheetHeader(
+                colorScheme,
+                'โปรไฟล์มุศฮัฟ',
+                '${activeProfiles.length} ใช้งาน / ${archivedProfiles.length} เก็บถาวร',
+              ),
+              const SizedBox(height: 16),
+              if (activeProfiles.isEmpty)
+                _buildEmptyState(
+                  colorScheme,
+                  Icons.import_contacts_rounded,
+                  'ยังไม่มีแผนการอ่านมุศฮัฟ',
+                  'สร้างแผนแบบหน้า ซูเราะฮ์ หรือญุซจากหน้าอ่านมุศฮัฟ',
+                )
+              else
+                ...activeProfiles.map(
+                  (profile) => _buildProfileRow(
+                    colorScheme: colorScheme,
+                    title: profile.name,
+                    subtitle:
+                        'หน้า ${profile.startPage}-${profile.targetPage} / ปัจจุบัน ${profile.furthestUnreadPage}',
+                    icon: Icons.import_contacts_rounded,
+                    onTap: () async {
+                      await mushafProv.setActiveProfile(profile.id);
+                      if (sheetContext.mounted) {
+                        Navigator.pop(sheetContext);
+                      }
+                    },
+                    trailing: IconButton(
+                      tooltip: 'Archive',
+                      icon: Icon(
+                        Icons.archive_outlined,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () async {
+                        await mushafProv.archiveProfile(profile.id);
+                        if (sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              if (archivedProfiles.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _buildSheetHeader(
+                  colorScheme,
+                  'รายการที่เก็บถาวร',
+                  'ซ่อนจากแผนการอ่านมุศฮัฟที่ใช้งาน',
+                ),
+                const SizedBox(height: 12),
+                ...archivedProfiles.map(
+                  (profile) => _buildProfileRow(
+                    colorScheme: colorScheme,
+                    title: profile.name,
+                    subtitle: 'หน้า ${profile.startPage}-${profile.targetPage}',
+                    icon: Icons.archive_outlined,
+                    onTap: null,
+                    trailing: Icon(
+                      Icons.lock_outline,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -754,9 +952,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? null
                                 : () => _handleManualSync(
                                     supabaseProv,
+                                    settings,
                                     readingProv,
                                     mushafProv,
                                     notesProv,
+                                    statsProv,
                                   ),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -810,51 +1010,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Divider(color: colorScheme.outline, thickness: 1),
                         const SizedBox(height: 16),
 
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'สถิติการอ่านของคุณ (Your Reading Stats)',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.4,
+                        _buildProfileStatsGroup(
+                          title: 'อ่านพร้อมความหมาย',
                           children: [
                             _buildStatCard(
                               icon: Icons.menu_book,
                               title: 'แผนการอ่าน',
                               value: '${readingProv.activeProfiles.length} / 5',
                               color: colorScheme.primary,
-                              onTap: () => Navigator.pop(context),
+                              onTap: () =>
+                                  _showReadingProfilesSheet(readingProv),
                             ),
                             _buildStatCard(
                               icon: Icons.bookmark,
-                              title: 'บุ๊กมาร์ก',
+                              title: 'บุ๊คมาร์ก',
                               value: '${readingProv.bookmarks.length}',
                               color: colorScheme.secondary,
                               onTap: _openBookmarks,
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _buildProfileStatsGroup(
+                          title: 'อ่านมุศฮัฟ',
+                          children: [
                             _buildStatCard(
-                              icon: Icons.note_alt,
-                              title: 'บันทึกส่วนตัว',
-                              value: '${notesProv.personalNotes.length}',
+                              icon: Icons.import_contacts_rounded,
+                              title: 'แผนการอ่าน',
+                              value:
+                                  '${mushafProv.activeCustomProfiles.length}',
                               color: colorScheme.primary,
-                              onTap: _openNotes,
+                              onTap: () => _showMushafProfilesSheet(mushafProv),
                             ),
                             _buildStatCard(
+                              icon: Icons.bookmark_added_outlined,
+                              title: 'บุ๊คมาร์ก',
+                              value:
+                                  '${mushafProv.pageBookmarks.length + mushafProv.verseBookmarks.length}',
+                              color: colorScheme.secondary,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        _buildProfileStatsGroup(
+                          title: 'สถิติและบันทึก',
+                          children: [
+                            _buildStatCard(
                               icon: Icons.favorite_rounded,
-                              title: 'Favorites & Notes',
+                              title: settings.languageCode == 'en'
+                                  ? 'My Favourite Ayat'
+                                  : 'อายะฮ์โปรดของฉัน',
                               value: '${notesProv.personalNotes.length}',
                               color: colorScheme.secondary,
                               onTap: _openTadabbur,
@@ -865,63 +1070,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               value: '${statsProv.streakCount} วัน',
                               color: colorScheme.primary,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Mushaf Reading',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.import_contacts_rounded,
-                                title: 'Profiles',
-                                value:
-                                    '${mushafProv.activeCustomProfiles.length}',
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.bookmark_added_outlined,
-                                title: 'Page bookmarks',
-                                value: '${mushafProv.pageBookmarks.length}',
-                                color: colorScheme.secondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.format_quote_rounded,
-                                title: 'Verse bookmarks',
-                                value: '${mushafProv.verseBookmarks.length}',
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.history_rounded,
-                                title: 'Recent pages',
-                                value: '${mushafProv.recentReadings.length}',
-                                color: colorScheme.secondary,
-                              ),
-                            ),
+                            _buildReportsCountCard(supabaseProv),
                           ],
                         ),
                       ],
@@ -931,174 +1080,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
 
               if (supabaseProv.isLoggedIn) ...[
-                if (readingProv.archivedProfiles.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'แผนการอ่านที่เก็บถาวร (Archived Plans)',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...readingProv.archivedProfiles.map((profile) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
-                        border: Border.all(
-                          color: colorScheme.outline,
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.archive_outlined,
-                          color: colorScheme.primary,
-                        ),
-                        title: Text(
-                          profile.name,
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            TextButton(
-                              onPressed: () =>
-                                  readingProv.restoreProfile(profile.id),
-                              child: Text(
-                                'Restore',
-                                style: TextStyle(color: colorScheme.primary),
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: colorScheme.error,
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: colorScheme.surface,
-                                    surfaceTintColor: colorScheme.surface,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        AppTheme.radius,
-                                      ),
-                                      side: BorderSide(
-                                        color: colorScheme.outline,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      'ลบแผนการอ่าน?',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    content: Text(
-                                      'คุณต้องการลบ "${profile.name}" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้',
-                                      style: GoogleFonts.notoSansThai(),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: Text(
-                                          'ยกเลิก',
-                                          style: TextStyle(
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          readingProv.deleteProfile(profile.id);
-                                          Navigator.pop(context);
-                                        },
-                                        child: Text(
-                                          'ลบ',
-                                          style: TextStyle(
-                                            color: colorScheme.error,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-                if (readingProv.recentReadings.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Recent Readings',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...readingProv.recentReadings.take(5).map((reading) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
-                        border: Border.all(
-                          color: colorScheme.outline,
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.history,
-                          color: colorScheme.primary,
-                        ),
-                        title: Text(
-                          '${reading.verse.surahId}:${reading.verse.verseId}',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Continue from this ayah',
-                          style: GoogleFonts.inter(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        onTap: () => _openReading(
-                          reading.verse.surahId,
-                          reading.verse.verseId,
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-
-                _buildReportsSection(supabaseProv),
-
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 16),
@@ -1137,6 +1118,238 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileStatsGroup({
+    required String title,
+    required List<Widget> children,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            title,
+            style: GoogleFonts.notoSansThai(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.4,
+          children: children,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReportsCountCard(SupabaseProvider supabaseProv) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _reportsFuture,
+      builder: (context, snapshot) {
+        final reports = snapshot.data ?? const <Map<String, dynamic>>[];
+        final value = snapshot.connectionState == ConnectionState.waiting
+            ? '...'
+            : '${reports.length}';
+
+        return _buildStatCard(
+          icon: Icons.report_outlined,
+          title: 'รายงานปัญหา',
+          value: value,
+          color: colorScheme.secondary,
+          onTap: () => _showReportsSheet(supabaseProv),
+        );
+      },
+    );
+  }
+
+  void _showReportsSheet(SupabaseProvider supabaseProv) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        side: BorderSide(color: colorScheme.outline, width: 1),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.86,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              child: _buildReportsSection(supabaseProv),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSheetHeader(
+    ColorScheme colorScheme,
+    String title,
+    String subtitle,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.notoSansThai(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(
+    ColorScheme colorScheme,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.notoSansThai(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileRow({
+    required ColorScheme colorScheme,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    final row = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline, width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: colorScheme.primary, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.notoSansThai(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          trailing ??
+              Icon(
+                Icons.chevron_right,
+                color: onTap == null
+                    ? colorScheme.outline
+                    : colorScheme.onSurfaceVariant,
+              ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: row,
         ),
       ),
     );
@@ -1191,6 +1404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1281,7 +1495,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const SizedBox.shrink();
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(

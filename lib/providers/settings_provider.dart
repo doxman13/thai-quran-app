@@ -88,9 +88,9 @@ class SettingsProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _syncToSupabase() async {
+  Future<void> _syncToSupabase({String? userIdOverride}) async {
     final client = Supabase.instance.client;
-    final userId = client.auth.currentUser?.id;
+    final userId = userIdOverride ?? client.auth.currentUser?.id;
     if (userId != null) {
       try {
         final updatedAt =
@@ -100,12 +100,16 @@ class SettingsProvider extends ChangeNotifier {
         // Derive legacy booleans from slots for backward compat with old Supabase rows
         await client.from('user_settings').upsert({
           'user_id': userId,
-          'theme_color': 'blue',
+          'theme_color': _themeColor,
           'is_dark_mode': _isDarkMode,
           'keep_awake': _keepAwake,
+          'reading_display_mode': _readingDisplayMode,
           'always_show_arabic': showArabicText,
           'arabic_font_family': 'UthmanicHafs',
           'arabic_font_size': _arabicFontSize,
+          'thai_font_family': 'sans-serif',
+          'thai_font_size': _translationFontSize,
+          'translation_font_size': _translationFontSize,
           // Legacy boolean columns kept for web backwards compat
           'show_thai_v3': showThaiV3,
           'show_thai_v2': showThaiV2,
@@ -113,12 +117,19 @@ class SettingsProvider extends ChangeNotifier {
           // New dual-slot columns
           'primary_translation_id': _primaryTranslationId,
           'secondary_translation_id': _secondaryTranslationId,
+          'language_code': _languageCode,
+          'web_host_url': _webHostUrl,
           'updated_at': updatedAt.toIso8601String(),
-        });
+        }, onConflict: 'user_id');
       } catch (e) {
         debugPrint('Error syncing settings to Supabase: $e');
+        rethrow;
       }
     }
+  }
+
+  Future<void> syncWithSupabase(String userId) async {
+    await loadAndApplySyncedSettings(userId);
   }
 
   Future<void> loadAndApplySyncedSettings(String userId) async {
@@ -129,78 +140,99 @@ class SettingsProvider extends ChangeNotifier {
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (response != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final hasLocalDisplayMode = prefs.containsKey('readingDisplayMode');
-        final localUpdatedAt =
-            DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
-        final remoteUpdatedAt =
-            DateTime.tryParse(response['updated_at']?.toString() ?? '') ??
-            DateTime.fromMillisecondsSinceEpoch(0);
+      final prefs = await SharedPreferences.getInstance();
+      if (response == null) {
+        await _syncToSupabase(userIdOverride: userId);
+        return;
+      }
 
-        if (localUpdatedAt.isAfter(remoteUpdatedAt)) {
-          _settingsUpdatedAt = localUpdatedAt;
-          await _syncToSupabase();
-          return;
-        }
+      final hasLocalDisplayMode = prefs.containsKey('readingDisplayMode');
+      final localUpdatedAt =
+          DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final remoteUpdatedAt =
+          DateTime.tryParse(response['updated_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
 
-        _themeColor = _normalizeThemeColor(
-          response['theme_color']?.toString() ?? _themeColor,
-        );
-        _isDarkMode = response['is_dark_mode'] == true;
-        _keepAwake = response['keep_awake'] ?? true;
-        if (!hasLocalDisplayMode) {
-          _readingDisplayMode = _modeFromLegacyFlags(
-            showArabic: response['always_show_arabic'] == true,
-            showTranslation: _readingDisplayMode != quranOnlyMode,
-          );
-        }
-        _arabicFontSize =
-            double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
-            _arabicFontSize;
+      if (localUpdatedAt.isAfter(remoteUpdatedAt)) {
+        _settingsUpdatedAt = localUpdatedAt;
+        await _syncToSupabase();
+        return;
+      }
 
-        // Prefer new dual-slot columns; fall back to legacy booleans for old rows
-        final rawPrimary = response['primary_translation_id']?.toString();
-        if (rawPrimary != null && rawPrimary.isNotEmpty) {
-          _primaryTranslationId = rawPrimary;
-          _secondaryTranslationId = response['secondary_translation_id']
-              ?.toString();
-        } else {
-          // Migrate from legacy boolean columns
-          final v3 = response['show_thai_v3'] == true;
-          final v2 = response['show_thai_v2'] == true;
-          final en = response['show_english'] == true;
-          final ids = _deriveSlotIds(v3: v3, v2: v2, en: en);
-          _primaryTranslationId = ids.$1;
-          _secondaryTranslationId = ids.$2;
-        }
+      _themeColor = _normalizeThemeColor(
+        response['theme_color']?.toString() ?? _themeColor,
+      );
+      _isDarkMode = response['is_dark_mode'] == true;
+      _keepAwake = response['keep_awake'] ?? true;
+      final remoteDisplayMode = response['reading_display_mode']?.toString();
+      _readingDisplayMode =
+          remoteDisplayMode != null && remoteDisplayMode.isNotEmpty
+          ? _normalizeReadingDisplayMode(remoteDisplayMode)
+          : hasLocalDisplayMode
+          ? _readingDisplayMode
+          : _modeFromLegacyFlags(
+              showArabic: response['always_show_arabic'] == true,
+              showTranslation: _readingDisplayMode != quranOnlyMode,
+            );
+      _arabicFontSize =
+          double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
+          _arabicFontSize;
+      _translationFontSize =
+          double.tryParse(
+            (response['translation_font_size'] ?? response['thai_font_size'])
+                    ?.toString() ??
+                '',
+          ) ??
+          _translationFontSize;
+      _languageCode = response['language_code']?.toString() == 'en'
+          ? 'en'
+          : 'th';
+      _webHostUrl = response['web_host_url']?.toString() ?? _webHostUrl;
 
-        notifyListeners();
+      // Prefer new dual-slot columns; fall back to legacy booleans for old rows
+      final rawPrimary = response['primary_translation_id']?.toString();
+      if (rawPrimary != null && rawPrimary.isNotEmpty) {
+        _primaryTranslationId = rawPrimary;
+        _secondaryTranslationId = response['secondary_translation_id']
+            ?.toString();
+      } else {
+        // Migrate from legacy boolean columns
+        final v3 = response['show_thai_v3'] == true;
+        final v2 = response['show_thai_v2'] == true;
+        final en = response['show_english'] == true;
+        final ids = _deriveSlotIds(v3: v3, v2: v2, en: en);
+        _primaryTranslationId = ids.$1;
+        _secondaryTranslationId = ids.$2;
+      }
 
-        // Save to local SharedPreferences
-        await prefs.setString('themeColor', _themeColor);
-        await prefs.setBool('isDarkMode', _isDarkMode);
-        await prefs.setBool('keepAwake', _keepAwake);
-        await prefs.setString('readingDisplayMode', _readingDisplayMode);
-        await prefs.setBool('alwaysShowArabic', showArabicText);
-        await prefs.setBool('alwaysShowTranslation', showTranslationText);
-        await prefs.setString('arabicFontFamily', 'UthmanicHafs');
-        await prefs.setDouble('arabicFontSize', _arabicFontSize);
-        await prefs.setString('primaryTranslationId', _primaryTranslationId);
-        _settingsUpdatedAt = remoteUpdatedAt;
+      notifyListeners();
+
+      // Save to local SharedPreferences
+      await prefs.setString('themeColor', _themeColor);
+      await prefs.setBool('isDarkMode', _isDarkMode);
+      await prefs.setBool('keepAwake', _keepAwake);
+      await prefs.setString('readingDisplayMode', _readingDisplayMode);
+      await prefs.setBool('alwaysShowArabic', showArabicText);
+      await prefs.setBool('alwaysShowTranslation', showTranslationText);
+      await prefs.setString('arabicFontFamily', 'UthmanicHafs');
+      await prefs.setDouble('arabicFontSize', _arabicFontSize);
+      await prefs.setDouble('translationFontSize', _translationFontSize);
+      await prefs.setString('languageCode', _languageCode);
+      await prefs.setString('webHostUrl', _webHostUrl);
+      await prefs.setString('primaryTranslationId', _primaryTranslationId);
+      _settingsUpdatedAt = remoteUpdatedAt;
+      await prefs.setString(
+        'settingsUpdatedAt',
+        remoteUpdatedAt.toIso8601String(),
+      );
+      if (_secondaryTranslationId != null) {
         await prefs.setString(
-          'settingsUpdatedAt',
-          remoteUpdatedAt.toIso8601String(),
+          'secondaryTranslationId',
+          _secondaryTranslationId!,
         );
-        if (_secondaryTranslationId != null) {
-          await prefs.setString(
-            'secondaryTranslationId',
-            _secondaryTranslationId!,
-          );
-        } else {
-          await prefs.remove('secondaryTranslationId');
-        }
+      } else {
+        await prefs.remove('secondaryTranslationId');
       }
     } catch (e) {
       debugPrint('Error loading/applying user settings: $e');
@@ -374,6 +406,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('translationFontSize', value);
     await _markSettingsChanged(prefs);
+    await _syncToSupabase();
   }
 
   void setThemeColor(String value) async {
@@ -391,6 +424,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('webHostUrl', _webHostUrl);
     await _markSettingsChanged(prefs);
+    await _syncToSupabase();
   }
 
   void setLanguageCode(String value) async {
@@ -400,6 +434,7 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('languageCode', _languageCode);
     await _markSettingsChanged(prefs);
+    await _syncToSupabase();
   }
 
   /// Core dual-slot mutation with Auto-Eviction collision logic.

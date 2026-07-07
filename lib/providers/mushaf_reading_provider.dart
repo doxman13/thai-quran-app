@@ -20,6 +20,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<AuthState>? _authSubscription;
   Timer? _recentReadingSyncTimer;
   Timer? _profileSyncTimer;
+  final Completer<void> _loadCompleter = Completer<void>();
   String? _pendingRecentUserId;
   int? _pendingRecentMushafId;
   int? _pendingRecentPageNumber;
@@ -31,6 +32,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     load();
     _listenToAuthChanges();
+    unawaited(_syncExistingSessionAfterLoad());
   }
 
   @override
@@ -47,11 +49,20 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
     ) async {
+      await _loadCompleter.future;
       final user = data.session?.user;
       if (user != null) {
         await syncWithSupabase(user.id);
       }
     });
+  }
+
+  Future<void> _syncExistingSessionAfterLoad() async {
+    await _loadCompleter.future;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      await syncWithSupabase(user.id);
+    }
   }
 
   bool get isLoaded => _isLoaded;
@@ -131,6 +142,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _ensureDefaultProfile();
       _isLoaded = true;
       await _save();
+      _completeLoad();
       notifyListeners();
       return;
     }
@@ -173,7 +185,14 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
     _isLoaded = true;
     await _save();
+    _completeLoad();
     notifyListeners();
+  }
+
+  void _completeLoad() {
+    if (!_loadCompleter.isCompleted) {
+      _loadCompleter.complete();
+    }
   }
 
   Future<MushafProfile> openFreeRead(int mushafId) async {
@@ -560,7 +579,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           final remoteUpdatedAt =
               DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
               DateTime.fromMillisecondsSinceEpoch(0);
-          if (localP.updatedAt.isAfter(remoteUpdatedAt)) {
+          final remoteIsArchived = dbP['is_archived'] == true;
+          if (!remoteIsArchived && localP.updatedAt.isAfter(remoteUpdatedAt)) {
             final syncedLocal = localP.copyWith(id: remoteId, userId: userId);
             reconciledProfiles.add(syncedLocal);
             await _syncProfileToSupabase(syncedLocal);
@@ -630,6 +650,10 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       _profiles = reconciledProfiles;
+      final active = profileById(_activeProfileId);
+      if (active == null || active.isArchived) {
+        _activeProfileId = freeReadProfileForMushaf(_displayMushafId).id;
+      }
 
       // 2. Sync Page Bookmarks
       final remotePageBookRes = await client

@@ -54,6 +54,8 @@ class LocalReadingProfile {
   int get lastViewedIndex => absoluteVerseIndex(lastViewed);
 
   LocalReadingProfile copyWith({
+    String? id,
+    String? userId,
     String? name,
     String? slug,
     String? planMode,
@@ -68,8 +70,8 @@ class LocalReadingProfile {
     DateTime? updatedAt,
   }) {
     return LocalReadingProfile(
-      id: id,
-      userId: userId,
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       slug: slug ?? this.slug,
       planMode: planMode ?? this.planMode,
@@ -880,13 +882,21 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final client = Supabase.instance.client;
 
-      // 1. Fetch remote profiles from user_reading_profiles
+      // 1. Fetch remote profiles from the shared reading_profiles contract.
       final response = await client
-          .from('user_reading_profiles')
+          .from('reading_profiles')
           .select('*')
           .eq('user_id', userId);
 
-      final List<dynamic> dbProfiles = response;
+      final List<Map<String, dynamic>> dbProfiles = response
+          .whereType<Map>()
+          .map((item) => item.cast<String, dynamic>())
+          .toList();
+      await _promoteLegacyReadingProfiles(
+        client: client,
+        userId: userId,
+        dbProfiles: dbProfiles,
+      );
 
       // Helper to check if string is a valid UUID
       final uuidRegExp = RegExp(
@@ -900,14 +910,14 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       bool localStateChanged = false;
       bool hasRemoteUpdates = false;
 
-      // Index remote profiles by id and name (case-insensitive) for fast lookup
+      // Index remote profiles by id and slug/name for fast lookup.
       final Map<String, Map<String, dynamic>> remoteById = {};
-      final Map<String, Map<String, dynamic>> remoteByName = {};
+      final Map<String, Map<String, dynamic>> remoteBySlug = {};
       for (final dbP in dbProfiles) {
         final rId = dbP['id']?.toString();
-        final rName = dbP['profile_name']?.toString();
+        final rSlug = dbP['slug']?.toString();
         if (rId != null) remoteById[rId] = dbP;
-        if (rName != null) remoteByName[rName.toLowerCase()] = dbP;
+        if (rSlug != null) remoteBySlug[rSlug.toLowerCase()] = dbP;
       }
 
       // Iterate through local profiles
@@ -922,65 +932,35 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         Map<String, dynamic>? matchedRemote;
         if (isValidUuid(localP.id) && remoteById.containsKey(localP.id)) {
           matchedRemote = remoteById[localP.id];
-        } else if (remoteByName.containsKey(localP.name.toLowerCase())) {
-          matchedRemote = remoteByName[localP.name.toLowerCase()];
+        } else if (remoteBySlug.containsKey(localP.slug.toLowerCase())) {
+          matchedRemote = remoteBySlug[localP.slug.toLowerCase()];
         }
 
         if (matchedRemote != null) {
           final remoteId = matchedRemote['id'].toString();
           matchedRemoteIds.add(remoteId);
 
-          final remoteLastReadAt =
+          final remoteUpdatedAt =
               DateTime.tryParse(
-                matchedRemote['last_read_at']?.toString() ?? '',
+                matchedRemote['updated_at']?.toString() ?? '',
               ) ??
               DateTime.fromMillisecondsSinceEpoch(0);
           final localUpdatedAt = localP.updatedAt;
 
-          if (localUpdatedAt.isAfter(remoteLastReadAt)) {
+          final remoteIsArchived = matchedRemote['is_archived'] == true;
+          if (!remoteIsArchived && localUpdatedAt.isAfter(remoteUpdatedAt)) {
             // Local is newer: keep local and mark for sync to remote
-            reconciledProfiles.add(localP);
-            profilesToSync.add(localP.id);
+            reconciledProfiles.add(localP.copyWith(id: remoteId));
+            profilesToSync.add(remoteId);
           } else {
-            // Remote is newer or equal: update local with remote progress
-            final remoteFurthestIndex = int.tryParse(
-              matchedRemote['furthest_unread_index']?.toString() ?? '',
-            );
-            final remoteLastViewedIndex = int.tryParse(
-              matchedRemote['last_viewed_index']?.toString() ?? '',
-            );
-            final remoteFurthest = remoteFurthestIndex == null
-                ? toVerseRef(
-                    matchedRemote['current_surah']?.toString() ?? '1',
-                    matchedRemote['current_ayah']?.toString() ?? '1',
-                  )
-                : verseRefFromAbsoluteIndex(remoteFurthestIndex);
-            final remoteLastViewed = remoteLastViewedIndex == null
-                ? remoteFurthest
-                : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
-
-            if (remoteLastReadAt.isAfter(localUpdatedAt)) {
+            // Remote is newer or equal: update local with remote profile state.
+            if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
               hasRemoteUpdates = true;
             }
 
-            final updatedP = LocalReadingProfile(
-              id: remoteId, // Ensure local has the UUID from database
-              userId: localP.userId,
-              name: localP.name,
-              slug: localP.slug,
-              planMode: localP.planMode,
-              startJuz: localP.startJuz,
-              targetJuz: localP.targetJuz,
-              start: localP.start,
-              target: localP.target,
-              current: remoteFurthest,
-              lastViewed: remoteLastViewed,
-              sortOrder: localP.sortOrder,
-              isArchived: localP.isArchived,
-              createdAt: localP.createdAt,
-              updatedAt: remoteLastReadAt,
+            reconciledProfiles.add(
+              _profileFromReadingProfileRow(dbP: matchedRemote),
             );
-            reconciledProfiles.add(updatedP);
             localStateChanged = true;
           }
         } else {
@@ -995,48 +975,16 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final remoteId = dbP['id'].toString();
         if (matchedRemoteIds.contains(remoteId)) continue;
 
-        final rName = dbP['profile_name']?.toString() ?? 'Free Read';
+        final rSlug = dbP['slug']?.toString() ?? '';
         // Double check we don't duplicate by name
         if (reconciledProfiles.any(
           (p) =>
-              p.userId == userId && p.name.toLowerCase() == rName.toLowerCase(),
+              p.userId == userId && p.slug.toLowerCase() == rSlug.toLowerCase(),
         )) {
           continue;
         }
 
-        final remoteFurthestIndex = int.tryParse(
-          dbP['furthest_unread_index']?.toString() ?? '',
-        );
-        final remoteLastViewedIndex = int.tryParse(
-          dbP['last_viewed_index']?.toString() ?? '',
-        );
-        final remoteFurthest = remoteFurthestIndex == null
-            ? toVerseRef(
-                dbP['current_surah']?.toString() ?? '1',
-                dbP['current_ayah']?.toString() ?? '1',
-              )
-            : verseRefFromAbsoluteIndex(remoteFurthestIndex);
-        final remoteLastViewed = remoteLastViewedIndex == null
-            ? remoteFurthest
-            : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
-        final remoteLastReadAt =
-            DateTime.tryParse(dbP['last_read_at']?.toString() ?? '') ??
-            DateTime.now();
-
-        final newLocalP = LocalReadingProfile(
-          id: remoteId,
-          userId: userId,
-          name: rName,
-          slug: _uniqueSlug(slugifyReadingProfileName(rName)),
-          start: toVerseRef(1, 1),
-          current: remoteFurthest,
-          lastViewed: remoteLastViewed,
-          sortOrder: reconciledProfiles.where((p) => p.userId == userId).length,
-          isArchived: false,
-          createdAt: remoteLastReadAt,
-          updatedAt: remoteLastReadAt,
-        );
-        reconciledProfiles.add(newLocalP);
+        reconciledProfiles.add(_profileFromReadingProfileRow(dbP: dbP));
         localStateChanged = true;
         hasRemoteUpdates = true;
       }
@@ -1073,6 +1021,154 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  LocalReadingProfile _profileFromReadingProfileRow({
+    required Map<String, dynamic> dbP,
+  }) {
+    final furthestIndex = int.tryParse(
+      dbP['furthest_unread_index']?.toString() ?? '',
+    );
+    final lastViewedIndex = int.tryParse(
+      dbP['last_viewed_index']?.toString() ?? '',
+    );
+    final current = furthestIndex == null
+        ? toVerseRef(
+            dbP['current_surah_id']?.toString() ?? '1',
+            dbP['current_verse_id']?.toString() ?? '1',
+          )
+        : verseRefFromAbsoluteIndex(furthestIndex);
+    final lastViewed = lastViewedIndex == null
+        ? current
+        : verseRefFromAbsoluteIndex(lastViewedIndex);
+    final targetSurahId = dbP['target_surah_id']?.toString();
+    final targetVerseId = dbP['target_verse_id']?.toString();
+    final updatedAt =
+        DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
+        DateTime.now();
+
+    return LocalReadingProfile(
+      id: dbP['id'].toString(),
+      userId: dbP['user_id']?.toString() ?? currentUserId,
+      name: dbP['name']?.toString() ?? 'Free Read',
+      slug:
+          dbP['slug']?.toString() ??
+          slugifyReadingProfileName(dbP['name']?.toString() ?? 'Free Read'),
+      planMode: dbP['plan_mode']?.toString(),
+      startJuz: int.tryParse(dbP['start_juz']?.toString() ?? ''),
+      targetJuz: int.tryParse(dbP['target_juz']?.toString() ?? ''),
+      start: toVerseRef(
+        dbP['start_surah_id']?.toString() ?? '1',
+        dbP['start_verse_id']?.toString() ?? '1',
+      ),
+      target: targetSurahId != null && targetVerseId != null
+          ? toVerseRef(targetSurahId, targetVerseId)
+          : null,
+      current: current,
+      lastViewed: lastViewed,
+      sortOrder: int.tryParse(dbP['sort_order']?.toString() ?? '') ?? 0,
+      isArchived: dbP['is_archived'] == true,
+      createdAt:
+          DateTime.tryParse(dbP['created_at']?.toString() ?? '') ?? updatedAt,
+      updatedAt: updatedAt,
+    );
+  }
+
+  Future<void> _promoteLegacyReadingProfiles({
+    required SupabaseClient client,
+    required String userId,
+    required List<Map<String, dynamic>> dbProfiles,
+  }) async {
+    try {
+      final legacyRows = await client
+          .from('user_reading_profiles')
+          .select('*')
+          .eq('user_id', userId);
+      final existingSlugs = dbProfiles
+          .map((row) => row['slug']?.toString().toLowerCase())
+          .whereType<String>()
+          .toSet();
+      final existingIds = dbProfiles
+          .map((row) => row['id']?.toString())
+          .whereType<String>()
+          .toSet();
+
+      for (final legacy in legacyRows.whereType<Map>()) {
+        final row = legacy.cast<String, dynamic>();
+        final legacyId = row['id']?.toString();
+        final name = row['profile_name']?.toString() ?? 'Free Read';
+        final slug = slugifyReadingProfileName(name);
+        if (existingSlugs.contains(slug.toLowerCase()) ||
+            (legacyId != null && existingIds.contains(legacyId))) {
+          continue;
+        }
+
+        final furthestIndex = int.tryParse(
+          row['furthest_unread_index']?.toString() ?? '',
+        );
+        final current = furthestIndex == null
+            ? toVerseRef(
+                row['current_surah']?.toString() ?? '1',
+                row['current_ayah']?.toString() ?? '1',
+              )
+            : verseRefFromAbsoluteIndex(furthestIndex);
+        final lastViewedIndex = int.tryParse(
+          row['last_viewed_index']?.toString() ?? '',
+        );
+        final lastViewed = lastViewedIndex == null
+            ? current
+            : verseRefFromAbsoluteIndex(lastViewedIndex);
+        final updatedAt =
+            DateTime.tryParse(row['last_read_at']?.toString() ?? '') ??
+            DateTime.now();
+
+        final promoted = LocalReadingProfile(
+          id: legacyId ?? _createLocalId(),
+          userId: userId,
+          name: isFreeReadProfileName(name) ? 'Free Read' : name,
+          slug: isFreeReadProfileName(name) ? 'free_read' : slug,
+          start: toVerseRef(1, 1),
+          current: current,
+          lastViewed: lastViewed,
+          sortOrder: dbProfiles.length,
+          isArchived: false,
+          createdAt:
+              DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+              updatedAt,
+          updatedAt: updatedAt,
+        );
+        await _syncProfileToSupabase(promoted);
+        dbProfiles.add(_readingProfileRowFromLocal(promoted));
+        existingSlugs.add(promoted.slug.toLowerCase());
+        existingIds.add(promoted.id);
+      }
+    } catch (e) {
+      debugPrint('Error promoting legacy reading profiles: $e');
+    }
+  }
+
+  Map<String, dynamic> _readingProfileRowFromLocal(LocalReadingProfile p) {
+    return {
+      'id': p.id,
+      'user_id': p.userId,
+      'name': p.name,
+      'slug': p.slug,
+      'plan_mode': p.planMode,
+      'start_juz': p.startJuz,
+      'target_juz': p.targetJuz,
+      'start_surah_id': p.start.surahId,
+      'start_verse_id': p.start.verseId,
+      'target_surah_id': p.target?.surahId,
+      'target_verse_id': p.target?.verseId,
+      'current_surah_id': p.current.surahId,
+      'current_verse_id': p.current.verseId,
+      'furthest_unread_index': p.furthestUnreadIndex,
+      'last_viewed_index': p.lastViewedIndex,
+      'sort_order': p.sortOrder,
+      'is_archived': p.isArchived,
+      'created_at': p.createdAt.toIso8601String(),
+      'updated_at': p.updatedAt.toIso8601String(),
+    };
+  }
+
   Future<void> _syncProfileToSupabase(LocalReadingProfile p) async {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
@@ -1085,12 +1181,22 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         final upsertData = {
           'user_id': user.id,
-          'profile_name': p.name,
-          'current_surah': int.tryParse(p.current.surahId) ?? 1,
-          'current_ayah': int.tryParse(p.current.verseId) ?? 1,
+          'name': p.name,
+          'slug': p.slug,
+          'plan_mode': isFreeReadProfile(p) ? null : p.planMode,
+          'start_juz': p.startJuz,
+          'target_juz': p.targetJuz,
+          'start_surah_id': p.start.surahId,
+          'start_verse_id': p.start.verseId,
+          'target_surah_id': p.target?.surahId,
+          'target_verse_id': p.target?.verseId,
+          'current_surah_id': p.current.surahId,
+          'current_verse_id': p.current.verseId,
           'furthest_unread_index': p.furthestUnreadIndex,
           'last_viewed_index': p.lastViewedIndex,
-          'last_read_at': p.updatedAt.toIso8601String(),
+          'sort_order': p.sortOrder,
+          'is_archived': p.isArchived,
+          'updated_at': p.updatedAt.toIso8601String(),
         };
 
         if (hasUuid) {
@@ -1099,12 +1205,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         final response = hasUuid
             ? await client
-                  .from('user_reading_profiles')
+                  .from('reading_profiles')
                   .upsert(upsertData, onConflict: 'id')
                   .select('id')
                   .single()
             : await client
-                  .from('user_reading_profiles')
+                  .from('reading_profiles')
                   .insert(upsertData)
                   .select('id')
                   .single();
@@ -1193,21 +1299,27 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (user == null || profile.userId == 'local') return;
 
     try {
+      final archivedAt = DateTime.now().toIso8601String();
       final uuidRegExp = RegExp(
         r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
       );
       if (uuidRegExp.hasMatch(profile.id)) {
         await Supabase.instance.client
-            .from('user_reading_profiles')
-            .delete()
+            .from('reading_profiles')
+            .update({'is_archived': true, 'updated_at': archivedAt})
             .eq('id', profile.id);
       } else {
         await Supabase.instance.client
-            .from('user_reading_profiles')
-            .delete()
+            .from('reading_profiles')
+            .update({'is_archived': true, 'updated_at': archivedAt})
             .eq('user_id', user.id)
-            .eq('profile_name', profile.name);
+            .eq('slug', profile.slug);
       }
+      await Supabase.instance.client
+          .from('user_reading_profiles')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('profile_name', profile.name);
     } catch (e) {
       debugPrint('Error deleting reading profile from Supabase: $e');
     }
@@ -1325,22 +1437,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> deleteProfile(String profileId) async {
-    await _loadCompleter.future;
-    final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
-    if (profile == null || isFreeReadProfile(profile)) return;
-
-    _profiles = _profiles.where((item) => item.id != profileId).toList();
-    if (_activeProfileId == profileId) {
-      final userProfiles = _profiles
-          .where((p) => p.userId == currentUserId)
-          .toList();
-      final latest = _getLatestReadProfile(userProfiles);
-      _activeProfileId = latest?.id ?? _profiles.firstOrNull?.id;
-    }
-    await _save(immediate: true);
-    notifyListeners();
-
-    await _deleteProfileFromSupabase(profile);
+    await archiveProfile(profileId);
   }
 
   Future<void> setActiveProfile(String profileId) async {
@@ -2107,4 +2204,8 @@ bool isFreeReadProfile(LocalReadingProfile profile) {
       profile.slug == 'main_read' ||
       profile.name == 'Just Read' ||
       profile.name == 'Free Read';
+}
+
+bool isFreeReadProfileName(String name) {
+  return name == 'Just Read' || name == 'Free Read' || name == 'Main Read';
 }

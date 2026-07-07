@@ -3,16 +3,26 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StatsProvider extends ChangeNotifier {
   static const String _historyKey = 'reading_history_v1';
-  
+
   // Date string YYYY-MM-DD -> Set of "surahId:verseId"
   Map<String, Set<String>> _history = {};
   Timer? _saveTimer;
+  StreamSubscription<AuthState>? _authSubscription;
 
   StatsProvider() {
     _loadHistory();
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
+      final user = data.session?.user;
+      if (user != null) {
+        syncWithSupabase(user.id);
+      }
+    });
   }
 
   Future<void> _loadHistory() async {
@@ -39,7 +49,7 @@ class StatsProvider extends ChangeNotifier {
   Future<void> logVerseRead(String surahId, String verseId) async {
     final dateStr = _getDateString(DateTime.now());
     final verseKey = '$surahId:$verseId';
-    
+
     _history.putIfAbsent(dateStr, () => {});
     if (_history[dateStr]!.contains(verseKey)) return; // already logged
 
@@ -48,15 +58,78 @@ class StatsProvider extends ChangeNotifier {
 
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(seconds: 1), () async {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        // Serialize map of sets to map of lists
-        final mapToSave = _history.map((date, set) => MapEntry(date, set.toList()));
-        await prefs.setString(_historyKey, json.encode(mapToSave));
-      } catch (e) {
-        debugPrint('Error saving stats history: $e');
-      }
+      await flushPendingSave();
     });
+  }
+
+  Future<void> flushPendingSave() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mapToSave = _history.map(
+        (date, set) => MapEntry(date, set.toList()),
+      );
+      await prefs.setString(_historyKey, json.encode(mapToSave));
+    } catch (e) {
+      debugPrint('Error saving stats history: $e');
+    }
+  }
+
+  Future<void> syncWithSupabase(String userId) async {
+    await flushPendingSave();
+    final client = Supabase.instance.client;
+    try {
+      final rows = await client
+          .from('user_reading_history')
+          .select('read_date, surah_id, verse_id')
+          .eq('user_id', userId);
+
+      var changed = false;
+      for (final raw in rows.whereType<Map>()) {
+        final row = raw.cast<String, dynamic>();
+        final readDate = row['read_date']?.toString();
+        final surahId = row['surah_id']?.toString();
+        final verseId = row['verse_id']?.toString();
+        if (readDate == null || surahId == null || verseId == null) {
+          continue;
+        }
+        final dateKey = readDate.split('T').first;
+        final verseKey = '$surahId:$verseId';
+        _history.putIfAbsent(dateKey, () => {});
+        if (_history[dateKey]!.add(verseKey)) {
+          changed = true;
+        }
+      }
+
+      final upsertRows = <Map<String, dynamic>>[];
+      for (final entry in _history.entries) {
+        for (final verseKey in entry.value) {
+          final parts = verseKey.split(':');
+          if (parts.length != 2) continue;
+          upsertRows.add({
+            'user_id': userId,
+            'read_date': entry.key,
+            'surah_id': parts[0],
+            'verse_id': parts[1],
+          });
+        }
+      }
+
+      if (upsertRows.isNotEmpty) {
+        await client
+            .from('user_reading_history')
+            .upsert(upsertRows, onConflict: 'user_id,read_date,verse_key');
+      }
+
+      if (changed) {
+        await flushPendingSave();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error syncing stats history with Supabase: $e');
+      rethrow;
+    }
   }
 
   int get todayReadCount {
@@ -93,18 +166,25 @@ class StatsProvider extends ChangeNotifier {
 
     final today = DateTime.now();
     final todayStr = _getDateString(today);
-    final yesterdayStr = _getDateString(today.subtract(const Duration(days: 1)));
+    final yesterdayStr = _getDateString(
+      today.subtract(const Duration(days: 1)),
+    );
 
     // If no reading today and no reading yesterday, streak is broken/0
-    bool readToday = _history.containsKey(todayStr) && _history[todayStr]!.isNotEmpty;
-    bool readYesterday = _history.containsKey(yesterdayStr) && _history[yesterdayStr]!.isNotEmpty;
+    bool readToday =
+        _history.containsKey(todayStr) && _history[todayStr]!.isNotEmpty;
+    bool readYesterday =
+        _history.containsKey(yesterdayStr) &&
+        _history[yesterdayStr]!.isNotEmpty;
 
     if (!readToday && !readYesterday) {
       return 0;
     }
 
     int streak = 0;
-    DateTime checkDate = readToday ? today : today.subtract(const Duration(days: 1));
+    DateTime checkDate = readToday
+        ? today
+        : today.subtract(const Duration(days: 1));
 
     while (true) {
       final checkStr = _getDateString(checkDate);
@@ -124,14 +204,17 @@ class StatsProvider extends ChangeNotifier {
     if (_saveTimer != null && _saveTimer!.isActive) {
       _saveTimer!.cancel();
       try {
-        final mapToSave = _history.map((date, set) => MapEntry(date, set.toList()));
         SharedPreferences.getInstance().then((prefs) {
+          final mapToSave = _history.map(
+            (date, set) => MapEntry(date, set.toList()),
+          );
           prefs.setString(_historyKey, json.encode(mapToSave));
         });
       } catch (e) {
         debugPrint('Error saving stats history on dispose: $e');
       }
     }
+    _authSubscription?.cancel();
     super.dispose();
   }
 }
