@@ -52,7 +52,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadCompleter.future;
       final user = data.session?.user;
       if (user != null) {
-        await syncWithSupabase(user.id);
+        try {
+          await syncWithSupabase(user.id);
+        } catch (e) {
+          debugPrint('Error syncing Mushaf after auth change: $e');
+        }
       }
     });
   }
@@ -61,7 +65,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadCompleter.future;
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      await syncWithSupabase(user.id);
+      try {
+        await syncWithSupabase(user.id);
+      } catch (e) {
+        debugPrint('Error syncing Mushaf existing session: $e');
+      }
     }
   }
 
@@ -583,7 +591,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           if (!remoteIsArchived && localP.updatedAt.isAfter(remoteUpdatedAt)) {
             final syncedLocal = localP.copyWith(id: remoteId, userId: userId);
             reconciledProfiles.add(syncedLocal);
-            await _syncProfileToSupabase(syncedLocal);
+            await _syncProfileToSupabase(syncedLocal, userId: userId);
           } else {
             reconciledProfiles.add(
               MushafProfile(
@@ -611,7 +619,10 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
         } else {
           final syncedLocal = localP.copyWith(userId: userId);
-          final returnedId = await _syncProfileToSupabase(syncedLocal);
+          final returnedId = await _syncProfileToSupabase(
+            syncedLocal,
+            userId: userId,
+          );
           reconciledProfiles.add(
             syncedLocal.copyWith(id: returnedId ?? syncedLocal.id),
           );
@@ -828,64 +839,78 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
     } catch (e) {
       debugPrint('Error syncing Mushaf with Supabase: $e');
+      rethrow;
     }
   }
 
-  Future<String?> _syncProfileToSupabase(MushafProfile p) async {
+  Future<String?> _syncProfileToSupabase(
+    MushafProfile p, {
+    String? userId,
+  }) async {
     final client = Supabase.instance.client;
-    final user = client.auth.currentUser;
-    if (user != null && p.userId != 'local') {
-      try {
-        final uuidRegExp = RegExp(
-          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-        );
-        final bool hasUuid = uuidRegExp.hasMatch(p.id);
+    final targetUserId =
+        userId ??
+        client.auth.currentUser?.id ??
+        (p.userId == 'local' ? null : p.userId);
+    if (targetUserId == null) {
+      throw StateError(
+        'Cannot sync Mushaf profile without an authenticated user.',
+      );
+    }
 
-        final upsertData = {
-          'user_id': user.id,
-          'name': p.name,
-          'slug': p.slug,
-          'mushaf_id': p.mushafId,
-          'plan_mode': p.planMode,
-          'start_page': p.startPage,
-          'target_page': p.targetPage,
-          'current_page': p.currentPage,
-          'furthest_unread_page': p.furthestUnreadPage,
-          'last_viewed_page': p.lastViewedPage,
-          'sort_order': p.sortOrder,
-          'is_archived': p.isArchived,
-          'updated_at': p.updatedAt.toIso8601String(),
-        };
+    try {
+      final uuidRegExp = RegExp(
+        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+      );
+      final bool hasUuid = uuidRegExp.hasMatch(p.id);
 
-        if (hasUuid) {
-          upsertData['id'] = p.id;
-          await client
-              .from('mushaf_profiles')
-              .upsert(upsertData, onConflict: 'id');
-          return p.id;
-        } else {
-          final response = await client
-              .from('mushaf_profiles')
-              .insert(upsertData)
-              .select('id')
-              .single();
-          final returnedId = response['id']?.toString();
-          if (returnedId != null) {
-            final index = _profiles.indexWhere((item) => item.id == p.id);
-            if (index != -1) {
-              _profiles[index] = _profiles[index].copyWith(id: returnedId);
-              if (_activeProfileId == p.id) {
-                _activeProfileId = returnedId;
-              }
-              await _save();
+      final upsertData = {
+        'user_id': targetUserId,
+        'name': p.name,
+        'slug': p.slug,
+        'mushaf_id': p.mushafId,
+        'plan_mode': p.planMode,
+        'start_page': p.startPage,
+        'target_page': p.targetPage,
+        'current_page': p.currentPage,
+        'furthest_unread_page': p.furthestUnreadPage,
+        'last_viewed_page': p.lastViewedPage,
+        'sort_order': p.sortOrder,
+        'is_archived': p.isArchived,
+        'updated_at': p.updatedAt.toIso8601String(),
+      };
+
+      if (hasUuid) {
+        upsertData['id'] = p.id;
+        await client
+            .from('mushaf_profiles')
+            .upsert(upsertData, onConflict: 'id');
+        return p.id;
+      } else {
+        final response = await client
+            .from('mushaf_profiles')
+            .insert(upsertData)
+            .select('id')
+            .single();
+        final returnedId = response['id']?.toString();
+        if (returnedId != null) {
+          final index = _profiles.indexWhere((item) => item.id == p.id);
+          if (index != -1) {
+            _profiles[index] = _profiles[index].copyWith(
+              id: returnedId,
+              userId: targetUserId,
+            );
+            if (_activeProfileId == p.id) {
+              _activeProfileId = returnedId;
             }
-            return returnedId;
+            await _save();
           }
+          return returnedId;
         }
-      } catch (e) {
-        debugPrint('Error syncing Mushaf profile to Supabase: $e');
-        rethrow;
       }
+    } catch (e) {
+      debugPrint('Error syncing Mushaf profile to Supabase: $e');
+      rethrow;
     }
     return null;
   }
