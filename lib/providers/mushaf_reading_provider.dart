@@ -511,7 +511,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _recentReadings.removeWhere(
       (reading) =>
           reading.mushafId == profile.mushafId &&
-          reading.profileId == profile.id,
+          (profile.isFreeRead
+              ? reading.pageNumber == page
+              : reading.profileId == profile.id),
     );
     final recent = MushafRecentReading(
       mushafId: profile.mushafId,
