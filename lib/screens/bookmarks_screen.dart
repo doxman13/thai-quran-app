@@ -17,7 +17,8 @@ import '../shared/shared.dart';
 
 class BookmarksScreen extends StatefulWidget {
   final QuranRepository repository;
-  const BookmarksScreen({Key? key, required this.repository}) : super(key: key);
+  final VoidCallback? onBackToHome;
+  const BookmarksScreen({Key? key, required this.repository, this.onBackToHome}) : super(key: key);
 
   @override
   State<BookmarksScreen> createState() => _BookmarksScreenState();
@@ -162,7 +163,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: colorScheme.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -201,7 +202,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
       child: Text(
         title,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansThai(
           fontSize: 14,
           fontWeight: FontWeight.w900,
           color: colorScheme.primary,
@@ -232,7 +233,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ),
         child: Text(
           context.tr('see_more'),
-          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
     );
@@ -283,7 +284,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               ),
               child: Text(
                 badgeText,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colorScheme.onPrimaryContainer,
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
@@ -330,8 +331,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   }
 
   Widget _buildHeader(ColorScheme colorScheme) {
+    final canPop = Navigator.canPop(context);
+    final hasBackAction = canPop || widget.onBackToHome != null;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 8, 24, 24),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         border: Border(
@@ -339,62 +343,48 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          if (hasBackAction) ...[
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+              onPressed: () {
+                if (canPop) {
+                  Navigator.pop(context);
+                } else if (widget.onBackToHome != null) {
+                  widget.onBackToHome!();
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(
-                    Icons.menu_book,
-                    color: colorScheme.onPrimaryContainer,
-                    size: 24,
+                Text(
+                  context.tr('bookmarks'),
+                  style: GoogleFonts.notoSansThai(
+                    color: colorScheme.primary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('bookmarks'),
-                        style: GoogleFonts.inter(
-                          color: colorScheme.onSurface,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.tr('reading_progress'),
-                        style: GoogleFonts.inter(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('reading_progress'),
+                  style: GoogleFonts.notoSansThai(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 14,
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(
-              Icons.settings_outlined,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
+          const SizedBox(width: 16),
+          Icon(
+            Icons.bookmark,
+            color: colorScheme.primary,
+            size: 36,
           ),
         ],
       ),
@@ -617,7 +607,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       ),
                       child: Text(
                         context.tr('no_saved_verses'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 14,
                         ),
@@ -657,7 +647,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       ),
                       child: Text(
                         context.tr('no_bookmarks'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 14,
                         ),

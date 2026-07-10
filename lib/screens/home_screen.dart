@@ -1079,7 +1079,12 @@ class _HomeScreenState extends State<HomeScreen>
             // 2: Favourites (Tadabbur)
             TadabburPrivateScreen(repository: widget.repository),
             // 3: Bookmarks
-            BookmarksScreen(repository: widget.repository),
+            BookmarksScreen(
+              repository: widget.repository,
+              onBackToHome: () {
+                setState(() => _navIndex = 0);
+              },
+            ),
             // 4: Profile
             const ProfileScreen(),
           ],
