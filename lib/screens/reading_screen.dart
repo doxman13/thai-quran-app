@@ -46,6 +46,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   List<Verse> verses = [];
   String _currentSurah = '1';
   bool _isLoading = true;
+  bool _isMenuVisible = true;
   Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
   Map<String, _SurahObjective> _surahObjectives = {};
   late final PageController _versePageController;
@@ -1157,6 +1158,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               Expanded(
                 child: Text(
                   'เป้าหมายหลักของซูเราะฮ์',
+                  locale: const Locale('th', 'TH'),
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -1169,6 +1171,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 10),
           Text(
             objective.text,
+            locale: const Locale('th', 'TH'),
             style: GoogleFonts.notoSansThai(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -1179,6 +1182,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 10),
           Text(
             'ที่มา: ${objective.source}',
+            locale: const Locale('th', 'TH'),
             style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w500,
@@ -1201,12 +1205,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
-        color: isDark ? colors.surfaceMuted.withOpacity(0.85) : colors.surface,
+        color: Color.alphaBlend(
+          colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+          colors.background,
+        ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.borderSoft),
       ),
       child: Text(
         getHeaderTitle(context, verseNumber),
+        locale: const Locale('th', 'TH'),
         style: GoogleFonts.notoSansThai(
           fontSize: 14,
           fontWeight: FontWeight.w700,
@@ -1395,224 +1403,326 @@ class _ReadingScreenState extends State<ReadingScreen> {
         if (!didPop) _closeReader();
       },
       child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: colors.surfaceMuted,
-          elevation: 0,
-          centerTitle: false,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: colors.textStrong),
-            onPressed: _closeReader,
-          ),
-          title: Consumer2<LocalReadingProvider, ProgressProvider>(
-            builder: (context, localReading, progressProv, child) {
-              final progressProfile = _progressProfile(localReading);
-              return _buildAppBarTitle(
-                context,
-                colors,
-                progressProv,
-                progressProfile,
-              );
-            },
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.settings_rounded, color: colors.primary),
-              tooltip: 'Settings',
-              onPressed: _showSettingsSheet,
-            ),
-          ],
-        ),
+        backgroundColor: colors.background,
+        appBar: null,
+        bottomNavigationBar: null,
         body: _isLoading
             ? Center(child: CircularProgressIndicator(color: primaryColor))
-            : GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragEnd: (details) {
-                  final velocity = details.primaryVelocity;
-                  if (velocity != null) {
-                    final currentIndex = provider.lastVerseIndex;
-                    final totalCount = verses.length;
-                    final hasPrev = currentIndex > 0;
-                    final hasNext = currentIndex < totalCount - 1;
-                    final hasPrevSurah = !hasPrev && _adjacentVisibleSurahId(-1) != null;
-                    final hasNextSurah = !hasNext && _adjacentVisibleSurahId(1) != null;
+            : Stack(
+                children: [
+                  // 1. Full Screen Reading Area
+                  Positioned.fill(
+                    child: SafeArea(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {
+                          setState(() {
+                            _isMenuVisible = !_isMenuVisible;
+                          });
+                        },
+                        onHorizontalDragEnd: (details) {
+                          final velocity = details.primaryVelocity;
+                          if (velocity != null) {
+                            final currentIndex = provider.lastVerseIndex;
+                            final totalCount = verses.length;
+                            final hasPrev = currentIndex > 0;
+                            final hasNext = currentIndex < totalCount - 1;
+                            final hasPrevSurah = !hasPrev && _adjacentVisibleSurahId(-1) != null;
+                            final hasNextSurah = !hasNext && _adjacentVisibleSurahId(1) != null;
 
-                    // Swiped left (velocity < 0) -> Next Ayah / Surah
-                    if (velocity < -200) {
-                      if (hasNext) {
-                        _goToVerseIndex(currentIndex + 1);
-                      } else if (hasNextSurah) {
-                        _goToAdjacentSurah(1);
-                      }
-                    }
-                    // Swiped right (velocity > 0) -> Previous Ayah / Surah
-                    else if (velocity > 200) {
-                      if (hasPrev) {
-                        _goToVerseIndex(currentIndex - 1);
-                      } else if (hasPrevSurah) {
-                        _goToAdjacentSurah(-1);
-                      }
-                    }
-                  }
-                },
-                child: PageView.builder(
-                  controller: _versePageController,
-                  scrollDirection: Axis.horizontal,
-                  reverse: false,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: verses.length + 1,
-                  onPageChanged: (index) =>
-                      _handleVersePageChanged(index, provider),
-                  itemBuilder: (context, index) => _buildFocusedVersePage(
-                    index: index,
-                    provider: provider,
-                    settings: settings,
-                    isDark: isDark,
-                  ),
-                ),
-              ),
-        bottomNavigationBar: _isLoading
-            ? null
-            : Container(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 10,
-                  bottom: MediaQuery.of(context).padding.bottom + 10,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.background,
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? Colors.blueGrey.shade800.withOpacity(0.4)
-                          : Colors.grey.shade200,
-                      width: 1,
+                            // Swiped left (velocity < 0) -> Next Ayah / Surah
+                            if (velocity < -200) {
+                              if (hasNext) {
+                                _goToVerseIndex(currentIndex + 1);
+                              } else if (hasNextSurah) {
+                                _goToAdjacentSurah(1);
+                              }
+                            }
+                            // Swiped right (velocity > 0) -> Previous Ayah / Surah
+                            else if (velocity > 200) {
+                              if (hasPrev) {
+                                _goToVerseIndex(currentIndex - 1);
+                              } else if (hasPrevSurah) {
+                                _goToAdjacentSurah(-1);
+                              }
+                            }
+                          }
+                        },
+                        child: AnimatedPadding(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
+                          padding: EdgeInsets.only(
+                            top: _isMenuVisible ? 56 : 0,
+                            bottom: _isMenuVisible ? 128 : 64,
+                          ),
+                          child: PageView.builder(
+                            controller: _versePageController,
+                            scrollDirection: Axis.horizontal,
+                            reverse: false,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: verses.length + 1,
+                            onPageChanged: (index) =>
+                                _handleVersePageChanged(index, provider),
+                            itemBuilder: (context, index) => _buildFocusedVersePage(
+                              index: index,
+                              provider: provider,
+                              settings: settings,
+                              isDark: isDark,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                child: Consumer2<LocalReadingProvider, ProgressProvider>(
-                  builder: (context, localReading, progressProv, child) {
-                    final currentIndex = progressProv.lastVerseIndex;
-                    final totalCount = verses.length;
-                    final hasPrev = currentIndex > 0;
-                    final hasNext = currentIndex < totalCount - 1;
-                    final hasPrevSurah =
-                        !hasPrev && _adjacentVisibleSurahId(-1) != null;
-                    final hasNextSurah =
-                        !hasNext && _adjacentVisibleSurahId(1) != null;
-                    final hasActiveVerse = currentIndex >= 0 && currentIndex < totalCount;
-
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (hasActiveVerse) ...[
-                          _buildFixedActionMenu(context, colors, isDark),
-                          const SizedBox(height: 8),
-                          Divider(
-                            color: isDark
-                                ? Colors.blueGrey.shade800.withOpacity(0.4)
-                                : Colors.grey.shade200,
-                            height: 1,
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _VerseReaderActionButton(
-                                icon: Icons.keyboard_arrow_left_rounded,
-                                label: context.tr('previous_ayah'),
-                                compact: true,
-                                onPressed: hasPrev
-                                    ? () {
-                                        _goToVerseIndex(currentIndex - 1);
-                                      }
-                                    : hasPrevSurah
-                                    ? () {
-                                        _goToAdjacentSurah(-1);
-                                      }
-                                    : null,
-                                backgroundColor: colors.primaryLight,
-                                foregroundColor: primaryColor,
-                                disabledBackgroundColor: colors.surfaceMuted,
-                                disabledForegroundColor: colors.foreground
-                                    .withValues(alpha: 0.35),
+                  // 2. Animated Custom AppBar Container
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !_isMenuVisible,
+                      child: AnimatedSlide(
+                        offset: _isMenuVisible ? Offset.zero : const Offset(0, -1),
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        child: Container(
+                          color: colors.surfaceMuted,
+                          child: SafeArea(
+                            bottom: false,
+                            child: AppBar(
+                              primary: false,
+                              backgroundColor: Colors.transparent,
+                              elevation: 0,
+                              centerTitle: false,
+                              leading: IconButton(
+                                icon: Icon(Icons.arrow_back, color: colors.textStrong),
+                                onPressed: _closeReader,
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 5,
-                              child: _VerseReaderActionButton(
-                                icon: Icons.save_outlined,
-                                label: context.tr('save_progress'),
-                                onPressed: () async {
-                                  final progressProfile = _progressProfile(
-                                    localReading,
+                              title: Consumer2<LocalReadingProvider, ProgressProvider>(
+                                builder: (context, localReading, progressProv, child) {
+                                  final progressProfile = _progressProfile(localReading);
+                                  return _buildAppBarTitle(
+                                    context,
+                                    colors,
+                                    progressProv,
+                                    progressProfile,
                                   );
-                                  final currentIndex = progressProv.lastVerseIndex;
-                                  if (progressProfile != null &&
-                                      currentIndex >= 0 &&
-                                      currentIndex < verses.length) {
-                                    final currentVerse = verses[currentIndex];
-                                    final verseRef = toVerseRef(
-                                      currentVerse.surahId,
-                                      currentVerse.id,
-                                    );
-
-                                    await localReading.updateProfileProgress(
-                                      progressProfile.id,
-                                      verseRef,
-                                      context: context,
-                                    );
-                                    await localReading.addRecentReading(
-                                      verse: verseRef,
-                                      profileId: progressProfile.id,
-                                    );
-                                    await localReading
-                                        .flushPendingRecentReadingSync();
-                                    await localReading
-                                        .flushPendingReadingStateSync();
-                                    await localReading.flushPendingProfileSyncs();
-                                  }
-                                  if (context.mounted) {
-                                    Navigator.pop(context, _currentReadingResult());
-                                  }
                                 },
-                                backgroundColor: colors.primaryLight,
-                                foregroundColor: primaryColor,
                               ),
+                              actions: [
+                                IconButton(
+                                  icon: Icon(Icons.settings_rounded, color: colors.primary),
+                                  tooltip: 'Settings',
+                                  onPressed: _showSettingsSheet,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 2,
-                              child: _VerseReaderActionButton(
-                                icon: Icons.keyboard_arrow_right_rounded,
-                                label: context.tr('next_ayah'),
-                                compact: true,
-                                iconOnRight: true,
-                                onPressed: hasNext
-                                    ? () {
-                                        _goToVerseIndex(currentIndex + 1);
-                                      }
-                                    : hasNextSurah
-                                    ? () {
-                                        _goToAdjacentSurah(1);
-                                      }
-                                    : null,
-                                backgroundColor: colors.primaryLight,
-                                foregroundColor: primaryColor,
-                                disabledBackgroundColor: colors.surfaceMuted,
-                                disabledForegroundColor: colors.foreground
-                                    .withValues(alpha: 0.35),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ),
+                  ),
+                  // 3. Animated Bottom Bar Container (Previous, Save Progress, Next)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !_isMenuVisible,
+                      child: AnimatedSlide(
+                        offset: _isMenuVisible ? Offset.zero : const Offset(0, 1),
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        child: Container(
+                          color: colors.background,
+                          child: SafeArea(
+                            top: false,
+                            child: Container(
+                              padding: const EdgeInsets.only(
+                                left: 16,
+                                right: 16,
+                                top: 10,
+                                bottom: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: isDark
+                                        ? Colors.blueGrey.shade800.withOpacity(0.4)
+                                        : Colors.grey.shade200,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Consumer2<LocalReadingProvider, ProgressProvider>(
+                                builder: (context, localReading, progressProv, child) {
+                                  final currentIndex = progressProv.lastVerseIndex;
+                                  final totalCount = verses.length;
+                                  final hasPrev = currentIndex > 0;
+                                  final hasNext = currentIndex < totalCount - 1;
+                                  final hasPrevSurah =
+                                      !hasPrev && _adjacentVisibleSurahId(-1) != null;
+                                  final hasNextSurah =
+                                      !hasNext && _adjacentVisibleSurahId(1) != null;
+
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: _VerseReaderActionButton(
+                                          icon: Icons.keyboard_arrow_left_rounded,
+                                          label: context.tr('previous_ayah'),
+                                          compact: true,
+                                          onPressed: hasPrev
+                                              ? () {
+                                                  _goToVerseIndex(currentIndex - 1);
+                                                }
+                                              : hasPrevSurah
+                                              ? () {
+                                                  _goToAdjacentSurah(-1);
+                                                }
+                                              : null,
+                                          backgroundColor: colors.primaryLight,
+                                          foregroundColor: primaryColor,
+                                          disabledBackgroundColor: colors.surfaceMuted,
+                                          disabledForegroundColor: colors.foreground
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 5,
+                                        child: _VerseReaderActionButton(
+                                          icon: Icons.save_outlined,
+                                          label: context.tr('save_progress'),
+                                          onPressed: () async {
+                                            final progressProfile = _progressProfile(
+                                              localReading,
+                                            );
+                                            final currentIndex =
+                                                progressProv.lastVerseIndex;
+                                            if (progressProfile != null &&
+                                                currentIndex >= 0 &&
+                                                currentIndex < verses.length) {
+                                              final currentVerse =
+                                                  verses[currentIndex];
+                                              final verseRef = toVerseRef(
+                                                currentVerse.surahId,
+                                                currentVerse.id,
+                                              );
+
+                                              await localReading
+                                                  .updateProfileProgress(
+                                                progressProfile.id,
+                                                verseRef,
+                                                context: context,
+                                              );
+                                              await localReading.addRecentReading(
+                                                verse: verseRef,
+                                                profileId: progressProfile.id,
+                                              );
+                                              await localReading
+                                                  .flushPendingRecentReadingSync();
+                                              await localReading
+                                                  .flushPendingReadingStateSync();
+                                              await localReading
+                                                  .flushPendingProfileSyncs();
+                                            }
+                                            if (context.mounted) {
+                                              Navigator.pop(
+                                                context,
+                                                _currentReadingResult(),
+                                              );
+                                            }
+                                          },
+                                          backgroundColor: colors.primaryLight,
+                                          foregroundColor: primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 2,
+                                        child: _VerseReaderActionButton(
+                                          icon: Icons.keyboard_arrow_right_rounded,
+                                          label: context.tr('next_ayah'),
+                                          compact: true,
+                                          iconOnRight: true,
+                                          onPressed: hasNext
+                                              ? () {
+                                                  _goToVerseIndex(currentIndex + 1);
+                                                }
+                                              : hasNextSurah
+                                              ? () {
+                                                  _goToAdjacentSurah(1);
+                                                }
+                                              : null,
+                                          backgroundColor: colors.primaryLight,
+                                          foregroundColor: primaryColor,
+                                          disabledBackgroundColor: colors.surfaceMuted,
+                                          disabledForegroundColor: colors.foreground
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 4. Floating Verse Action Menu (always visible, floats at bottom)
+                  Consumer<ProgressProvider>(
+                    builder: (context, progressProv, child) {
+                      final currentIndex = progressProv.lastVerseIndex;
+                      final hasActiveVerse =
+                          currentIndex >= 0 && currentIndex < verses.length;
+
+                      return AnimatedPositioned(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        bottom: hasActiveVerse
+                            ? (_isMenuVisible ? 74 : 10)
+                            : -100,
+                        left: 16,
+                        right: 16,
+                        child: SafeArea(
+                          top: false,
+                          child: IgnorePointer(
+                            ignoring: !hasActiveVerse,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 200),
+                              opacity: hasActiveVerse ? 1.0 : 0.0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: colors.background,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.blueGrey.shade800.withOpacity(0.4)
+                                        : Colors.grey.shade200,
+                                    width: 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: _buildFixedActionMenu(context, colors, isDark),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
       ),
     );

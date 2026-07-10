@@ -41,15 +41,29 @@ class ThaiTextProtectionProvider extends ChangeNotifier {
   String protect(String text) {
     if (text.isEmpty) return text;
 
-    // 1. Insert Zero-Width Spaces (\u200B) at syllable boundaries to allow correct line breaking
-    var processedText = _addThaiSyllableBreaks(text);
+    // 1. Replace protected terms with placeholders to keep them clean from syllable breaks
+    final placeholders = <String, String>{};
+    var processedText = text;
 
-    // 2. Protect specific terms using Word Joiner (\u2060) to keep them on the same line
     if (_terms.isNotEmpty) {
-      for (final term in _terms) {
-        processedText = processedText.replaceAll(term, _protectTerm(term));
+      for (var i = 0; i < _terms.length; i++) {
+        final term = _terms[i];
+        if (processedText.contains(term)) {
+          final placeholder = '___TERM_${i}___';
+          placeholders[placeholder] = _protectTerm(term);
+          processedText = processedText.replaceAll(term, placeholder);
+        }
       }
     }
+
+    // 2. Insert Zero-Width Spaces (\u200B) at syllable boundaries for the rest of the text
+    processedText = _addThaiSyllableBreaks(processedText);
+
+    // 3. Restore protected terms back into the text
+    placeholders.forEach((placeholder, protectedValue) {
+      processedText = processedText.replaceAll(placeholder, protectedValue);
+    });
+
     return processedText;
   }
 

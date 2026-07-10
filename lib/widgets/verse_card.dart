@@ -893,8 +893,15 @@ class _VerseCardState extends State<VerseCard> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
+                        color: Color.alphaBlend(
+                          colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+                          colors.background,
+                        ),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: colors.borderSoft,
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         context.tr(
