@@ -296,7 +296,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     if (!canCreateProfile) {
       throw const QuranFoundationException(
-        'Only 3 active Mushaf profiles are allowed.',
+        'Only 5 active Mushaf profiles are allowed.',
       );
     }
     final pageCount = mushafTypeById(mushafId).pageCount;

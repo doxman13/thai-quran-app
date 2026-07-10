@@ -1915,7 +1915,7 @@ class _HomeScreenState extends State<HomeScreen>
                   child: Text(trCancel),
                 ),
                 FilledButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final name = nameController.text.trim();
                     if (name.isEmpty) {
                       setDialogState(() => error = trEnterGoalName);
@@ -1945,28 +1945,40 @@ class _HomeScreenState extends State<HomeScreen>
                       return;
                     }
 
-                    Navigator.pop(dialogContext);
-
                     if (profile == null) {
-                      provider.createProfile(
-                        name: name,
-                        planMode: planMode,
-                        startJuz: planMode == 'by_juz' ? startJuz : null,
-                        targetJuz: planMode == 'by_juz' ? endJuz : null,
-                        start: start,
-                        target: target,
-                        context: context,
-                      );
+                      try {
+                        await provider.createProfile(
+                          name: name,
+                          planMode: planMode,
+                          startJuz: planMode == 'by_juz' ? startJuz : null,
+                          targetJuz: planMode == 'by_juz' ? endJuz : null,
+                          start: start,
+                          target: target,
+                          context: context,
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                      } catch (e) {
+                        setDialogState(() => error = e.toString());
+                      }
                     } else {
-                      provider.updateProfile(
-                        profileId: profile.id,
-                        name: name,
-                        planMode: planMode,
-                        startJuz: planMode == 'by_juz' ? startJuz : null,
-                        targetJuz: planMode == 'by_juz' ? endJuz : null,
-                        start: start,
-                        target: target,
-                      );
+                      try {
+                        await provider.updateProfile(
+                          profileId: profile.id,
+                          name: name,
+                          planMode: planMode,
+                          startJuz: planMode == 'by_juz' ? startJuz : null,
+                          targetJuz: planMode == 'by_juz' ? endJuz : null,
+                          start: start,
+                          target: target,
+                        );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                      } catch (e) {
+                        setDialogState(() => error = e.toString());
+                      }
                     }
                   },
                   child: Text(profile == null ? trCreate : trSave),

@@ -1,4 +1,4 @@
-const maxActiveMushafProfiles = 3;
+const maxActiveMushafProfiles = 5;
 const mushafStoreKey = 'thai_quran_mushaf_store_v1';
 const mushafFreeReadSlug = 'mushaf_free_read';
 const qcfPackageMushafId = 20;
