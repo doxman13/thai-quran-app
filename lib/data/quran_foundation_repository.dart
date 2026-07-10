@@ -215,6 +215,44 @@ class QuranFoundationRepository {
     return _parseRange(json, mushafId);
   }
 
+  Future<String> fetchAyahRecitationUrl({
+    required int recitationId,
+    required String verseKey,
+  }) async {
+    final config = await _resolveConfig();
+    final json = await _getJson(
+      _uri('/quran/recitations/$recitationId', {
+        'verse_key': verseKey,
+        'fields': 'verse_key,url',
+        'per_page': '1',
+      }, config),
+      config,
+    );
+
+    final audioFiles = json['audio_files'];
+    if (audioFiles is! List || audioFiles.isEmpty) {
+      throw QuranFoundationException('No audio file found for $verseKey.');
+    }
+
+    final matchingFile = audioFiles.cast<dynamic>().firstWhere((item) {
+      return item is Map && item['verse_key']?.toString() == verseKey;
+    }, orElse: () => audioFiles.first);
+
+    if (matchingFile is! Map || matchingFile['url'] == null) {
+      throw QuranFoundationException(
+        'Quran Foundation returned an invalid audio file for $verseKey.',
+      );
+    }
+
+    return _normalizeAudioUrl(matchingFile['url'].toString());
+  }
+
+  String _normalizeAudioUrl(String url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    final path = url.replaceFirst(RegExp(r'^/+'), '');
+    return 'https://verses.quran.foundation/$path';
+  }
+
   Uri _uri(
     String path,
     Map<String, String> query,
@@ -503,15 +541,17 @@ class QuranFoundationRepository {
             ? verseKey
             : _stringValue(wordMap, ['verse_key', 'verseKey']);
 
-        final position = _intValue(wordMap, [
-                'position',
-                'word_number',
-                'wordNumber',
-                'position_in_verse',
-              ]) ??
-              0;
+        final position =
+            _intValue(wordMap, [
+              'position',
+              'word_number',
+              'wordNumber',
+              'position_in_verse',
+            ]) ??
+            0;
 
-        List<MushafTajweedPart> tajweedParts = wordIndex < tajweedWordParts.length
+        List<MushafTajweedPart> tajweedParts =
+            wordIndex < tajweedWordParts.length
             ? tajweedWordParts[wordIndex]
             : const <MushafTajweedPart>[];
         wordIndex++;
@@ -682,7 +722,10 @@ class QuranFoundationRepository {
     return const {};
   }
 
-  List<List<MushafTajweedPart>> _parseTajweedWordParts(String html, int mushafId) {
+  List<List<MushafTajweedPart>> _parseTajweedWordParts(
+    String html,
+    int mushafId,
+  ) {
     final words = <List<MushafTajweedPart>>[];
     var currentWord = <MushafTajweedPart>[];
     var buffer = StringBuffer();
@@ -808,7 +851,10 @@ class QuranFoundationRepository {
         // with the fallback font used by the color Tajweed path.
         .replaceAll('\u06df', '\u06e1')
         .replaceAll('\u0672', '\u0670')
-        .replaceAll('\u06ed', '\u06e2') // Fix floating Iqlab meem in UthmanicHafs font
+        .replaceAll(
+          '\u06ed',
+          '\u06e2',
+        ) // Fix floating Iqlab meem in UthmanicHafs font
         .replaceAll('هَٰٓ', 'هَـٰٓ') // Fix floating dagger alif on Haa ulaa
         .replaceAll('قَىٰ', 'قَـىٰ'); // Fix floating dagger alif on alqa
 

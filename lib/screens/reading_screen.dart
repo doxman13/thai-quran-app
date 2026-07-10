@@ -74,6 +74,27 @@ class _ReadingScreenState extends State<ReadingScreen> {
     super.dispose();
   }
 
+  Map<String, String>? _currentReadingResult() {
+    if (verses.isEmpty) return null;
+    final provider = Provider.of<ProgressProvider>(context, listen: false);
+    final localReading = Provider.of<LocalReadingProvider>(
+      context,
+      listen: false,
+    );
+    final progressProfile = _progressProfile(localReading);
+    final index = provider.lastVerseIndex.clamp(0, verses.length - 1);
+    final verse = verses[index];
+    return {
+      'surahId': verse.surahId,
+      'verseId': verse.id,
+      if (progressProfile != null) 'profileId': progressProfile.id,
+    };
+  }
+
+  void _closeReader() {
+    Navigator.pop(context, _currentReadingResult());
+  }
+
   Future<void> _initData() async {
     await Future.wait([
       widget.repository.init(),
@@ -1347,232 +1368,237 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final colors = settings.getAppColors();
     final surahIds = List.generate(114, (index) => (index + 1).toString());
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: colors.surfaceMuted,
-        elevation: 0,
-        centerTitle: false,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: colors.textStrong),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.repository.getSurahName(_currentSurah),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
-                color: colors.textStrong,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
-            ),
-            Consumer2<LocalReadingProvider, ProgressProvider>(
-              builder: (context, localReading, progressProv, child) {
-                final progressProfile = _progressProfile(localReading);
-                final profileName = progressProfile?.name ?? 'Free Read';
-                final activeVerseId =
-                    (progressProv.lastVerseIndex >= 0 &&
-                        progressProv.lastVerseIndex < verses.length)
-                    ? verses[progressProv.lastVerseIndex].id
-                    : '1';
-                final surahAyahCount = widget.repository
-                    .getSurahVerses(_currentSurah)
-                    .length;
-                final surahProgressLabel = surahAyahCount > 0
-                    ? '$activeVerseId/$surahAyahCount'
-                    : activeVerseId;
-                return Text(
-                  '$profileName - $_currentSurah:$activeVerseId - $surahProgressLabel',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: colors.foreground,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings_rounded, color: colors.primary),
-            tooltip: 'Settings',
-            onPressed: _showSettingsSheet,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _closeReader();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: colors.surfaceMuted,
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: colors.textStrong),
+            onPressed: _closeReader,
           ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(58),
-          child: Consumer2<LocalReadingProvider, ProgressProvider>(
-            builder: (context, localReading, progressProv, child) {
-              final progressProfile = _progressProfile(localReading);
-              if (_isBoundedCreatedProfile(progressProfile)) {
-                return _buildProfileCountdownBar(
-                  colors,
-                  progressProfile!,
-                  progressProv,
-                );
-              }
-              return _buildSelectorBar(colors, surahIds);
-            },
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: primaryColor))
-          : PageView.builder(
-              controller: _versePageController,
-              scrollDirection: Axis.vertical,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: verses.length + 1,
-              onPageChanged: (index) =>
-                  _handleVersePageChanged(index, provider),
-              itemBuilder: (context, index) => _buildFocusedVersePage(
-                index: index,
-                provider: provider,
-                settings: settings,
-                isDark: isDark,
-              ),
-            ),
-      bottomNavigationBar: _isLoading
-          ? null
-          : Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 10,
-                bottom: MediaQuery.of(context).padding.bottom + 10,
-              ),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(
-                  top: BorderSide(
-                    color: isDark
-                        ? Colors.blueGrey.shade800.withOpacity(0.4)
-                        : Colors.grey.shade200,
-                    width: 1,
-                  ),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.repository.getSurahName(_currentSurah),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  color: colors.textStrong,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
               ),
-              child: Consumer2<LocalReadingProvider, ProgressProvider>(
+              Consumer2<LocalReadingProvider, ProgressProvider>(
                 builder: (context, localReading, progressProv, child) {
-                  final currentIndex = progressProv.lastVerseIndex;
-                  final totalCount = verses.length;
-                  final hasPrev = currentIndex > 0;
-                  final hasNext = currentIndex < totalCount - 1;
-                  final hasPrevSurah =
-                      !hasPrev && _adjacentVisibleSurahId(-1) != null;
-                  final hasNextSurah =
-                      !hasNext && _adjacentVisibleSurahId(1) != null;
-
-                  return Row(
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: _VerseReaderActionButton(
-                          icon: Icons.keyboard_arrow_down_rounded,
-                          label: context.tr('previous_ayah'),
-                          compact: true,
-                          onPressed: hasPrev
-                              ? () {
-                                  _goToVerseIndex(currentIndex - 1);
-                                }
-                              : hasPrevSurah
-                              ? () {
-                                  _goToAdjacentSurah(-1);
-                                }
-                              : null,
-                          backgroundColor: colors.primaryLight,
-                          foregroundColor: primaryColor,
-                          disabledBackgroundColor: colors.surfaceMuted,
-                          disabledForegroundColor: colors.foreground.withValues(
-                            alpha: 0.35,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 5,
-                        child: _VerseReaderActionButton(
-                          icon: Icons.save_outlined,
-                          label: context.tr('save_progress'),
-                          onPressed: () async {
-                            final progressProfile = _progressProfile(
-                              localReading,
-                            );
-                            final currentIndex = progressProv.lastVerseIndex;
-                            if (progressProfile != null &&
-                                currentIndex >= 0 &&
-                                currentIndex < verses.length) {
-                              final currentVerse = verses[currentIndex];
-                              final verseRef = toVerseRef(
-                                currentVerse.surahId,
-                                currentVerse.id,
-                              );
-
-                              await localReading.updateProfileProgress(
-                                progressProfile.id,
-                                verseRef,
-                                context: context,
-                              );
-                              await localReading.addRecentReading(
-                                verse: verseRef,
-                                profileId: progressProfile.id,
-                              );
-                              await localReading
-                                  .flushPendingRecentReadingSync();
-                              await localReading.flushPendingReadingStateSync();
-                              await localReading.flushPendingProfileSyncs();
-                            }
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                          backgroundColor: primaryColor,
-                          foregroundColor: colors.textInverse,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: _VerseReaderActionButton(
-                          icon: Icons.keyboard_arrow_up_rounded,
-                          label: context.tr('next_ayah'),
-                          compact: true,
-                          onPressed: hasNext
-                              ? () {
-                                  _goToVerseIndex(currentIndex + 1);
-                                }
-                              : hasNextSurah
-                              ? () {
-                                  _goToAdjacentSurah(1);
-                                }
-                              : null,
-                          backgroundColor: colors.primaryLight,
-                          foregroundColor: primaryColor,
-                          disabledBackgroundColor: colors.surfaceMuted,
-                          disabledForegroundColor: colors.foreground.withValues(
-                            alpha: 0.35,
-                          ),
-                        ),
-                      ),
-                    ],
+                  final progressProfile = _progressProfile(localReading);
+                  final profileName = progressProfile?.name ?? 'Free Read';
+                  final activeVerseId =
+                      (progressProv.lastVerseIndex >= 0 &&
+                          progressProv.lastVerseIndex < verses.length)
+                      ? verses[progressProv.lastVerseIndex].id
+                      : '1';
+                  final surahAyahCount = widget.repository
+                      .getSurahVerses(_currentSurah)
+                      .length;
+                  final surahProgressLabel = surahAyahCount > 0
+                      ? '$activeVerseId/$surahAyahCount'
+                      : activeVerseId;
+                  return Text(
+                    '$profileName - $_currentSurah:$activeVerseId - $surahProgressLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      color: colors.foreground,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   );
                 },
               ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.settings_rounded, color: colors.primary),
+              tooltip: 'Settings',
+              onPressed: _showSettingsSheet,
             ),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(58),
+            child: Consumer2<LocalReadingProvider, ProgressProvider>(
+              builder: (context, localReading, progressProv, child) {
+                final progressProfile = _progressProfile(localReading);
+                if (_isBoundedCreatedProfile(progressProfile)) {
+                  return _buildProfileCountdownBar(
+                    colors,
+                    progressProfile!,
+                    progressProv,
+                  );
+                }
+                return _buildSelectorBar(colors, surahIds);
+              },
+            ),
+          ),
+        ),
+        body: _isLoading
+            ? Center(child: CircularProgressIndicator(color: primaryColor))
+            : PageView.builder(
+                controller: _versePageController,
+                scrollDirection: Axis.vertical,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: verses.length + 1,
+                onPageChanged: (index) =>
+                    _handleVersePageChanged(index, provider),
+                itemBuilder: (context, index) => _buildFocusedVersePage(
+                  index: index,
+                  provider: provider,
+                  settings: settings,
+                  isDark: isDark,
+                ),
+              ),
+        bottomNavigationBar: _isLoading
+            ? null
+            : Container(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 10,
+                  bottom: MediaQuery.of(context).padding.bottom + 10,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: isDark
+                          ? Colors.blueGrey.shade800.withOpacity(0.4)
+                          : Colors.grey.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: Consumer2<LocalReadingProvider, ProgressProvider>(
+                  builder: (context, localReading, progressProv, child) {
+                    final currentIndex = progressProv.lastVerseIndex;
+                    final totalCount = verses.length;
+                    final hasPrev = currentIndex > 0;
+                    final hasNext = currentIndex < totalCount - 1;
+                    final hasPrevSurah =
+                        !hasPrev && _adjacentVisibleSurahId(-1) != null;
+                    final hasNextSurah =
+                        !hasNext && _adjacentVisibleSurahId(1) != null;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _VerseReaderActionButton(
+                            icon: Icons.keyboard_arrow_down_rounded,
+                            label: context.tr('previous_ayah'),
+                            compact: true,
+                            onPressed: hasPrev
+                                ? () {
+                                    _goToVerseIndex(currentIndex - 1);
+                                  }
+                                : hasPrevSurah
+                                ? () {
+                                    _goToAdjacentSurah(-1);
+                                  }
+                                : null,
+                            backgroundColor: colors.primaryLight,
+                            foregroundColor: primaryColor,
+                            disabledBackgroundColor: colors.surfaceMuted,
+                            disabledForegroundColor: colors.foreground
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 5,
+                          child: _VerseReaderActionButton(
+                            icon: Icons.save_outlined,
+                            label: context.tr('save_progress'),
+                            onPressed: () async {
+                              final progressProfile = _progressProfile(
+                                localReading,
+                              );
+                              final currentIndex = progressProv.lastVerseIndex;
+                              if (progressProfile != null &&
+                                  currentIndex >= 0 &&
+                                  currentIndex < verses.length) {
+                                final currentVerse = verses[currentIndex];
+                                final verseRef = toVerseRef(
+                                  currentVerse.surahId,
+                                  currentVerse.id,
+                                );
+
+                                await localReading.updateProfileProgress(
+                                  progressProfile.id,
+                                  verseRef,
+                                  context: context,
+                                );
+                                await localReading.addRecentReading(
+                                  verse: verseRef,
+                                  profileId: progressProfile.id,
+                                );
+                                await localReading
+                                    .flushPendingRecentReadingSync();
+                                await localReading
+                                    .flushPendingReadingStateSync();
+                                await localReading.flushPendingProfileSyncs();
+                              }
+                              if (context.mounted) {
+                                Navigator.pop(context, _currentReadingResult());
+                              }
+                            },
+                            backgroundColor: primaryColor,
+                            foregroundColor: colors.textInverse,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: _VerseReaderActionButton(
+                            icon: Icons.keyboard_arrow_up_rounded,
+                            label: context.tr('next_ayah'),
+                            compact: true,
+                            onPressed: hasNext
+                                ? () {
+                                    _goToVerseIndex(currentIndex + 1);
+                                  }
+                                : hasNextSurah
+                                ? () {
+                                    _goToAdjacentSurah(1);
+                                  }
+                                : null,
+                            backgroundColor: colors.primaryLight,
+                            foregroundColor: primaryColor,
+                            disabledBackgroundColor: colors.surfaceMuted,
+                            disabledForegroundColor: colors.foreground
+                                .withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+      ),
     );
   }
 

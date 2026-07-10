@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -110,23 +111,23 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
+  late final AnimationController _lastReadGlowController;
   int _selectedTabIndex =
       0; // 0: Meaningful Read, 1: Mushaf Read, 2: Quick Links
   int _navIndex = 0;
   bool _isInit = false;
 
-  final ScrollController _capsuleScrollController = ScrollController();
   final ScrollController _meaningfulCardsScrollController = ScrollController();
   final ScrollController _mushafCardsScrollController = ScrollController();
 
   final List<Map<String, dynamic>> _tabs = [
     {'title': "meaningful_read", 'icon': Icons.menu_book},
     {'title': "mushaf_read", 'icon': Icons.import_contacts},
-    {'title': "quick_links", 'icon': Icons.flash_on},
   ];
 
   List<CustomQuickLink> _quickLinks = [];
@@ -168,6 +169,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _lastReadGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
     _isInit = widget.repositoryReady;
     _loadQuickLinks();
     _searchController.addListener(() {
@@ -226,8 +231,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _lastReadGlowController.dispose();
     _searchController.dispose();
-    _capsuleScrollController.dispose();
     _meaningfulCardsScrollController.dispose();
     _mushafCardsScrollController.dispose();
     super.dispose();
@@ -280,6 +285,11 @@ class _HomeScreenState extends State<HomeScreen> {
           saveToFreeReadOnly: saveToFreeReadOnly,
         ),
       ),
+    ).then(
+      (result) => _refreshHomeAfterReader(
+        readingResult: result,
+        saveToFreeReadOnly: saveToFreeReadOnly,
+      ),
     );
   }
 
@@ -297,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
           initialPage: pageNumber,
         ),
       ),
-    );
+    ).then((_) => _refreshHomeAfterReader());
   }
 
   void _navigateToMushafProfile(MushafProfile profile, {int? initialPage}) {
@@ -311,13 +321,54 @@ class _HomeScreenState extends State<HomeScreen> {
           initialPage: initialPage,
         ),
       ),
-    );
+    ).then((_) => _refreshHomeAfterReader());
+  }
+
+  Future<void> _refreshHomeAfterReader({
+    Object? readingResult,
+    bool saveToFreeReadOnly = false,
+  }) async {
+    if (readingResult is Map) {
+      final surahId = readingResult['surahId']?.toString();
+      final verseId = readingResult['verseId']?.toString();
+      if (surahId != null && verseId != null) {
+        final localReading = context.read<LocalReadingProvider>();
+        final resultProfileId = readingResult['profileId']?.toString();
+        final profile = resultProfileId != null
+            ? localReading.profileById(resultProfileId)
+            : saveToFreeReadOnly
+            ? localReading.freeReadProfile
+            : localReading.activeProfile;
+        await localReading.addRecentReading(
+          verse: toVerseRef(surahId, verseId),
+          profileId: profile?.id,
+        );
+      }
+    }
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  DateTime _normalizeDate(DateTime dt) {
+    if (dt.isUtc) {
+      return DateTime(
+        dt.year,
+        dt.month,
+        dt.day,
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond,
+        dt.microsecond,
+      );
+    }
+    return dt;
   }
 
   LocalRecentReading? _latestVerseRecent(LocalReadingProvider provider) {
     LocalRecentReading? latest;
     for (final reading in provider.recentReadings) {
-      if (latest == null || reading.readAt.isAfter(latest.readAt)) {
+      if (latest == null || _normalizeDate(reading.readAt).isAfter(_normalizeDate(latest.readAt))) {
         latest = reading;
       }
     }
@@ -327,10 +378,74 @@ class _HomeScreenState extends State<HomeScreen> {
   MushafRecentReading? _latestMushafRecent(MushafReadingProvider provider) {
     MushafRecentReading? latest;
     for (final reading in provider.recentReadings) {
-      if (latest == null || reading.updatedAt.isAfter(latest.updatedAt)) {
+      if (latest == null || _normalizeDate(reading.updatedAt).isAfter(_normalizeDate(latest.updatedAt))) {
         latest = reading;
       }
     }
+    return latest;
+  }
+
+  ({VerseRef verse, String? profileId, DateTime at})? _latestVerseLastRead(
+    LocalReadingProvider provider,
+  ) {
+    ({VerseRef verse, String? profileId, DateTime at})? latest;
+
+    for (final reading in provider.recentReadings) {
+      final normalizedReadAt = _normalizeDate(reading.readAt);
+      if (latest == null || normalizedReadAt.isAfter(latest.at)) {
+        latest = (
+          verse: reading.verse,
+          profileId: reading.profileId,
+          at: normalizedReadAt,
+        );
+      }
+    }
+
+    final profiles = <LocalReadingProfile>[
+      ...provider.activeProfiles,
+      if (provider.freeReadProfile != null) provider.freeReadProfile!,
+    ];
+    final seen = <String>{};
+    for (final profile in profiles) {
+      if (!seen.add(profile.id) || profile.isArchived) continue;
+      final viewed = profile.lastViewed;
+      final normalizedUpdatedAt = _normalizeDate(profile.updatedAt);
+      if (latest == null || normalizedUpdatedAt.isAfter(latest.at)) {
+        latest = (verse: viewed, profileId: profile.id, at: normalizedUpdatedAt);
+      }
+    }
+
+    return latest;
+  }
+
+  ({int pageNumber, String? profileId, DateTime at})? _latestMushafLastRead(
+    MushafReadingProvider provider,
+  ) {
+    ({int pageNumber, String? profileId, DateTime at})? latest;
+
+    for (final reading in provider.recentReadings) {
+      final normalizedUpdatedAt = _normalizeDate(reading.updatedAt);
+      if (latest == null || normalizedUpdatedAt.isAfter(latest.at)) {
+        latest = (
+          pageNumber: reading.pageNumber,
+          profileId: reading.profileId,
+          at: normalizedUpdatedAt,
+        );
+      }
+    }
+
+    for (final profile in provider.profiles) {
+      if (profile.isArchived) continue;
+      final normalizedUpdatedAt = _normalizeDate(profile.updatedAt);
+      if (latest == null || normalizedUpdatedAt.isAfter(latest.at)) {
+        latest = (
+          pageNumber: profile.lastViewedPage,
+          profileId: profile.id,
+          at: normalizedUpdatedAt,
+        );
+      }
+    }
+
     return latest;
   }
 
@@ -338,12 +453,11 @@ class _HomeScreenState extends State<HomeScreen> {
     LocalReadingProvider localReading,
     MushafReadingProvider mushafReading,
   ) async {
-    final verseRecent = _latestVerseRecent(localReading);
-    final mushafRecent = _latestMushafRecent(mushafReading);
+    final verseRecent = _latestVerseLastRead(localReading);
+    final mushafRecent = _latestMushafLastRead(mushafReading);
     final shouldOpenMushaf =
         mushafRecent != null &&
-        (verseRecent == null ||
-            mushafRecent.updatedAt.isAfter(verseRecent.readAt));
+        (verseRecent == null || mushafRecent.at.isAfter(verseRecent.at));
 
     if (shouldOpenMushaf) {
       final profile = mushafReading.profileById(mushafRecent.profileId);
@@ -375,6 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _navigateToReading(context, '1', verseId: '1', saveToFreeReadOnly: true);
   }
 
+  // ignore: unused_element
   Widget _buildLastReadPill(
     ColorScheme colorScheme,
     TextTheme textTheme,
@@ -460,6 +575,119 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: colorScheme.primary,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedLastReadPill(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    LocalReadingProvider localReading,
+    MushafReadingProvider mushafReading,
+  ) {
+    final verseRecent = _latestVerseLastRead(localReading);
+    final mushafRecent = _latestMushafLastRead(mushafReading);
+    final showMushaf =
+        mushafRecent != null &&
+        (verseRecent == null || mushafRecent.at.isAfter(verseRecent.at));
+
+    final String detail;
+    final IconData icon;
+    if (showMushaf) {
+      detail =
+          '${context.tr('mushaf_read')} - ${context.tr('page')} ${mushafRecent.pageNumber}';
+      icon = Icons.import_contacts;
+    } else if (verseRecent != null) {
+      final surahName = widget.repository.getSurahName(
+        verseRecent.verse.surahId,
+      );
+      detail =
+          '${context.tr('meaningful_read')} - $surahName ${context.tr('ayah')} ${verseRecent.verse.verseId}';
+      icon = Icons.menu_book;
+    } else {
+      detail =
+          '${context.tr('meaningful_read')} - ${widget.repository.getSurahName('1')} ${context.tr('ayah')} 1';
+      icon = Icons.menu_book;
+    }
+
+    return AnimatedBuilder(
+      animation: _lastReadGlowController,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(100),
+            gradient: SweepGradient(
+              transform: GradientRotation(
+                _lastReadGlowController.value * math.pi * 2,
+              ),
+              colors: [
+                colorScheme.primary.withValues(alpha: 0.16),
+                colorScheme.secondary.withValues(alpha: 0.78),
+                colorScheme.tertiary.withValues(alpha: 0.78),
+                colorScheme.primary.withValues(alpha: 0.16),
+              ],
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: Material(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(100),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(100),
+          onTap: () => _openLastRead(localReading, mushafReading),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: colorScheme.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.tr('continue_your_last_read'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -798,7 +1026,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 32),
 
-                            _buildLastReadPill(
+                            _buildAnimatedLastReadPill(
                               colorScheme,
                               textTheme,
                               readingProvider,
@@ -812,103 +1040,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Daily Read Checks Tracker
                         _buildDailyReadTracker(colorScheme, readingProvider),
 
-                        // ROW 2: HORIZONTAL CAPSULE MENUS
-                        SizedBox(
-                          height: 56,
-                          child: ListView.separated(
-                            controller: _capsuleScrollController,
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            itemCount: _tabs.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final isActive = _selectedTabIndex == index;
-                              final tab = _tabs[index];
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(24),
-                                onTap: () {
-                                  setState(() {
-                                    _selectedTabIndex = index;
-                                  });
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    if (mounted) {
-                                      _resetCardsForTab(index);
-                                    }
-                                  });
-                                  final screenWidth = MediaQuery.of(
-                                    context,
-                                  ).size.width;
-                                  final offset =
-                                      (index * 150.0) -
-                                      (screenWidth / 2) +
-                                      75.0;
-                                  _capsuleScrollController.animateTo(
-                                    offset.clamp(
-                                      0.0,
-                                      _capsuleScrollController
-                                          .position
-                                          .maxScrollExtent,
-                                    ),
-                                    duration: const Duration(milliseconds: 350),
-                                    curve: Curves.easeOutCubic,
-                                  );
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isActive ? 24 : 12,
-                                    vertical: isActive ? 12 : 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isActive
-                                        ? colorScheme.primary
-                                        : colorScheme.surfaceContainerLow,
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(
-                                      color: isActive
-                                          ? colorScheme.primary
-                                          : colorScheme.outline,
-                                    ),
-                                    boxShadow: isActive
-                                        ? [
-                                            BoxShadow(
-                                              color: colorScheme.primary
-                                                  .withValues(alpha: 0.24),
-                                              blurRadius: 16,
-                                              offset: const Offset(0, 8),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        tab['icon'] as IconData,
-                                        size: isActive ? 20 : 13,
-                                        color: isActive
-                                            ? colorScheme.onPrimary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                      SizedBox(width: isActive ? 8 : 6),
-                                      Text(
-                                        context.tr(tab['title'] as String),
-                                        style: textTheme.labelLarge?.copyWith(
-                                          color: isActive
-                                              ? colorScheme.onPrimary
-                                              : colorScheme.onSurfaceVariant,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: isActive ? 14 : 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildReadingModeCapsule(
+                            colorScheme,
+                            textTheme,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -922,8 +1058,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       sliver: _buildSearchResultsSliver(colorScheme, textTheme),
                     )
-                  else
+                  else ...[
                     _buildDynamicDockSliver(colorScheme, textTheme),
+                    SliverToBoxAdapter(
+                      child: _buildShortcutSection(colorScheme, textTheme),
+                    ),
+                  ],
 
                   const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
                 ],
@@ -963,14 +1103,268 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildMushafReadSection(colorScheme, textTheme),
         ]),
       );
-    } else if (_selectedTabIndex == 2) {
-      // Quick Links
-      return SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        sliver: _buildQuickLinksSliverList(colorScheme, textTheme),
-      );
     }
     return const SliverToBoxAdapter(child: SizedBox());
+  }
+
+  Widget _buildReadingModeCapsule(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.onSurface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: List.generate(_tabs.length, (index) {
+          final tab = _tabs[index];
+          final isActive = _selectedTabIndex == index;
+          return Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                setState(() => _selectedTabIndex = index);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _resetCardsForTab(index);
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isActive ? colorScheme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      tab['icon'] as IconData,
+                      size: 18,
+                      color: isActive
+                          ? colorScheme.onPrimary
+                          : colorScheme.surface.withValues(alpha: 0.76),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        context.tr(tab['title'] as String),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.labelLarge?.copyWith(
+                          color: isActive
+                              ? colorScheme.onPrimary
+                              : colorScheme.surface.withValues(alpha: 0.76),
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildShortcutSection(ColorScheme colorScheme, TextTheme textTheme) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              context.tr('quick_links'),
+              style: GoogleFonts.notoSansThai(
+                color: colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 112,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              itemCount: _quickLinks.length + (_quickLinks.length >= 7 ? 0 : 1),
+              separatorBuilder: (context, index) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index == _quickLinks.length) {
+                  return _buildAddShortcutSquare(colorScheme, textTheme);
+                }
+
+                final link = _quickLinks[index];
+                return _buildSurahShortcutSquare(
+                  link,
+                  index,
+                  colorScheme,
+                  textTheme,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSurahShortcutSquare(
+    CustomQuickLink link,
+    int index,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    final surahId = link.surahNumber.toString();
+    final englishName = widget.repository.getSurahName(surahId);
+    final arabicName = mushafSurahArabicName(surahId);
+    final accentColors = [
+      colorScheme.primary,
+      colorScheme.secondary,
+      colorScheme.tertiary,
+      colorScheme.onSurfaceVariant,
+    ];
+    final accent = accentColors[index % accentColors.length];
+
+    return SizedBox(
+      width: 104,
+      height: 104,
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: accent.withValues(alpha: 0.42), width: 1.2),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _chooseBrowseDestination(surahId, '1'),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      arabicName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textDirection: TextDirection.rtl,
+                      style: textTheme.titleLarge?.copyWith(
+                        color: accent,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      englishName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelMedium?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w900,
+                        height: 1.18,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      link.label.isNotEmpty
+                          ? link.label
+                          : '${context.tr('surah')} $surahId',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: accent,
+                        height: 1.18,
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+                if (!link.isLocked)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        setState(() => _quickLinks.remove(link));
+                        _saveQuickLinks();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(Icons.close, color: accent, size: 16),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddShortcutSquare(ColorScheme colorScheme, TextTheme textTheme) {
+    return SizedBox(
+      width: 104,
+      height: 104,
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.86),
+            width: 1.2,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _showAddQuickLinkSheet,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.primary),
+                  ),
+                  child: Icon(Icons.add, color: colorScheme.primary),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Add more',
+                  textAlign: TextAlign.center,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _triggerAutoSync() async {
@@ -1984,36 +2378,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: textColor,
-                      foregroundColor: colorScheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 0,
-                    ),
-                    onPressed: onContinue,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          context.tr(
-                            isReviewing
-                                ? 'resume_progress'
-                                : 'continue_reading',
-                          ),
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Opacity(
+                    opacity: 0.7,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: textColor,
+                        foregroundColor: colorScheme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_forward, size: 18),
-                      ],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        elevation: 0,
+                      ),
+                      onPressed: onContinue,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.tr(
+                              isReviewing
+                                  ? 'resume_progress'
+                                  : 'continue_reading',
+                            ),
+                            style: GoogleFonts.notoSansThai(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2099,7 +2501,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildMushafCardLayout(
       colorScheme: colorScheme,
       isFreeRead: isFreeRead,
-      profileName: profile.name,
+      profileName: isFreeRead ? context.tr('just_read') : profile.name,
       page: displayPage,
       imageIndex: index,
       progressPercent: progressPercent,
@@ -2637,36 +3039,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
 
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: textColor,
-                      foregroundColor: colorScheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      elevation: 0,
-                    ),
-                    onPressed: onContinue,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          context.tr(
-                            isReviewing
-                                ? 'resume_progress'
-                                : 'continue_reading',
-                          ),
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Opacity(
+                    opacity: 0.7,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: textColor,
+                        foregroundColor: colorScheme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_forward, size: 18),
-                      ],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        elevation: 0,
+                      ),
+                      onPressed: onContinue,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.tr(
+                              isReviewing
+                                  ? 'resume_progress'
+                                  : 'continue_reading',
+                            ),
+                            style: GoogleFonts.notoSansThai(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -2763,124 +3173,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildQuickLinksSliverList(
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (index == _quickLinks.length) {
-          if (_quickLinks.length >= 7) return const SizedBox();
-          return Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 24),
-            child: FilledButton.tonalIcon(
-              onPressed: _showAddQuickLinkSheet,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Quick Link'),
-            ),
-          );
-        }
-
-        final link = _quickLinks[index];
-        final surahName = widget.repository.getSurahName(
-          link.surahNumber.toString(),
-        );
-        final versesCount = widget.repository
-            .getSurahVerses(link.surahNumber.toString())
-            .length;
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Card(
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-              side: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            color: colorScheme.surface,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-              onTap: () =>
-                  _chooseBrowseDestination(link.surahNumber.toString(), '1'),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.5,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '${link.surahNumber}',
-                        style: textTheme.titleMedium?.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            surahName,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            link.label.isNotEmpty
-                                ? link.label
-                                : '$versesCount Verses',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!link.isLocked)
-                      IconButton(
-                        icon: Icon(
-                          Icons.remove_circle_outline,
-                          color: colorScheme.error,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _quickLinks.removeAt(index);
-                          });
-                          _saveQuickLinks();
-                        },
-                      )
-                    else
-                      Icon(
-                        Icons.lock_outline,
-                        size: 16,
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      }, childCount: _quickLinks.length + 1),
     );
   }
 

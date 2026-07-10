@@ -20,6 +20,8 @@ dependencies:
   http: ^1.6.0
   supabase_flutter: ^2.8.0
   flutter_svg: ^2.0.10
+  share_plus: ^13.2.0
+  just_audio: ^0.10.5
   qcf_quran: ^0.0.5
   url_launcher: ^6.3.0
   timeago: ^3.7.1
