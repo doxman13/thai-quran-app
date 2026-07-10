@@ -125,8 +125,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     if (_pageController.hasClients) {
       await _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
       );
     } else {
       await _handlePageChanged(profile, safePage);
@@ -536,14 +536,34 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     children: [
                       Directionality(
                         textDirection: TextDirection.rtl,
-                        child: PageView.builder(
-                          controller: _pageController,
-                          itemCount: pageCount,
-                          onPageChanged: (index) => _handlePageChanged(
-                            profile,
-                            _indexToPage(profile, index),
-                          ),
-                          itemBuilder: (context, index) {
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragEnd: (details) {
+                            final velocity = details.primaryVelocity;
+                            if (velocity != null) {
+                              // Swiped Right (velocity > 0) -> Next Page in RTL
+                              if (velocity > 200) {
+                                if (_pageNumber < profile.targetPage) {
+                                  _goToPage(_pageNumber + 1);
+                                }
+                              }
+                              // Swiped Left (velocity < 0) -> Previous Page in RTL
+                              else if (velocity < -200) {
+                                if (_pageNumber > profile.startPage) {
+                                  _goToPage(_pageNumber - 1);
+                                }
+                              }
+                            }
+                          },
+                          child: PageView.builder(
+                            controller: _pageController,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: pageCount,
+                            onPageChanged: (index) => _handlePageChanged(
+                              profile,
+                              _indexToPage(profile, index),
+                            ),
+                            itemBuilder: (context, index) {
                             final page = _indexToPage(profile, index);
                             final renderPage = _clampInt(
                               page,
@@ -588,6 +608,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                           },
                         ),
                       ),
+                    ),
                       if (!profile.isFreeRead &&
                           _pageNumber == profile.targetPage)
                         Positioned(

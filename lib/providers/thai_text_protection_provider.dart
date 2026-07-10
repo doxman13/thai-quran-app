@@ -39,13 +39,29 @@ class ThaiTextProtectionProvider extends ChangeNotifier {
   }
 
   String protect(String text) {
-    if (text.isEmpty || _terms.isEmpty) return text;
+    if (text.isEmpty) return text;
 
-    var protectedText = text;
-    for (final term in _terms) {
-      protectedText = protectedText.replaceAll(term, _protectTerm(term));
+    // 1. Insert Zero-Width Spaces (\u200B) at syllable boundaries to allow correct line breaking
+    var processedText = _addThaiSyllableBreaks(text);
+
+    // 2. Protect specific terms using Word Joiner (\u2060) to keep them on the same line
+    if (_terms.isNotEmpty) {
+      for (final term in _terms) {
+        processedText = processedText.replaceAll(term, _protectTerm(term));
+      }
     }
-    return protectedText;
+    return processedText;
+  }
+
+  static String _addThaiSyllableBreaks(String text) {
+    if (text.isEmpty) return text;
+    // Matches:
+    // 1. A Thai consonant [\u0E01-\u0E2E] followed by zero or more combining characters/vowels/tone marks.
+    // 2. A Thai prepended vowel [\u0E40-\u0E44] followed by a consonant and zero or more combining characters/vowels/tone marks.
+    final regex = RegExp(
+      r'([\u0E01-\u0E2E][\u0E30-\u0E3A\u0E45-\u0E4E]*|[\u0E40-\u0E44][\u0E01-\u0E2E][\u0E30-\u0E3A\u0E45-\u0E4E]*)',
+    );
+    return text.replaceAllMapped(regex, (match) => match.group(1)! + '\u200B');
   }
 
   Future<void> _loadCachedTerms() async {

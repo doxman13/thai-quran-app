@@ -26,6 +26,8 @@ class BookmarksScreen extends StatefulWidget {
 class _BookmarksScreenState extends State<BookmarksScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
+  static const int _displayLimit = 3;
+  bool _isMushafSelected = false;
 
   void _openReading({
     required String surahId,
@@ -214,7 +216,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     List<Widget> allItems,
     ColorScheme colorScheme,
   ) {
-    if (allItems.length <= 3) return const SizedBox.shrink();
+    if (allItems.length <= _displayLimit) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: OutlinedButton(
@@ -399,6 +401,78 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
+  Widget _buildCapsuleSelector(ColorScheme colorScheme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildCapsuleOption(
+              label: context.tr('meaningful_read'),
+              isSelected: !_isMushafSelected,
+              onTap: () => setState(() => _isMushafSelected = false),
+              colorScheme: colorScheme,
+            ),
+          ),
+          Expanded(
+            child: _buildCapsuleOption(
+              label: context.tr('mushaf_read'),
+              isSelected: _isMushafSelected,
+              onTap: () => setState(() => _isMushafSelected = true),
+              colorScheme: colorScheme,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCapsuleOption({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ColorScheme colorScheme,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: colorScheme.primary.withAlpha(50),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.notoSansThai(
+              color: isSelected
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final progress = Provider.of<ProgressProvider>(context);
@@ -515,74 +589,91 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       body: Column(
         children: [
           _buildHeader(colorScheme),
+          _buildCapsuleSelector(colorScheme),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.only(top: 8, bottom: 32),
               children: [
-                if (verseRecentItems.isNotEmpty) ...[
-                  _buildSectionTitle(context.tr('recent_verse'), colorScheme),
-                  _buildListGroup(
-                    verseRecentItems.take(3).toList(),
-                    colorScheme,
-                  ),
-                  _buildSeeMoreButton(
-                    context.tr('recent_verse'),
-                    verseRecentItems,
-                    colorScheme,
-                  ),
-                ],
-
-                if (mushafRecentItems.isNotEmpty) ...[
-                  _buildSectionTitle(context.tr('recent_mushaf'), colorScheme),
-                  _buildListGroup(
-                    mushafRecentItems.take(3).toList(),
-                    colorScheme,
-                  ),
-                  _buildSeeMoreButton(
-                    context.tr('recent_mushaf'),
-                    mushafRecentItems,
-                    colorScheme,
-                  ),
-                ],
-
-                _buildSectionTitle(context.tr('saved_verses'), colorScheme),
-                if (verseBookmarkItems.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
+                if (!_isMushafSelected) ...[
+                  if (verseRecentItems.isNotEmpty) ...[
+                    _buildSectionTitle(context.tr('recent_verse'), colorScheme),
+                    _buildListGroup(
+                      verseRecentItems.take(_displayLimit).toList(),
+                      colorScheme,
                     ),
-                    child: Text(
-                      context.tr('no_saved_verses'),
-                      style: GoogleFonts.inter(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 14,
+                    _buildSeeMoreButton(
+                      context.tr('recent_verse'),
+                      verseRecentItems,
+                      colorScheme,
+                    ),
+                  ],
+
+                  _buildSectionTitle(context.tr('saved_verses'), colorScheme),
+                  if (verseBookmarkItems.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
                       ),
+                      child: Text(
+                        context.tr('no_saved_verses'),
+                        style: GoogleFonts.inter(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _buildListGroup(
+                      verseBookmarkItems.take(_displayLimit).toList(),
+                      colorScheme,
                     ),
-                  )
-                else ...[
-                  _buildListGroup(
-                    verseBookmarkItems.take(3).toList(),
-                    colorScheme,
-                  ),
-                  _buildSeeMoreButton(
-                    context.tr('saved_verses'),
-                    verseBookmarkItems,
-                    colorScheme,
-                  ),
-                ],
+                    _buildSeeMoreButton(
+                      context.tr('saved_verses'),
+                      verseBookmarkItems,
+                      colorScheme,
+                    ),
+                  ],
+                ] else ...[
+                  if (mushafRecentItems.isNotEmpty) ...[
+                    _buildSectionTitle(context.tr('recent_mushaf'), colorScheme),
+                    _buildListGroup(
+                      mushafRecentItems.take(_displayLimit).toList(),
+                      colorScheme,
+                    ),
+                    _buildSeeMoreButton(
+                      context.tr('recent_mushaf'),
+                      mushafRecentItems,
+                      colorScheme,
+                    ),
+                  ],
 
-                if (mushafBookmarkItems.isNotEmpty) ...[
                   _buildSectionTitle(context.tr('saved_mushaf'), colorScheme),
-                  _buildListGroup(
-                    mushafBookmarkItems.take(3).toList(),
-                    colorScheme,
-                  ),
-                  _buildSeeMoreButton(
-                    context.tr('saved_mushaf'),
-                    mushafBookmarkItems,
-                    colorScheme,
-                  ),
+                  if (mushafBookmarkItems.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        context.tr('no_bookmarks'),
+                        style: GoogleFonts.inter(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                  else ...[
+                    _buildListGroup(
+                      mushafBookmarkItems.take(_displayLimit).toList(),
+                      colorScheme,
+                    ),
+                    _buildSeeMoreButton(
+                      context.tr('saved_mushaf'),
+                      mushafBookmarkItems,
+                      colorScheme,
+                    ),
+                  ],
                 ],
               ],
             ),

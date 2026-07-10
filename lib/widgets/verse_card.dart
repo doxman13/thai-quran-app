@@ -30,12 +30,74 @@ import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 
+class VerseCardController extends ChangeNotifier {
+  VoidCallback? toggleTafsir;
+  VoidCallback? toggleAudit;
+  VoidCallback? playAudio;
+  VoidCallback? stopAudio;
+  VoidCallback? copyText;
+  VoidCallback? shareImage;
+  VoidCallback? showCommunityNotes;
+
+  bool isAudioPlaying = false;
+  bool isAudioLoading = false;
+  bool showTafsirBox = false;
+  bool showAuditBox = false;
+  bool hasTafsir = false;
+  bool hasCommunityNotes = false;
+  Future<List<TadabburNote>>? communityNotesFuture;
+
+  void updateState({
+    bool? isAudioPlaying,
+    bool? isAudioLoading,
+    bool? showTafsirBox,
+    bool? showAuditBox,
+    bool? hasTafsir,
+    bool? hasCommunityNotes,
+    Future<List<TadabburNote>>? communityNotesFuture,
+  }) {
+    bool changed = false;
+    if (isAudioPlaying != null && this.isAudioPlaying != isAudioPlaying) {
+      this.isAudioPlaying = isAudioPlaying;
+      changed = true;
+    }
+    if (isAudioLoading != null && this.isAudioLoading != isAudioLoading) {
+      this.isAudioLoading = isAudioLoading;
+      changed = true;
+    }
+    if (showTafsirBox != null && this.showTafsirBox != showTafsirBox) {
+      this.showTafsirBox = showTafsirBox;
+      changed = true;
+    }
+    if (showAuditBox != null && this.showAuditBox != showAuditBox) {
+      this.showAuditBox = showAuditBox;
+      changed = true;
+    }
+    if (hasTafsir != null && this.hasTafsir != hasTafsir) {
+      this.hasTafsir = hasTafsir;
+      changed = true;
+    }
+    if (hasCommunityNotes != null && this.hasCommunityNotes != hasCommunityNotes) {
+      this.hasCommunityNotes = hasCommunityNotes;
+      changed = true;
+    }
+    if (communityNotesFuture != null) {
+      this.communityNotesFuture = communityNotesFuture;
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+}
+
 class VerseCard extends StatefulWidget {
   final Verse verse;
   final QuranRepository repository;
   final int index;
   final String? progressProfileId;
   final bool useExplicitProgressProfile;
+  final VerseCardController? controller;
 
   const VerseCard({
     super.key,
@@ -44,6 +106,7 @@ class VerseCard extends StatefulWidget {
     required this.index,
     this.progressProfileId,
     this.useExplicitProgressProfile = false,
+    this.controller,
   });
 
   @override
@@ -54,7 +117,6 @@ class _VerseCardState extends State<VerseCard> {
   static const int _khalifahTanijiRecitationId = 161;
 
   // Audit and personal notes states
-  bool _isMenuVisible = false;
   bool _showAuditBox = false;
   bool _showTafsirBox = false;
   bool _isPreparingShare = false;
@@ -62,6 +124,7 @@ class _VerseCardState extends State<VerseCard> {
   bool _isAudioPlaying = false;
 
   final GlobalKey _shareBoundaryKey = GlobalKey();
+  final GlobalKey _tafsirKey = GlobalKey();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final QuranFoundationRepository _audioRepository =
       QuranFoundationRepository();
@@ -69,6 +132,7 @@ class _VerseCardState extends State<VerseCard> {
   final TextEditingController _auditController = TextEditingController();
   late Future<List<TadabburNote>> _communityNotesFuture;
   StreamSubscription<PlayerState>? _audioStateSub;
+  StreamSubscription<Duration>? _positionSubscription;
 
   bool _isSavingAudit = false;
   bool _auditSaved = false;
@@ -91,6 +155,7 @@ class _VerseCardState extends State<VerseCard> {
       setState(() {
         _isAudioLoading = isLoading;
         _isAudioPlaying = state.playing && !isCompleted;
+        _updateControllerState();
       });
       if (isCompleted) {
         _audioPlayer.stop();
@@ -101,11 +166,96 @@ class _VerseCardState extends State<VerseCard> {
       if (settings.showArabicText) {
         _loadArabic();
       }
+      _bindController();
     });
   }
 
   @override
+  void didUpdateWidget(VerseCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.verse != widget.verse || oldWidget.controller != widget.controller) {
+      _communityNotesFuture = _tadabburRepository.fetchCommunityNotes(
+        widget.verse.surahId,
+        widget.verse.id,
+      );
+      _bindController();
+    }
+  }
+
+
+
+  void _bindController() {
+    if (widget.controller != null) {
+      widget.controller!.toggleTafsir = () {
+        if (widget.verse.shortTafsir != null) {
+          setState(() {
+            _showTafsirBox = !_showTafsirBox;
+            _showAuditBox = false;
+            _updateControllerState();
+          });
+          if (_showTafsirBox) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_tafsirKey.currentContext != null) {
+                Scrollable.ensureVisible(
+                  _tafsirKey.currentContext!,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOutCubic,
+                );
+              }
+            });
+          }
+        }
+      };
+      widget.controller!.toggleAudit = () {
+        setState(() {
+          _showAuditBox = !_showAuditBox;
+          _showTafsirBox = false;
+          _updateControllerState();
+        });
+      };
+      widget.controller!.playAudio = _toggleAyahAudio;
+      widget.controller!.stopAudio = () async {
+        if (_isAudioPlaying) {
+          await _audioPlayer.stop();
+          if (mounted) {
+            setState(() {
+              _isAudioPlaying = false;
+              _updateControllerState();
+            });
+          }
+        }
+      };
+      widget.controller!.copyText = _copyVerseText;
+      widget.controller!.shareImage = _shareVerseImage;
+      widget.controller!.showCommunityNotes = () {
+        _communityNotesFuture.then((notes) {
+          if (mounted && notes.isNotEmpty) {
+            _showCommunityNotesModal(notes);
+          }
+        });
+      };
+
+      _updateControllerState();
+    }
+  }
+
+  void _updateControllerState() {
+    if (widget.controller != null) {
+      widget.controller!.updateState(
+        isAudioPlaying: _isAudioPlaying,
+        isAudioLoading: _isAudioLoading,
+        showTafsirBox: _showTafsirBox,
+        showAuditBox: _showAuditBox,
+        hasTafsir: widget.verse.shortTafsir != null,
+        hasCommunityNotes: true,
+        communityNotesFuture: _communityNotesFuture,
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    _positionSubscription?.cancel();
     _audioStateSub?.cancel();
     _audioPlayer.dispose();
     _auditController.dispose();
@@ -138,6 +288,7 @@ class _VerseCardState extends State<VerseCard> {
     TadabburNote? noteObj,
   ) async {
     final messenger = ScaffoldMessenger.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasNoteText = noteObj?.noteText.trim().isNotEmpty ?? false;
 
     if (noteObj == null) {
@@ -152,9 +303,27 @@ class _VerseCardState extends State<VerseCard> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: const Text('Verse saved as favorite'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isDark ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                width: 1,
+              ),
+            ),
+            content: Text(
+              'Verse saved as favorite',
+              style: GoogleFonts.notoSansThai(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
             action: SnackBarAction(
               label: 'Add note',
+              textColor: const Color(0xFFFBBF24),
               onPressed: _openTadabburModal,
             ),
           ),
@@ -408,6 +577,8 @@ class _VerseCardState extends State<VerseCard> {
 
     if (_isAudioPlaying) {
       await _audioPlayer.stop();
+      _positionSubscription?.cancel();
+      _positionSubscription = null;
       if (mounted) {
         setState(() => _isAudioPlaying = false);
       }
@@ -417,13 +588,71 @@ class _VerseCardState extends State<VerseCard> {
     setState(() => _isAudioLoading = true);
     try {
       final verseKey = '${widget.verse.surahId}:${widget.verse.id}';
-      final audioUrl = await _audioRepository.fetchAyahRecitationUrl(
-        recitationId: _khalifahTanijiRecitationId,
-        verseKey: verseKey,
-      );
-      await _audioPlayer.stop();
-      await _audioPlayer.setUrl(audioUrl);
-      await _audioPlayer.play();
+      final surahNumber = int.parse(widget.verse.surahId);
+
+      _positionSubscription?.cancel();
+      _positionSubscription = null;
+
+      // Khalifah Al Tunaiji (ID 161) is a chapter reciter.
+      // Any reciter ID > 12 is handled as a chapter reciter.
+      if (_khalifahTanijiRecitationId > 12) {
+        final chapterData = await _audioRepository.fetchChapterRecitation(
+          reciterId: _khalifahTanijiRecitationId,
+          chapterNumber: surahNumber,
+        );
+
+        final String audioUrl = chapterData['audio_url'] ?? '';
+        final Map<String, Map<String, int>> timestamps =
+            chapterData['timestamps'] ?? {};
+
+        final verseTime = timestamps[verseKey];
+        if (verseTime == null) {
+          throw QuranFoundationException('No timing data found for verse $verseKey.');
+        }
+
+        final int fromMs = verseTime['from'] ?? 0;
+        final int toMs = verseTime['to'] ?? 0;
+
+        await _audioPlayer.stop();
+
+        // Only reload url if it's different to optimize buffering
+        final currentSource = _audioPlayer.audioSource;
+        bool needLoad = true;
+        if (currentSource is UriAudioSource) {
+          if (currentSource.uri.toString() == audioUrl) {
+            needLoad = false;
+          }
+        }
+
+        if (needLoad) {
+          await _audioPlayer.setUrl(audioUrl);
+        }
+
+        // Seek to the start position of the verse
+        await _audioPlayer.seek(Duration(milliseconds: fromMs));
+
+        // Start listening to the position stream to stop when the verse ends
+        _positionSubscription = _audioPlayer.positionStream.listen((position) async {
+          if (position.inMilliseconds >= toMs) {
+            await _audioPlayer.stop();
+            _positionSubscription?.cancel();
+            _positionSubscription = null;
+            if (mounted) {
+              setState(() => _isAudioPlaying = false);
+            }
+          }
+        });
+
+        await _audioPlayer.play();
+      } else {
+        final audioUrl = await _audioRepository.fetchAyahRecitationUrl(
+          recitationId: _khalifahTanijiRecitationId,
+          verseKey: verseKey,
+        );
+        await _audioPlayer.stop();
+        await _audioPlayer.setUrl(audioUrl);
+        await _audioPlayer.play();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -539,14 +768,25 @@ class _VerseCardState extends State<VerseCard> {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
-    final notesProv = Provider.of<NotesProvider>(context);
-    final localReading = Provider.of<LocalReadingProvider>(context);
-    final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);
+    final notesProv = Provider.of<NotesProvider>(context, listen: false);
+    final localReading = Provider.of<LocalReadingProvider>(context, listen: false);
+    final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context, listen: false);
     final statsProv = Provider.of<StatsProvider>(context, listen: false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final isHighlighted = context.select<ProgressProvider, bool>(
       (progress) => widget.index == progress.lastVerseIndex,
     );
+
+    // Bind controller if this card is currently highlighted/active
+    if (isHighlighted && widget.controller != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _bindController();
+        }
+      });
+    }
+
     final colors = settings.getAppColors();
     final themeColor = settings.getPrimaryColor();
     final bodyTextColor = colors.textStrong;
@@ -554,17 +794,16 @@ class _VerseCardState extends State<VerseCard> {
         ? const Color(0xFFD7E0EA)
         : const Color(0xFF334155);
     final colorScheme = Theme.of(context).colorScheme;
-    final glowColor =
-        Color.lerp(colorScheme.primary, colorScheme.tertiary, 0.45) ??
-        colorScheme.primary;
 
     final showArabicText = settings.showArabicText;
 
     final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
-    final isBookmarked = localReading.isBookmarked(
-      verseRef.surahId,
-      verseRef.verseId,
+    
+    // Select only this specific verse's bookmark status
+    final isBookmarked = context.select<LocalReadingProvider, bool>(
+      (lr) => lr.isBookmarked(verseRef.surahId, verseRef.verseId),
     );
+
     if (isHighlighted && _lastTrackedVerseKey != verseRef.verseKey) {
       _lastTrackedVerseKey = verseRef.verseKey;
       // Log reading stat
@@ -612,431 +851,334 @@ class _VerseCardState extends State<VerseCard> {
       });
     }
 
-    final noteObj = notesProv.getNoteObjectForVerse(
-      widget.verse.surahId,
-      widget.verse.id,
+    // Select only this specific verse's favorite note status
+    final isFavorited = context.select<NotesProvider, bool>(
+      (notes) => notes.getNoteObjectForVerse(widget.verse.surahId, widget.verse.id) != null,
     );
-    final isFavorited = noteObj != null;
 
-    return GestureDetector(
-      onTap: () {
-        if (!isHighlighted) {
-          context.read<ProgressProvider>().setVerseIndexAndScroll(widget.index);
-        } else {
-          setState(() {
-            _isMenuVisible = !_isMenuVisible;
-          });
-        }
-      },
-      onLongPress: () {
-        if (isHighlighted) {
-          setState(() {
-            _isMenuVisible = !_isMenuVisible;
-          });
-        }
-      },
-      child: RepaintBoundary(
-        key: _shareBoundaryKey,
+    return RepaintBoundary(
+      key: _shareBoundaryKey,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colorScheme.shadow.withValues(
-                          alpha: isDark ? 0.12 : 0.04,
-                        ),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+          margin: EdgeInsets.symmetric(
+            horizontal: _isPreparingShare ? 24 : 0,
+            vertical: 16,
+          ),
+          decoration: _isPreparingShare
+              ? BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(
+                        alpha: isDark ? 0.12 : 0.04,
                       ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Content Layer
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                )
+              : null,
+          child: Padding(
+            padding: _isPreparingShare ? const EdgeInsets.all(24) : EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Header Row
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        context.tr(
+                          'ayah_number',
+                          args: {'number': widget.verse.id},
+                        ),
+                        style: GoogleFonts.notoSansThai(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isHighlighted
-                                    ? glowColor.withValues(
-                                        alpha: isDark ? 0.24 : 0.16,
-                                      )
-                                    : colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: isHighlighted
-                                    ? [
-                                        BoxShadow(
-                                          color: glowColor.withValues(
-                                            alpha: isDark ? 0.28 : 0.20,
-                                          ),
-                                          blurRadius: 14,
-                                          spreadRadius: 1,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Text(
-                                context.tr(
-                                  'ayah_number',
-                                  args: {'number': widget.verse.id},
-                                ),
-                                style: GoogleFonts.notoSansThai(
-                                  color: isHighlighted
-                                      ? colorScheme.onSurface
-                                      : colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
+                        if (_shareStatus.isNotEmpty)
+                          Text(
+                            _shareStatus,
+                            style: GoogleFonts.notoSansThai(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 8),
-                            _buildActionIcon(
-                              tooltip: isBookmarked
-                                  ? 'Remove bookmark'
-                                  : 'Bookmark',
-                              icon: isBookmarked
-                                  ? Icons.bookmark_rounded
-                                  : Icons.bookmark_border_rounded,
-                              active: isBookmarked,
-                              color: colorScheme.tertiary,
-                              onPressed: () async {
-                                await localReading.toggleBookmark(
-                                  verseRef.surahId,
-                                  verseRef.verseId,
-                                );
-                              },
+                          ),
+                        _buildActionIcon(
+                          tooltip: isBookmarked
+                              ? 'Remove bookmark'
+                              : 'Bookmark',
+                          icon: isBookmarked
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          active: isBookmarked,
+                          color: colorScheme.tertiary,
+                          onPressed: () async {
+                            await localReading.toggleBookmark(
+                              verseRef.surahId,
+                              verseRef.verseId,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                // Arabic Text Area
+                if (showArabicText) ...[
+                  const SizedBox(height: 16),
+                  if (widget.verse.isArabicLoading)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: RichText(
+                        text: TextSpan(
+                          style: arabicStyle,
+                          children: [
+                            TextSpan(
+                              text: widget.verse.arabic
+                                  .split(' | ')
+                                  .join(' '),
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  Divider(color: colorScheme.outlineVariant),
+                ],
+
+                const SizedBox(height: 14),
+
+                // Translations Container
+                if (settings.showTranslationText) ...[
+                  if (settings.primaryTranslationId.isNotEmpty)
+                    _buildDynamicTranslation(
+                      context,
+                      settings.primaryTranslationId,
+                      settings,
+                      isDark,
+                      bodyTextColor,
+                      thaiTextProtection,
+                      isPrimary: true,
+                    ),
+                  if (settings.secondaryTranslationId != null)
+                    _buildDynamicTranslation(
+                      context,
+                      settings.secondaryTranslationId!,
+                      settings,
+                      isDark,
+                      bodyTextColor,
+                      thaiTextProtection,
+                      isPrimary: false,
+                    ),
+                ],
+
+                const SizedBox(height: 12),
+
+                // Heart (favorite) button row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildActionIcon(
+                      tooltip: isFavorited
+                          ? 'Remove from favorites'
+                          : 'Add to favorites',
+                      icon: isFavorited
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      active: isFavorited,
+                      color: colorScheme.error,
+                      onPressed: () {
+                        final currentNoteObj = notesProv.getNoteObjectForVerse(
+                          widget.verse.surahId,
+                          widget.verse.id,
+                        );
+                        _handleFavoriteTap(notesProv, currentNoteObj);
+                      },
+                    ),
+                  ],
+                ),
+
+                // Collapsible Short Tafsir
+                if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    key: _tafsirKey,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.blueGrey.shade800
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            if (_shareStatus.isNotEmpty)
-                              Text(
-                                _shareStatus,
+                            Text(
+                              'Short tafsir',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: themeColor,
+                              ),
+                            ),
+                            Text(
+                              widget.verse.shortTafsirSource ??
+                                  'QuranEnc Thai Mokhtasar',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 10,
+                                color: isDark
+                                    ? Colors.blueGrey.shade300
+                                    : Colors.blueGrey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          thaiTextProtection.protect(widget.verse.shortTafsir!),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 17,
+                            height: 1.7,
+                            color: isDark
+                                ? const Color(0xFFE2E8F0)
+                                : const Color(0xFF334155),
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                // Collapsible Audit Input
+                if (_showAuditBox) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.black26 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        TextField(
+                          controller: _auditController,
+                          style: GoogleFonts.notoSansThai(fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText:
+                                'Enter audit error report/fix details...',
+                            hintStyle: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                            ),
+                            border: const OutlineInputBorder(),
+                            contentPadding: const EdgeInsets.all(10),
+                            isDense: true,
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() {
+                                    _showAuditBox = false;
+                                    _updateControllerState();
+                                  }),
+                              child: Text(
+                                'Cancel',
                                 style: GoogleFonts.notoSansThai(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
                               ),
-                            _buildActionIcon(
-                              tooltip: isFavorited
-                                  ? 'Remove from favorites'
-                                  : 'Add to favorites',
-                              icon: isFavorited
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              active: isFavorited,
-                              color: colorScheme.error,
-                              onPressed: () =>
-                                  _handleFavoriteTap(notesProv, noteObj),
+                            ),
+                            ElevatedButton(
+                              onPressed: _isSavingAudit
+                                  ? null
+                                  : _submitAuditComment,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 6,
+                                ),
+                              ),
+                              child: _isSavingAudit
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      _auditSaved
+                                          ? 'Saved ✓'
+                                          : 'Submit Audit',
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 12,
+                                      ),
+                                    ),
                             ),
                           ],
                         ),
                       ],
                     ),
-
-                    // Arabic Text Area
-                    if (showArabicText) ...[
-                      const SizedBox(height: 16),
-                      if (widget.verse.isArabicLoading)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: RichText(
-                            text: TextSpan(
-                              style: arabicStyle,
-                              children: [
-                                TextSpan(
-                                  text: widget.verse.arabic
-                                      .split(' | ')
-                                      .join(' '),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 14),
-                      Divider(color: colorScheme.outlineVariant),
-                    ],
-
-                    const SizedBox(height: 14),
-
-                    // Translations Container
-                    if (settings.showTranslationText) ...[
-                      if (settings.primaryTranslationId.isNotEmpty)
-                        _buildDynamicTranslation(
-                          context,
-                          settings.primaryTranslationId,
-                          settings,
-                          isDark,
-                          bodyTextColor,
-                          thaiTextProtection,
-                          isPrimary: true,
-                        ),
-                      if (settings.secondaryTranslationId != null)
-                        _buildDynamicTranslation(
-                          context,
-                          settings.secondaryTranslationId!,
-                          settings,
-                          isDark,
-                          bodyTextColor,
-                          thaiTextProtection,
-                          isPrimary: false,
-                        ),
-                    ],
-
-                    // Action buttons
-                    if (_isMenuVisible && !_isPreparingShare) ...[
-                      const SizedBox(height: 16),
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          _buildActionIcon(
-                            tooltip: 'Short tafsir',
-                            icon: Icons.menu_book_outlined,
-                            active: _showTafsirBox,
-                            color: colorScheme.primary,
-                            onPressed: widget.verse.shortTafsir == null
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _showTafsirBox = !_showTafsirBox;
-                                      _showAuditBox = false;
-                                    });
-                                  },
-                          ),
-                          _buildCommunityNotesAction(colorScheme),
-                          _buildActionIcon(
-                            tooltip: 'Copy verse text',
-                            icon: Icons.content_copy_rounded,
-                            active: false,
-                            color: colorScheme.primary,
-                            onPressed: _copyVerseText,
-                          ),
-                          _buildActionIcon(
-                            tooltip: 'Share verse image',
-                            icon: Icons.ios_share_rounded,
-                            active: false,
-                            color: colorScheme.primary,
-                            onPressed: _shareVerseImage,
-                          ),
-                          _buildActionIcon(
-                            tooltip: 'Report error',
-                            icon: Icons.report_problem_outlined,
-                            active: _showAuditBox,
-                            color: colorScheme.error,
-                            onPressed: () {
-                              setState(() {
-                                _showAuditBox = !_showAuditBox;
-                                _showTafsirBox = false;
-                              });
-                            },
-                          ),
-                          _buildActionIcon(
-                            tooltip: _isAudioPlaying
-                                ? 'Stop ayah audio'
-                                : 'Play ayah audio',
-                            icon: _isAudioLoading
-                                ? Icons.hourglass_empty_rounded
-                                : _isAudioPlaying
-                                ? Icons.stop_circle_outlined
-                                : Icons.play_arrow_rounded,
-                            active: _isAudioPlaying || _isAudioLoading,
-                            color: colorScheme.secondary,
-                            onPressed: _toggleAyahAudio,
-                          ),
-                        ],
-                      ),
-                    ],
-
-                    // Collapsible Short Tafsir
-                    if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.blueGrey.shade800
-                                : Colors.grey.shade200,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Short tafsir',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: themeColor,
-                                  ),
-                                ),
-                                Text(
-                                  widget.verse.shortTafsirSource ??
-                                      'QuranEnc Thai Mokhtasar',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 10,
-                                    color: isDark
-                                        ? Colors.blueGrey.shade300
-                                        : Colors.blueGrey.shade500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              widget.verse.shortTafsir!,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 14,
-                                height: 1.7,
-                                color: isDark
-                                    ? const Color(0xFFE2E8F0)
-                                    : const Color(0xFF334155),
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Collapsible Audit Input
-                    if (_showAuditBox) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.black26 : Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.red.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            TextField(
-                              controller: _auditController,
-                              style: GoogleFonts.notoSansThai(fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Enter audit error report/fix details...',
-                                hintStyle: GoogleFonts.notoSansThai(
-                                  fontSize: 13,
-                                ),
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.all(10),
-                                isDense: true,
-                              ),
-                              maxLines: 2,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      setState(() => _showAuditBox = false),
-                                  child: Text(
-                                    'Cancel',
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: _isSavingAudit
-                                      ? null
-                                      : _submitAuditComment,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red.shade700,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: _isSavingAudit
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          _auditSaved
-                                              ? 'Saved ✓'
-                                              : 'Submit Audit',
-                                          style: GoogleFonts.notoSansThai(
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildDynamicTranslation(
@@ -1136,29 +1278,6 @@ class _VerseCardState extends State<VerseCard> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCommunityNotesAction(ColorScheme colorScheme) {
-    return FutureBuilder<List<TadabburNote>>(
-      future: _communityNotesFuture,
-      builder: (context, snapshot) {
-        final notes = snapshot.data ?? const <TadabburNote>[];
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
-        return _buildActionIcon(
-          tooltip: notes.isEmpty
-              ? 'No community notes for this ayah'
-              : 'View community notes',
-          icon: isLoading
-              ? Icons.hourglass_empty_rounded
-              : Icons.forum_outlined,
-          active: notes.isNotEmpty,
-          color: colorScheme.secondary,
-          onPressed: notes.isEmpty
-              ? null
-              : () => _showCommunityNotesModal(notes),
-        );
-      },
     );
   }
 

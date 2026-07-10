@@ -220,35 +220,86 @@ class QuranFoundationRepository {
     required String verseKey,
   }) async {
     final config = await _resolveConfig();
+    try {
+      final json = await _getJson(
+        _uri('/quran/recitations/$recitationId', {
+          'verse_key': verseKey,
+          'fields': 'verse_key,url',
+          'per_page': '1',
+        }, config),
+        config,
+      );
+
+      final audioFiles = json['audio_files'];
+      if (audioFiles is List && audioFiles.isNotEmpty) {
+        final matchingFile = audioFiles.cast<dynamic>().firstWhere((item) {
+          return item is Map && item['verse_key']?.toString() == verseKey;
+        }, orElse: () => audioFiles.first);
+
+        if (matchingFile is Map && matchingFile['url'] != null) {
+          return _normalizeAudioUrl(matchingFile['url'].toString());
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch recitation for reciter $recitationId: $e');
+    }
+
+    // Fallback to Mishari Rashid Al-Afasy (ID 7) if the primary reciter fails or is empty
+    if (recitationId != 7) {
+      debugPrint('Falling back to Mishari Rashid al-Afasy (ID 7) for $verseKey');
+      return fetchAyahRecitationUrl(recitationId: 7, verseKey: verseKey);
+    }
+
+    throw QuranFoundationException('No audio file found for $verseKey.');
+  }
+
+  Future<Map<String, dynamic>> fetchChapterRecitation({
+    required int reciterId,
+    required int chapterNumber,
+  }) async {
+    final config = await _resolveConfig();
     final json = await _getJson(
-      _uri('/quran/recitations/$recitationId', {
-        'verse_key': verseKey,
-        'fields': 'verse_key,url',
-        'per_page': '1',
+      _uri('/chapter_recitations/$reciterId/$chapterNumber', {
+        'segments': 'true',
       }, config),
       config,
     );
 
-    final audioFiles = json['audio_files'];
-    if (audioFiles is! List || audioFiles.isEmpty) {
-      throw QuranFoundationException('No audio file found for $verseKey.');
+    final audioFile = json['audio_file'];
+    if (audioFile is! Map) {
+      throw const QuranFoundationException('Invalid chapter recitation response.');
     }
 
-    final matchingFile = audioFiles.cast<dynamic>().firstWhere((item) {
-      return item is Map && item['verse_key']?.toString() == verseKey;
-    }, orElse: () => audioFiles.first);
-
-    if (matchingFile is! Map || matchingFile['url'] == null) {
-      throw QuranFoundationException(
-        'Quran Foundation returned an invalid audio file for $verseKey.',
-      );
+    final audioUrl = audioFile['audio_url']?.toString() ?? '';
+    final timestampsList = audioFile['timestamps'] as List?;
+    
+    // Parse timestamps list into a map of verseKey -> (timestampFrom, timestampTo)
+    final timestampsMap = <String, Map<String, int>>{};
+    if (timestampsList != null) {
+      for (final item in timestampsList) {
+        if (item is Map) {
+          final vk = item['verse_key']?.toString();
+          final from = int.tryParse(item['timestamp_from']?.toString() ?? '');
+          final to = int.tryParse(item['timestamp_to']?.toString() ?? '');
+          if (vk != null && from != null && to != null) {
+            timestampsMap[vk] = {
+              'from': from,
+              'to': to,
+            };
+          }
+        }
+      }
     }
 
-    return _normalizeAudioUrl(matchingFile['url'].toString());
+    return {
+      'audio_url': _normalizeAudioUrl(audioUrl),
+      'timestamps': timestampsMap,
+    };
   }
 
   String _normalizeAudioUrl(String url) {
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('//')) return 'https:$url';
     final path = url.replaceFirst(RegExp(r'^/+'), '');
     return 'https://verses.quran.foundation/$path';
   }
