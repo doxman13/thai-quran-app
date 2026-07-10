@@ -51,7 +51,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  void _openMushaf(String? profileId, int mushafId, {int? pageNumber}) async {
+  void _openMushaf(
+    String? profileId,
+    int mushafId, {
+    int? pageNumber,
+    String? highlightedVerseKey,
+  }) async {
     final provider = context.read<MushafReadingProvider>();
     String targetProfileId = profileId ?? '';
 
@@ -77,6 +82,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           foundationRepository: _foundationRepository,
           profileId: targetProfileId,
           initialPage: pageNumber,
+          initialHighlightVerseKey: highlightedVerseKey,
         ),
       ),
     );
@@ -574,6 +580,38 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       );
     }).toList();
 
+    final mushafVerseBookmarkItems = mushafReading.verseBookmarks.map((bookmark) {
+      final surahName = getSurahNameForPage(
+        bookmark.pageNumber,
+        widget.repository,
+      );
+      final parts = bookmark.verseKey.split(':');
+      final surahId = parts.isNotEmpty ? parts[0] : '';
+      final verseId = parts.length > 1 ? parts[1] : '';
+      final formattedSurahName = widget.repository.getSurahName(surahId);
+
+      return _buildVerseItem(
+        colorScheme,
+        icon: Icons.bookmark_border,
+        title: '$formattedSurahName, ${context.tr('ayah_number', args: {'number': verseId})}',
+        subtitle: '${context.tr('page')} ${bookmark.pageNumber}',
+        onTap: () => _openMushaf(
+          null,
+          bookmark.mushafId,
+          pageNumber: bookmark.pageNumber,
+          highlightedVerseKey: bookmark.verseKey,
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 24),
+          onPressed: () => mushafReading.toggleVerseBookmark(
+            mushafId: bookmark.mushafId,
+            pageNumber: bookmark.pageNumber,
+            verseKey: bookmark.verseKey,
+          ),
+        ),
+      );
+    }).toList();
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: Column(
@@ -638,8 +676,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                   ],
 
-                  _buildSectionTitle(context.tr('saved_mushaf'), colorScheme),
-                  if (mushafBookmarkItems.isEmpty)
+                  if (mushafBookmarkItems.isEmpty && mushafVerseBookmarkItems.isEmpty) ...[
+                    _buildSectionTitle(context.tr('saved_mushaf'), colorScheme),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -652,17 +690,33 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           fontSize: 14,
                         ),
                       ),
-                    )
-                  else ...[
-                    _buildListGroup(
-                      mushafBookmarkItems.take(_displayLimit).toList(),
-                      colorScheme,
                     ),
-                    _buildSeeMoreButton(
-                      context.tr('saved_mushaf'),
-                      mushafBookmarkItems,
-                      colorScheme,
-                    ),
+                  ] else ...[
+                    if (mushafBookmarkItems.isNotEmpty) ...[
+                      _buildSectionTitle(context.tr('saved_mushaf'), colorScheme),
+                      _buildListGroup(
+                        mushafBookmarkItems.take(_displayLimit).toList(),
+                        colorScheme,
+                      ),
+                      _buildSeeMoreButton(
+                        context.tr('saved_mushaf'),
+                        mushafBookmarkItems,
+                        colorScheme,
+                      ),
+                    ],
+
+                    if (mushafVerseBookmarkItems.isNotEmpty) ...[
+                      _buildSectionTitle(context.tr('saved_verses'), colorScheme),
+                      _buildListGroup(
+                        mushafVerseBookmarkItems.take(_displayLimit).toList(),
+                        colorScheme,
+                      ),
+                      _buildSeeMoreButton(
+                        context.tr('saved_verses'),
+                        mushafVerseBookmarkItems,
+                        colorScheme,
+                      ),
+                    ],
                   ],
                 ],
               ],

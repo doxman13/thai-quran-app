@@ -24,6 +24,7 @@ class MushafReaderScreen extends StatefulWidget {
   final QuranFoundationRepository foundationRepository;
   final String profileId;
   final int? initialPage;
+  final String? initialHighlightVerseKey;
 
   const MushafReaderScreen({
     Key? key,
@@ -31,6 +32,7 @@ class MushafReaderScreen extends StatefulWidget {
     required this.foundationRepository,
     required this.profileId,
     this.initialPage,
+    this.initialHighlightVerseKey,
   }) : super(key: key);
 
   @override
@@ -58,6 +60,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
+    _highlightedVerseKey = widget.initialHighlightVerseKey;
 
     // Enable Wakelock if keepAwake setting is true
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -74,6 +77,13 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             profileId: currentProfile.id,
             pageNumber: _pageNumber,
           );
+          if (widget.initialHighlightVerseKey != null) {
+            _showVerseTranslation(
+              currentProfile,
+              widget.initialHighlightVerseKey!,
+              _pageNumber,
+            );
+          }
         }
       }
     });
