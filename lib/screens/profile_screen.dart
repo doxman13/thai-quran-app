@@ -1062,7 +1062,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               icon: Icons.favorite_rounded,
                               title: settings.languageCode == 'en'
                                   ? 'My Favourite Ayat'
-                                  : 'อายะฮ์โปรดของฉัน',
+                                  : 'อายะฮฺโปรดของฉัน',
                               value: '${notesProv.personalNotes.length}',
                               color: colorScheme.secondary,
                               onTap: _openTadabbur,
@@ -1627,7 +1627,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'อายะฮ์ $surahId:$ayahNum',
+                                        'อายะฮฺ $surahId:$ayahNum',
                                         style: GoogleFonts.notoSansThai(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,

@@ -1312,12 +1312,7 @@ class _HomeScreenState extends State<HomeScreen>
                 }
 
                 final link = _quickLinks[index];
-                return _buildSurahShortcutSquare(
-                  link,
-                  index,
-                  colorScheme,
-                  textTheme,
-                );
+                return _buildSurahShortcutSquare(link, colorScheme, textTheme);
               },
             ),
           ),
@@ -1328,20 +1323,19 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildSurahShortcutSquare(
     CustomQuickLink link,
-    int index,
     ColorScheme colorScheme,
     TextTheme textTheme,
   ) {
     final surahId = link.surahNumber.toString();
     final englishName = widget.repository.getSurahName(surahId);
     final arabicName = mushafSurahArabicName(surahId);
-    final accentColors = [
-      colorScheme.primary,
-      colorScheme.secondary,
-      colorScheme.tertiary,
-      colorScheme.onSurfaceVariant,
-    ];
-    final accent = accentColors[index % accentColors.length];
+    final cardBackground = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: 0.04),
+      colorScheme.surfaceContainerLow,
+    );
+    final borderColor = colorScheme.primary.withValues(alpha: 0.2);
+    final titleColor = colorScheme.primary;
+    final supportingColor = colorScheme.onSurfaceVariant;
 
     return SizedBox(
       width: 104,
@@ -1349,10 +1343,10 @@ class _HomeScreenState extends State<HomeScreen>
       child: Card(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: Colors.transparent,
+        color: cardBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: accent.withValues(alpha: 0.42), width: 1.2),
+          side: BorderSide(color: borderColor, width: 1.2),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -1370,7 +1364,7 @@ class _HomeScreenState extends State<HomeScreen>
                       overflow: TextOverflow.ellipsis,
                       textDirection: TextDirection.rtl,
                       style: textTheme.titleLarge?.copyWith(
-                        color: accent,
+                        color: titleColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1381,7 +1375,7 @@ class _HomeScreenState extends State<HomeScreen>
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelMedium?.copyWith(
-                        color: accent,
+                        color: titleColor,
                         fontWeight: FontWeight.w900,
                         height: 1.18,
                       ),
@@ -1394,7 +1388,7 @@ class _HomeScreenState extends State<HomeScreen>
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelSmall?.copyWith(
-                        color: accent,
+                        color: supportingColor,
                         height: 1.18,
                       ),
                     ),
@@ -1410,7 +1404,11 @@ class _HomeScreenState extends State<HomeScreen>
                       onTap: () => _deleteQuickLink(link),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
-                        child: Icon(Icons.close, color: accent, size: 16),
+                        child: Icon(
+                          Icons.close,
+                          color: colorScheme.onSurfaceVariant,
+                          size: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -1429,11 +1427,11 @@ class _HomeScreenState extends State<HomeScreen>
       child: Card(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: Colors.transparent,
+        color: colorScheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.86),
+            color: colorScheme.primary.withValues(alpha: 0.2),
             width: 1.2,
           ),
         ),
@@ -1449,18 +1447,17 @@ class _HomeScreenState extends State<HomeScreen>
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
+                    color: colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colorScheme.primary),
                   ),
-                  child: Icon(Icons.add, color: colorScheme.primary),
+                  child: Icon(Icons.add, color: colorScheme.onPrimaryContainer),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Add more',
                   textAlign: TextAlign.center,
                   style: textTheme.labelMedium?.copyWith(
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w900,
                   ),
                 ),

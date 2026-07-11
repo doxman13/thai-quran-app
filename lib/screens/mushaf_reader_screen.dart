@@ -50,6 +50,22 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   bool _translationBookmarked = false;
   Timer? _translationTimer;
   Timer? _highlightTimer;
+  Timer? _menuAutoHideTimer;
+
+  void _startAutoHideTimer() {
+    _menuAutoHideTimer?.cancel();
+    _menuAutoHideTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _isMenuVisible) {
+        setState(() {
+          _isMenuVisible = false;
+        });
+      }
+    });
+  }
+
+  void _cancelAutoHideTimer() {
+    _menuAutoHideTimer?.cancel();
+  }
 
   @override
   void initState() {
@@ -62,6 +78,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       initialPage: _pageToIndex(profile, _pageNumber),
     );
     _highlightedVerseKey = widget.initialHighlightVerseKey;
+
+    _startAutoHideTimer();
 
     // Enable Wakelock if keepAwake setting is true
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -95,6 +113,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     WakelockPlus.disable();
     _translationTimer?.cancel();
     _highlightTimer?.cancel();
+    _menuAutoHideTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -391,6 +410,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   Future<void> _showReaderSettings(MushafProfile profile) async {
     _dismissTranslation();
+    _cancelAutoHideTimer();
     final action = await showModalBottomSheet<_MushafSettingsAction>(
       context: context,
       isScrollControlled: true,
@@ -412,6 +432,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       },
     );
     if (!mounted) return;
+    if (_isMenuVisible) {
+      _startAutoHideTimer();
+    }
     if (action == _MushafSettingsAction.seeAllProfiles) {
       Navigator.of(context).maybePop();
     }
@@ -422,6 +445,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     QuranRepository quranRepository,
   ) async {
     _dismissTranslation();
+    _cancelAutoHideTimer();
     final selectedSurah = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
@@ -434,6 +458,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         );
       },
     );
+    if (mounted && _isMenuVisible) {
+      _startAutoHideTimer();
+    }
     if (selectedSurah != null) {
       _jumpToSurah(selectedSurah);
     }
@@ -514,47 +541,81 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       onWillPop: _handleBack,
       child: Scaffold(
         backgroundColor: _mushafPageColor(context),
-        body: Stack(
-          children: [
-            // 1. Full Screen Reading Area
-            Positioned.fill(
-              child: SafeArea(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    if (_translationText != null) {
-                      _dismissTranslation();
-                    } else {
-                      setState(() {
-                        _isMenuVisible = !_isMenuVisible;
-                      });
-                    }
-                  },
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onHorizontalDragEnd: (details) {
-                              final velocity = details.primaryVelocity;
-                              if (velocity != null) {
-                                // Swiped Right (velocity > 0) -> Next Page in RTL
-                                if (velocity > 200) {
-                                  if (_pageNumber < profile.targetPage) {
-                                    _goToPage(_pageNumber + 1);
+        body: Listener(
+          onPointerDown: (_) {
+            if (_isMenuVisible) {
+              _startAutoHideTimer();
+            }
+          },
+          child: Stack(
+            children: [
+              // 1. Full Screen Reading Area
+              Positioned.fill(
+                child: SafeArea(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (_translationText != null) {
+                        _dismissTranslation();
+                      } else {
+                        setState(() {
+                          _isMenuVisible = !_isMenuVisible;
+                          if (_isMenuVisible) {
+                            _startAutoHideTimer();
+                          } else {
+                            _cancelAutoHideTimer();
+                          }
+                        });
+                      }
+                    },
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onHorizontalDragEnd: (details) {
+                                final velocity = details.primaryVelocity;
+                                if (velocity != null) {
+                                  // Swiped Right (velocity > 0) -> Next Page in RTL
+                                  if (velocity > 200) {
+                                    if (_pageNumber < profile.targetPage) {
+                                      _goToPage(_pageNumber + 1);
+                                      if (_isMenuVisible) {
+                                        setState(() {
+                                          _isMenuVisible = false;
+                                        });
+                                        _cancelAutoHideTimer();
+                                      }
+                                    }
+                                  }
+                                  // Swiped Left (velocity < 0) -> Previous Page in RTL
+                                  else if (velocity < -200) {
+                                    if (_pageNumber > profile.startPage) {
+                                      _goToPage(_pageNumber - 1);
+                                      if (_isMenuVisible) {
+                                        setState(() {
+                                          _isMenuVisible = false;
+                                        });
+                                        _cancelAutoHideTimer();
+                                      }
+                                    }
                                   }
                                 }
-                                // Swiped Left (velocity < 0) -> Previous Page in RTL
-                                else if (velocity < -200) {
-                                  if (_pageNumber > profile.startPage) {
-                                    _goToPage(_pageNumber - 1);
+                              },
+                              onVerticalDragEnd: (details) {
+                                final velocity = details.primaryVelocity;
+                                if (velocity != null && velocity.abs() > 100) {
+                                  if (!_isMenuVisible) {
+                                    setState(() {
+                                      _isMenuVisible = true;
+                                    });
+                                    _startAutoHideTimer();
                                   }
                                 }
-                              }
-                            },
-                            child: PageView.builder(
+                              },
+                              child: PageView.builder(
                               controller: _pageController,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: pageCount,
@@ -727,8 +788,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 int _clampInt(int value, int min, int max) {
