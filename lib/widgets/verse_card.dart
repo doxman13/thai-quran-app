@@ -126,6 +126,7 @@ class _VerseCardState extends State<VerseCard> {
 
   final GlobalKey _shareBoundaryKey = GlobalKey();
   final GlobalKey _tafsirKey = GlobalKey();
+  final GlobalKey _auditKey = GlobalKey();
   final AudioPlayer _audioPlayer = AudioPlayer();
   final QuranFoundationRepository _audioRepository =
       QuranFoundationRepository();
@@ -213,6 +214,17 @@ class _VerseCardState extends State<VerseCard> {
           _showTafsirBox = false;
           _updateControllerState();
         });
+        if (_showAuditBox) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_auditKey.currentContext != null) {
+              Scrollable.ensureVisible(
+                _auditKey.currentContext!,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+              );
+            }
+          });
+        }
       };
       widget.controller!.playAudio = _toggleAyahAudio;
       widget.controller!.stopAudio = () async {
@@ -1129,6 +1141,7 @@ class _VerseCardState extends State<VerseCard> {
                 if (_showAuditBox) ...[
                   const SizedBox(height: 8),
                   Container(
+                    key: _auditKey,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isDark ? Colors.black26 : Colors.red.shade50,
@@ -1142,18 +1155,19 @@ class _VerseCardState extends State<VerseCard> {
                       children: [
                         TextField(
                           controller: _auditController,
-                          style: GoogleFonts.notoSansThai(fontSize: 14),
+                          minLines: 3,
+                          maxLines: 6,
+                          style: GoogleFonts.notoSansThai(fontSize: 15),
                           decoration: InputDecoration(
                             hintText:
                                 'Enter audit error report/fix details...',
                             hintStyle: GoogleFonts.notoSansThai(
-                              fontSize: 13,
+                              fontSize: 14,
                             ),
                             border: const OutlineInputBorder(),
                             contentPadding: const EdgeInsets.all(10),
                             isDense: true,
                           ),
-                          maxLines: 2,
                         ),
                         const SizedBox(height: 8),
                         Row(

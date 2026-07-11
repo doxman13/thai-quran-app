@@ -62,9 +62,15 @@ class _TadabburPanelState extends State<TadabburPanel> {
         _isPublic = existing.isPublic;
         _isAnonymous = existing.isAnonymous;
         _loading = false;
+        if (existing.noteText.trim().isEmpty) {
+          _isEditing = true;
+        }
       });
     } else {
-      setState(() => _loading = false);
+      setState(() {
+        _isEditing = true;
+        _loading = false;
+      });
     }
   }
 
@@ -510,13 +516,14 @@ class _TadabburPanelState extends State<TadabburPanel> {
           const SizedBox(height: 8),
           TextField(
             controller: _controller,
-            maxLines: 4,
-            style: GoogleFonts.inter(fontSize: 14, color: colors.textStrong),
+            minLines: 5,
+            maxLines: 10,
+            style: GoogleFonts.notoSansThai(fontSize: 15, color: colors.textStrong),
             decoration: InputDecoration(
               hintText: 'Write your reflection here (optional)...',
-              hintStyle: GoogleFonts.inter(
-                fontSize: 13,
-                color: colors.foreground.withOpacity(0.4),
+              hintStyle: GoogleFonts.notoSansThai(
+                fontSize: 14,
+                color: colors.foreground.withValues(alpha: 0.4),
               ),
               filled: true,
               fillColor: isDark
