@@ -99,6 +99,17 @@ create table if not exists public.bookmarks (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.custom_quick_links (
+  id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  surah_number integer not null check (surah_number between 1 and 114),
+  label text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 create table if not exists public.recent_readings (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -275,6 +286,8 @@ create index if not exists verse_tafsir_verse_key_idx on public.verse_tafsir (ve
 create index if not exists surah_summaries_surah_idx on public.surah_summaries (surah_id, language);
 create index if not exists reading_profiles_user_idx on public.reading_profiles (user_id, is_archived, sort_order);
 create index if not exists bookmarks_category_idx on public.bookmarks (category_id, sort_order);
+create index if not exists custom_quick_links_user_idx
+  on public.custom_quick_links (user_id, sort_order);
 create index if not exists recent_readings_user_idx on public.recent_readings (user_id, read_at desc);
 create index if not exists tadabbur_public_verse_idx on public.tadabbur_notes (verse_key)
   where visibility = 'public' and status = 'active';
@@ -291,6 +304,7 @@ alter table public.verse_tafsir enable row level security;
 alter table public.surah_summaries enable row level security;
 alter table public.bookmark_categories enable row level security;
 alter table public.bookmarks enable row level security;
+alter table public.custom_quick_links enable row level security;
 alter table public.recent_readings enable row level security;
 alter table public.user_reading_history enable row level security;
 alter table public.user_completed_surahs enable row level security;

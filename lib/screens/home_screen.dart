@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
@@ -195,38 +196,130 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadQuickLinks() async {
     final prefs = await SharedPreferences.getInstance();
     final String? linksJson = prefs.getString('custom_quick_links');
+    List<CustomQuickLink> links;
     if (linksJson != null) {
       final List<dynamic> decoded = jsonDecode(linksJson);
-      setState(() {
-        _quickLinks = decoded
-            .map((e) => CustomQuickLink.fromJson(e as Map<String, dynamic>))
-            .toList();
-      });
+      links = decoded
+          .map((e) => CustomQuickLink.fromJson(e as Map<String, dynamic>))
+          .toList();
     } else {
-      setState(() {
-        _quickLinks = [
-          CustomQuickLink(
-            surahNumber: 67,
-            label: "Don't forget to read every night.",
-            isLocked: true,
-          ),
-          CustomQuickLink(
-            surahNumber: 18,
-            label: "Read every Friday.",
-            isLocked: true,
-          ),
-        ];
-      });
-      _saveQuickLinks();
+      links = _defaultQuickLinks();
     }
+
+    links = _normalizeQuickLinks(links);
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      links = await _syncQuickLinksWithSupabase(userId, links);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _quickLinks = links;
+    });
+    await _saveQuickLinks(syncRemote: userId == null);
   }
 
-  Future<void> _saveQuickLinks() async {
+  List<CustomQuickLink> _defaultQuickLinks() => [
+    CustomQuickLink(
+      id: 'system_mulk',
+      surahNumber: 67,
+      label: "Don't forget to read every night.",
+      isLocked: true,
+    ),
+    CustomQuickLink(
+      id: 'system_kahf',
+      surahNumber: 18,
+      label: "Read every Friday.",
+      isLocked: true,
+    ),
+  ];
+
+  List<CustomQuickLink> _normalizeQuickLinks(List<CustomQuickLink> links) {
+    final byId = <String, CustomQuickLink>{};
+    for (final link in [..._defaultQuickLinks(), ...links]) {
+      byId[link.id] = link;
+    }
+    return byId.values.toList();
+  }
+
+  Future<void> _saveQuickLinks({bool syncRemote = true}) async {
+    _quickLinks = _normalizeQuickLinks(_quickLinks);
     final prefs = await SharedPreferences.getInstance();
     final String encoded = jsonEncode(
       _quickLinks.map((e) => e.toJson()).toList(),
     );
     await prefs.setString('custom_quick_links', encoded);
+
+    if (!syncRemote) return;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    await _syncQuickLinksWithSupabase(userId, _quickLinks);
+  }
+
+  Future<List<CustomQuickLink>> _syncQuickLinksWithSupabase(
+    String userId,
+    List<CustomQuickLink> localLinks,
+  ) async {
+    try {
+      final client = Supabase.instance.client;
+      final remoteRows = await client
+          .from('custom_quick_links')
+          .select('id, surah_number, label, sort_order, created_at, updated_at')
+          .eq('user_id', userId)
+          .order('sort_order');
+      final remoteLinks = List<Map<String, dynamic>>.from(
+        remoteRows,
+      ).map(CustomQuickLink.fromSupabase).toList();
+
+      final mergedById = <String, CustomQuickLink>{};
+      for (final link in _normalizeQuickLinks(localLinks)) {
+        mergedById[link.id] = link;
+      }
+      for (final remote in remoteLinks) {
+        final local = mergedById[remote.id];
+        if (local == null || remote.updatedAt.isAfter(local.updatedAt)) {
+          mergedById[remote.id] = remote;
+        }
+      }
+
+      final merged = mergedById.values.toList();
+      final customLinks = merged.where((link) => !link.isLocked).toList();
+      for (var index = 0; index < customLinks.length; index++) {
+        final link = customLinks[index];
+        await client.from('custom_quick_links').upsert({
+          'id': link.id,
+          'user_id': userId,
+          'surah_number': link.surahNumber,
+          'label': link.label,
+          'sort_order': index,
+          'created_at': link.createdAt.toIso8601String(),
+          'updated_at': link.updatedAt.toIso8601String(),
+        }, onConflict: 'id,user_id');
+      }
+
+      return merged;
+    } catch (e) {
+      debugPrint('Error syncing quick links with Supabase: $e');
+      return _normalizeQuickLinks(localLinks);
+    }
+  }
+
+  Future<void> _deleteQuickLink(CustomQuickLink link) async {
+    setState(() => _quickLinks.removeWhere((item) => item.id == link.id));
+    await _saveQuickLinks(syncRemote: false);
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      await Supabase.instance.client
+          .from('custom_quick_links')
+          .delete()
+          .eq('user_id', userId)
+          .eq('id', link.id);
+    } catch (e) {
+      debugPrint('Error deleting quick link from Supabase: $e');
+    }
   }
 
   @override
@@ -368,7 +461,10 @@ class _HomeScreenState extends State<HomeScreen>
   LocalRecentReading? _latestVerseRecent(LocalReadingProvider provider) {
     LocalRecentReading? latest;
     for (final reading in provider.recentReadings) {
-      if (latest == null || _normalizeDate(reading.readAt).isAfter(_normalizeDate(latest.readAt))) {
+      if (latest == null ||
+          _normalizeDate(
+            reading.readAt,
+          ).isAfter(_normalizeDate(latest.readAt))) {
         latest = reading;
       }
     }
@@ -378,7 +474,10 @@ class _HomeScreenState extends State<HomeScreen>
   MushafRecentReading? _latestMushafRecent(MushafReadingProvider provider) {
     MushafRecentReading? latest;
     for (final reading in provider.recentReadings) {
-      if (latest == null || _normalizeDate(reading.updatedAt).isAfter(_normalizeDate(latest.updatedAt))) {
+      if (latest == null ||
+          _normalizeDate(
+            reading.updatedAt,
+          ).isAfter(_normalizeDate(latest.updatedAt))) {
         latest = reading;
       }
     }
@@ -411,7 +510,11 @@ class _HomeScreenState extends State<HomeScreen>
       final viewed = profile.lastViewed;
       final normalizedUpdatedAt = _normalizeDate(profile.updatedAt);
       if (latest == null || normalizedUpdatedAt.isAfter(latest.at)) {
-        latest = (verse: viewed, profileId: profile.id, at: normalizedUpdatedAt);
+        latest = (
+          verse: viewed,
+          profileId: profile.id,
+          at: normalizedUpdatedAt,
+        );
       }
     }
 
@@ -1304,10 +1407,7 @@ class _HomeScreenState extends State<HomeScreen>
                     bottom: 0,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        setState(() => _quickLinks.remove(link));
-                        _saveQuickLinks();
-                      },
+                      onTap: () => _deleteQuickLink(link),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
                         child: Icon(Icons.close, color: accent, size: 16),
@@ -1394,6 +1494,7 @@ class _HomeScreenState extends State<HomeScreen>
       await reading.syncReadingStateWithSupabase(userId);
       await mushaf.syncWithSupabase(userId);
       await stats.syncWithSupabase(userId);
+      await _saveQuickLinks();
     }
   }
 
@@ -3275,11 +3376,15 @@ class _HomeScreenState extends State<HomeScreen>
                     height: 50,
                     child: FilledButton(
                       onPressed: () {
+                        final now = DateTime.now();
                         setState(() {
                           _quickLinks.add(
                             CustomQuickLink(
+                              id: 'ql_${now.microsecondsSinceEpoch}',
                               surahNumber: selectedSurah,
                               label: customLabel,
+                              createdAt: now,
+                              updatedAt: now,
                             ),
                           );
                         });
@@ -3460,26 +3565,56 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 class CustomQuickLink {
+  final String id;
   final int surahNumber;
   final String label;
   final bool isLocked;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   CustomQuickLink({
+    String? id,
     required this.surahNumber,
     required this.label,
     this.isLocked = false,
-  });
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? createdAt ?? DateTime.now(),
+       id = id ?? _fallbackId(surahNumber, label, isLocked);
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'surahNumber': surahNumber,
     'label': label,
     'isLocked': isLocked,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   factory CustomQuickLink.fromJson(Map<String, dynamic> json) =>
       CustomQuickLink(
+        id: json['id']?.toString(),
         surahNumber: json['surahNumber'],
         label: json['label'] ?? '',
         isLocked: json['isLocked'] ?? false,
+        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+        updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
       );
+
+  factory CustomQuickLink.fromSupabase(Map<String, dynamic> row) =>
+      CustomQuickLink(
+        id: row['id'].toString(),
+        surahNumber: row['surah_number'],
+        label: row['label']?.toString() ?? '',
+        createdAt: DateTime.tryParse(row['created_at']?.toString() ?? ''),
+        updatedAt: DateTime.tryParse(row['updated_at']?.toString() ?? ''),
+      );
+
+  static String _fallbackId(int surahNumber, String label, bool isLocked) {
+    if (isLocked && surahNumber == 67) return 'system_mulk';
+    if (isLocked && surahNumber == 18) return 'system_kahf';
+    final safeLabel = base64Url.encode(utf8.encode(label)).replaceAll('=', '');
+    return 'ql_${surahNumber}_$safeLabel';
+  }
 }

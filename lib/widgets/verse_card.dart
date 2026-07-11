@@ -724,6 +724,7 @@ class _VerseCardState extends State<VerseCard> {
                             children: [
                               Text(
                                 note.noteText,
+                                locale: const Locale('th', 'TH'),
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 14,
                                   height: 1.6,
@@ -1083,6 +1084,7 @@ class _VerseCardState extends State<VerseCard> {
                         const SizedBox(height: 8),
                         Text(
                           thaiTextProtection.protect(widget.verse.shortTafsir!),
+                          locale: const Locale('th', 'TH'),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 17,
                             height: 1.7,

@@ -56,12 +56,17 @@ class ThaiTextProtectionProvider extends ChangeNotifier {
       }
     }
 
-    // 2. Insert Zero-Width Spaces (\u200B) at syllable boundaries for the rest of the text
-    processedText = _addThaiSyllableBreaks(processedText);
+    // 2. Do NOT insert Zero-Width Spaces (\u200B) at syllable boundaries anymore,
+    // as modern Flutter text layout engines wrap Thai text correctly at word boundaries
+    // when the locale is set to 'th_TH', whereas inserting \u200B at every consonant/vowel group
+    // causes words to break incorrectly in the middle of words.
+    // processedText = _addThaiSyllableBreaks(processedText);
 
-    // 3. Restore protected terms back into the text
+    // 3. Restore protected terms back into the text, surrounding them with Zero-Width Spaces (\u200B)
+    // to provide clear word boundaries so the layout engine can break lines before/after them
+    // rather than breaking the surrounding words (e.g., "ของอัลลอฮฺ" wrapping incorrectly as "ของ" and "อัลลอฮฺ").
     placeholders.forEach((placeholder, protectedValue) {
-      processedText = processedText.replaceAll(placeholder, protectedValue);
+      processedText = processedText.replaceAll(placeholder, '\u200B$protectedValue\u200B');
     });
 
     return processedText;

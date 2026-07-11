@@ -1760,6 +1760,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         children: [
           Text(
             '🎉 สิ้นสุดซูเราะฮฺแล้ว',
+            locale: const Locale('th', 'TH'),
             style: GoogleFonts.notoSansThai(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1770,6 +1771,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           Text(
             'คุณอ่านมาถึงอายะฮฺสุดท้ายของซูเราะฮฺ $_currentSurah แล้ว ทำเครื่องหมายเพื่อบันทึกสถิติของคุณ',
             textAlign: TextAlign.center,
+            locale: const Locale('th', 'TH'),
             style: GoogleFonts.notoSansThai(
               fontSize: 13,
               color: isDark ? Colors.blueGrey.shade300 : Colors.grey.shade600,
@@ -1785,6 +1787,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   SnackBar(
                     content: Text(
                       'บันทึกการอ่านซูเราะฮฺที่จบแล้ว!',
+                      locale: const Locale('th', 'TH'),
                       style: GoogleFonts.notoSansThai(color: Colors.white),
                     ),
                     backgroundColor: Colors.green,
@@ -1803,6 +1806,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               child: Text(
                 '📖 อ่านจบแล้ว',
+                locale: const Locale('th', 'TH'),
                 style: GoogleFonts.notoSansThai(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -1844,6 +1848,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           '⬅️ ซูเราะฮฺก่อนหน้า',
+                          locale: const Locale('th', 'TH'),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -1868,6 +1873,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         child: Text(
                           'ซูเราะฮฺถัดไป ➡️',
+                          locale: const Locale('th', 'TH'),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
