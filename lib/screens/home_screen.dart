@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -125,6 +126,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   final ScrollController _meaningfulCardsScrollController = ScrollController();
   final ScrollController _mushafCardsScrollController = ScrollController();
+  StreamSubscription<AuthState>? _quickLinkAuthSubscription;
+  String? _quickLinksLoadedForUser;
 
   final List<Map<String, dynamic>> _tabs = [
     {'title': "meaningful_read", 'icon': Icons.menu_book},
@@ -176,6 +179,12 @@ class _HomeScreenState extends State<HomeScreen>
     )..repeat();
     _isInit = widget.repositoryReady;
     _loadQuickLinks();
+    _quickLinkAuthSubscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen((data) {
+          final userId = data.session?.user.id;
+          if (userId == _quickLinksLoadedForUser) return;
+          unawaited(_loadQuickLinks());
+        });
     _searchController.addListener(() {
       setState(() {});
     });
@@ -212,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (userId != null) {
       links = await _syncQuickLinksWithSupabase(userId, links);
     }
+    _quickLinksLoadedForUser = userId;
 
     if (!mounted) return;
     setState(() {
@@ -224,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen>
     CustomQuickLink(
       id: 'system_mulk',
       surahNumber: 67,
-      label: "Don't forget to read every night.",
+      label: "Read every night.",
       isLocked: true,
     ),
     CustomQuickLink(
@@ -237,7 +247,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   List<CustomQuickLink> _normalizeQuickLinks(List<CustomQuickLink> links) {
     final byId = <String, CustomQuickLink>{};
-    for (final link in [..._defaultQuickLinks(), ...links]) {
+    final lockedSystemIds = <String>{};
+    for (final link in _defaultQuickLinks()) {
+      byId[link.id] = link;
+      lockedSystemIds.add(link.id);
+    }
+    for (final link in links) {
+      if (lockedSystemIds.contains(link.id)) continue;
       byId[link.id] = link;
     }
     return byId.values.toList();
@@ -324,6 +340,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _quickLinkAuthSubscription?.cancel();
     _lastReadGlowController.dispose();
     _searchController.dispose();
     _meaningfulCardsScrollController.dispose();
