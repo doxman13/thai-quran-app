@@ -13,6 +13,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/verse.dart';
 import '../models/tadabbur_note.dart';
@@ -417,6 +418,10 @@ class _VerseCardState extends State<VerseCard> {
     });
 
     final prefs = await SharedPreferences.getInstance();
+    final surahNum = int.tryParse(widget.verse.surahId) ?? 0;
+    final verseNum = int.tryParse(widget.verse.id) ?? 0;
+    final verseKey = '$surahNum:$verseNum';
+
     final auditData = {
       'surahId': widget.verse.surahId,
       'verseId': widget.verse.id,
@@ -427,31 +432,52 @@ class _VerseCardState extends State<VerseCard> {
 
     bool success = false;
 
-    // Attempt API save
+    // 1. Attempt Supabase Save (Real Database)
     try {
-      final List<Uri> urls = [];
-      // Use the new shared PHP backend for audit reports
-      urls.add(Uri.parse('https://quran.salamthailand.com/save_audit.php'));
+      final user = Supabase.instance.client.auth.currentUser;
+      await Supabase.instance.client.from('translation_reports').insert({
+        'user_id': user?.id,
+        'surah_id': surahNum,
+        'verse_id': verseNum,
+        'verse_key': verseKey,
+        'translation_version': 'thai_v3', // Default or active translation version
+        'issue_type': 'other',
+        'comment': comment,
+        'status': 'open',
+        'source': 'flutter',
+      });
+      success = true;
+      debugPrint('Audit saved to Supabase translation_reports');
+    } catch (supabaseError) {
+      debugPrint('Supabase audit save failed: $supabaseError');
+    }
 
-      for (var url in urls) {
-        try {
-          final res = await http
-              .post(
-                url,
-                headers: {'Content-Type': 'application/json'},
-                body: json.encode(auditData),
-              )
-              .timeout(const Duration(seconds: 2));
+    // 2. Fallback: Attempt Legacy PHP API save if Supabase wasn't successful (or run in parallel)
+    if (!success) {
+      try {
+        final List<Uri> urls = [];
+        urls.add(Uri.parse('https://quran.salamthailand.com/save_audit.php'));
 
-          if (res.statusCode == 200 || res.statusCode == 201) {
-            success = true;
-            break;
+        for (var url in urls) {
+          try {
+            final res = await http
+                .post(
+                  url,
+                  headers: {'Content-Type': 'application/json'},
+                  body: json.encode(auditData),
+                )
+                .timeout(const Duration(seconds: 4));
+
+            if (res.statusCode == 200 || res.statusCode == 201) {
+              success = true;
+              break;
+            }
+          } catch (_) {
+            // continue trying other urls
           }
-        } catch (_) {
-          // continue trying other urls
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
     // Save to local cached audits list in SharedPreferences as fallback/record
     try {
