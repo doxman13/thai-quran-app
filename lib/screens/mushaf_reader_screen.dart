@@ -13,6 +13,7 @@ import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/stats_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
@@ -96,6 +97,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             profileId: currentProfile.id,
             pageNumber: _pageNumber,
           );
+          unawaited(_logMushafPageRead(currentProfile.mushafId, _pageNumber));
           if (widget.initialHighlightVerseKey != null) {
             _showVerseTranslation(
               currentProfile,
@@ -139,8 +141,26 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       profileId: profile.id,
       pageNumber: page,
     );
+    unawaited(_logMushafPageRead(profile.mushafId, page));
     if (!profile.isFreeRead && page == profile.targetPage) {
       _showCompletionOnce();
+    }
+  }
+
+  Future<void> _logMushafPageRead(int mushafId, int pageNumber) async {
+    try {
+      final page = await widget.foundationRepository.fetchPage(
+        mushafId: mushafId,
+        pageNumber: pageNumber,
+      );
+      if (!mounted || page.verses.isEmpty) return;
+      final verse = page.verses.first;
+      await context.read<StatsProvider>().logVerseRead(
+        verse.surahId,
+        verse.verseId,
+      );
+    } catch (e) {
+      debugPrint('Error logging Mushaf page read: $e');
     }
   }
 
@@ -537,6 +557,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ) !=
             null;
 
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+
     return WillPopScope(
       onWillPop: _handleBack,
       child: Scaffold(
@@ -552,245 +574,266 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
               // 1. Full Screen Reading Area
               Positioned.fill(
                 child: SafeArea(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () {
-                      if (_translationText != null) {
-                        _dismissTranslation();
-                      } else {
-                        setState(() {
-                          _isMenuVisible = !_isMenuVisible;
-                          if (_isMenuVisible) {
-                            _startAutoHideTimer();
-                          } else {
-                            _cancelAutoHideTimer();
-                          }
-                        });
-                      }
-                    },
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Directionality(
-                            textDirection: TextDirection.rtl,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onHorizontalDragEnd: (details) {
-                                final velocity = details.primaryVelocity;
-                                if (velocity != null) {
-                                  // Swiped Right (velocity > 0) -> Next Page in RTL
-                                  if (velocity > 200) {
-                                    if (_pageNumber < profile.targetPage) {
-                                      _goToPage(_pageNumber + 1);
-                                      if (_isMenuVisible) {
-                                        setState(() {
-                                          _isMenuVisible = false;
-                                        });
-                                        _cancelAutoHideTimer();
+                  child: AnimatedPadding(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    padding: EdgeInsets.only(
+                      top: (isTablet && _isMenuVisible) ? 42 : 0,
+                      bottom: (isTablet && _isMenuVisible) ? 56 : 0,
+                    ),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () {
+                        if (_translationText != null) {
+                          _dismissTranslation();
+                        } else {
+                          setState(() {
+                            _isMenuVisible = !_isMenuVisible;
+                            if (_isMenuVisible) {
+                              _startAutoHideTimer();
+                            } else {
+                              _cancelAutoHideTimer();
+                            }
+                          });
+                        }
+                      },
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onHorizontalDragEnd: (details) {
+                                  final velocity = details.primaryVelocity;
+                                  if (velocity != null) {
+                                    // Swiped Right (velocity > 0) -> Next Page in RTL
+                                    if (velocity > 200) {
+                                      if (_pageNumber < profile.targetPage) {
+                                        _goToPage(_pageNumber + 1);
+                                        if (_isMenuVisible) {
+                                          setState(() {
+                                            _isMenuVisible = false;
+                                          });
+                                          _cancelAutoHideTimer();
+                                        }
+                                      }
+                                    }
+                                    // Swiped Left (velocity < 0) -> Previous Page in RTL
+                                    else if (velocity < -200) {
+                                      if (_pageNumber > profile.startPage) {
+                                        _goToPage(_pageNumber - 1);
+                                        if (_isMenuVisible) {
+                                          setState(() {
+                                            _isMenuVisible = false;
+                                          });
+                                          _cancelAutoHideTimer();
+                                        }
                                       }
                                     }
                                   }
-                                  // Swiped Left (velocity < 0) -> Previous Page in RTL
-                                  else if (velocity < -200) {
-                                    if (_pageNumber > profile.startPage) {
-                                      _goToPage(_pageNumber - 1);
-                                      if (_isMenuVisible) {
-                                        setState(() {
-                                          _isMenuVisible = false;
-                                        });
-                                        _cancelAutoHideTimer();
-                                      }
-                                    }
-                                  }
-                                }
-                              },
-                              onVerticalDragEnd: (details) {
-                                final velocity = details.primaryVelocity;
-                                if (velocity != null && velocity.abs() > 100) {
-                                  if (!_isMenuVisible) {
+                                },
+                                onVerticalDragEnd: (details) {
+                                  final velocity = details.primaryVelocity;
+                                  if (velocity != null &&
+                                      velocity.abs() > 100) {
                                     setState(() {
-                                      _isMenuVisible = true;
+                                      _isMenuVisible = !_isMenuVisible;
+                                      if (_isMenuVisible) {
+                                        _startAutoHideTimer();
+                                      } else {
+                                        _cancelAutoHideTimer();
+                                      }
                                     });
-                                    _startAutoHideTimer();
                                   }
-                                }
-                              },
-                              child: PageView.builder(
-                              controller: _pageController,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: pageCount,
-                              onPageChanged: (index) => _handlePageChanged(
-                                profile,
-                                _indexToPage(profile, index),
+                                },
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: pageCount,
+                                  onPageChanged: (index) => _handlePageChanged(
+                                    profile,
+                                    _indexToPage(profile, index),
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final page = _indexToPage(profile, index);
+                                    final renderPage = _clampInt(
+                                      page,
+                                      1,
+                                      type.pageCount,
+                                    );
+                                    if (displayMushafId == qcfPackageMushafId) {
+                                      return _QcfPackagePageView(
+                                        colors: colors,
+                                        pageNumber: renderPage,
+                                        highlightedVerseKey:
+                                            _highlightedVerseKey,
+                                        onVerseLongPressStart: (surah, verse) =>
+                                            _beginVersePress(
+                                              profile,
+                                              '$surah:$verse',
+                                              page,
+                                            ),
+                                        onVerseLongPress: (surah, verse) =>
+                                            _showVerseTranslation(
+                                              profile,
+                                              '$surah:$verse',
+                                              page,
+                                            ),
+                                      );
+                                    }
+                                    return _MushafRemotePageView(
+                                      colors: colors,
+                                      pageNumber: renderPage,
+                                      mushafId: displayMushafId,
+                                      repository: widget.foundationRepository,
+                                      highlightedVerseKey: _highlightedVerseKey,
+                                      onVerseTap: _toggleVerseHighlight,
+                                      onVerseLongPressStart: (verseKey) =>
+                                          _beginVersePress(
+                                            profile,
+                                            verseKey,
+                                            page,
+                                          ),
+                                      onVerseLongPress: (verseKey) =>
+                                          _showVerseTranslation(
+                                            profile,
+                                            verseKey,
+                                            page,
+                                          ),
+                                    );
+                                  },
+                                ),
                               ),
-                              itemBuilder: (context, index) {
-                                final page = _indexToPage(profile, index);
-                                final renderPage = _clampInt(
-                                  page,
-                                  1,
-                                  type.pageCount,
-                                );
-                                if (displayMushafId == qcfPackageMushafId) {
-                                  return _QcfPackagePageView(
-                                    colors: colors,
-                                    pageNumber: renderPage,
-                                    highlightedVerseKey: _highlightedVerseKey,
-                                    onVerseLongPressStart: (surah, verse) =>
-                                        _beginVersePress(
-                                          profile,
-                                          '$surah:$verse',
-                                          page,
-                                        ),
-                                    onVerseLongPress: (surah, verse) =>
-                                        _showVerseTranslation(
-                                          profile,
-                                          '$surah:$verse',
-                                          page,
-                                        ),
-                                  );
-                                }
-                                return _MushafRemotePageView(
-                                  colors: colors,
-                                  pageNumber: renderPage,
-                                  mushafId: displayMushafId,
-                                  repository: widget.foundationRepository,
-                                  highlightedVerseKey: _highlightedVerseKey,
-                                  onVerseTap: _toggleVerseHighlight,
-                                  onVerseLongPressStart: (verseKey) =>
-                                      _beginVersePress(profile, verseKey, page),
-                                  onVerseLongPress: (verseKey) =>
-                                      _showVerseTranslation(
-                                        profile,
-                                        verseKey,
-                                        page,
-                                      ),
-                                );
-                              },
                             ),
                           ),
-                        ),
-                      ),
-                      if (!profile.isFreeRead &&
-                          _pageNumber == profile.targetPage)
-                        Positioned(
-                          left: 16,
-                          right: 16,
-                          bottom: _translationText == null ? 12 : 178,
-                          child: _CompletionCard(
-                            colors: colors,
-                            profile: profile,
-                          ),
-                        ),
-                      if (_translationText != null)
-                        Positioned(
-                          left: 14,
-                          right: 14,
-                          bottom: 12,
-                          child: _TranslationPanel(
-                            colors: colors,
-                            verseKey: _translationVerseKey ?? '',
-                            translation: _translationText!,
-                            bookmarked: _translationBookmarked,
-                            favorited: verseFavorited,
-                            onBookmark: () =>
-                                _toggleCurrentVerseBookmark(profile),
-                            onFavorite: () =>
-                                _toggleCurrentVerseFavorite(askForNote: true),
-                            onClose: _dismissTranslation,
-                            fontSize: context
-                                .read<SettingsProvider>()
-                                .translationFontSize,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // 2. Animated Top Bar Custom Container
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: !_isMenuVisible,
-                child: AnimatedSlide(
-                  offset: _isMenuVisible ? Offset.zero : const Offset(0, -1),
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: Container(
-                    color: _mushafPageColor(context),
-                    child: SafeArea(
-                      bottom: false,
-                      child: _ReaderTopBar(
-                        colors: colors,
-                        profile: profile,
-                        type: type,
-                        pageNumber: _pageNumber,
-                        pageBookmarked: provider.isPageBookmarked(
-                          displayMushafId,
-                          _pageNumber,
-                        ),
-                        onSettings: () => _showReaderSettings(profile),
-                        onBookmarkPage: () =>
-                            provider.togglePageBookmark(displayMushafId, _pageNumber),
-                        verseFavorited: verseFavorited,
-                        onFavoriteVerse: () => _toggleCurrentVerseFavorite(),
-                        quranRepository: widget.quranRepository,
-                        onTitleTap: () =>
-                            _showSurahSelector(context, widget.quranRepository),
+                          if (!profile.isFreeRead &&
+                              _pageNumber == profile.targetPage)
+                            Positioned(
+                              left: 16,
+                              right: 16,
+                              bottom: _translationText == null ? 12 : 178,
+                              child: _CompletionCard(
+                                colors: colors,
+                                profile: profile,
+                              ),
+                            ),
+                          if (_translationText != null)
+                            Positioned(
+                              left: 14,
+                              right: 14,
+                              bottom: 12,
+                              child: _TranslationPanel(
+                                colors: colors,
+                                verseKey: _translationVerseKey ?? '',
+                                translation: _translationText!,
+                                bookmarked: _translationBookmarked,
+                                favorited: verseFavorited,
+                                onBookmark: () =>
+                                    _toggleCurrentVerseBookmark(profile),
+                                onFavorite: () => _toggleCurrentVerseFavorite(
+                                  askForNote: true,
+                                ),
+                                onClose: _dismissTranslation,
+                                fontSize: context
+                                    .read<SettingsProvider>()
+                                    .translationFontSize,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            // 3. Animated Bottom Bar Custom Container
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: !_isMenuVisible,
-                child: AnimatedSlide(
-                  offset: _isMenuVisible ? Offset.zero : const Offset(0, 1),
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: Container(
-                    color: _mushafPageColor(context),
-                    child: SafeArea(
-                      top: false,
-                      child: _ReaderBottomBar(
-                        colors: colors,
-                        onNext: _pageNumber < profile.targetPage
-                            ? () => _goToPage(_pageNumber + 1)
-                            : null,
-                        onDone: () async {
-                          await provider.updateProgress(
-                            profileId: profile.id,
-                            pageNumber: _pageNumber,
-                          );
-                          await provider.flushPendingRecentReadingSync();
-                          await provider.flushPendingProfileSyncs();
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                        },
-                        onPrevious: _pageNumber > profile.startPage
-                            ? () => _goToPage(_pageNumber - 1)
-                            : null,
+              // 2. Animated Top Bar Custom Container
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  ignoring: !_isMenuVisible,
+                  child: AnimatedSlide(
+                    offset: _isMenuVisible ? Offset.zero : const Offset(0, -1),
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: Container(
+                      color: _mushafPageColor(context),
+                      child: SafeArea(
+                        bottom: false,
+                        child: _ReaderTopBar(
+                          colors: colors,
+                          profile: profile,
+                          type: type,
+                          pageNumber: _pageNumber,
+                          pageBookmarked: provider.isPageBookmarked(
+                            displayMushafId,
+                            _pageNumber,
+                          ),
+                          onSettings: () => _showReaderSettings(profile),
+                          onBookmarkPage: () => provider.togglePageBookmark(
+                            displayMushafId,
+                            _pageNumber,
+                          ),
+                          verseFavorited: verseFavorited,
+                          onFavoriteVerse: () => _toggleCurrentVerseFavorite(),
+                          quranRepository: widget.quranRepository,
+                          onTitleTap: () => _showSurahSelector(
+                            context,
+                            widget.quranRepository,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+              // 3. Animated Bottom Bar Custom Container
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  ignoring: !_isMenuVisible,
+                  child: AnimatedSlide(
+                    offset: _isMenuVisible ? Offset.zero : const Offset(0, 1),
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: Container(
+                      color: _mushafPageColor(context),
+                      child: SafeArea(
+                        top: false,
+                        child: _ReaderBottomBar(
+                          colors: colors,
+                          onNext: _pageNumber < profile.targetPage
+                              ? () => _goToPage(_pageNumber + 1)
+                              : null,
+                          onDone: () async {
+                            await provider.updateProgress(
+                              profileId: profile.id,
+                              pageNumber: _pageNumber,
+                            );
+                            await provider.flushPendingRecentReadingSync();
+                            await provider.flushPendingProfileSyncs();
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                          onPrevious: _pageNumber > profile.startPage
+                              ? () => _goToPage(_pageNumber - 1)
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 int _clampInt(int value, int min, int max) {
@@ -1568,16 +1611,16 @@ class _MushafLayoutProfile {
       1 => const _MushafLayoutProfile(
         pageWidth: 410,
         lineWidth: 410,
-        lineHeight: 1.96,
-        lineVerticalPadding: 4.0,
+        lineHeight: 1.90,
+        lineVerticalPadding: 3.0,
         horizontalPadding: 16,
         wordPadding: 0,
       ),
       2 => const _MushafLayoutProfile(
         pageWidth: 412,
         lineWidth: 412,
-        lineHeight: 1.6,
-        lineVerticalPadding: 1.0,
+        lineHeight: 1.80,
+        lineVerticalPadding: 2.0,
         horizontalPadding: 16,
         wordPadding: 0,
       ),

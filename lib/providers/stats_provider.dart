@@ -11,16 +11,20 @@ class StatsProvider extends ChangeNotifier {
   // Date string YYYY-MM-DD -> Set of "surahId:verseId"
   Map<String, Set<String>> _history = {};
   Timer? _saveTimer;
+  Timer? _remoteSyncTimer;
   StreamSubscription<AuthState>? _authSubscription;
+  late final Future<void> _loadFuture;
 
   StatsProvider() {
-    _loadHistory();
+    _loadFuture = _loadHistory();
+    unawaited(_syncExistingSessionAfterLoad());
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
-    ) {
+    ) async {
+      await _loadFuture;
       final user = data.session?.user;
       if (user != null) {
-        syncWithSupabase(user.id);
+        unawaited(syncWithSupabase(user.id));
       }
     });
   }
@@ -59,6 +63,31 @@ class StatsProvider extends ChangeNotifier {
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(seconds: 1), () async {
       await flushPendingSave();
+    });
+    _debounceRemoteSync();
+  }
+
+  Future<void> _syncExistingSessionAfterLoad() async {
+    await _loadFuture;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await syncWithSupabase(user.id);
+    } catch (e) {
+      debugPrint('Error syncing stats existing session: $e');
+    }
+  }
+
+  void _debounceRemoteSync() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    _remoteSyncTimer?.cancel();
+    _remoteSyncTimer = Timer(const Duration(seconds: 3), () async {
+      try {
+        await syncWithSupabase(user.id);
+      } catch (e) {
+        debugPrint('Error syncing stats history after read: $e');
+      }
     });
   }
 
@@ -135,6 +164,10 @@ class StatsProvider extends ChangeNotifier {
   int get todayReadCount {
     final todayStr = _getDateString(DateTime.now());
     return _history[todayStr]?.length ?? 0;
+  }
+
+  bool hasReadOn(DateTime date) {
+    return _history[_getDateString(date)]?.isNotEmpty ?? false;
   }
 
   int get weekReadCount {
@@ -214,6 +247,7 @@ class StatsProvider extends ChangeNotifier {
         debugPrint('Error saving stats history on dispose: $e');
       }
     }
+    _remoteSyncTimer?.cancel();
     _authSubscription?.cancel();
     super.dispose();
   }

@@ -2,19 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
+import '../services/remote_content_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/translation_manager_section.dart';
 import '../shared/shared.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  final QuranRepository? repository;
+
+  const SettingsScreen({Key? key, this.repository}) : super(key: key);
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _isCheckingContentUpdates = false;
+
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
@@ -305,6 +311,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _buildSectionHeader(colorScheme, 'Content updates'),
+          const SizedBox(height: 8),
+          _SettingsCard(
+            colorScheme: colorScheme,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Remote Quran content',
+                    style: GoogleFonts.notoSansThai(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Thai v3, Quran themes, and Mokhtasar short tafsir',
+                    style: GoogleFonts.notoSansThai(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _isCheckingContentUpdates
+                          ? null
+                          : _checkContentUpdates,
+                      icon: _isCheckingContentUpdates
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.onPrimary,
+                              ),
+                            )
+                          : const Icon(Icons.system_update_alt_rounded),
+                      label: Text(
+                        _isCheckingContentUpdates
+                            ? 'Checking updates...'
+                            : 'Check for content updates',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
           TranslationManagerSection(colors: colors),
         ],
       ),
@@ -324,6 +385,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkContentUpdates() async {
+    setState(() => _isCheckingContentUpdates = true);
+    try {
+      final result = await RemoteContentService.instance.updateAll();
+      if (result.updated > 0) {
+        await widget.repository?.reloadRemoteContent();
+      }
+      if (!mounted) return;
+
+      final message = result.hasFailures
+          ? 'Updated ${result.updated}/${result.checked}. Failed: ${result.failedKeys.join(', ')}'
+          : result.updated > 0
+          ? 'Updated ${result.updated} content pack(s).'
+          : 'All content is already up to date.';
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not check content updates.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingContentUpdates = false);
+      }
+    }
   }
 }
 

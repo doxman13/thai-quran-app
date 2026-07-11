@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/verse.dart';
+import '../services/remote_content_service.dart';
 import '../shared/quran_contract.dart';
 
 class QuranRepository {
@@ -30,9 +31,11 @@ class QuranRepository {
 
       if (_tafsirData == null) {
         try {
-          final String tafsirResponse = await rootBundle.loadString(
-            'assets/tafsir_thai_mokhtasar.json',
-          );
+          final String tafsirResponse = await RemoteContentService.instance
+              .loadString(
+                contentKey: RemoteContentKey.mokhtasarTafsir,
+                bundledAssetPath: 'assets/tafsir_thai_mokhtasar.json',
+              );
           _tafsirData = json.decode(tafsirResponse);
         } catch (e) {
           print('Error loading tafsir_thai_mokhtasar.json: $e');
@@ -70,8 +73,13 @@ class QuranRepository {
   Future<void> initOfflineMushaf() async {
     if (_offlineArabicData.isNotEmpty && _quranData != null) return;
     try {
-      final String arabicJsonStr = await rootBundle.loadString('assets/quran_arabic.json');
-      final String thaiJsonStr = await rootBundle.loadString('assets/thai_v3.json');
+      final String arabicJsonStr = await rootBundle.loadString(
+        'assets/quran_arabic.json',
+      );
+      final String thaiJsonStr = await RemoteContentService.instance.loadString(
+        contentKey: RemoteContentKey.thaiV3,
+        bundledAssetPath: 'assets/thai_v3.json',
+      );
 
       final input = OfflineMushafInput(arabicJsonStr, thaiJsonStr);
       final result = await compute(_parseAndMergeMushaf, input);
@@ -82,7 +90,11 @@ class QuranRepository {
       print('Error initializing offline Mushaf: $e');
       if (_quranData == null) {
         try {
-          final String response = await rootBundle.loadString('assets/thai_v3.json');
+          final String response = await RemoteContentService.instance
+              .loadString(
+                contentKey: RemoteContentKey.thaiV3,
+                bundledAssetPath: 'assets/thai_v3.json',
+              );
           _quranData = json.decode(response);
         } catch (err) {
           print('Error loading fallback thai_v3.json: $err');
@@ -103,9 +115,11 @@ class QuranRepository {
 
     if (_tafsirData == null) {
       try {
-        final String tafsirResponse = await rootBundle.loadString(
-          'assets/tafsir_thai_mokhtasar.json',
-        );
+        final String tafsirResponse = await RemoteContentService.instance
+            .loadString(
+              contentKey: RemoteContentKey.mokhtasarTafsir,
+              bundledAssetPath: 'assets/tafsir_thai_mokhtasar.json',
+            );
         _tafsirData = json.decode(tafsirResponse);
       } catch (e) {
         print('Error loading tafsir_thai_mokhtasar.json: $e');
@@ -115,6 +129,13 @@ class QuranRepository {
     if (surahNames.isEmpty) {
       await _loadSurahNames();
     }
+  }
+
+  Future<void> reloadRemoteContent() async {
+    _quranData = null;
+    _tafsirData = null;
+    _offlineArabicData = {};
+    await initOfflineMushaf();
   }
 
   String getSurahName(String surahId) {
@@ -174,9 +195,10 @@ class QuranRepository {
       id: verseId,
       surahId: surahId,
       thaiV3: thaiV3Text.toString(),
-      thaiV2: mergedVerse?['thai_v2']?.toString() ??
-              mergedVerse?['thai_v1']?.toString() ??
-              thaiV3Text.toString(),
+      thaiV2:
+          mergedVerse?['thai_v2']?.toString() ??
+          mergedVerse?['thai_v1']?.toString() ??
+          thaiV3Text.toString(),
       english: mergedVerse?['english']?.toString() ?? 'N/A',
       shortTafsir: shortTafsir?.trim().isEmpty == true ? null : shortTafsir,
       shortTafsirSource: shortTafsir == null ? null : 'QuranEnc Thai Mokhtasar',
@@ -253,11 +275,13 @@ class QuranRepository {
         if (words != null && words.isNotEmpty) {
           final List<String> mainWords = [];
           String endGlyph = '';
-          
+
           for (var w in words) {
             final qpc = w['text_qpc_hafs']?.toString();
             final uthmani = w['text_uthmani']?.toString();
-            final text = (qpc != null && qpc.isNotEmpty) ? qpc : (uthmani ?? '');
+            final text = (qpc != null && qpc.isNotEmpty)
+                ? qpc
+                : (uthmani ?? '');
             if (text.isNotEmpty) {
               if (w['char_type_name'] == 'end') {
                 endGlyph = text;
@@ -268,7 +292,9 @@ class QuranRepository {
           }
 
           if (mainWords.isNotEmpty) {
-            final qpcText = endGlyph.isNotEmpty ? '${mainWords.join(' ')} | $endGlyph' : mainWords.join(' ');
+            final qpcText = endGlyph.isNotEmpty
+                ? '${mainWords.join(' ')} | $endGlyph'
+                : mainWords.join(' ');
             await prefs.setString(cacheKey, qpcText);
             return _normalizeArabicText(qpcText);
           }

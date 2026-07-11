@@ -376,6 +376,47 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  double _goalCardWidth(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    return math.min(width * 0.82, 420);
+  }
+
+  Widget _buildGoalCarouselHint(ColorScheme colorScheme, int itemCount) {
+    if (itemCount < 2) return const SizedBox.shrink();
+
+    final visibleDots = math.min(itemCount, 3);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 24, right: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ...List.generate(visibleDots, (index) {
+            final isFirst = index == 0;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: isFirst ? 18 : 6,
+              height: 6,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: isFirst
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(16),
+              ),
+            );
+          }),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.chevron_right,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+
   void _navigateToReading(
     BuildContext context,
     String surahId, {
@@ -908,7 +949,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildDailyReadTracker(
     ColorScheme colorScheme,
-    LocalReadingProvider provider,
+    StatsProvider statsProvider,
   ) {
     final now = DateTime.now();
 
@@ -935,7 +976,7 @@ class _HomeScreenState extends State<HomeScreen>
         children: List.generate(7, (index) {
           final date = daysList[index];
           final isToday = index == 6; // Last item is today
-          final isRead = provider.hasReadOn(date);
+          final isRead = statsProvider.hasReadOn(date);
 
           Color circleColor;
           if (isRead) {
@@ -1008,6 +1049,7 @@ class _HomeScreenState extends State<HomeScreen>
     final settings = context.watch<SettingsProvider>();
     final readingProvider = context.watch<LocalReadingProvider>();
     final mushafReadingProvider = context.watch<MushafReadingProvider>();
+    final statsProvider = context.watch<StatsProvider>();
 
     if (!_isInit) {
       return Scaffold(
@@ -1126,7 +1168,9 @@ class _HomeScreenState extends State<HomeScreen>
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const SettingsScreen(),
+                                        builder: (_) => SettingsScreen(
+                                          repository: widget.repository,
+                                        ),
                                       ),
                                     );
                                   },
@@ -1158,7 +1202,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                       if (!isSearching) ...[
                         // Daily Read Checks Tracker
-                        _buildDailyReadTracker(colorScheme, readingProvider),
+                        _buildDailyReadTracker(colorScheme, statsProvider),
 
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1591,7 +1635,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: ListView.builder(
             controller: _meaningfulCardsScrollController,
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.only(left: 24, right: 8),
             itemCount: allItems.length,
             itemBuilder: (context, index) {
               final item = allItems[index];
@@ -1610,6 +1654,7 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
         ),
+        _buildGoalCarouselHint(colorScheme, allItems.length),
       ],
     );
   }
@@ -1686,7 +1731,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: ListView.builder(
             controller: _mushafCardsScrollController,
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.only(left: 24, right: 8),
             itemCount: allItems.length,
             itemBuilder: (context, index) {
               final item = allItems[index];
@@ -1707,6 +1752,7 @@ class _HomeScreenState extends State<HomeScreen>
             },
           ),
         ),
+        _buildGoalCarouselHint(colorScheme, allItems.length),
       ],
     );
   }
@@ -2282,7 +2328,7 @@ class _HomeScreenState extends State<HomeScreen>
     final imageNumber = ((imageIndex + 2) % 5) + 1;
 
     return Container(
-      width: MediaQuery.of(context).size.width * 0.9,
+      width: _goalCardWidth(context),
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -2919,7 +2965,7 @@ class _HomeScreenState extends State<HomeScreen>
     final previewFuture = _fetchArabicPreviewForPage(page);
 
     return Container(
-      width: MediaQuery.of(context).size.width * 0.90,
+      width: _goalCardWidth(context),
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
@@ -3268,7 +3314,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildAddGoalCard(ColorScheme colorScheme, {VoidCallback? onTap}) {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
+      width: _goalCardWidth(context),
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,

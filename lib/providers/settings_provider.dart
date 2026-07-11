@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/translation_database.dart';
 import '../theme/app_theme.dart';
 
 class SettingsProvider extends ChangeNotifier {
@@ -27,7 +28,7 @@ class SettingsProvider extends ChangeNotifier {
   String _languageCode = 'th'; // Default to Thai
 
   // Dual-slot translation model
-  // Valid IDs: 'thai_v3', 'thai_v2', 'english'
+  // Built-in ID: 'thai_v3'. Other active IDs should come from downloaded API translations.
   String _primaryTranslationId = 'thai_v3';
   String? _secondaryTranslationId;
 
@@ -59,12 +60,8 @@ class SettingsProvider extends ChangeNotifier {
   bool get showThaiV3 =>
       _primaryTranslationId == 'thai_v3' ||
       _secondaryTranslationId == 'thai_v3';
-  bool get showThaiV2 =>
-      _primaryTranslationId == 'thai_v2' ||
-      _secondaryTranslationId == 'thai_v2';
-  bool get showEnglish =>
-      _primaryTranslationId == 'english' ||
-      _secondaryTranslationId == 'english';
+  bool get showThaiV2 => false;
+  bool get showEnglish => false;
 
   SettingsProvider() {
     _loadSettings();
@@ -205,6 +202,12 @@ class SettingsProvider extends ChangeNotifier {
         _primaryTranslationId = ids.$1;
         _secondaryTranslationId = ids.$2;
       }
+      final sanitizedIds = await _sanitizeTranslationSlots(
+        primary: _primaryTranslationId,
+        secondary: _secondaryTranslationId,
+      );
+      _primaryTranslationId = sanitizedIds.$1;
+      _secondaryTranslationId = sanitizedIds.$2;
 
       notifyListeners();
 
@@ -272,6 +275,21 @@ class SettingsProvider extends ChangeNotifier {
     if (storedPrimary != null && storedPrimary.isNotEmpty) {
       _primaryTranslationId = storedPrimary;
       _secondaryTranslationId = prefs.getString('secondaryTranslationId');
+      final sanitizedIds = await _sanitizeTranslationSlots(
+        primary: _primaryTranslationId,
+        secondary: _secondaryTranslationId,
+      );
+      _primaryTranslationId = sanitizedIds.$1;
+      _secondaryTranslationId = sanitizedIds.$2;
+      await prefs.setString('primaryTranslationId', _primaryTranslationId);
+      if (_secondaryTranslationId != null) {
+        await prefs.setString(
+          'secondaryTranslationId',
+          _secondaryTranslationId!,
+        );
+      } else {
+        await prefs.remove('secondaryTranslationId');
+      }
     } else {
       // First-run locale detection with migration from old boolean prefs
       final bool hasShowThaiV3 = prefs.containsKey('showThaiV3');
@@ -302,19 +320,54 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   /// Derive dual-slot IDs from legacy boolean flags.
-  /// Priority: thai_v3 > thai_v2 > english.
+  /// Priority: thai_v3 only. Thai 2 and English should come from API downloads.
   (String, String?) _deriveSlotIds({
     required bool v3,
     required bool v2,
     required bool en,
   }) {
-    final enabled = [if (v3) 'thai_v3', if (v2) 'thai_v2', if (en) 'english'];
+    final enabled = [if (v3 || v2 || en) 'thai_v3'];
     if (enabled.isEmpty) return ('thai_v3', null);
     return (enabled[0], enabled.length > 1 ? enabled[1] : null);
   }
 
   String _normalizeReadingDisplayMode(String value) {
     return _validDisplayModes.contains(value) ? value : quranTranslationMode;
+  }
+
+  bool _isBundledTranslationId(String id) {
+    return id == 'thai_v3';
+  }
+
+  Future<bool> _isTranslationAvailableOnDevice(String? id) async {
+    if (id == null || id.isEmpty) return false;
+    if (_isBundledTranslationId(id)) return true;
+    final customId = int.tryParse(id);
+    if (customId == null) return false;
+    return TranslationDatabase.instance.isDownloaded(customId);
+  }
+
+  Future<(String, String?)> _sanitizeTranslationSlots({
+    required String primary,
+    required String? secondary,
+  }) async {
+    final primaryAvailable = await _isTranslationAvailableOnDevice(primary);
+    final secondaryAvailable = await _isTranslationAvailableOnDevice(secondary);
+
+    String resolvedPrimary = primaryAvailable ? primary : 'thai_v3';
+    String? resolvedSecondary =
+        secondaryAvailable && secondary != resolvedPrimary ? secondary : null;
+
+    if (!primaryAvailable && secondaryAvailable && secondary != null) {
+      resolvedPrimary = secondary;
+      resolvedSecondary = null;
+    }
+
+    if (resolvedPrimary.isEmpty) {
+      resolvedPrimary = 'thai_v3';
+    }
+
+    return (resolvedPrimary, resolvedSecondary);
   }
 
   String _modeFromLegacyFlags({
@@ -440,7 +493,7 @@ class SettingsProvider extends ChangeNotifier {
   /// Core dual-slot mutation with Auto-Eviction collision logic.
   ///
   /// [slot] must be `'primary'` or `'secondary'`.
-  /// [id] must be one of `'thai_v3'`, `'thai_v2'`, `'english'`, or `null` (secondary only).
+  /// [id] must be `'thai_v3'`, a downloaded API translation ID, or `null` (secondary only).
   ///
   /// Rules:
   /// - `primary` cannot be null.
@@ -475,7 +528,7 @@ class SettingsProvider extends ChangeNotifier {
     if (value) {
       updateTranslationSlot('primary', 'thai_v3');
     } else if (_primaryTranslationId == 'thai_v3') {
-      final fallback = _secondaryTranslationId ?? 'english';
+      final fallback = _secondaryTranslationId ?? 'thai_v3';
       updateTranslationSlot('primary', fallback);
     } else {
       updateTranslationSlot('secondary', null);
@@ -483,32 +536,20 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void setShowThaiV2(bool value) {
-    if (value) {
-      if (_primaryTranslationId != 'thai_v2') {
-        updateTranslationSlot('secondary', 'thai_v2');
-      }
-    } else {
-      if (_primaryTranslationId == 'thai_v2') {
-        final fallback = _secondaryTranslationId ?? 'thai_v3';
-        updateTranslationSlot('primary', fallback);
-      } else {
-        updateTranslationSlot('secondary', null);
-      }
+    if (_primaryTranslationId == 'thai_v2') {
+      updateTranslationSlot('primary', _secondaryTranslationId ?? 'thai_v3');
+    }
+    if (_secondaryTranslationId == 'thai_v2') {
+      updateTranslationSlot('secondary', null);
     }
   }
 
   void setShowEnglish(bool value) {
-    if (value) {
-      if (_primaryTranslationId != 'english') {
-        updateTranslationSlot('secondary', 'english');
-      }
-    } else {
-      if (_primaryTranslationId == 'english') {
-        final fallback = _secondaryTranslationId ?? 'thai_v3';
-        updateTranslationSlot('primary', fallback);
-      } else {
-        updateTranslationSlot('secondary', null);
-      }
+    if (_primaryTranslationId == 'english') {
+      updateTranslationSlot('primary', _secondaryTranslationId ?? 'thai_v3');
+    }
+    if (_secondaryTranslationId == 'english') {
+      updateTranslationSlot('secondary', null);
     }
   }
 

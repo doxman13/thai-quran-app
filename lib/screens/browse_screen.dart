@@ -249,7 +249,10 @@ class BrowseScreenState extends State<BrowseScreen> {
                   InkWell(
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            SettingsScreen(repository: widget.repository),
+                      ),
                     ),
                     borderRadius: BorderRadius.circular(24),
                     child: CircleAvatar(
