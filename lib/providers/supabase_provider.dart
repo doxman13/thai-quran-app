@@ -1,5 +1,6 @@
 // lib/providers/supabase_provider.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,6 +62,36 @@ class SupabaseProvider extends ChangeNotifier {
       email: email.trim(),
       emailRedirectTo: 'io.supabase.thaiquran://login-callback',
     );
+  }
+
+  // Google sign-in request
+  Future<void> signInWithGoogle() async {
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: kIsWeb
+          ? null
+          : 'io.supabase.thaiquran://login-callback',
+    );
+  }
+
+  // Sign In with Email & Password
+  Future<void> signInWithPassword(String email, String password) async {
+    await _client.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+  }
+
+  // Sign Up with Email & Password
+  Future<void> signUp(String email, String password, String displayName) async {
+    final response = await _client.auth.signUp(
+      email: email.trim(),
+      password: password,
+      data: {'full_name': displayName.trim()},
+    );
+    if (response.user != null) {
+      await bootstrapUser(response.user!.id);
+    }
   }
 
   // Verification of 6-digit OTP code

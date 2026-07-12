@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
@@ -16,6 +17,15 @@ import 'tadabbur_private_screen.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 
+const String googleLogoSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+  <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.41-4.69H24v9h12.75c-.55 2.81-2.13 5.19-4.5 6.78l7 5.44C43.34 36.36 46.5 30.73 46.5 24z"/>
+  <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7-5.44c-2.47 1.66-5.63 2.75-8.89 2.75-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+</svg>
+''';
+
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
 
@@ -27,10 +37,12 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  bool _otpSent = false;
+  bool _isSignUp = false;
+  bool _obscurePassword = true;
   bool _isLoading = false;
   bool _isSyncing = false;
   String? _errorMessage;
@@ -41,7 +53,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _emailController.dispose();
-    _otpController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -151,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _handleSendOtp(SupabaseProvider supabaseProv) async {
+  Future<void> _handlePasswordSignIn(SupabaseProvider supabaseProv) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -161,30 +174,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      await supabaseProv.signInWithOtp(_emailController.text);
+      await supabaseProv.signInWithPassword(
+        _emailController.text,
+        _passwordController.text,
+      );
       setState(() {
-        _otpSent = true;
-        _successMessage =
-            'Magic link and verification code sent to your email!';
+        _successMessage = context.tr('login_success');
       });
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  Future<void> _handleVerifyOtp(SupabaseProvider supabaseProv) async {
-    if (_otpController.text.trim().length != 6) {
-      setState(() {
-        _errorMessage = 'Please enter a valid 6-digit code';
-      });
-      return;
-    }
+  Future<void> _handlePasswordSignUp(SupabaseProvider supabaseProv) async {
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
@@ -193,18 +204,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      await supabaseProv.verifyOtp(_emailController.text, _otpController.text);
+      await supabaseProv.signUp(
+        _emailController.text,
+        _passwordController.text,
+        _nameController.text,
+      );
       setState(() {
-        _successMessage = 'Successfully logged in!';
+        _successMessage = context.tr('register_success');
       });
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -218,10 +235,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await supabaseProv.signOut();
       setState(() {
-        _otpSent = false;
+        _isSignUp = false;
         _emailController.clear();
-        _otpController.clear();
-        _successMessage = 'Logged out successfully.';
+        _passwordController.clear();
+        _nameController.clear();
+        _successMessage = context.tr('logout_success');
       });
     } catch (e) {
       setState(() {
@@ -231,6 +249,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleGoogleSignIn(SupabaseProvider supabaseProv) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      await supabaseProv.signInWithGoogle();
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -350,9 +390,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       showDragHandle: true,
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: colorScheme.outline, width: 1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         final activeProfiles = readingProv.activeProfiles;
@@ -453,9 +492,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       showDragHandle: true,
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: colorScheme.outline, width: 1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -542,33 +580,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final mushafProv = Provider.of<MushafReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context);
-
+ 
     if (supabaseProv.isLoggedIn &&
         (_reportsFuture == null || _fetchedUserId != supabaseProv.userId)) {
       _fetchedUserId = supabaseProv.userId;
       _reportsFuture = _fetchUserReports(supabaseProv.userId);
     }
-
+ 
     final colorScheme = Theme.of(context).colorScheme;
-
+    final textTheme = Theme.of(context).textTheme;
+ 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Text(
-          'โปรไฟล์ผู้อ่าน (Reader Profile)',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w800,
-            color: colorScheme.onSurface,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.account_circle_outlined,
+              size: 26,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              context.tr('reader_profile'),
+              style: textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: colorScheme.primary,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ],
         ),
-        backgroundColor: colorScheme.surfaceContainerLow,
+        backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
-        shape: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -579,7 +629,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: colorScheme.error.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: colorScheme.error, width: 1),
                   ),
                   child: Text(
                     _errorMessage!,
@@ -597,7 +646,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: colorScheme.primary, width: 1),
                   ),
                   child: Text(
                     _successMessage!,
@@ -610,398 +658,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
               if (!supabaseProv.isLoggedIn) ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: colorScheme.outline, width: 1),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: colorScheme.primary.withOpacity(
-                            0.15,
-                          ),
-                          child: Icon(
-                            Icons.person,
-                            color: colorScheme.primary,
-                            size: 28,
-                          ),
+                // Guest Profile banner (flat row)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                        child: Icon(
+                          Icons.person,
+                          color: colorScheme.primary,
+                          size: 24,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'ผู้อ่านทั่วไป (Guest Reader)',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 12,
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                supabaseProv.displayName,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.edit, color: colorScheme.primary),
-                          onPressed: () =>
-                              _showEditNameDialog(context, supabaseProv),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: colorScheme.outline, width: 1),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Icon(
-                            Icons.cloud_sync,
-                            size: 64,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'ซิงค์ข้อมูลกับคลาวด์',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'เข้าสู่ระบบเพื่อสำรองข้อมูลและซิงค์การตั้งค่า บุ๊กมาร์ก และบันทึกต่าง ๆ ไปยังเว็บและอุปกรณ์อื่น ๆ',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 14,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-
-                          if (!_otpSent) ...[
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                labelText: 'อีเมล (Email)',
-                                prefixIcon: const Icon(Icons.email),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline,
-                                    width: 1,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.primary,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty)
-                                  return 'กรุณากรอกอีเมล';
-                                if (!RegExp(
-                                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                ).hasMatch(val.trim())) {
-                                  return 'รูปแบบอีเมลไม่ถูกต้อง';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                ),
-                              ),
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _handleSendOtp(supabaseProv),
-                              child: _isLoading
-                                  ? SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: colorScheme.onPrimary,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      'ขอรหัสเข้าสู่ระบบ (Send OTP)',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                            ),
-                          ] else ...[
-                            Text(
-                              'รหัสยืนยัน 6 หลักถูกส่งไปยัง ${_emailController.text} แล้ว',
-                              style: GoogleFonts.notoSansThai(
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _otpController,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              decoration: InputDecoration(
-                                labelText: 'รหัสยืนยัน 6 หลัก (OTP Code)',
-                                prefixIcon: const Icon(Icons.lock_open),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline,
-                                    width: 1,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.outline,
-                                    width: 1,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: colorScheme.primary,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                counterText: "",
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: colorScheme.primary,
-                                foregroundColor: colorScheme.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radius,
-                                  ),
-                                ),
-                              ),
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _handleVerifyOtp(supabaseProv),
-                              child: _isLoading
-                                  ? SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: colorScheme.onPrimary,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      'ยืนยันรหัส (Verify Code)',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextButton(
-                              onPressed: _isLoading
-                                  ? null
-                                  : () {
-                                      setState(() {
-                                        _otpSent = false;
-                                        _otpController.clear();
-                                      });
-                                    },
-                              child: Text(
-                                'เปลี่ยนอีเมล (Change Email)',
-                                style: TextStyle(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                    border: Border.all(color: colorScheme.outline, width: 1),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundColor: colorScheme.primary.withOpacity(
-                            0.15,
-                          ),
-                          child: Icon(
-                            Icons.person,
-                            size: 50,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
+                              context.tr('guest_reader'),
+                              style: textTheme.labelMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
                               supabaseProv.displayName,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 22,
+                              style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colorScheme.onSurface,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: Icon(
-                                Icons.edit,
-                                size: 20,
-                                color: colorScheme.primary,
-                              ),
-                              onPressed: () =>
-                                  _showEditNameDialog(context, supabaseProv),
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.edit_outlined, color: colorScheme.primary, size: 20),
+                        onPressed: () =>
+                            _showEditNameDialog(context, supabaseProv),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Form Section (Flat layout, no container/card backgrounds, no borders)
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: CircleAvatar(
+                          radius: 36,
+                          backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                          child: Icon(
+                            Icons.cloud_sync_outlined,
+                            size: 36,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr('sync_with_cloud'),
+                        style: textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.tr('sync_desc'),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Google sign-in button (Modern layout with soft Google gradient stroke)
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF4285F4), // Google Blue
+                              Color(0xFFEA4335), // Google Red
+                              Color(0xFFFBBC05), // Google Yellow
+                              Color(0xFF34A853), // Google Green
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          supabaseProv.userEmail,
-                          style: GoogleFonts.inter(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
+                        padding: const EdgeInsets.all(1.5),
+                        child: Material(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(AppTheme.radius - 1.5),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: _isSyncing
+                            onTap: _isLoading
                                 ? null
-                                : () => _handleManualSync(
-                                    supabaseProv,
-                                    settings,
-                                    readingProv,
-                                    mushafProv,
-                                    notesProv,
-                                    statsProv,
-                                  ),
+                                : () => _handleGoogleSignIn(supabaseProv),
+                            borderRadius: BorderRadius.circular(AppTheme.radius - 1.5),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: colorScheme.primary.withOpacity(0.3),
-                                ),
-                              ),
+                              height: 53, // Adjust so total height with padding is 56px
+                              alignment: Alignment.center,
                               child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  _isSyncing
-                                      ? SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  colorScheme.primary,
-                                                ),
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.sync,
-                                          color: colorScheme.primary,
-                                          size: 16,
-                                        ),
-                                  const SizedBox(width: 8),
+                                  SvgPicture.string(
+                                    googleLogoSvg,
+                                    width: 24, // Bigger logo
+                                    height: 24, // Bigger logo
+                                  ),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    _isSyncing
-                                        ? 'กำลังซิงค์ (Syncing...)'
-                                        : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
-                                    style: GoogleFonts.notoSansThai(
-                                      color: colorScheme.primary,
+                                    context.tr('sign_in_with_google'),
+                                    style: textTheme.titleMedium?.copyWith(
+                                      color: colorScheme.onSurface,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
@@ -1009,75 +796,356 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        Divider(color: colorScheme.outline, thickness: 1),
-                        const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                            ),
+                            child: Text(
+                              context.tr('or'),
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
 
-                        _buildProfileStatsGroup(
-                          title: 'อ่านพร้อมความหมาย',
-                          children: [
-                            _buildStatCard(
-                              icon: Icons.menu_book,
-                              title: 'แผนการอ่าน',
-                              value: '${readingProv.activeProfiles.length} / 5',
-                              color: colorScheme.primary,
-                              onTap: () =>
-                                  _showReadingProfilesSheet(readingProv),
+                      if (_isSignUp) ...[
+                        TextFormField(
+                          controller: _nameController,
+                          keyboardType: TextInputType.name,
+                          decoration: InputDecoration(
+                            labelText: context.tr('display_name'),
+                            prefixIcon: const Icon(Icons.person_outline),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radius,
+                              ),
                             ),
-                            _buildStatCard(
-                              icon: Icons.bookmark,
-                              title: 'บุ๊คมาร์ก',
-                              value: '${readingProv.bookmarks.length}',
-                              color: colorScheme.secondary,
-                              onTap: _openBookmarks,
-                            ),
-                          ],
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return context.tr('please_enter_display_name');
+                            }
+                            return null;
+                          },
                         ),
-                        const SizedBox(height: 24),
-                        _buildProfileStatsGroup(
-                          title: 'อ่านมุศฮัฟ',
-                          children: [
-                            _buildStatCard(
-                              icon: Icons.import_contacts_rounded,
-                              title: 'แผนการอ่าน',
-                              value:
-                                  '${mushafProv.activeCustomProfiles.length}',
-                              color: colorScheme.primary,
-                              onTap: () => _showMushafProfilesSheet(mushafProv),
-                            ),
-                            _buildStatCard(
-                              icon: Icons.bookmark_added_outlined,
-                              title: 'บุ๊คมาร์ก',
-                              value:
-                                  '${mushafProv.pageBookmarks.length + mushafProv.verseBookmarks.length}',
-                              color: colorScheme.secondary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        _buildProfileStatsGroup(
-                          title: 'สถิติและบันทึก',
-                          children: [
-                            _buildStatCard(
-                              icon: Icons.favorite_rounded,
-                              title: settings.languageCode == 'en'
-                                  ? 'My Favourite Ayat'
-                                  : 'อายะฮฺโปรดของฉัน',
-                              value: '${notesProv.personalNotes.length}',
-                              color: colorScheme.secondary,
-                              onTap: _openTadabbur,
-                            ),
-                            _buildStatCard(
-                              icon: Icons.local_fire_department,
-                              title: 'วันอ่านต่อเนื่อง',
-                              value: '${statsProv.streakCount} วัน',
-                              color: colorScheme.primary,
-                            ),
-                            _buildReportsCountCard(supabaseProv),
-                          ],
-                        ),
+                        const SizedBox(height: 16),
                       ],
-                    ),
+
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: context.tr('email'),
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return context.tr('please_enter_email');
+                          }
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(val.trim())) {
+                            return context.tr('invalid_email_format');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: context.tr('password'),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) {
+                            return context.tr('please_enter_password');
+                          }
+                          if (val.length < 6) {
+                            return context.tr('password_too_short');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radius,
+                            ),
+                          ),
+                        ),
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                if (_isSignUp) {
+                                  _handlePasswordSignUp(supabaseProv);
+                                } else {
+                                  _handlePasswordSignIn(supabaseProv);
+                                }
+                              },
+                        child: _isLoading
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: colorScheme.onPrimary,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _isSignUp
+                                    ? context.tr('sign_up')
+                                    : context.tr('sign_in_with_email'),
+                                style: textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onPrimary,
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  _isSignUp = !_isSignUp;
+                                  _errorMessage = null;
+                                  _successMessage = null;
+                                });
+                              },
+                        child: Text(
+                          _isSignUp
+                              ? context.tr('already_have_account')
+                              : context.tr('dont_have_account'),
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Logged in UI - Flat and minimalist (no cards backgrounds or border strokes)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          size: 50,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            supabaseProv.displayName,
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              size: 20,
+                              color: colorScheme.primary,
+                            ),
+                            onPressed: () =>
+                                _showEditNameDialog(context, supabaseProv),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        supabaseProv.userEmail,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Center(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: _isSyncing
+                              ? null
+                              : () => _handleManualSync(
+                                  supabaseProv,
+                                  settings,
+                                  readingProv,
+                                  mushafProv,
+                                  notesProv,
+                                  statsProv,
+                                ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _isSyncing
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                colorScheme.primary,
+                                              ),
+                                        ),
+                                      )
+                                    : Icon(
+                                        Icons.sync,
+                                        color: colorScheme.primary,
+                                        size: 16,
+                                      ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _isSyncing
+                                      ? 'กำลังซิงค์ (Syncing...)'
+                                      : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
+                                  style: textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Divider(color: colorScheme.outlineVariant, thickness: 1),
+                      const SizedBox(height: 24),
+
+                      _buildProfileStatsGroup(
+                        title: 'อ่านพร้อมความหมาย',
+                        children: [
+                          _buildStatCard(
+                            icon: Icons.menu_book,
+                            title: 'แผนการอ่าน',
+                            value: '${readingProv.activeProfiles.length} / 5',
+                            color: colorScheme.primary,
+                            onTap: () =>
+                                _showReadingProfilesSheet(readingProv),
+                          ),
+                          _buildStatCard(
+                            icon: Icons.bookmark,
+                            title: 'บุ๊คมาร์ก',
+                            value: '${readingProv.bookmarks.length}',
+                            color: colorScheme.secondary,
+                            onTap: _openBookmarks,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildProfileStatsGroup(
+                        title: 'อ่านมุศฮัฟ',
+                        children: [
+                          _buildStatCard(
+                            icon: Icons.import_contacts_rounded,
+                            title: 'แผนการอ่าน',
+                            value:
+                                '${mushafProv.activeCustomProfiles.length}',
+                            color: colorScheme.primary,
+                            onTap: () => _showMushafProfilesSheet(mushafProv),
+                          ),
+                          _buildStatCard(
+                            icon: Icons.bookmark_added_outlined,
+                            title: 'บุ๊คมาร์ก',
+                            value:
+                                '${mushafProv.pageBookmarks.length + mushafProv.verseBookmarks.length}',
+                            color: colorScheme.secondary,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      _buildProfileStatsGroup(
+                        title: 'สถิติและบันทึก',
+                        children: [
+                          _buildStatCard(
+                            icon: Icons.favorite_rounded,
+                            title: settings.languageCode == 'en'
+                                ? 'My Favourite Ayat'
+                                : 'อายะฮฺโปรดของฉัน',
+                            value: '${notesProv.personalNotes.length}',
+                            color: colorScheme.secondary,
+                            onTap: _openTadabbur,
+                          ),
+                          _buildStatCard(
+                            icon: Icons.local_fire_department,
+                            title: 'วันอ่านต่อเนื่อง',
+                            value: '${statsProv.streakCount} วัน',
+                            color: colorScheme.primary,
+                          ),
+                          _buildReportsCountCard(supabaseProv),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1112,13 +1180,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                       : Text(
                           'ออกจากระบบ (Sign Out)',
-                          style: GoogleFonts.notoSansThai(
+                          style: textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            color: colorScheme.onError,
                           ),
                         ),
                 ),
               ],
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -1247,9 +1316,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline, width: 1),
       ),
       child: Row(
         children: [
@@ -1293,9 +1361,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final row = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline, width: 1),
       ),
       child: Row(
         children: [
@@ -1387,9 +1454,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final card = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: activeColor.withOpacity(0.08),
+        color: activeColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: activeColor.withOpacity(0.25), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

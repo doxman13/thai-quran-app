@@ -55,7 +55,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   void _startAutoHideTimer() {
     _menuAutoHideTimer?.cancel();
-    _menuAutoHideTimer = Timer(const Duration(seconds: 4), () {
+    _menuAutoHideTimer = Timer(const Duration(seconds: 7), () {
       if (mounted && _isMenuVisible) {
         setState(() {
           _isMenuVisible = false;
