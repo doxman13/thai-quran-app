@@ -75,6 +75,17 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   ];
 
   final Map<int, double> _downloadProgress = {};
+  OverlayEntry? _progressOverlayEntry;
+  ValueNotifier<double>? _activeProgressNotifier;
+
+  @override
+  void dispose() {
+    _progressOverlayEntry?.remove();
+    _progressOverlayEntry = null;
+    _activeProgressNotifier?.dispose();
+    _activeProgressNotifier = null;
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -328,12 +339,37 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   Future<void> _downloadTranslation(_TranslationOption option) async {
     final id = option.apiId;
     if (id == null) return;
+
+    // Clean up any existing download progress overlays
+    _progressOverlayEntry?.remove();
+    _progressOverlayEntry = null;
+    _activeProgressNotifier?.dispose();
+
     final progressNotifier = ValueNotifier<double>(0);
-    _showDownloadProgressSnackBar(option, progressNotifier);
+    _activeProgressNotifier = progressNotifier;
 
     setState(() {
       _downloadProgress[id] = 0;
     });
+
+    final overlayState = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (overlayContext) {
+        return _DownloadProgressOverlay(
+          option: option,
+          progressNotifier: progressNotifier,
+          sectionContext: context,
+          onClose: () {
+            _progressOverlayEntry?.remove();
+            _progressOverlayEntry = null;
+            _activeProgressNotifier?.dispose();
+            _activeProgressNotifier = null;
+          },
+        );
+      },
+    );
+    _progressOverlayEntry = entry;
+    overlayState.insert(entry);
 
     final success = await TranslationDownloader.downloadTranslation(
       id,
@@ -355,91 +391,23 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     setState(() {
       _downloadProgress.remove(id);
     });
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    progressNotifier.dispose();
 
     if (success) {
+      progressNotifier.value = 1.0;
       await context.read<TranslationManagerProvider>().refreshDownloadedList();
-      if (!mounted) return;
-      _showDownloadFinishedSnackBar(option);
     } else {
-      _showFloatingSnackBar(
+      _progressOverlayEntry?.remove();
+      _progressOverlayEntry = null;
+      _activeProgressNotifier?.dispose();
+      _activeProgressNotifier = null;
+
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('Failed to download ${option.name}'),
+          content: Text('Failed to download ${option.displayName(settingsLanguage)}'),
         ),
       );
     }
-  }
-
-  void _showDownloadProgressSnackBar(
-    _TranslationOption option,
-    ValueNotifier<double> progressNotifier,
-  ) {
-    _showFloatingSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(days: 1),
-        content: ValueListenableBuilder<double>(
-          valueListenable: progressNotifier,
-          builder: (context, progress, child) {
-            final percent = (progress * 100).clamp(0, 100).round();
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Downloading ${option.displayName(settingsLanguage)}',
-                  style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Loading in the background... $percent%',
-                  style: GoogleFonts.notoSansThai(fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: progress),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showDownloadFinishedSnackBar(_TranslationOption option) {
-    _showFloatingSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text(
-          '${option.displayName(settingsLanguage)} downloaded. Open Settings to activate it.',
-        ),
-        action: SnackBarAction(
-          label: 'Settings',
-          onPressed: () {
-            Scrollable.ensureVisible(
-              context,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  void _showFloatingSnackBar(SnackBar snackBar) {
-    final height = MediaQuery.sizeOf(context).height;
-    final bottomMargin = (height - 190).clamp(16.0, 720.0);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.only(left: 16, right: 16, bottom: bottomMargin),
-        duration: snackBar.duration,
-        action: snackBar.action,
-        content: snackBar.content,
-      ),
-    );
   }
 
   String get settingsLanguage {
@@ -554,5 +522,243 @@ class _TranslationOption {
       return nameTh!;
     }
     return name;
+  }
+}
+
+class _DownloadProgressOverlay extends StatefulWidget {
+  final _TranslationOption option;
+  final ValueNotifier<double> progressNotifier;
+  final BuildContext sectionContext;
+  final VoidCallback onClose;
+
+  const _DownloadProgressOverlay({
+    required this.option,
+    required this.progressNotifier,
+    required this.sectionContext,
+    required this.onClose,
+  });
+
+  @override
+  State<_DownloadProgressOverlay> createState() => _DownloadProgressOverlayState();
+}
+
+class _DownloadProgressOverlayState extends State<_DownloadProgressOverlay> with SingleTickerProviderStateMixin {
+  bool _isCollapsed = false;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  String get settingsLanguage => context.read<SettingsProvider>().languageCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return ValueListenableBuilder<double>(
+      valueListenable: widget.progressNotifier,
+      builder: (context, progress, child) {
+        final isFinished = progress >= 1.0;
+        final percent = (progress * 100).clamp(0, 100).round();
+
+        if (_isCollapsed) {
+          return Positioned(
+            bottom: 80,
+            right: 16,
+            child: SafeArea(
+              child: GestureDetector(
+                onTap: () => setState(() => _isCollapsed = false),
+                child: Material(
+                  elevation: 6,
+                  shadowColor: Colors.black.withValues(alpha: 0.3),
+                  shape: const CircleBorder(),
+                  color: isFinished ? colorScheme.primary : colorScheme.surfaceContainerHighest,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    alignment: Alignment.center,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (!isFinished)
+                          SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: CircularProgressIndicator(
+                              value: progress,
+                              strokeWidth: 3,
+                              color: colorScheme.primary,
+                              backgroundColor: colorScheme.primary.withValues(alpha: 0.2),
+                            ),
+                          ),
+                        if (isFinished)
+                          const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          )
+                        else
+                          RotationTransition(
+                            turns: _pulseController,
+                            child: Icon(
+                              Icons.hourglass_empty_rounded,
+                              color: colorScheme.primary,
+                              size: 20,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Positioned(
+          bottom: 80,
+          left: 16,
+          right: 16,
+          child: SafeArea(
+            child: Material(
+              elevation: 6,
+              shadowColor: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(20),
+              color: theme.brightness == Brightness.dark
+                  ? const Color(0xFF1E1E1E)
+                  : Colors.white,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.15),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            isFinished
+                                ? '${widget.option.displayName(settingsLanguage)} Downloaded'
+                                : 'Downloading ${widget.option.displayName(settingsLanguage)}',
+                            style: GoogleFonts.notoSansThai(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: isFinished ? colorScheme.primary : colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (!isFinished)
+                          IconButton(
+                            icon: const Icon(Icons.close_fullscreen_rounded),
+                            tooltip: 'Collapse',
+                            iconSize: 20,
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
+                            onPressed: () => setState(() => _isCollapsed = true),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Close',
+                          iconSize: 20,
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(4),
+                          onPressed: widget.onClose,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (isFinished) ...[
+                      Text(
+                        'Translation is ready. Open Settings to activate it.',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: widget.onClose,
+                            child: const Text('Dismiss'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: () {
+                              Scrollable.ensureVisible(
+                                widget.sectionContext,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                              );
+                              widget.onClose();
+                            },
+                            icon: const Icon(Icons.settings_rounded, size: 16),
+                            label: const Text('Open Settings'),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 6,
+                                color: colorScheme.primary,
+                                backgroundColor: colorScheme.primary.withValues(alpha: 0.15),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '$percent%',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Loading in the background...',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
