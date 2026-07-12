@@ -310,63 +310,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(colorScheme, 'Content updates'),
-          const SizedBox(height: 8),
-          _SettingsCard(
-            colorScheme: colorScheme,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Remote Quran content',
-                    style: GoogleFonts.notoSansThai(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Thai v3, Quran themes, and Mokhtasar short tafsir',
-                    style: GoogleFonts.notoSansThai(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _isCheckingContentUpdates
-                          ? null
-                          : _checkContentUpdates,
-                      icon: _isCheckingContentUpdates
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.onPrimary,
-                              ),
-                            )
-                          : const Icon(Icons.system_update_alt_rounded),
-                      label: Text(
-                        _isCheckingContentUpdates
-                            ? 'Checking updates...'
-                            : 'Check for content updates',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
           TranslationManagerSection(colors: colors),
+          const SizedBox(height: 24),
+          _buildContentUpdateSection(colorScheme),
         ],
       ),
     );
@@ -415,6 +361,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _isCheckingContentUpdates = false);
       }
     }
+  }
+
+  Widget _buildContentUpdateSection(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(colorScheme, 'Content updates'),
+        const SizedBox(height: 8),
+        _SettingsCard(
+          colorScheme: colorScheme,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Remote Quran content',
+                  style: GoogleFonts.notoSansThai(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Thai v3, Quran themes, and Mokhtasar short tafsir are checked automatically once per day.',
+                  style: GoogleFonts.notoSansThai(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _isCheckingContentUpdates
+                        ? null
+                        : _checkContentUpdates,
+                    icon: _isCheckingContentUpdates
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.system_update_alt_rounded),
+                    label: Text(
+                      _isCheckingContentUpdates
+                          ? 'Checking updates...'
+                          : 'Check now',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -174,7 +174,7 @@ const Map<String, Map<String, String>> _localizedValues = {
     'notes_count': '({count} บันทึก)',
     'qcf_v1': 'QCF V1 (มุสฮัฟมาตรฐาน)',
     'qcf_v2': 'QCF V2 (มุสฮัฟขยาย)',
-    'thai_v3': 'สมาคมศิษย์เก่าอาหรับ (ถอดความโดยละเอียด)',
+    'thai_v3': 'Society of Institutes and Universities (ฉบับปรับปรุงภาษา)',
     'thai_v2': 'แปลไทยฉบับเก่า',
     'english': 'แปลอังกฤษ (Sahih International)',
     'qcf_tajweed': 'QCF Tajweed V4',
@@ -386,7 +386,8 @@ const Map<String, Map<String, String>> _localizedValues = {
     'notes_count': '({count} reflections)',
     'qcf_v1': 'QCF V1 (Standard Mushaf)',
     'qcf_v2': 'QCF V2 (Expanded Mushaf)',
-    'thai_v3': 'Arab Alumni Association (Detailed)',
+    'thai_v3':
+        'Society of Institutes and Universities (Language revised edition)',
     'thai_v2': 'Legacy Thai Translation',
     'english': 'English (Sahih International)',
     'qcf_tajweed': 'QCF Tajweed V4',

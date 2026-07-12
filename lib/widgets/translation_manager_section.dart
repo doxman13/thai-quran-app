@@ -21,9 +21,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   static const _builtInThaiV3 = _TranslationOption(
     id: 'thai_v3',
     apiId: null,
-    name: 'Arab Alumni Association',
-    nameTh: 'สมาคมศิษย์เก่าอาหรับ (ฉบับปรับปรุงภาษา)',
-    author: 'Arab Alumni Association',
+    name: 'Society of Institutes and Universities (Language revised edition)',
+    nameTh: 'Society of Institutes and Universities (ฉบับปรับปรุงภาษา)',
+    author: 'Society of Institutes and Universities',
     language: 'thai',
   );
 
@@ -86,7 +86,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     return Card(
       color: colorScheme.surfaceContainerLow,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -98,12 +98,14 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
               option: _builtInThaiV3,
               settings: settings,
               colorScheme: colorScheme,
+              isActiveList: true,
             ),
             ...downloadedOptions.map(
               (option) => _buildTranslationRow(
                 option: option,
                 settings: settings,
                 colorScheme: colorScheme,
+                isActiveList: true,
                 onDelete: () => _deleteTranslation(
                   int.parse(option.id),
                   transManager,
@@ -119,7 +121,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
             ..._groupedAvailableTranslations().entries.expand((entry) {
               return [
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  padding: const EdgeInsets.only(top: 16, bottom: 6),
                   child: Text(
                     _languageLabel(entry.key, settings.languageCode),
                     style: GoogleFonts.notoSansThai(
@@ -142,6 +144,8 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                     settings: settings,
                     colorScheme: colorScheme,
                     isDownloaded: isDownloaded,
+                    isDownloadList: true,
+                    showSelector: false,
                     progress: progress,
                     onDownload: option.apiId == null || isDownloaded
                         ? null
@@ -178,6 +182,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     required SettingsProvider settings,
     required ColorScheme colorScheme,
     bool isDownloaded = true,
+    bool isActiveList = false,
+    bool isDownloadList = false,
+    bool showSelector = true,
     double? progress,
     VoidCallback? onDownload,
     VoidCallback? onDelete,
@@ -188,15 +195,27 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final canSelect = option.apiId == null || isDownloaded;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: EdgeInsets.only(bottom: isDownloadList ? 2 : 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: isDownloadList ? 8 : 12,
+        vertical: isDownloadList ? 6 : 8,
+      ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: isDownloadList
+            ? Colors.transparent
+            : isActiveList
+            ? colorScheme.surface
+            : colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        border: isDownloadList
+            ? null
+            : Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+              ),
       ),
       child: Row(
         children: [
+          if (isDownloadList) const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +258,14 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                 strokeWidth: 2,
               ),
             ),
-          ] else if (canSelect) ...[
+          ] else if (canSelect && showSelector) ...[
+            if (onDelete != null)
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline_rounded),
+                color: colorScheme.error,
+                onPressed: onDelete,
+              ),
             Checkbox(
               value: isChecked,
               activeColor: colorScheme.primary,
@@ -250,13 +276,13 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                 value: value,
               ),
             ),
-            if (onDelete != null)
-              IconButton(
-                tooltip: 'Delete',
-                icon: const Icon(Icons.delete_outline_rounded),
-                color: colorScheme.error,
-                onPressed: onDelete,
-              ),
+          ] else if (isDownloaded && onDelete != null) ...[
+            IconButton(
+              tooltip: 'Delete',
+              icon: const Icon(Icons.delete_outline_rounded),
+              color: colorScheme.error,
+              onPressed: onDelete,
+            ),
           ] else if (onDownload != null) ...[
             IconButton(
               tooltip: context.tr('download_more'),
@@ -302,6 +328,8 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   Future<void> _downloadTranslation(_TranslationOption option) async {
     final id = option.apiId;
     if (id == null) return;
+    final progressNotifier = ValueNotifier<double>(0);
+    _showDownloadProgressSnackBar(option, progressNotifier);
 
     setState(() {
       _downloadProgress[id] = 0;
@@ -313,6 +341,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
       option.author,
       option.language,
       onProgress: (progress) {
+        progressNotifier.value = progress;
         if (mounted) {
           setState(() {
             _downloadProgress[id] = progress;
@@ -326,20 +355,91 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     setState(() {
       _downloadProgress.remove(id);
     });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    progressNotifier.dispose();
 
     if (success) {
       await context.read<TranslationManagerProvider>().refreshDownloadedList();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showDownloadFinishedSnackBar(option);
+    } else {
+      _showFloatingSnackBar(
         SnackBar(
-          content: Text('${option.displayName(settingsLanguage)} downloaded!'),
+          behavior: SnackBarBehavior.floating,
+          content: Text('Failed to download ${option.name}'),
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download ${option.name}')),
-      );
     }
+  }
+
+  void _showDownloadProgressSnackBar(
+    _TranslationOption option,
+    ValueNotifier<double> progressNotifier,
+  ) {
+    _showFloatingSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(days: 1),
+        content: ValueListenableBuilder<double>(
+          valueListenable: progressNotifier,
+          builder: (context, progress, child) {
+            final percent = (progress * 100).clamp(0, 100).round();
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Downloading ${option.displayName(settingsLanguage)}',
+                  style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Loading in the background... $percent%',
+                  style: GoogleFonts.notoSansThai(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: progress),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showDownloadFinishedSnackBar(_TranslationOption option) {
+    _showFloatingSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text(
+          '${option.displayName(settingsLanguage)} downloaded. Open Settings to activate it.',
+        ),
+        action: SnackBarAction(
+          label: 'Settings',
+          onPressed: () {
+            Scrollable.ensureVisible(
+              context,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showFloatingSnackBar(SnackBar snackBar) {
+    final height = MediaQuery.sizeOf(context).height;
+    final bottomMargin = (height - 190).clamp(16.0, 720.0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(left: 16, right: 16, bottom: bottomMargin),
+        duration: snackBar.duration,
+        action: snackBar.action,
+        content: snackBar.content,
+      ),
+    );
   }
 
   String get settingsLanguage {

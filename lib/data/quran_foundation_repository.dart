@@ -505,6 +505,7 @@ class QuranFoundationRepository {
   }
 
   Future<Map<String, String>> _readLocalEnv() async {
+    if (kIsWeb) return const {};
     try {
       final file = File('.env');
       if (!await file.exists()) return const {};
@@ -1177,6 +1178,22 @@ class DynamicFontLoader {
     if (_loadedFonts.contains(fontFamily)) return;
 
     try {
+      if (kIsWeb) {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200) {
+          final fontData = ByteData.view(response.bodyBytes.buffer);
+          final fontLoader = FontLoader(fontFamily);
+          fontLoader.addFont(Future.value(fontData));
+          await fontLoader.load();
+          _loadedFonts.add(fontFamily);
+        } else {
+          debugPrint(
+            'Failed to load font $fontFamily from $url: ${response.statusCode}',
+          );
+        }
+        return;
+      }
+
       final supportDir = await getApplicationSupportDirectory();
       final fontsDir = Directory('${supportDir.path}/fonts');
       if (!await fontsDir.exists()) {

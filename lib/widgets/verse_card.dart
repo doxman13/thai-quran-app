@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -536,6 +537,21 @@ class _VerseCardState extends State<VerseCard> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData?.buffer.asUint8List();
       if (bytes == null) return;
+
+      if (kIsWeb) {
+        final xFile = XFile.fromData(
+          bytes,
+          mimeType: 'image/png',
+          name: 'ayah_${widget.verse.surahId}_${widget.verse.id}.png',
+        );
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [xFile],
+            text: '${widget.verse.surahId}:${widget.verse.id}',
+          ),
+        );
+        return;
+      }
 
       final directory = await getTemporaryDirectory();
       final file = File(

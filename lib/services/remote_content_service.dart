@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'remote_content_cache.dart';
 
 class RemoteContentKey {
   static const thaiV3 = 'thai_v3';
@@ -33,17 +33,20 @@ class RemoteContentService {
 
   RemoteContentService._();
 
+  final RemoteContentCache _cache = RemoteContentCache();
+
   static const _versionPrefix = 'remoteContentVersion_';
+  static const _lastAutoCheckKey = 'remoteContentLastAutoCheckAt';
   static const _defaultBucket = 'app-content';
+  static const _autoCheckInterval = Duration(hours: 24);
 
   Future<String> loadString({
     required String contentKey,
     required String bundledAssetPath,
   }) async {
     try {
-      final file = await _contentFile(contentKey);
-      if (await file.exists()) {
-        final content = await file.readAsString();
+      final content = await _cache.readContent(contentKey);
+      if (content != null) {
         jsonDecode(content);
         return content;
       }
@@ -76,6 +79,20 @@ class RemoteContentService {
     );
   }
 
+  Future<RemoteContentUpdateResult?> updateAllIfDue() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastCheck = DateTime.tryParse(
+      prefs.getString(_lastAutoCheckKey) ?? '',
+    );
+    final now = DateTime.now();
+    if (lastCheck != null && now.difference(lastCheck) < _autoCheckInterval) {
+      return null;
+    }
+
+    await prefs.setString(_lastAutoCheckKey, now.toIso8601String());
+    return updateAll();
+  }
+
   Future<bool> updateOne(String contentKey) async {
     final client = Supabase.instance.client;
     final manifest = await client
@@ -105,15 +122,8 @@ class RemoteContentService {
     final content = utf8.decode(bytes);
     jsonDecode(content);
 
-    final file = await _contentFile(contentKey);
-    await file.parent.create(recursive: true);
-    await file.writeAsString(content, flush: true);
+    await _cache.writeContent(contentKey, content);
     await prefs.setString('$_versionPrefix$contentKey', version);
     return true;
-  }
-
-  Future<File> _contentFile(String contentKey) async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File('${dir.path}/remote_content/$contentKey.json');
   }
 }

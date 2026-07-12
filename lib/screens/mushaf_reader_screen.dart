@@ -311,25 +311,25 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         return AlertDialog(
           title: Text(
             context.tr('add_note_title'),
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
           ),
           content: Text(
             context.tr('favorite_add_note_prompt'),
-            style: GoogleFonts.inter(color: colors.foreground),
+            style: GoogleFonts.notoSansThai(color: colors.foreground),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(
                 context.tr('later'),
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
               ),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
                 context.tr('add_note'),
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -388,25 +388,25 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         return AlertDialog(
           title: Text(
             context.tr('remove_favorite_title'),
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
           ),
           content: Text(
             context.tr('remove_favorite_with_note'),
-            style: GoogleFonts.inter(color: colors.foreground),
+            style: GoogleFonts.notoSansThai(color: colors.foreground),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(
                 context.tr('cancel'),
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
                 context.tr('remove'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.w800,
                   color: Colors.red.shade500,
                 ),
@@ -557,7 +557,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ) !=
             null;
 
-    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final topMenuInset = _isMenuVisible ? 56.0 : 28.0;
+    final bottomMenuInset = _isMenuVisible ? 64.0 : 8.0;
 
     return WillPopScope(
       onWillPop: _handleBack,
@@ -578,8 +579,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     padding: EdgeInsets.only(
-                      top: (isTablet && _isMenuVisible) ? 42 : 0,
-                      bottom: (isTablet && _isMenuVisible) ? 56 : 0,
+                      top: topMenuInset,
+                      bottom: bottomMenuInset,
                     ),
                     child: GestureDetector(
                       behavior: HitTestBehavior.translucent,
@@ -740,6 +741,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     .translationFontSize,
                               ),
                             ),
+                          if (!_isMenuVisible && _translationText == null)
+                            Positioned(
+                              top: 0,
+                              left: 16,
+                              right: 16,
+                              child: _BookPageIndicator(
+                                colors: colors,
+                                pageNumber: _pageNumber,
+                                quranRepository: widget.quranRepository,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -758,7 +770,18 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Container(
-                      color: _mushafPageColor(context),
+                      decoration: BoxDecoration(
+                        color: _mushafPageColor(context),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.15),
+                            width: 1,
+                          ),
+                        ),
+                      ),
                       child: SafeArea(
                         bottom: false,
                         child: _ReaderTopBar(
@@ -766,6 +789,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                           profile: profile,
                           type: type,
                           pageNumber: _pageNumber,
+                          onBack: () => Navigator.of(context).maybePop(),
                           pageBookmarked: provider.isPageBookmarked(
                             displayMushafId,
                             _pageNumber,
@@ -800,7 +824,18 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Container(
-                      color: _mushafPageColor(context),
+                      decoration: BoxDecoration(
+                        color: _mushafPageColor(context),
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.15),
+                            width: 1,
+                          ),
+                        ),
+                      ),
                       child: SafeArea(
                         top: false,
                         child: _ReaderBottomBar(
@@ -843,9 +878,7 @@ int _clampInt(int value, int min, int max) {
 }
 
 Color _mushafPageColor(BuildContext context) {
-  return Theme.of(context).brightness == Brightness.dark
-      ? const Color(0xFF0B1120)
-      : const Color(0xFFFFFBF0);
+  return Theme.of(context).colorScheme.surface;
 }
 
 enum _MushafSettingsAction { seeAllProfiles }
@@ -902,7 +935,7 @@ class _MushafReaderSettingsSheetState
             children: [
               Text(
                 context.tr('mushaf_settings'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colors.textStrong,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -937,7 +970,7 @@ class _MushafReaderSettingsSheetState
                           Expanded(
                             child: Text(
                               context.tr('current_profile'),
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: colors.primary,
@@ -958,7 +991,7 @@ class _MushafReaderSettingsSheetState
                             ),
                             child: Text(
                               context.tr('see_all'),
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -969,7 +1002,7 @@ class _MushafReaderSettingsSheetState
                       const SizedBox(height: 2),
                       Text(
                         widget.profileName,
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: colors.textStrong,
@@ -998,7 +1031,7 @@ class _MushafReaderSettingsSheetState
               ),
               title: Text(
                 context.tr('dark_mode'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                   color: colors.textStrong,
@@ -1006,7 +1039,7 @@ class _MushafReaderSettingsSheetState
               ),
               subtitle: Text(
                 context.tr('optimize_brightness'),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   color: colors.foreground,
                 ),
@@ -1022,7 +1055,7 @@ class _MushafReaderSettingsSheetState
           // Display Mushaf Selection Label
           Text(
             context.tr('mushaf_font_layout'),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               color: colors.textStrong,
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -1050,7 +1083,7 @@ class _MushafReaderSettingsSheetState
                         value: type.id,
                         child: Text(
                           type.name,
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: colors.textStrong,
@@ -1077,7 +1110,7 @@ class _MushafReaderSettingsSheetState
               },
             ),
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               color: colors.foreground,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1106,6 +1139,7 @@ class _ReaderTopBar extends StatelessWidget {
   final MushafProfile profile;
   final MushafType type;
   final int pageNumber;
+  final VoidCallback onBack;
   final bool pageBookmarked;
   final VoidCallback onSettings;
   final VoidCallback onBookmarkPage;
@@ -1119,6 +1153,7 @@ class _ReaderTopBar extends StatelessWidget {
     required this.profile,
     required this.type,
     required this.pageNumber,
+    required this.onBack,
     required this.pageBookmarked,
     required this.onSettings,
     required this.onBookmarkPage,
@@ -1133,60 +1168,131 @@ class _ReaderTopBar extends StatelessWidget {
     final surahName = getSurahNameForPage(pageNumber, quranRepository);
     final juz = getOfflineJuzForPage(pageNumber);
     final hizb = getOfflineHizbForPage(pageNumber);
-    return SizedBox(
-      height: 42,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: pageBookmarked ? 'Remove page bookmark' : 'Bookmark page',
-            onPressed: onBookmarkPage,
-            iconSize: 20,
-            visualDensity: VisualDensity.compact,
-            icon: Icon(pageBookmarked ? Icons.bookmark : Icons.bookmark_border),
-          ),
-          Expanded(
-            child: InkWell(
-              onTap: onTitleTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '$surahName • Page $pageNumber • Juz $juz • Hizb $hizb',
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(
-                          color: colors.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+    final hizbLabel = context.read<SettingsProvider>().languageCode == 'th'
+        ? 'ฮิซบ์'
+        : 'Hizb';
+
+    return AppBar(
+      primary: false,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: colors.textStrong,
+        ),
+        onPressed: onBack,
+      ),
+      title: InkWell(
+        onTap: onTitleTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    surahName,
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.textStrong,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(width: 4),
-                    Icon(Icons.expand_more, size: 16, color: colors.primary),
-                  ],
+                  ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: colors.primary,
+                    size: 18,
+                  ),
+                ],
+              ),
+              Text(
+                '${context.tr('page')} $pageNumber • ${context.tr('juz')} $juz • $hizbLabel $hizb',
+                style: GoogleFonts.notoSansThai(
+                  color: colors.foreground.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        IconButton(
+          tooltip: pageBookmarked
+              ? 'Remove page bookmark'
+              : 'Bookmark page',
+          onPressed: onBookmarkPage,
+          icon: Icon(
+            pageBookmarked
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            color: pageBookmarked
+                ? colors.primary
+                : colors.foreground,
+          ),
+        ),
+        IconButton(
+          tooltip: context.tr('mushaf_settings'),
+          icon: Icon(
+            Icons.settings_rounded,
+            color: colors.primary,
+          ),
+          onPressed: onSettings,
+        ),
+      ],
+    );
+  }
+}
+
+class _BookPageIndicator extends StatelessWidget {
+  final AppThemeColors colors;
+  final int pageNumber;
+  final QuranRepository quranRepository;
+
+  const _BookPageIndicator({
+    required this.colors,
+    required this.pageNumber,
+    required this.quranRepository,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final surahName = getSurahNameForPage(pageNumber, quranRepository);
+    return SizedBox(
+      height: 28,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              surahName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.notoSansThai(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Mushaf settings',
-            onPressed: onSettings,
-            iconSize: 20,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.settings_outlined),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${context.tr('page')} $pageNumber',
+              style: GoogleFonts.notoSansThai(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
           ),
         ],
       ),
@@ -1209,33 +1315,49 @@ class _ReaderBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SizedBox(
+        height: 44,
         child: Row(
+          textDirection: TextDirection.ltr,
           children: [
             Expanded(
+              flex: 2,
               child: _SmallReaderButton(
-                icon: Icons.chevron_left,
-                label: 'Next',
+                icon: Icons.keyboard_arrow_left_rounded,
+                label: context.tr('next_ayah'),
                 onPressed: onNext,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                foregroundColor: colorScheme.primary,
+                disabledBackgroundColor: colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+                disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.3),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
+              flex: 5,
               child: _SmallReaderButton(
-                icon: Icons.save_outlined,
-                label: 'Save Progress',
+                icon: Icons.check_rounded,
+                label: context.tr('save_progress'),
                 onPressed: onDone,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
+              flex: 2,
               child: _SmallReaderButton(
-                icon: Icons.chevron_right,
-                label: 'Previous',
+                icon: Icons.keyboard_arrow_right_rounded,
+                label: context.tr('previous_ayah'),
                 onPressed: onPrevious,
+                iconOnRight: true,
+                backgroundColor: colorScheme.surfaceContainerLow,
+                foregroundColor: colorScheme.primary,
+                disabledBackgroundColor: colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+                disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.3),
               ),
             ),
           ],
@@ -1249,68 +1371,66 @@ class _SmallReaderButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
+  final bool iconOnRight;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color? disabledBackgroundColor;
+  final Color? disabledForegroundColor;
 
   const _SmallReaderButton({
     required this.icon,
     required this.label,
     required this.onPressed,
+    this.iconOnRight = false,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.disabledBackgroundColor,
+    this.disabledForegroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isPrevious = label == 'Previous';
-    final child = Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: isPrevious
-          ? [
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(icon, size: 16),
-            ]
-          : [
-              Icon(icon, size: 16),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
+    final labelWidget = Flexible(
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.notoSansThai(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
-    return FilledButton.tonal(
+    final iconWidget = Icon(icon, size: 16);
+    return FilledButton(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        foregroundColor: colorScheme.onSurface,
-        disabledBackgroundColor: colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.45,
-        ),
-        disabledForegroundColor: colorScheme.onSurfaceVariant.withValues(
-          alpha: 0.55,
-        ),
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        disabledBackgroundColor: disabledBackgroundColor,
+        disabledForegroundColor: disabledForegroundColor,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        minimumSize: const Size(0, 44),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      child: child,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (!iconOnRight) ...[
+            iconWidget,
+            const SizedBox(width: 4),
+          ],
+          labelWidget,
+          if (iconOnRight) ...[
+            const SizedBox(width: 4),
+            iconWidget,
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1332,9 +1452,7 @@ class _QcfPackagePageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFE5E7EB)
-        : const Color(0xFF111827);
+    final textColor = Theme.of(context).colorScheme.onSurface;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -1619,8 +1737,8 @@ class _MushafLayoutProfile {
       2 => const _MushafLayoutProfile(
         pageWidth: 412,
         lineWidth: 412,
-        lineHeight: 1.80,
-        lineVerticalPadding: 2.0,
+        lineHeight: 1.74,
+        lineVerticalPadding: 1.5,
         horizontalPadding: 16,
         wordPadding: 0,
       ),
@@ -2087,7 +2205,7 @@ class _TranslationPanel extends StatelessWidget {
                 Expanded(
                   child: Text(
                     verseKey,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: colors.textStrong,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2167,7 +2285,7 @@ class _CompletionCard extends StatelessWidget {
           Expanded(
             child: Text(
               '${profile.name} complete',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansThai(
                 color: colors.textStrong,
                 fontWeight: FontWeight.w900,
               ),
@@ -2203,7 +2321,10 @@ class _MushafError extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: colors.foreground, height: 1.4),
+              style: GoogleFonts.notoSansThai(
+                color: colors.foreground,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -2377,7 +2498,7 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
         children: [
           Text(
             'Select Surah',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               color: widget.colors.textStrong,
               fontSize: 18,
               fontWeight: FontWeight.w900,
@@ -2414,7 +2535,7 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
                 return ListTile(
                   title: Text(
                     name,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: widget.colors.textStrong,
                       fontWeight: FontWeight.w700,
                     ),
