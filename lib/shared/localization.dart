@@ -6,7 +6,7 @@ const Map<String, Map<String, String>> _localizedValues = {
   'th': {
     'settings': 'ตั้งค่า',
     'display': 'การแสดงผล',
-    'dark_mode': 'โหมดมืด',
+    'dark_mode': 'โหมดกลางคืน',
     'keep_screen_awake': 'เปิดหน้าจอค้างไว้',
     'keep_screen_awake_desc': 'ป้องกันไม่ให้หน้าจอดับขณะอ่าน',
     'reading_experience': 'ประสบการณ์การอ่าน',

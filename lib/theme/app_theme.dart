@@ -52,17 +52,17 @@ class AppTheme {
   }) {
     if (isDark) {
       return const AppThemeColors(
-        background: Color(0xFF111827),
-        surface: Color(0xFF172033),
-        surfaceMuted: Color(0xFF1D293D),
-        borderSoft: Color(0xFF334155),
-        foreground: Color(0xFFB6C2D3),
-        textStrong: Color(0xFFD7E0EA),
-        textInverse: Color(0xFFF1F5F9),
+        background: Color(0xFF121212),
+        surface: Color(0xFF1E1E1E),
+        surfaceMuted: Color(0xFF262626),
+        borderSoft: Color(0xFF2E2E2E),
+        foreground: Color(0xFF9CA3AF),
+        textStrong: Color(0xFFF3F4F6),
+        textInverse: Color(0xFF111827),
         primary: Color(0xFF6E91C4),
         primaryHover: Color(0xFF5F82B5),
-        primaryLight: Color(0xFF22324C),
-        primaryLightBorder: Color(0xFF39506F),
+        primaryLight: Color(0xFF2A2A2A),
+        primaryLightBorder: Color(0xFF3A3A3A),
         accent: Color(0xFF93B4E3),
       );
     }
