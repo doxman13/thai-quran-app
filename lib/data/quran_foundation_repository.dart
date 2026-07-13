@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/mushaf_models.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 class QuranFoundationConfig {
   static const liveContentBaseUrl =
@@ -75,6 +76,35 @@ class QuranFoundationRepository {
     final resolvedMushafId = _contentMushafId(mushafId);
     final pageCount = mushafTypeById(resolvedMushafId).pageCount;
     final safePage = _clampInt(pageNumber, 1, pageCount);
+
+    if (mushafId == qcfPackageMushafId) {
+      final List<MushafVerse> verses = [];
+      try {
+        final pageItems = qcf.getPageData(safePage);
+        for (final item in pageItems) {
+          final int surah = item['surah'];
+          final int start = item['start'];
+          final int end = item['end'];
+          for (int v = start; v <= end; v++) {
+            verses.add(MushafVerse(
+              verseKey: '$surah:$v',
+              surahId: surah.toString(),
+              verseId: v.toString(),
+              words: [],
+            ));
+          }
+        }
+      } catch (e) {
+        debugPrint('Error generating local QCF page data: $e');
+      }
+      return MushafPage(
+        mushafId: mushafId,
+        pageNumber: safePage,
+        verses: verses,
+        lines: [],
+      );
+    }
+
     final cacheKey = '$_cachePrefix:page:$mushafId:$resolvedMushafId:$safePage';
 
     final fontLoadFuture = loadFontForPage(
@@ -87,6 +117,24 @@ class QuranFoundationRepository {
     }
     if (safePage > 1) {
       loadFontForPage(mushafId: mushafId, pageNumber: safePage - 1);
+    }
+
+    // Try to load QCF V1 page layout from local assets first
+    if (mushafId == 2) {
+      try {
+        final localPath = 'assets/qcf_v1_pages/page_$safePage.json';
+        final jsonStr = await rootBundle.loadString(localPath);
+        final Map<String, dynamic> jsonMap = jsonDecode(jsonStr);
+        final parsed = _parsePage(
+          jsonMap,
+          mushafId: mushafId,
+          pageNumber: safePage,
+        );
+        await fontLoadFuture;
+        return parsed;
+      } catch (e) {
+        debugPrint('Failed to load local asset for page $safePage: $e');
+      }
     }
 
     final cached = await _readCachedJson(cacheKey);
@@ -151,6 +199,7 @@ class QuranFoundationRepository {
     required int mushafId,
     required int pageNumber,
   }) async {
+    if (mushafId == qcfPackageMushafId) return;
     final fontFamily = getFontFamily(mushafId, pageNumber);
     final fontUrl = getFontUrl(mushafId, pageNumber);
     if (fontUrl == null) return;
@@ -197,6 +246,37 @@ class QuranFoundationRepository {
     required String cacheSuffix,
     required Map<String, String> query,
   }) async {
+    if (mushafTypeById(mushafId).pageCount == 604) {
+      if (cacheSuffix.startsWith('surah:')) {
+        final surahNumber = int.parse(cacheSuffix.substring(6));
+        final startPage = qcf.getPageNumber(surahNumber, 1);
+        final totalVerses = qcf.getVerseCount(surahNumber);
+        final endPage = qcf.getPageNumber(surahNumber, totalVerses);
+        return MushafPageRange(startPage: startPage, endPage: endPage);
+      } else if (cacheSuffix.startsWith('juz:')) {
+        final juzNumber = int.parse(cacheSuffix.substring(4));
+        const juzStartPages = [
+          1, 22, 42, 62, 82, 102, 121, 142, 162, 182,
+          201, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+          402, 422, 442, 462, 482, 502, 522, 542, 562, 582
+        ];
+        final startPage = juzStartPages[juzNumber - 1];
+        final endPage = juzNumber == 30 ? 604 : juzStartPages[juzNumber] - 1;
+        return MushafPageRange(startPage: startPage, endPage: endPage);
+      } else if (cacheSuffix.startsWith('verses:')) {
+        final parts = cacheSuffix.substring(7).split(':');
+        if (parts.length >= 4) {
+          final fromSurah = int.parse(parts[0]);
+          final fromVerse = int.parse(parts[1]);
+          final toSurah = int.parse(parts[2]);
+          final toVerse = int.parse(parts[3]);
+          final startPage = qcf.getPageNumber(fromSurah, fromVerse);
+          final endPage = qcf.getPageNumber(toSurah, toVerse);
+          return MushafPageRange(startPage: startPage, endPage: endPage);
+        }
+      }
+    }
+
     final resolvedMushafId = _contentMushafId(mushafId);
     final cacheKey =
         '$_cachePrefix:lookup:$mushafId:$resolvedMushafId:$cacheSuffix';
@@ -1178,6 +1258,22 @@ class DynamicFontLoader {
     if (_loadedFonts.contains(fontFamily)) return;
 
     try {
+      // Try to load QCF V1 font from local assets first
+      if (fontFamily.startsWith('qcf_v1_p')) {
+        final pageNum = fontFamily.substring(8);
+        final assetPath = 'assets/qcf_v1_fonts/p$pageNum.ttf';
+        try {
+          final fontData = await rootBundle.load(assetPath);
+          final fontLoader = FontLoader(fontFamily);
+          fontLoader.addFont(Future.value(fontData));
+          await fontLoader.load();
+          _loadedFonts.add(fontFamily);
+          return;
+        } catch (e) {
+          debugPrint('Failed to load local asset font for $fontFamily: $e');
+        }
+      }
+
       if (kIsWeb) {
         final response = await http.get(Uri.parse(url));
         if (response.statusCode == 200) {

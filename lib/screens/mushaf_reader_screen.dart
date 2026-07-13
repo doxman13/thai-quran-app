@@ -605,7 +605,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ) !=
             null;
 
-    final topMenuInset = _isMenuVisible ? 56.0 : 28.0;
+    final topMenuInset = _isMenuVisible ? 56.0 : 36.0;
     final bottomMenuInset = _isMenuVisible ? 64.0 : 8.0;
 
     return WillPopScope(
@@ -623,9 +623,12 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
               // 1. Full Screen Reading Area
               Positioned.fill(
                 child: SafeArea(
-                  child: AnimatedPadding(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: AnimatedPadding(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeInOut,
                     padding: EdgeInsets.only(
                       top: topMenuInset,
                       bottom: bottomMenuInset,
@@ -826,23 +829,26 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                 quranRepository: widget.quranRepository,
                               ),
                             ),
-                          if (!_isMenuVisible && _translationText == null && audioProvider.currentVerseKey == null)
-                            Positioned(
-                              top: 0,
-                              left: 16,
-                              right: 16,
-                              child: _BookPageIndicator(
-                                colors: colors,
-                                pageNumber: _pageNumber,
-                                quranRepository: widget.quranRepository,
-                              ),
-                            ),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
+                if (!_isMenuVisible && _translationText == null && audioProvider.currentVerseKey == null)
+                  Positioned(
+                    top: 4,
+                    left: 16,
+                    right: 16,
+                    child: _BookPageIndicator(
+                      colors: colors,
+                      pageNumber: _pageNumber,
+                      quranRepository: widget.quranRepository,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
               // 2. Animated Top Bar Custom Container
               Positioned(
                 top: 0,
@@ -1271,12 +1277,33 @@ class _ReaderTopBar extends StatelessWidget {
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back,
-          color: colors.textStrong,
-        ),
-        onPressed: onBack,
+      leadingWidth: 104,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(
+              Icons.arrow_back,
+              color: colors.textStrong,
+            ),
+            onPressed: onBack,
+          ),
+          IconButton(
+            tooltip: pageBookmarked
+                ? 'Remove page bookmark'
+                : 'Bookmark page',
+            onPressed: onBookmarkPage,
+            icon: Icon(
+              pageBookmarked
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              color: pageBookmarked
+                  ? colors.primary
+                  : colors.foreground,
+              size: 26,
+            ),
+          ),
+        ],
       ),
       title: InkWell(
         onTap: onTitleTap,
@@ -1318,20 +1345,6 @@ class _ReaderTopBar extends StatelessWidget {
         ),
       ),
       actions: [
-        IconButton(
-          tooltip: pageBookmarked
-              ? 'Remove page bookmark'
-              : 'Bookmark page',
-          onPressed: onBookmarkPage,
-          icon: Icon(
-            pageBookmarked
-                ? Icons.bookmark_rounded
-                : Icons.bookmark_border_rounded,
-            color: pageBookmarked
-                ? colors.primary
-                : colors.foreground,
-          ),
-        ),
         IconButton(
           tooltip: isAudioPlaying ? 'Pause recitation' : 'Play recitation',
           onPressed: onPlay,
@@ -1566,40 +1579,49 @@ class _QcfPackagePageView extends StatelessWidget {
     final textColor = Theme.of(context).colorScheme.onSurface;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final qcfFontSize = (width / 18.8).clamp(17.0, 22.5);
+        final horizontalPadding = 8.0;
+        final topPadding = 28.0;
+        final bottomPadding = 44.0;
+        
+        final paddedWidth = (constraints.maxWidth - (horizontalPadding * 2)).clamp(100.0, double.infinity);
+        final paddedHeight = (constraints.maxHeight - (topPadding + bottomPadding)).clamp(100.0, double.infinity);
+        
+        final qcfFontSize = (paddedWidth / 20.2).clamp(16.0, 21.0);
         return ColoredBox(
           color: _mushafPageColor(context),
-          child: MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(size: Size(constraints.maxWidth, constraints.maxHeight)),
-            child: QcfPage(
-              pageNumber: pageNumber,
-              fontSize: qcfFontSize,
-              sp: 1,
-              h: 1,
-              theme: QcfThemeData(
-                pageBackgroundColor: _mushafPageColor(context),
-                verseTextColor: textColor,
-                verseNumberColor: colors.primary,
-                basmalaColor: textColor,
-                headerTextColor: textColor,
-                headerBackgroundColor: Colors.transparent,
-                customHeaderBuilder: (surahNumber) => _QcfSurahHeader(
-                  surahNumber: surahNumber,
-                  colors: colors,
-                  showBismillahText: false,
-                ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, bottomPadding),
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: Size(paddedWidth, paddedHeight),
               ),
-              verseBackgroundColor: (surah, verse) {
-                return highlightedVerseKey == '$surah:$verse'
-                    ? colors.primaryLight.withValues(alpha: 0.75)
-                    : null;
-              },
-              onLongPressDown: (surah, verse, LongPressStartDetails details) =>
-                  onVerseLongPressStart(surah, verse),
-              onLongPress: onVerseLongPress,
+              child: QcfPage(
+                pageNumber: pageNumber,
+                fontSize: qcfFontSize,
+                sp: 0.93,
+                h: 0.94,
+                theme: QcfThemeData(
+                  pageBackgroundColor: _mushafPageColor(context),
+                  verseTextColor: textColor,
+                  verseNumberColor: colors.primary,
+                  basmalaColor: textColor,
+                  headerTextColor: textColor,
+                  headerBackgroundColor: Colors.transparent,
+                  customHeaderBuilder: (surahNumber) => _QcfSurahHeader(
+                    surahNumber: surahNumber,
+                    colors: colors,
+                    showBismillahText: false,
+                  ),
+                ),
+                verseBackgroundColor: (surah, verse) {
+                  return highlightedVerseKey == '$surah:$verse'
+                      ? colors.primaryLight.withValues(alpha: 0.75)
+                      : null;
+                },
+                onLongPressDown: (surah, verse, LongPressStartDetails details) =>
+                    onVerseLongPressStart(surah, verse),
+                onLongPress: onVerseLongPress,
+              ),
             ),
           ),
         );

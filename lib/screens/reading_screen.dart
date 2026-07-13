@@ -778,7 +778,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     children: [
                       Text(
                         context.tr('display_settings'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: colorScheme.onSurface,
@@ -794,7 +794,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         ),
                         title: Text(
                           context.tr('dark_mode'),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                             color: colorScheme.onSurface,
@@ -806,91 +806,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      Text(
-                        context.tr('reading_mode'),
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        value: settings.readingDisplayMode,
-                        dropdownColor: colorScheme.surfaceContainerLow,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: colorScheme.surface,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                              width: 1,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                            borderSide: BorderSide(
-                              color: colorScheme.outline,
-                              width: 1,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                            borderSide: BorderSide(
-                              color: colorScheme.primary,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: SettingsProvider.quranOnlyMode,
-                            child: Text(
-                              context.tr('quran_only'),
-                              style: GoogleFonts.inter(
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: SettingsProvider.translationOnlyMode,
-                            child: Text(
-                              context.tr('translation_only'),
-                              style: GoogleFonts.inter(
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: SettingsProvider.quranTranslationMode,
-                            child: Text(
-                              context.tr('quran_translation'),
-                              style: GoogleFonts.inter(
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) settings.setReadingDisplayMode(val);
-                        },
-                      ),
+
 
                       const Divider(height: 32),
                       Text(
                         context.tr('translations'),
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.notoSansThai(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: colorScheme.onSurface,
@@ -912,12 +833,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               context,
                               settings,
                               'thai_v3',
-                              context.tr('thai_v3'),
+                              'ภาษาไทย',
                               colorScheme,
+                              subtitleText: context.tr('thai_v3'),
                             ),
 
                             ...transManager.downloadedTranslations.map((t) {
                               final idStr = t['id'].toString();
+                              final lang = t['language_name'] ?? t['language'] ?? '';
+                              final langTitle = _getLanguageDisplayName(lang, settings.languageCode);
+                              final transName = t['name'] ?? '';
                               return Column(
                                 children: [
                                   Divider(
@@ -928,10 +853,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     context,
                                     settings,
                                     idStr,
-                                    t['name'],
+                                    langTitle,
                                     colorScheme,
-                                    subtitleText:
-                                        '${t['language']} - ${t['author']}',
+                                    subtitleText: transName,
                                   ),
                                 ],
                               );
@@ -951,7 +875,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             children: [
                               Text(
                                 context.tr('arabic_font_size'),
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   fontWeight: FontWeight.w600,
                                   color: colorScheme.onSurface,
                                   fontSize: 15,
@@ -959,7 +883,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               Text(
                                 '${settings.arabicFontSize.round()} px',
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   color: colorScheme.primary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -998,7 +922,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             children: [
                               Text(
                                 context.tr('translation_font_size'),
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   fontWeight: FontWeight.w600,
                                   color: colorScheme.onSurface,
                                   fontSize: 15,
@@ -1006,7 +930,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               Text(
                                 '${settings.translationFontSize.round()} px',
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   color: colorScheme.primary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -1060,23 +984,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final isSecondary = settings.secondaryTranslationId == id;
     final isChecked = isPrimary || isSecondary;
 
+    final status = isPrimary
+        ? context.tr('primary')
+        : isSecondary
+        ? context.tr('secondary')
+        : null;
+
+    final displaySubtitle = status != null
+        ? '$status • $subtitleText'
+        : (subtitleText ?? '');
+
     return CheckboxListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       title: Text(
         label,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansThai(
           color: colorScheme.onSurface,
           fontWeight: FontWeight.w600,
           fontSize: 14,
         ),
       ),
       subtitle: Text(
-        isPrimary
-            ? context.tr('primary')
-            : isSecondary
-            ? context.tr('secondary')
-            : (subtitleText ?? ''),
-        style: GoogleFonts.inter(
+        displaySubtitle,
+        style: GoogleFonts.notoSansThai(
           color: isPrimary
               ? colorScheme.primary
               : isSecondary
@@ -1117,6 +1047,25 @@ class _ReadingScreenState extends State<ReadingScreen> {
         }
       },
     );
+  }
+
+  String _getLanguageDisplayName(String language, String appLanguage) {
+    final normalized = language.toLowerCase();
+    if (normalized == 'thai' || normalized == 'th') {
+      return 'ภาษาไทย';
+    }
+    if (appLanguage == 'th') {
+      return switch (normalized) {
+        'english' => 'ภาษาอังกฤษ',
+        'malay' => 'ภาษามลายู',
+        _ => language,
+      };
+    }
+    return switch (normalized) {
+      'english' => 'English',
+      'malay' => 'Malay',
+      _ => language,
+    };
   }
 
   Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {

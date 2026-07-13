@@ -718,7 +718,7 @@ class _VerseCardState extends State<VerseCard> {
         : const Color(0xFF334155);
     final colorScheme = Theme.of(context).colorScheme;
 
-    final showArabicText = settings.showArabicText;
+    final showArabicText = true;
 
     final verseRef = toVerseRef(widget.verse.surahId, widget.verse.id);
 
@@ -908,7 +908,7 @@ class _VerseCardState extends State<VerseCard> {
               const SizedBox(height: 14),
 
               // Translations Container
-              if (settings.showTranslationText) ...[
+              if (true) ...[
                 if (settings.primaryTranslationId.isNotEmpty)
                   _buildDynamicTranslation(
                     context,
@@ -1119,15 +1119,15 @@ class _VerseCardState extends State<VerseCard> {
     Locale? locale;
 
     if (translationId == 'thai_v3') {
-      label = 'Thai 3';
+      label = 'ภาษาไทย (ปรับปรุงภาษา)';
       text = thaiTextProtection.protect(widget.verse.thaiV3);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'thai_v2') {
-      label = 'Thai 2';
+      label = 'ภาษาไทย (ฉบับเก่า)';
       text = thaiTextProtection.protect(widget.verse.thaiV2);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'english') {
-      label = 'English';
+      label = 'English\nSaheeh International';
       text = widget.verse.english;
     } else {
       final transManager = Provider.of<TranslationManagerProvider>(context);
@@ -1136,19 +1136,32 @@ class _VerseCardState extends State<VerseCard> {
         (t) => t['id'] == idInt,
         orElse: () => <String, dynamic>{},
       );
-      label = tInfo['name'] as String? ?? 'Downloaded';
 
       final customText = transManager.getVerseTranslation(
         idInt,
         widget.verse.verseKey,
       );
       text = customText ?? 'Loading translation...';
-      final language = (tInfo['language_name'] ?? tInfo['language'])
-          ?.toString()
-          .toLowerCase();
-      if (language == 'thai') {
+
+      final language = (tInfo['language_name'] ?? tInfo['language'])?.toString().toLowerCase() ?? '';
+      final author = (tInfo['author_name'] ?? tInfo['author'] ?? tInfo['name'])?.toString() ?? '';
+
+      if (language == 'thai' || language == 'th') {
         locale = const Locale('th', 'TH');
         text = thaiTextProtection.protect(text);
+
+        if (translationId == '51') {
+          label = 'ภาษาไทย (ศูนย์กษัตริย์ฟาฮัด)';
+        } else if (translationId == '230') {
+          label = 'ภาษาไทย (สมาคมศิษย์เก่าอาหรับ)';
+        } else {
+          label = 'ภาษาไทย ($author)';
+        }
+      } else {
+        final capitalizedLanguage = language.isNotEmpty
+            ? language[0].toUpperCase() + language.substring(1).toLowerCase()
+            : 'Translation';
+        label = '$capitalizedLanguage\n$author';
       }
     }
 
@@ -1197,6 +1210,7 @@ class _VerseCardState extends State<VerseCard> {
           alignment: Alignment.centerRight,
           child: Text(
             label,
+            textAlign: TextAlign.right,
             style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w400,

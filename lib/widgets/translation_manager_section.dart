@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../services/background_download_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 
@@ -132,25 +133,61 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
           children: [
             _sectionTitle(colorScheme, context.tr('active_translations')),
             const SizedBox(height: 8),
-            _buildTranslationRow(
-              option: _builtInThaiV3,
-              settings: settings,
-              colorScheme: colorScheme,
-              isActiveList: true,
-            ),
-            ...downloadedOptions.map(
-              (option) => _buildTranslationRow(
-                option: option,
-                settings: settings,
-                colorScheme: colorScheme,
-                isActiveList: true,
-                onDelete: () => _deleteTranslation(
-                  int.parse(option.id),
-                  transManager,
-                  settings,
+            ..._groupedDownloadedTranslations(downloadedOptions).entries.expand((entry) {
+              final lang = entry.key;
+              final options = entry.value;
+              return [
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 6, left: 4),
+                  child: Text(
+                    _languageLabel(lang, settings.languageCode),
+                    style: GoogleFonts.notoSansThai(
+                      color: colorScheme.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: List.generate(options.length, (index) {
+                      final option = options[index];
+                      return Column(
+                        children: [
+                          _buildTranslationRow(
+                            option: option,
+                            settings: settings,
+                            colorScheme: colorScheme,
+                            isActiveList: true,
+                            onDelete: option.id == _builtInThaiV3.id
+                                ? null
+                                : () => _deleteTranslation(
+                                      int.parse(option.id),
+                                      transManager,
+                                      settings,
+                                    ),
+                          ),
+                          if (index < options.length - 1)
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ];
+            }),
             const SizedBox(height: 16),
             Divider(height: 1, color: colorScheme.outlineVariant),
             const SizedBox(height: 16),
@@ -232,25 +269,23 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final isChecked = isPrimary || isSecondary;
     final canSelect = option.apiId == null || isDownloaded;
 
+    final useTransparentBg = isDownloadList || isActiveList;
+
     return Container(
-      margin: EdgeInsets.only(bottom: isDownloadList ? 2 : 8),
+      margin: EdgeInsets.only(bottom: isDownloadList ? 2 : 0),
       padding: EdgeInsets.symmetric(
-        horizontal: isDownloadList ? 8 : 12,
-        vertical: isDownloadList ? 6 : 8,
+        horizontal: useTransparentBg ? 8 : 12,
+        vertical: useTransparentBg ? 10 : 8,
       ),
-      decoration: BoxDecoration(
-        color: isDownloadList
-            ? Colors.transparent
-            : isActiveList
-            ? colorScheme.surface
-            : colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: isDownloadList
-            ? null
-            : Border.all(
+      decoration: useTransparentBg
+          ? null
+          : BoxDecoration(
+              color: colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.55),
               ),
-      ),
+            ),
       child: Row(
         children: [
           if (isDownloadList) const SizedBox(width: 8),
@@ -259,7 +294,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  option.displayName(settings.languageCode),
+                  _getLanguageDisplayName(option.language, settings.languageCode),
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.onSurface,
                     fontSize: 14,
@@ -268,11 +303,15 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isPrimary
-                      ? context.tr('primary')
-                      : isSecondary
-                      ? context.tr('secondary')
-                      : option.author,
+                  (() {
+                    final status = isPrimary
+                        ? context.tr('primary')
+                        : isSecondary
+                        ? context.tr('secondary')
+                        : null;
+                    final transName = option.displayName(settings.languageCode);
+                    return status != null ? '$status • $transName' : transName;
+                  })(),
                   style: GoogleFonts.notoSansThai(
                     color: isPrimary || isSecondary
                         ? colorScheme.primary
@@ -367,6 +406,15 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final id = option.apiId;
     if (id == null) return;
 
+    final overlayState = Overlay.of(context);
+    final sectionContext = context;
+    final transManager = context.read<TranslationManagerProvider>();
+
+    // Request notification permission on Android/iOS
+    await requestNotificationPermission();
+
+    if (!mounted) return;
+
     _activeDownloadingId = id;
 
     // Clean up any existing download progress overlays
@@ -377,13 +425,12 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final progressNotifier = ValueNotifier<double>(0);
     _activeProgressNotifier = progressNotifier;
 
-    final overlayState = Overlay.of(context);
     final entry = OverlayEntry(
       builder: (overlayContext) {
         return _DownloadProgressOverlay(
           option: option,
           progressNotifier: progressNotifier,
-          sectionContext: context,
+          sectionContext: sectionContext,
           onClose: () {
             _progressOverlayEntry?.remove();
             _progressOverlayEntry = null;
@@ -397,7 +444,6 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     _progressOverlayEntry = entry;
     overlayState.insert(entry);
 
-    final transManager = context.read<TranslationManagerProvider>();
     await transManager.startBackgroundDownload(
       id: id,
       name: option.name,
@@ -450,6 +496,34 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     }).toList()..sort(_compareTranslationOptions);
   }
 
+  Map<String, List<_TranslationOption>> _groupedDownloadedTranslations(
+    List<_TranslationOption> downloadedOptions,
+  ) {
+    final groups = <String, List<_TranslationOption>>{};
+
+    // Always start with the built-in Thai V3 in 'thai'
+    groups.putIfAbsent(_builtInThaiV3.language, () => []).add(_builtInThaiV3);
+
+    // Add other downloaded translations
+    for (final option in downloadedOptions) {
+      groups.putIfAbsent(option.language, () => []).add(option);
+    }
+
+    // Sort keys based on sort order
+    final sortedKeys = groups.keys.toList()
+      ..sort((a, b) => _languageSortOrder(a).compareTo(_languageSortOrder(b)));
+
+    // Sort options inside each group
+    final result = <String, List<_TranslationOption>>{};
+    for (final key in sortedKeys) {
+      final list = groups[key]!;
+      list.sort(_compareTranslationOptions);
+      result[key] = list;
+    }
+
+    return result;
+  }
+
   Map<String, List<_TranslationOption>> _groupedAvailableTranslations() {
     final sorted = [..._availableTranslations]
       ..sort(_compareTranslationOptions);
@@ -489,6 +563,25 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     }
     return switch (normalized) {
       'thai' => 'Thai',
+      'english' => 'English',
+      'malay' => 'Malay',
+      _ => language,
+    };
+  }
+
+  String _getLanguageDisplayName(String language, String appLanguage) {
+    final normalized = language.toLowerCase();
+    if (normalized == 'thai' || normalized == 'th') {
+      return 'ภาษาไทย';
+    }
+    if (appLanguage == 'th') {
+      return switch (normalized) {
+        'english' => 'ภาษาอังกฤษ',
+        'malay' => 'ภาษามลายู',
+        _ => language,
+      };
+    }
+    return switch (normalized) {
       'english' => 'English',
       'malay' => 'Malay',
       _ => language,

@@ -9,8 +9,7 @@ import '../models/mushaf_models.dart';
 
 class MushafAudioProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final QuranFoundationRepository _audioRepository =
-      QuranFoundationRepository();
+  final QuranFoundationRepository _audioRepository = QuranFoundationRepository();
 
   bool _isPlaying = false;
   bool _isLoading = false;
@@ -23,7 +22,9 @@ class MushafAudioProvider extends ChangeNotifier {
   int _playlistIndex = -1;
 
   StreamSubscription<PlayerState>? _playerStateSubscription;
-  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<int?>? _currentIndexSubscription;
+
+  final Map<int, Map<String, dynamic>> _chapterDataCache = {};
 
   MushafAudioProvider() {
     _initPlayerStateListener();
@@ -43,9 +44,8 @@ class MushafAudioProvider extends ChangeNotifier {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       _isPlaying = state.playing;
       final processingState = state.processingState;
-      _isLoading =
-          processingState == ProcessingState.loading ||
-          processingState == ProcessingState.buffering;
+      _isLoading = processingState == ProcessingState.loading ||
+                   processingState == ProcessingState.buffering;
 
       if (processingState == ProcessingState.completed) {
         _handlePlaybackCompleted();
@@ -56,7 +56,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
   void _handlePlaybackCompleted() {
     if (_isContinuous) {
-      _playNext();
+      _loadAndPlayNextPage();
     } else {
       stop();
     }
@@ -70,13 +70,15 @@ class MushafAudioProvider extends ChangeNotifier {
   }) async {
     if (verses.isEmpty) return;
 
+    await stop();
+
     _mushafId = mushafId;
     _currentPageNumber = pageNumber;
     _playlist = List.from(verses);
     _playlistIndex = startVerseIndex.clamp(0, verses.length - 1);
     _isContinuous = true;
 
-    await _playCurrentVerse();
+    await _loadAndPlayPlaylist(_playlistIndex);
   }
 
   Future<void> playVerse({
@@ -85,6 +87,8 @@ class MushafAudioProvider extends ChangeNotifier {
     required String verseKey,
     required List<MushafVerse> pageVerses,
   }) async {
+    await stop();
+
     _mushafId = mushafId;
     _currentPageNumber = pageNumber;
     _playlist = List.from(pageVerses);
@@ -94,7 +98,6 @@ class MushafAudioProvider extends ChangeNotifier {
     if (index != -1) {
       _playlistIndex = index;
     } else {
-      // Fallback: if not in pageVerses, play as a single item list
       final parts = verseKey.split(':');
       final verse = MushafVerse(
         verseKey: verseKey,
@@ -106,11 +109,16 @@ class MushafAudioProvider extends ChangeNotifier {
       _playlistIndex = 0;
     }
 
-    await _playCurrentVerse();
+    final targetVerse = _playlist[_playlistIndex];
+    _playlist = [targetVerse];
+    _playlistIndex = 0;
+
+    await _loadAndPlayPlaylist(_playlistIndex);
   }
 
   Future<void> playSingleIndependentVerse(String verseKey) async {
     await stop();
+
     _isContinuous = false;
     _currentPageNumber = null;
     _mushafId = null;
@@ -128,7 +136,7 @@ class MushafAudioProvider extends ChangeNotifier {
     _playlist = [verse];
     _playlistIndex = 0;
 
-    await _playCurrentVerse();
+    await _loadAndPlayPlaylist(_playlistIndex);
   }
 
   Future<void> togglePlayPause() async {
@@ -142,8 +150,8 @@ class MushafAudioProvider extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    _positionSubscription?.cancel();
-    _positionSubscription = null;
+    _currentIndexSubscription?.cancel();
+    _currentIndexSubscription = null;
     await _audioPlayer.stop();
     _isPlaying = false;
     _isLoading = false;
@@ -154,8 +162,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
   Future<void> nextVerse() async {
     if (_playlistIndex + 1 < _playlist.length) {
-      _playlistIndex++;
-      await _playCurrentVerse();
+      await _audioPlayer.seekToNext();
     } else if (_isContinuous) {
       await _loadAndPlayNextPage();
     }
@@ -163,8 +170,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
   Future<void> previousVerse() async {
     if (_playlistIndex > 0) {
-      _playlistIndex--;
-      await _playCurrentVerse();
+      await _audioPlayer.seekToPrevious();
     } else if (_isContinuous &&
         _currentPageNumber != null &&
         _currentPageNumber! > 1) {
@@ -172,14 +178,41 @@ class MushafAudioProvider extends ChangeNotifier {
     }
   }
 
-  void _playNext() {
-    if (_playlistIndex + 1 < _playlist.length) {
-      _playlistIndex++;
-      _playCurrentVerse();
-    } else if (_isContinuous) {
-      _loadAndPlayNextPage();
-    } else {
-      stop();
+  Future<void> _loadAndPlayPlaylist(int startVerseIndex) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final List<AudioSource> sources = await _buildAudioSources(_playlist);
+      if (sources.isEmpty) {
+        await stop();
+        return;
+      }
+
+      _currentIndexSubscription?.cancel();
+
+      final playlistSource = ConcatenatingAudioSource(children: sources);
+      await _audioPlayer.setAudioSource(
+        playlistSource,
+        initialIndex: startVerseIndex.clamp(0, sources.length - 1),
+      );
+
+      _currentIndexSubscription = _audioPlayer.currentIndexStream.listen((index) {
+        if (index != null && index >= 0 && index < _playlist.length) {
+          _playlistIndex = index;
+          _currentVerseKey = _playlist[index].verseKey;
+          notifyListeners();
+        }
+      });
+
+      _isLoading = false;
+      _isPlaying = true;
+      notifyListeners();
+
+      await _audioPlayer.play();
+    } catch (e) {
+      debugPrint('Failed to load and play playlist: $e');
+      await stop();
     }
   }
 
@@ -209,7 +242,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
       _playlist = List.from(nextPageData.verses);
       _playlistIndex = 0;
-      await _playCurrentVerse();
+      await _loadAndPlayPlaylist(0);
     } catch (e) {
       debugPrint('Failed to load next page: $e');
       await stop();
@@ -217,11 +250,7 @@ class MushafAudioProvider extends ChangeNotifier {
   }
 
   Future<void> _loadAndPlayPreviousPage() async {
-    if (_mushafId == null ||
-        _currentPageNumber == null ||
-        _currentPageNumber! <= 1) {
-      return;
-    }
+    if (_mushafId == null || _currentPageNumber == null || _currentPageNumber! <= 1) return;
 
     _isLoading = true;
     _currentPageNumber = _currentPageNumber! - 1;
@@ -239,205 +268,114 @@ class MushafAudioProvider extends ChangeNotifier {
       }
 
       _playlist = List.from(prevPageData.verses);
-      // Play the last verse of the previous page
       _playlistIndex = _playlist.length - 1;
-      await _playCurrentVerse();
+      await _loadAndPlayPlaylist(_playlistIndex);
     } catch (e) {
       debugPrint('Failed to load previous page: $e');
       await stop();
     }
   }
 
-  Future<void> _playCurrentVerse() async {
-    if (_playlistIndex < 0 || _playlistIndex >= _playlist.length) return;
-
-    final verse = _playlist[_playlistIndex];
-    _currentVerseKey = verse.verseKey;
-    _isLoading = true;
-    notifyListeners();
-
-    _positionSubscription?.cancel();
-    _positionSubscription = null;
-
+  Future<Map<String, dynamic>?> _getChapterData(int chapterNumber) async {
+    if (_chapterDataCache.containsKey(chapterNumber)) {
+      return _chapterDataCache[chapterNumber];
+    }
     try {
-      final parts = verse.verseKey.split(':');
-      final surahNumber = int.parse(parts[0]);
-
-      // reciterId 161 (Khalifah Al Tunaiji)
-      final reciterId = 161;
-      final chapterData = await _audioRepository.fetchChapterRecitation(
-        reciterId: reciterId,
-        chapterNumber: surahNumber,
+      final data = await _audioRepository.fetchChapterRecitation(
+        reciterId: 161,
+        chapterNumber: chapterNumber,
       );
+      _chapterDataCache[chapterNumber] = data;
+      return data;
+    } catch (e) {
+      debugPrint('Failed to fetch chapter recitation for $chapterNumber: $e');
+      _chapterDataCache[chapterNumber] = {};
+      return null;
+    }
+  }
 
-      final String audioUrl = chapterData['audio_url'] ?? '';
-      final Map<String, Map<String, int>> timestamps =
-          chapterData['timestamps'] ?? {};
+  Future<List<AudioSource>> _buildAudioSources(List<MushafVerse> verses) async {
+    final List<AudioSource> sources = [];
+    for (final verse in verses) {
+      try {
+        final surahNumber = int.parse(verse.surahId);
+        final chapterData = await _getChapterData(surahNumber);
+        
+        final String audioUrl = chapterData?['audio_url'] ?? '';
+        final Map<String, Map<String, int>> timestamps = Map<String, Map<String, int>>.from(
+          chapterData?['timestamps'] ?? {},
+        );
+        final verseTime = timestamps[verse.verseKey];
 
-      final verseTime = timestamps[verse.verseKey];
-      if (verseTime == null) {
-        throw Exception('No timing data for verse ${verse.verseKey}');
-      }
-
-      final int fromMs = verseTime['from'] ?? 0;
-      final int toMs = verseTime['to'] ?? 0;
-
-      final verseId = parts.length > 1 ? parts[1] : '1';
-      final currentSource = _audioPlayer.audioSource;
-      bool needLoad = true;
-      if (currentSource is UriAudioSource) {
-        if (currentSource.uri.toString() == audioUrl) {
-          needLoad = false;
+        if (audioUrl.isNotEmpty && verseTime != null) {
+          final int fromMs = verseTime['from'] ?? 0;
+          final int toMs = verseTime['to'] ?? 0;
+          sources.add(
+            ClippingAudioSource(
+              child: AudioSource.uri(Uri.parse(audioUrl)),
+              start: Duration(milliseconds: fromMs),
+              end: Duration(milliseconds: toMs),
+              tag: MediaItem(
+                id: verse.verseKey,
+                album: "Mushaf Recitation",
+                title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
+                artist: "Khalifah Al Tunaiji",
+                artUri: Uri.parse(
+                  "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
+                ),
+              ),
+            ),
+          );
+        } else {
+          // Fallback single-ayah source from Quran Foundation
+          final fallbackUrl = await _audioRepository.fetchAyahRecitationUrl(
+            recitationId: 161,
+            verseKey: verse.verseKey,
+          );
+          sources.add(
+            AudioSource.uri(
+              Uri.parse(fallbackUrl),
+              tag: MediaItem(
+                id: verse.verseKey,
+                album: "Mushaf Recitation (Fallback)",
+                title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
+                artist: "Khalifah Al Tunaiji",
+                artUri: Uri.parse(
+                  "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
+                ),
+              ),
+            ),
+          );
         }
-      }
-
-      if (needLoad) {
-        await _audioPlayer.setAudioSource(
+      } catch (e) {
+        debugPrint('Timing error or fallback failed for ${verse.verseKey}: $e, trying EveryAyah...');
+        // EveryAyah Mishari Rashid Alafasy fallback
+        final chapter = verse.surahId.padLeft(3, '0');
+        final ayah = verse.verseId.padLeft(3, '0');
+        final fallbackUrl = 'https://everyayah.com/data/Alafasy_128kbps/$chapter$ayah.mp3';
+        sources.add(
           AudioSource.uri(
-            Uri.parse(audioUrl),
+            Uri.parse(fallbackUrl),
             tag: MediaItem(
               id: verse.verseKey,
-              album: "Mushaf Recitation",
-              title: "Surah $surahNumber - Verse $verseId",
-              artist: "Khalifah Al Tunaiji",
-              artUri: Uri.parse(
-                "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
-              ),
-            ),
-          ),
-        );
-      }
-
-      await _audioPlayer.seek(Duration(milliseconds: fromMs));
-
-      // Setup position limit stream
-      _positionSubscription = _audioPlayer.positionStream.listen((position) {
-        if (position.inMilliseconds >= toMs) {
-          _positionSubscription?.cancel();
-          _positionSubscription = null;
-          _handlePlaybackCompleted();
-        }
-      });
-
-      _isLoading = false;
-      _isPlaying = true;
-      notifyListeners();
-
-      await _audioPlayer.play();
-    } catch (e) {
-      debugPrint('Chapter recitation playback failed: $e, trying fallback...');
-      await _playFallbackAyah(verse);
-    }
-  }
-
-  Future<void> _playFallbackAyah(MushafVerse verse) async {
-    try {
-      final parts = verse.verseKey.split(':');
-      final surahNumber = int.parse(parts[0]);
-      final verseId = int.parse(parts[1]);
-
-      final audioUrls = await _fetchPlayableAyahUrls(
-        surahNumber: surahNumber,
-        verseId: verseId,
-        verseKey: verse.verseKey,
-      );
-
-      await _playFirstAvailableUrl(
-        audioUrls,
-        verseKey: verse.verseKey,
-        surahNumber: surahNumber,
-        verseId: verseId.toString(),
-      );
-    } catch (err) {
-      debugPrint('Fallback play failed: $err');
-      _isLoading = false;
-      _isPlaying = false;
-      notifyListeners();
-      // Stop completely
-      await stop();
-      throw Exception('Unable to play audio for ${verse.verseKey}.');
-    }
-  }
-
-  Future<List<String>> _fetchPlayableAyahUrls({
-    required int surahNumber,
-    required int verseId,
-    required String verseKey,
-  }) async {
-    final fallbackUrls = _everyAyahUrls(
-      surahNumber: surahNumber,
-      verseId: verseId,
-    );
-
-    try {
-      final quranFoundationUrl = await _audioRepository.fetchAyahRecitationUrl(
-        recitationId: 161,
-        verseKey: verseKey,
-      );
-      return [quranFoundationUrl, ...fallbackUrls];
-    } catch (error) {
-      debugPrint('Quran Foundation ayah audio failed for $verseKey: $error');
-      return fallbackUrls;
-    }
-  }
-
-  List<String> _everyAyahUrls({
-    required int surahNumber,
-    required int verseId,
-  }) {
-    final chapter = surahNumber.toString().padLeft(3, '0');
-    final verse = verseId.toString().padLeft(3, '0');
-    final fileName = '$chapter$verse.mp3';
-
-    return [
-      'https://everyayah.com/data/Alafasy_128kbps/$fileName',
-      'https://everyayah.com/data/Husary_128kbps/$fileName',
-      'https://everyayah.com/data/Minshawy_Murattal_128kbps/$fileName',
-    ];
-  }
-
-  Future<void> _playFirstAvailableUrl(
-    List<String> audioUrls, {
-    required String verseKey,
-    required int surahNumber,
-    required String verseId,
-  }) async {
-    Object? lastError;
-
-    for (final audioUrl in audioUrls) {
-      try {
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(
-            Uri.parse(audioUrl),
-            tag: MediaItem(
-              id: verseKey,
               album: "Mushaf Recitation (Fallback)",
-              title: "Surah $surahNumber - Verse $verseId",
-              artist: "Quran Reciter",
+              title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
+              artist: "Mishari Alafasy",
               artUri: Uri.parse(
                 "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
               ),
             ),
           ),
         );
-        _isLoading = false;
-        _isPlaying = true;
-        notifyListeners();
-        await _audioPlayer.play();
-        return;
-      } catch (error) {
-        lastError = error;
-        debugPrint('Audio URL failed: $audioUrl ($error)');
       }
     }
-
-    throw Exception(lastError ?? 'No playable audio URL was found.');
+    return sources;
   }
 
   @override
   void dispose() {
     _playerStateSubscription?.cancel();
-    _positionSubscription?.cancel();
+    _currentIndexSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }

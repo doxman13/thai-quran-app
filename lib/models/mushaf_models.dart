@@ -26,9 +26,9 @@ const mushafTypes = [
   ),
   MushafType(
     id: 2,
-    name: 'QCF V1',
+    name: 'Mushaf Al Madinah (1405)',
     pageCount: 604,
-    description: 'Older Quran Complex Font layout',
+    description: 'Medina Mushaf printed in 1405H',
   ),
   MushafType(
     id: 3,
@@ -68,19 +68,19 @@ const mushafTypes = [
   ),
   MushafType(
     id: 19,
-    name: 'QCF Tajweed V4',
+    name: 'Mushaf Al Madinah (1421H) Tajweed',
     pageCount: 604,
-    description: 'QCF Tajweed V4 layout',
+    description: 'Medina Tajweed Mushaf printed in 1421H',
   ),
   MushafType(
     id: qcfPackageMushafId,
-    name: 'QCF Package',
+    name: 'Mushaf Al Madinah (1421H)',
     pageCount: 604,
-    description: 'Bundled QCF page widget from qcf_quran',
+    description: 'Medina Mushaf printed in 1421H (Offline)',
   ),
 ];
 
-const visibleMushafTypeIds = {1, 2, 4, 6, 11, 19};
+const visibleMushafTypeIds = {2, 19, qcfPackageMushafId};
 
 List<MushafType> get visibleMushafTypes {
   return mushafTypes

@@ -54,6 +54,8 @@ flutter:
     - assets/reconciled_thai_quran_themes.json
     - assets/surah_summary_th_exact.json
     - assets/images/
+    - assets/qcf_v1_pages/
+    - assets/qcf_v1_fonts/
 
   fonts:
     - family: UthmanicHafs
