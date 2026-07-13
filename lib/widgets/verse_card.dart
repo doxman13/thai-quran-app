@@ -8,14 +8,12 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/verse.dart';
 import '../models/tadabbur_note.dart';
-import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../data/tadabbur_repository.dart';
 import '../providers/settings_provider.dart';
@@ -25,6 +23,7 @@ import '../providers/stats_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
+import '../providers/mushaf_audio_provider.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
@@ -114,8 +113,6 @@ class VerseCard extends StatefulWidget {
 }
 
 class _VerseCardState extends State<VerseCard> {
-  static const int _khalifahTanijiRecitationId = 161;
-
   // Audit and personal notes states
   bool _showAuditBox = false;
   bool _showTafsirBox = false;
@@ -126,14 +123,9 @@ class _VerseCardState extends State<VerseCard> {
   final GlobalKey _shareBoundaryKey = GlobalKey();
   final GlobalKey _tafsirKey = GlobalKey();
   final GlobalKey _auditKey = GlobalKey();
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  final QuranFoundationRepository _audioRepository =
-      QuranFoundationRepository();
   final TadabburRepository _tadabburRepository = TadabburRepository();
   final TextEditingController _auditController = TextEditingController();
   late Future<List<TadabburNote>> _communityNotesFuture;
-  StreamSubscription<PlayerState>? _audioStateSub;
-  StreamSubscription<Duration>? _positionSubscription;
 
   bool _isSavingAudit = false;
   bool _auditSaved = false;
@@ -147,21 +139,6 @@ class _VerseCardState extends State<VerseCard> {
       widget.verse.surahId,
       widget.verse.id,
     );
-    _audioStateSub = _audioPlayer.playerStateStream.listen((state) {
-      if (!mounted) return;
-      final isLoading =
-          state.processingState == ProcessingState.loading ||
-          state.processingState == ProcessingState.buffering;
-      final isCompleted = state.processingState == ProcessingState.completed;
-      setState(() {
-        _isAudioLoading = isLoading;
-        _isAudioPlaying = state.playing && !isCompleted;
-        _updateControllerState();
-      });
-      if (isCompleted) {
-        _audioPlayer.stop();
-      }
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = Provider.of<SettingsProvider>(context, listen: false);
       if (settings.showArabicText) {
@@ -226,15 +203,8 @@ class _VerseCardState extends State<VerseCard> {
       };
       widget.controller!.playAudio = _toggleAyahAudio;
       widget.controller!.stopAudio = () async {
-        if (_isAudioPlaying) {
-          await _audioPlayer.stop();
-          if (mounted) {
-            setState(() {
-              _isAudioPlaying = false;
-              _updateControllerState();
-            });
-          }
-        }
+        final mushafAudio = Provider.of<MushafAudioProvider>(context, listen: false);
+        await mushafAudio.stop();
       };
       widget.controller!.copyText = _copyVerseText;
       widget.controller!.shareImage = _shareVerseImage;
@@ -266,9 +236,6 @@ class _VerseCardState extends State<VerseCard> {
 
   @override
   void dispose() {
-    _positionSubscription?.cancel();
-    _audioStateSub?.cancel();
-    _audioPlayer.dispose();
     _auditController.dispose();
     super.dispose();
   }
@@ -580,97 +547,21 @@ class _VerseCardState extends State<VerseCard> {
   Future<void> _toggleAyahAudio() async {
     if (_isAudioLoading) return;
 
+    final mushafAudio = Provider.of<MushafAudioProvider>(context, listen: false);
+    final verseKey = '${widget.verse.surahId}:${widget.verse.id}';
+
     if (_isAudioPlaying) {
-      await _audioPlayer.stop();
-      _positionSubscription?.cancel();
-      _positionSubscription = null;
-      if (mounted) {
-        setState(() => _isAudioPlaying = false);
-      }
+      await mushafAudio.stop();
       return;
     }
 
-    setState(() => _isAudioLoading = true);
     try {
-      final verseKey = '${widget.verse.surahId}:${widget.verse.id}';
-      final surahNumber = int.parse(widget.verse.surahId);
-
-      _positionSubscription?.cancel();
-      _positionSubscription = null;
-
-      // Khalifah Al Tunaiji (ID 161) is a chapter reciter.
-      // Any reciter ID > 12 is handled as a chapter reciter.
-      if (_khalifahTanijiRecitationId > 12) {
-        final chapterData = await _audioRepository.fetchChapterRecitation(
-          reciterId: _khalifahTanijiRecitationId,
-          chapterNumber: surahNumber,
-        );
-
-        final String audioUrl = chapterData['audio_url'] ?? '';
-        final Map<String, Map<String, int>> timestamps =
-            chapterData['timestamps'] ?? {};
-
-        final verseTime = timestamps[verseKey];
-        if (verseTime == null) {
-          throw QuranFoundationException(
-            'No timing data found for verse $verseKey.',
-          );
-        }
-
-        final int fromMs = verseTime['from'] ?? 0;
-        final int toMs = verseTime['to'] ?? 0;
-
-        await _audioPlayer.stop();
-
-        // Only reload url if it's different to optimize buffering
-        final currentSource = _audioPlayer.audioSource;
-        bool needLoad = true;
-        if (currentSource is UriAudioSource) {
-          if (currentSource.uri.toString() == audioUrl) {
-            needLoad = false;
-          }
-        }
-
-        if (needLoad) {
-          await _audioPlayer.setUrl(audioUrl);
-        }
-
-        // Seek to the start position of the verse
-        await _audioPlayer.seek(Duration(milliseconds: fromMs));
-
-        // Start listening to the position stream to stop when the verse ends
-        _positionSubscription = _audioPlayer.positionStream.listen((
-          position,
-        ) async {
-          if (position.inMilliseconds >= toMs) {
-            await _audioPlayer.stop();
-            _positionSubscription?.cancel();
-            _positionSubscription = null;
-            if (mounted) {
-              setState(() => _isAudioPlaying = false);
-            }
-          }
-        });
-
-        await _audioPlayer.play();
-      } else {
-        final audioUrl = await _audioRepository.fetchAyahRecitationUrl(
-          recitationId: _khalifahTanijiRecitationId,
-          verseKey: verseKey,
-        );
-        await _audioPlayer.stop();
-        await _audioPlayer.setUrl(audioUrl);
-        await _audioPlayer.play();
-      }
+      await mushafAudio.playSingleIndependentVerse(verseKey);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not play ayah audio: $e')));
-    } finally {
-      if (mounted) {
-        setState(() => _isAudioLoading = false);
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not play ayah audio: $e')),
+      );
     }
   }
 
@@ -777,6 +668,22 @@ class _VerseCardState extends State<VerseCard> {
 
   @override
   Widget build(BuildContext context) {
+    final audioProvider = Provider.of<MushafAudioProvider>(context);
+    final verseKey = '${widget.verse.surahId}:${widget.verse.id}';
+    final isCurrentVerse = audioProvider.currentVerseKey == verseKey;
+    final isPlaying = isCurrentVerse && audioProvider.isPlaying;
+    final isLoading = isCurrentVerse && audioProvider.isLoading;
+
+    if (isPlaying != _isAudioPlaying || isLoading != _isAudioLoading) {
+      _isAudioPlaying = isPlaying;
+      _isAudioLoading = isLoading;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _updateControllerState();
+        }
+      });
+    }
+
     final settings = Provider.of<SettingsProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context, listen: false);
     final localReading = Provider.of<LocalReadingProvider>(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -11,6 +12,7 @@ import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
+import '../providers/mushaf_audio_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
@@ -52,6 +54,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   Timer? _translationTimer;
   Timer? _highlightTimer;
   Timer? _menuAutoHideTimer;
+  int? _lastAudioPageNumber;
 
   void _startAutoHideTimer() {
     _menuAutoHideTimer?.cancel();
@@ -199,6 +202,38 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       _highlightedVerseKey = null;
       _translationBookmarked = false;
     });
+  }
+
+  Future<void> _playCurrentPage() async {
+    final audioProvider = context.read<MushafAudioProvider>();
+    if (audioProvider.isPlaying &&
+        audioProvider.currentPageNumber == _pageNumber &&
+        audioProvider.isContinuous) {
+      await audioProvider.togglePlayPause();
+      return;
+    }
+
+    final displayMushafId = context.read<MushafReadingProvider>().displayMushafId;
+    _lastAudioPageNumber = _pageNumber;
+    try {
+      final pageData = await widget.foundationRepository.fetchPage(
+        mushafId: displayMushafId,
+        pageNumber: _pageNumber,
+      );
+      if (pageData.verses.isNotEmpty) {
+        await audioProvider.playPage(
+          mushafId: displayMushafId,
+          pageNumber: _pageNumber,
+          verses: pageData.verses,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load page audio: $e')),
+        );
+      }
+    }
   }
 
   void _beginVersePress(
@@ -536,6 +571,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final colors = settings.getAppColors();
     final provider = Provider.of<MushafReadingProvider>(context);
     final profile = provider.profileById(widget.profileId);
+    final audioProvider = context.watch<MushafAudioProvider>();
 
     if (profile == null) {
       return Scaffold(
@@ -543,6 +579,18 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         body: const Center(child: Text('Mushaf profile not found.')),
       );
     }
+
+    final audioPage = audioProvider.currentPageNumber;
+    if (audioPage != null && audioPage != _lastAudioPageNumber) {
+      _lastAudioPageNumber = audioPage;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageNumber != audioPage) {
+          _goToPage(audioPage);
+        }
+      });
+    }
+
+    final activeHighlightKey = audioProvider.isPlaying ? audioProvider.currentVerseKey : _highlightedVerseKey;
 
     final displayMushafId = provider.displayMushafId;
     final type = mushafTypeById(displayMushafId);
@@ -667,8 +715,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                       return _QcfPackagePageView(
                                         colors: colors,
                                         pageNumber: renderPage,
-                                        highlightedVerseKey:
-                                            _highlightedVerseKey,
+                                        highlightedVerseKey: activeHighlightKey,
                                         onVerseLongPressStart: (surah, verse) =>
                                             _beginVersePress(
                                               profile,
@@ -688,7 +735,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                       pageNumber: renderPage,
                                       mushafId: displayMushafId,
                                       repository: widget.foundationRepository,
-                                      highlightedVerseKey: _highlightedVerseKey,
+                                      highlightedVerseKey: activeHighlightKey,
                                       onVerseTap: _toggleVerseHighlight,
                                       onVerseLongPressStart: (verseKey) =>
                                           _beginVersePress(
@@ -713,7 +760,11 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             Positioned(
                               left: 16,
                               right: 16,
-                              bottom: _translationText == null ? 12 : 178,
+                              bottom: _translationText != null
+                                  ? 178
+                                  : (audioProvider.currentVerseKey != null && audioProvider.isContinuous
+                                      ? 102
+                                      : 12),
                               child: _CompletionCard(
                                 colors: colors,
                                 profile: profile,
@@ -739,9 +790,43 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                 fontSize: context
                                     .read<SettingsProvider>()
                                     .translationFontSize,
+                                isAudioPlaying: audioProvider.isPlaying &&
+                                    audioProvider.currentVerseKey == _translationVerseKey,
+                                isAudioLoading: audioProvider.isLoading &&
+                                    audioProvider.currentVerseKey == _translationVerseKey,
+                                onPlay: () async {
+                                  if (audioProvider.isPlaying &&
+                                      audioProvider.currentVerseKey == _translationVerseKey) {
+                                    await audioProvider.togglePlayPause();
+                                  } else {
+                                    final pageData = await widget.foundationRepository.fetchPage(
+                                      mushafId: displayMushafId,
+                                      pageNumber: _pageNumber,
+                                    );
+                                    await audioProvider.playVerse(
+                                      mushafId: displayMushafId,
+                                      pageNumber: _pageNumber,
+                                      verseKey: _translationVerseKey!,
+                                      pageVerses: pageData.verses,
+                                    );
+                                  }
+                                },
                               ),
                             ),
-                          if (!_isMenuVisible && _translationText == null)
+                          if (_translationText == null &&
+                              audioProvider.currentVerseKey != null &&
+                              audioProvider.isContinuous)
+                            Positioned(
+                              left: 14,
+                              right: 14,
+                              bottom: 12,
+                              child: _FloatingAudioControlBar(
+                                colors: colors,
+                                audioProvider: audioProvider,
+                                quranRepository: widget.quranRepository,
+                              ),
+                            ),
+                          if (!_isMenuVisible && _translationText == null && audioProvider.currentVerseKey == null)
                             Positioned(
                               top: 0,
                               left: 16,
@@ -806,6 +891,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             context,
                             widget.quranRepository,
                           ),
+                          isAudioPlaying: audioProvider.isPlaying && audioProvider.currentPageNumber == _pageNumber && audioProvider.isContinuous,
+                          isAudioLoading: audioProvider.isLoading && audioProvider.currentPageNumber == _pageNumber && audioProvider.isContinuous,
+                          onPlay: _playCurrentPage,
                         ),
                       ),
                     ),
@@ -1147,6 +1235,9 @@ class _ReaderTopBar extends StatelessWidget {
   final VoidCallback onFavoriteVerse;
   final QuranRepository quranRepository;
   final VoidCallback onTitleTap;
+  final bool isAudioPlaying;
+  final bool isAudioLoading;
+  final VoidCallback onPlay;
 
   const _ReaderTopBar({
     required this.colors,
@@ -1161,6 +1252,9 @@ class _ReaderTopBar extends StatelessWidget {
     required this.onFavoriteVerse,
     required this.quranRepository,
     required this.onTitleTap,
+    required this.isAudioPlaying,
+    required this.isAudioLoading,
+    required this.onPlay,
   });
 
   @override
@@ -1237,6 +1331,23 @@ class _ReaderTopBar extends StatelessWidget {
                 ? colors.primary
                 : colors.foreground,
           ),
+        ),
+        IconButton(
+          tooltip: isAudioPlaying ? 'Pause recitation' : 'Play recitation',
+          onPressed: onPlay,
+          icon: isAudioLoading
+              ? SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.primary,
+                  ),
+                )
+              : Icon(
+                  isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: colors.primary,
+                ),
         ),
         IconButton(
           tooltip: context.tr('mushaf_settings'),
@@ -2170,6 +2281,9 @@ class _TranslationPanel extends StatelessWidget {
   final VoidCallback onFavorite;
   final VoidCallback onClose;
   final double fontSize;
+  final bool isAudioPlaying;
+  final bool isAudioLoading;
+  final VoidCallback onPlay;
 
   const _TranslationPanel({
     required this.colors,
@@ -2181,6 +2295,9 @@ class _TranslationPanel extends StatelessWidget {
     required this.onFavorite,
     required this.onClose,
     required this.fontSize,
+    required this.isAudioPlaying,
+    required this.isAudioLoading,
+    required this.onPlay,
   });
 
   @override
@@ -2210,6 +2327,23 @@ class _TranslationPanel extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
+                ),
+                IconButton(
+                  tooltip: isAudioPlaying ? 'Pause verse' : 'Play verse',
+                  onPressed: onPlay,
+                  icon: isAudioLoading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.primary,
+                          ),
+                        )
+                      : Icon(
+                          isAudioPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                          color: colors.primary,
+                        ),
                 ),
                 IconButton(
                   tooltip: bookmarked ? 'Remove bookmark' : 'Bookmark verse',
@@ -2637,5 +2771,116 @@ int getOfflineHizbForPage(int pageNumber) {
     return juz * 2;
   } else {
     return juz * 2 - 1;
+  }
+}
+
+class _FloatingAudioControlBar extends StatelessWidget {
+  final AppThemeColors colors;
+  final MushafAudioProvider audioProvider;
+  final QuranRepository quranRepository;
+
+  const _FloatingAudioControlBar({
+    required this.colors,
+    required this.audioProvider,
+    required this.quranRepository,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currentKey = audioProvider.currentVerseKey ?? '';
+    final parts = currentKey.split(':');
+    final surahName = parts.isNotEmpty
+        ? quranRepository.getSurahName(parts[0])
+        : '';
+    final verseText = parts.length > 1 ? 'อายะฮ์ ${parts[1]}' : '';
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 8,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colors.borderSoft,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        surahName,
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.textStrong,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        verseText,
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.foreground.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_previous_rounded),
+                  color: colors.primary,
+                  onPressed: audioProvider.previousVerse,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: audioProvider.isLoading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colors.primary,
+                          ),
+                        )
+                      : Icon(
+                          audioProvider.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                  color: colors.primary,
+                  iconSize: 32,
+                  onPressed: audioProvider.togglePlayPause,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.skip_next_rounded),
+                  color: colors.primary,
+                  onPressed: audioProvider.nextVerse,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.stop_rounded),
+                  color: Colors.redAccent,
+                  onPressed: audioProvider.stop,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

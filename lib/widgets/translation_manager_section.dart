@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
-import '../services/translation_downloader.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 
@@ -74,7 +73,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     ),
   ];
 
-  final Map<int, double> _downloadProgress = {};
+  int? _activeDownloadingId;
+  Map<int, double> get _downloadProgress =>
+      context.read<TranslationManagerProvider>().downloadProgress;
   OverlayEntry? _progressOverlayEntry;
   ValueNotifier<double>? _activeProgressNotifier;
 
@@ -92,6 +93,32 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final transManager = context.watch<TranslationManagerProvider>();
     final settings = context.watch<SettingsProvider>();
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Sync progress overlay if active
+    if (_progressOverlayEntry != null && _activeProgressNotifier != null && _activeDownloadingId != null) {
+      final progress = transManager.downloadProgress[_activeDownloadingId!];
+      if (progress != null) {
+        _activeProgressNotifier!.value = progress;
+      } else {
+        // Not in progress anymore. Check if it succeeded by looking at downloaded options
+        final succeeded = transManager.downloadedTranslations.any((t) => t['id'] == _activeDownloadingId);
+        if (succeeded) {
+          _activeProgressNotifier!.value = 1.0;
+        } else {
+          // Failed or canceled, remove the overlay
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_progressOverlayEntry != null) {
+              _progressOverlayEntry?.remove();
+              _progressOverlayEntry = null;
+              _activeProgressNotifier?.dispose();
+              _activeProgressNotifier = null;
+              _activeDownloadingId = null;
+            }
+          });
+        }
+      }
+    }
+
     final downloadedOptions = _downloadedOptions(transManager);
 
     return Card(
@@ -340,6 +367,8 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final id = option.apiId;
     if (id == null) return;
 
+    _activeDownloadingId = id;
+
     // Clean up any existing download progress overlays
     _progressOverlayEntry?.remove();
     _progressOverlayEntry = null;
@@ -347,10 +376,6 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
 
     final progressNotifier = ValueNotifier<double>(0);
     _activeProgressNotifier = progressNotifier;
-
-    setState(() {
-      _downloadProgress[id] = 0;
-    });
 
     final overlayState = Overlay.of(context);
     final entry = OverlayEntry(
@@ -364,6 +389,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
             _progressOverlayEntry = null;
             _activeProgressNotifier?.dispose();
             _activeProgressNotifier = null;
+            _activeDownloadingId = null;
           },
         );
       },
@@ -371,43 +397,13 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     _progressOverlayEntry = entry;
     overlayState.insert(entry);
 
-    final success = await TranslationDownloader.downloadTranslation(
-      id,
-      option.name,
-      option.author,
-      option.language,
-      onProgress: (progress) {
-        progressNotifier.value = progress;
-        if (mounted) {
-          setState(() {
-            _downloadProgress[id] = progress;
-          });
-        }
-      },
+    final transManager = context.read<TranslationManagerProvider>();
+    await transManager.startBackgroundDownload(
+      id: id,
+      name: option.name,
+      author: option.author,
+      language: option.language,
     );
-
-    if (!mounted) return;
-
-    setState(() {
-      _downloadProgress.remove(id);
-    });
-
-    if (success) {
-      progressNotifier.value = 1.0;
-      await context.read<TranslationManagerProvider>().refreshDownloadedList();
-    } else {
-      _progressOverlayEntry?.remove();
-      _progressOverlayEntry = null;
-      _activeProgressNotifier?.dispose();
-      _activeProgressNotifier = null;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('Failed to download ${option.displayName(settingsLanguage)}'),
-        ),
-      );
-    }
   }
 
   String get settingsLanguage {

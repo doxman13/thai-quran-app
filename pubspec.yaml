@@ -22,6 +22,10 @@ dependencies:
   flutter_svg: ^2.0.10
   share_plus: ^13.2.0
   just_audio: ^0.10.5
+  just_audio_background: ^0.0.1-beta.15
+  audio_service: ^0.18.19
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^17.2.1
   qcf_quran: ^0.0.5
   url_launcher: ^6.3.0
   timeago: ^3.7.1
