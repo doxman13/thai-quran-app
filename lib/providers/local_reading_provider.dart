@@ -7,6 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../shared/shared.dart';
 
+const shortcutMulkId = '00000000-0000-0000-0000-000000000067';
+const shortcutKahfId = '00000000-0000-0000-0000-000000000018';
+
+bool isShortcutProfile(LocalReadingProfile profile) {
+  return profile.id == shortcutMulkId ||
+      profile.id == shortcutKahfId ||
+      profile.slug.startsWith('shortcut_');
+}
+
 class StorageException implements Exception {
   final String message;
   const StorageException(this.message);
@@ -484,7 +493,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<LocalReadingProfile> get profiles {
     final userProfiles = _profiles
-        .where((p) => p.userId == currentUserId)
+        .where((p) => p.userId == currentUserId && !isShortcutProfile(p))
         .toList();
     final hasCustomActive = userProfiles.any(
       (p) => !isFreeReadProfile(p) && !p.isArchived,
@@ -498,7 +507,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<LocalReadingProfile> get activeProfiles {
     final allActive = _profiles
         .where(
-          (profile) => !profile.isArchived && profile.userId == currentUserId,
+          (profile) => !profile.isArchived && profile.userId == currentUserId && !isShortcutProfile(profile),
         )
         .toList();
     final hasCustomActive = allActive.any((p) => !isFreeReadProfile(p));
@@ -513,7 +522,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<LocalReadingProfile> get archivedProfiles {
     final allArchived = _profiles
         .where(
-          (profile) => profile.isArchived && profile.userId == currentUserId,
+          (profile) => profile.isArchived && profile.userId == currentUserId && !isShortcutProfile(profile),
         )
         .toList();
     return allArchived
@@ -2174,6 +2183,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       '${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}_${_bookmarks.length}';
 
   void _ensureDefaultProfile() {
+    _ensureShortcutProfiles();
+
     if (_profiles.any(
       (p) => isFreeReadProfile(p) && p.userId == currentUserId,
     )) {
@@ -2196,6 +2207,150 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _profiles.insert(0, profile);
     _activeProfileId ??= profile.id;
+  }
+
+  void _ensureShortcutProfiles() {
+    final now = DateTime.now();
+    
+    // 1. Al-Mulk
+    final hasMulk = _profiles.any((p) => p.id == shortcutMulkId);
+    if (!hasMulk) {
+      _profiles.add(LocalReadingProfile(
+        id: shortcutMulkId,
+        userId: currentUserId,
+        name: 'Al-Mulk Shortcut',
+        slug: 'shortcut_mulk',
+        start: toVerseRef(67, 1),
+        target: toVerseRef(67, 30),
+        current: toVerseRef(67, 1),
+        sortOrder: 1000,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    } else {
+      final idx = _profiles.indexWhere((p) => p.id == shortcutMulkId);
+      if (idx != -1 && _profiles[idx].userId != currentUserId) {
+        _profiles[idx] = _profiles[idx].copyWith(userId: currentUserId);
+      }
+    }
+
+    // 2. Al-Kahf
+    final hasKahf = _profiles.any((p) => p.id == shortcutKahfId);
+    if (!hasKahf) {
+      _profiles.add(LocalReadingProfile(
+        id: shortcutKahfId,
+        userId: currentUserId,
+        name: 'Al-Kahf Shortcut',
+        slug: 'shortcut_kahf',
+        start: toVerseRef(18, 1),
+        target: toVerseRef(18, 110),
+        current: toVerseRef(18, 1),
+        sortOrder: 1001,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    } else {
+      final idx = _profiles.indexWhere((p) => p.id == shortcutKahfId);
+      if (idx != -1 && _profiles[idx].userId != currentUserId) {
+        _profiles[idx] = _profiles[idx].copyWith(userId: currentUserId);
+      }
+    }
+  }
+
+  DateTime getLastMulkResetTime(DateTime now) {
+    final todayReset = DateTime(now.year, now.month, now.day, 19, 45); // 7:45 PM
+    if (now.isAfter(todayReset) || now.isAtSameMomentAs(todayReset)) {
+      return todayReset;
+    } else {
+      return todayReset.subtract(const Duration(days: 1));
+    }
+  }
+
+  DateTime getLastKahfResetTime(DateTime now) {
+    var temp = DateTime(now.year, now.month, now.day, 19, 45); // Thursday 7:45 PM
+    while (temp.weekday != DateTime.thursday) {
+      temp = temp.subtract(const Duration(days: 1));
+    }
+    if (now.isBefore(temp)) {
+      temp = temp.subtract(const Duration(days: 7));
+    }
+    return temp;
+  }
+
+  void checkAndResetShortcutProfiles() {
+    final now = DateTime.now();
+    var changed = false;
+
+    // Check Mulk
+    final mulkIndex = _profiles.indexWhere((p) => p.id == shortcutMulkId);
+    if (mulkIndex != -1) {
+      final p = _profiles[mulkIndex];
+      final resetTime = getLastMulkResetTime(now);
+      if (p.updatedAt.isBefore(resetTime)) {
+        _profiles[mulkIndex] = p.copyWith(
+          current: toVerseRef(67, 1),
+          lastViewed: toVerseRef(67, 1),
+          updatedAt: resetTime,
+        );
+        changed = true;
+      }
+    }
+
+    // Check Kahf
+    final kahfIndex = _profiles.indexWhere((p) => p.id == shortcutKahfId);
+    if (kahfIndex != -1) {
+      final p = _profiles[kahfIndex];
+      final resetTime = getLastKahfResetTime(now);
+      if (p.updatedAt.isBefore(resetTime)) {
+        _profiles[kahfIndex] = p.copyWith(
+          current: toVerseRef(18, 1),
+          lastViewed: toVerseRef(18, 1),
+          updatedAt: resetTime,
+        );
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      _save(immediate: true);
+      notifyListeners();
+      // Sync reset to Supabase
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        if (mulkIndex != -1) _queueProfileSync(_profiles[mulkIndex], delay: Duration.zero);
+        if (kahfIndex != -1) _queueProfileSync(_profiles[kahfIndex], delay: Duration.zero);
+      }
+    }
+  }
+
+  Future<void> updateShortcutProgress(String shortcutId, VerseRef current) async {
+    await _loadCompleter.future;
+    final idx = _profiles.indexWhere((p) => p.id == shortcutId);
+    if (idx == -1) return;
+
+    final now = DateTime.now();
+    final profile = _profiles[idx];
+    
+    final currentIndex = absoluteVerseIndex(current);
+    final furthestIndex = profile.furthestUnreadIndex;
+    final shouldAdvanceFurthest = currentIndex > furthestIndex;
+
+    final updated = profile.copyWith(
+      current: shouldAdvanceFurthest ? current : profile.current,
+      lastViewed: current,
+      updatedAt: now,
+    );
+    _profiles[idx] = updated;
+
+    await _save(immediate: true);
+    notifyListeners();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _queueProfileSync(updated, delay: Duration.zero);
+    }
   }
 }
 

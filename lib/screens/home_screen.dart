@@ -423,6 +423,7 @@ class _HomeScreenState extends State<HomeScreen>
     String? verseId,
     int? verseIndex,
     bool saveToFreeReadOnly = false,
+    String? shortcutId,
   }) {
     Navigator.push(
       context,
@@ -434,6 +435,7 @@ class _HomeScreenState extends State<HomeScreen>
           initialVerseIndex:
               verseIndex ?? ((int.tryParse(verseId ?? '1') ?? 1) - 1),
           saveToFreeReadOnly: saveToFreeReadOnly,
+          shortcutId: shortcutId,
         ),
       ),
     ).then(
@@ -444,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _navigateToMushafFreeReadPage(int pageNumber) async {
+  Future<void> _navigateToMushafFreeReadPage(int pageNumber, {String? shortcutId}) async {
     final mushafProvider = context.read<MushafReadingProvider>();
     final profile = await mushafProvider.openUnifiedFreeRead();
     if (!mounted) return;
@@ -454,7 +456,8 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (_) => MushafReaderScreen(
           quranRepository: widget.repository,
           foundationRepository: _foundationRepository,
-          profileId: profile.id,
+          profileId: shortcutId != null ? null : profile.id,
+          shortcutId: shortcutId,
           initialPage: pageNumber,
         ),
       ),
@@ -855,7 +858,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _chooseBrowseDestination(String surahId, String verseId) async {
+  Future<void> _chooseBrowseDestination(String surahId, String verseId, {String? shortcutId}) async {
     final colorScheme = Theme.of(context).colorScheme;
     final surah = int.tryParse(surahId) ?? 1;
     final verse = int.tryParse(verseId) ?? 1;
@@ -913,14 +916,15 @@ class _HomeScreenState extends State<HomeScreen>
     );
     if (!mounted || destination == null) return;
     if (destination == 'mushaf') {
-      await _navigateToMushafFreeReadPage(pageNumber);
+      await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
       return;
     }
     _navigateToReading(
       context,
       surahId,
       verseId: verseId,
-      saveToFreeReadOnly: true,
+      saveToFreeReadOnly: shortcutId == null,
+      shortcutId: shortcutId,
     );
   }
 
@@ -1382,6 +1386,106 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Future<void> _onQuickLinkTap(CustomQuickLink link) async {
+    final provider = context.read<LocalReadingProvider>();
+    final shortcutId = link.id == 'system_mulk' 
+        ? shortcutMulkId 
+        : link.id == 'system_kahf' 
+            ? shortcutKahfId 
+            : null;
+
+    var targetVerseId = '1';
+
+    if (shortcutId != null) {
+      provider.checkAndResetShortcutProfiles();
+      final profile = provider.profileById(shortcutId);
+      if (profile != null) {
+        targetVerseId = profile.current.verseId;
+        if (targetVerseId != '1') {
+          // Show Continue or Start from 1 modal popup
+          final startOver = await showModalBottomSheet<bool>(
+            context: context,
+            showDragHandle: true,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppTheme.radius),
+              ),
+            ),
+            builder: (ctx) {
+              final colors = ctx.read<SettingsProvider>().getAppColors();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      link.id == 'system_mulk' ? 'Surah Al-Mulk' : 'Surah Al-Kahf',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: colors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
+                      style: GoogleFonts.notoSansThai(color: colors.foreground),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.background,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text('Continue reading (Verse $targetVerseId)'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        'Start from Verse 1',
+                        style: GoogleFonts.notoSansThai(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+
+          if (startOver == null) return; // Modal dismissed
+          if (startOver) {
+            targetVerseId = '1';
+            await provider.updateShortcutProgress(shortcutId, toVerseRef(link.surahNumber.toString(), '1'));
+          }
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (shortcutId != null) {
+      final surah = int.tryParse(link.surahNumber.toString()) ?? 1;
+      final verse = int.tryParse(targetVerseId) ?? 1;
+      final pageNumber = qcf.getPageNumber(surah, verse);
+      await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
+    } else {
+      await _chooseBrowseDestination(link.surahNumber.toString(), targetVerseId, shortcutId: shortcutId);
+    }
+  }
+
   Widget _buildSurahShortcutSquare(
     CustomQuickLink link,
     ColorScheme colorScheme,
@@ -1411,7 +1515,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _chooseBrowseDestination(surahId, '1'),
+          onTap: () => _onQuickLinkTap(link),
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: Stack(
@@ -1574,9 +1678,7 @@ class _HomeScreenState extends State<HomeScreen>
     final customProfiles = localReading.profiles
         .where((p) => !isFreeReadProfile(p) && !p.isArchived)
         .toList();
-    final freeReadProfile = localReading.profiles
-        .where((p) => isFreeReadProfile(p))
-        .firstOrNull;
+    final freeReadProfile = localReading.freeReadProfile;
 
     final allItems = [
       ...customProfiles,

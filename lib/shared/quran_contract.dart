@@ -1,7 +1,7 @@
 const defaultReadingProfileSlugs = ['free_read', 'random_read'];
 const maxActiveReadingProfiles = 5;
 const defaultBookmarkCategoryMaxItems = 9999;
-const defaultRecentReadingsLimit = 20;
+const defaultRecentReadingsLimit = 30;
 const translationVersions = ['thai_v3', 'thai_v2', 'english'];
 const tafsirKeys = ['thai_mokhtasar'];
 const readingProfilePlanModes = ['by_juz', 'by_surah', 'by_ayat', 'custom'];

@@ -6,17 +6,21 @@ import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
+import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
+import '../models/verse.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
@@ -25,17 +29,19 @@ import '../widgets/tadabbur_panel.dart';
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
   final QuranFoundationRepository foundationRepository;
-  final String profileId;
+  final String? profileId;
   final int? initialPage;
   final String? initialHighlightVerseKey;
+  final String? shortcutId;
 
   const MushafReaderScreen({
     Key? key,
     required this.quranRepository,
     required this.foundationRepository,
-    required this.profileId,
+    this.profileId,
     this.initialPage,
     this.initialHighlightVerseKey,
+    this.shortcutId,
   }) : super(key: key);
 
   @override
@@ -45,6 +51,7 @@ class MushafReaderScreen extends StatefulWidget {
 class _MushafReaderScreenState extends State<MushafReaderScreen> {
   late int _pageNumber;
   late PageController _pageController;
+  bool _isTranslationView = false;
   bool _isMenuVisible = true;
   bool _completionShown = false;
   String? _highlightedVerseKey;
@@ -71,12 +78,39 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _menuAutoHideTimer?.cancel();
   }
 
+  MushafProfile? _getProfile() {
+    if (widget.shortcutId != null) {
+      final lp = context.read<LocalReadingProvider>().profileById(widget.shortcutId!);
+      if (lp == null) return null;
+      final startPage = qcf.getPageNumber(int.tryParse(lp.start.surahId) ?? 1, int.tryParse(lp.start.verseId) ?? 1);
+      final targetPage = lp.target != null 
+          ? qcf.getPageNumber(int.tryParse(lp.target!.surahId) ?? 1, int.tryParse(lp.target!.verseId) ?? 1)
+          : 604;
+      final currentPage = qcf.getPageNumber(int.tryParse(lp.current.surahId) ?? 1, int.tryParse(lp.current.verseId) ?? 1);
+      return MushafProfile(
+        id: lp.id,
+        userId: lp.userId,
+        name: lp.name,
+        slug: lp.slug,
+        mushafId: 2, // Madani QCF
+        planMode: 'custom',
+        startPage: startPage,
+        targetPage: targetPage,
+        currentPage: currentPage,
+        lastViewedPage: currentPage,
+        sortOrder: 0,
+        isArchived: false,
+        createdAt: lp.createdAt,
+        updatedAt: lp.updatedAt,
+      );
+    }
+    return context.read<MushafReadingProvider>().profileById(widget.profileId);
+  }
+
   @override
   void initState() {
     super.initState();
-    final profile = context.read<MushafReadingProvider>().profileById(
-      widget.profileId,
-    );
+    final profile = _getProfile();
     _pageNumber = widget.initialPage ?? profile?.currentPage ?? 1;
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
@@ -86,20 +120,27 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _startAutoHideTimer();
 
     // Enable Wakelock if keepAwake setting is true
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.keepAwake) {
           WakelockPlus.enable();
         }
-        final currentProfile = context
-            .read<MushafReadingProvider>()
-            .profileById(widget.profileId);
+        final currentProfile = _getProfile();
         if (currentProfile != null) {
-          context.read<MushafReadingProvider>().updateProgress(
-            profileId: currentProfile.id,
-            pageNumber: _pageNumber,
-          );
+          if (widget.shortcutId != null) {
+            final pageData = await widget.foundationRepository.fetchPage(mushafId: 2, pageNumber: _pageNumber);
+            if (mounted && pageData.verses.isNotEmpty) {
+              final firstVerse = pageData.verses.first;
+              final verseRef = toVerseRef(firstVerse.surahId.toString(), firstVerse.verseId.toString());
+              await context.read<LocalReadingProvider>().updateShortcutProgress(widget.shortcutId!, verseRef);
+            }
+          } else {
+            context.read<MushafReadingProvider>().updateProgress(
+              profileId: currentProfile.id,
+              pageNumber: _pageNumber,
+            );
+          }
           unawaited(_logMushafPageRead(currentProfile.mushafId, _pageNumber));
           if (widget.initialHighlightVerseKey != null) {
             _showVerseTranslation(
@@ -140,10 +181,19 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   Future<void> _handlePageChanged(MushafProfile profile, int page) async {
     _dismissTranslation();
     setState(() => _pageNumber = page);
-    await context.read<MushafReadingProvider>().updateProgress(
-      profileId: profile.id,
-      pageNumber: page,
-    );
+    if (widget.shortcutId != null) {
+      final pageData = await widget.foundationRepository.fetchPage(mushafId: 2, pageNumber: page);
+      if (mounted && pageData.verses.isNotEmpty) {
+        final firstVerse = pageData.verses.first;
+        final verseRef = toVerseRef(firstVerse.surahId.toString(), firstVerse.verseId.toString());
+        await context.read<LocalReadingProvider>().updateShortcutProgress(widget.shortcutId!, verseRef);
+      }
+    } else {
+      await context.read<MushafReadingProvider>().updateProgress(
+        profileId: profile.id,
+        pageNumber: page,
+      );
+    }
     unawaited(_logMushafPageRead(profile.mushafId, page));
     if (!profile.isFreeRead && page == profile.targetPage) {
       _showCompletionOnce();
@@ -168,9 +218,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   Future<void> _goToPage(int page) async {
-    final profile = context.read<MushafReadingProvider>().profileById(
-      widget.profileId,
-    );
+    final profile = _getProfile();
     if (profile == null) return;
     final safePage = _clampInt(page, profile.startPage, profile.targetPage);
     final index = _pageToIndex(profile, safePage);
@@ -523,7 +571,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   Future<void> _jumpToSurah(int surahNumber) async {
     final provider = context.read<MushafReadingProvider>();
-    final currentProfile = provider.profileById(widget.profileId);
+    final currentProfile = _getProfile();
     if (currentProfile == null) return;
 
     final startPage = getStartPageForSurah(surahNumber);
@@ -570,7 +618,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final colors = settings.getAppColors();
     final provider = Provider.of<MushafReadingProvider>(context);
-    final profile = provider.profileById(widget.profileId);
+    final profile = _getProfile();
     final audioProvider = context.watch<MushafAudioProvider>();
 
     if (profile == null) {
@@ -714,6 +762,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                       1,
                                       type.pageCount,
                                     );
+                                    if (_isTranslationView) {
+                                      return _PageTranslationListView(
+                                        pageNumber: renderPage,
+                                        mushafId: displayMushafId,
+                                        foundationRepository: widget.foundationRepository,
+                                        quranRepository: widget.quranRepository,
+                                        settings: settings,
+                                      );
+                                    }
                                     if (displayMushafId == qcfPackageMushafId) {
                                       return _QcfPackagePageView(
                                         colors: colors,
@@ -900,6 +957,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                           isAudioPlaying: audioProvider.isPlaying && audioProvider.currentPageNumber == _pageNumber && audioProvider.isContinuous,
                           isAudioLoading: audioProvider.isLoading && audioProvider.currentPageNumber == _pageNumber && audioProvider.isContinuous,
                           onPlay: _playCurrentPage,
+                          showTranslationList: _isTranslationView,
+                          onToggleTranslation: () => setState(() => _isTranslationView = !_isTranslationView),
                         ),
                       ),
                     ),
@@ -938,10 +997,19 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                               ? () => _goToPage(_pageNumber + 1)
                               : null,
                           onDone: () async {
-                            await provider.updateProgress(
-                              profileId: profile.id,
-                              pageNumber: _pageNumber,
-                            );
+                            if (widget.shortcutId != null) {
+                              final pageData = await widget.foundationRepository.fetchPage(mushafId: 2, pageNumber: _pageNumber);
+                              if (context.mounted && pageData.verses.isNotEmpty) {
+                                final firstVerse = pageData.verses.first;
+                                final verseRef = toVerseRef(firstVerse.surahId.toString(), firstVerse.verseId.toString());
+                                await context.read<LocalReadingProvider>().updateShortcutProgress(widget.shortcutId!, verseRef);
+                              }
+                            } else {
+                              await provider.updateProgress(
+                                profileId: profile.id,
+                                pageNumber: _pageNumber,
+                              );
+                            }
                             await provider.flushPendingRecentReadingSync();
                             await provider.flushPendingProfileSyncs();
                             if (context.mounted) {
@@ -1244,6 +1312,8 @@ class _ReaderTopBar extends StatelessWidget {
   final bool isAudioPlaying;
   final bool isAudioLoading;
   final VoidCallback onPlay;
+  final bool showTranslationList;
+  final VoidCallback onToggleTranslation;
 
   const _ReaderTopBar({
     required this.colors,
@@ -1261,6 +1331,8 @@ class _ReaderTopBar extends StatelessWidget {
     required this.isAudioPlaying,
     required this.isAudioLoading,
     required this.onPlay,
+    required this.showTranslationList,
+    required this.onToggleTranslation,
   });
 
   @override
@@ -1276,34 +1348,15 @@ class _ReaderTopBar extends StatelessWidget {
       primary: false,
       backgroundColor: Colors.transparent,
       elevation: 0,
-      centerTitle: true,
-      leadingWidth: 104,
-      leading: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: Icon(
-              Icons.arrow_back,
-              color: colors.textStrong,
-            ),
-            onPressed: onBack,
-          ),
-          IconButton(
-            tooltip: pageBookmarked
-                ? 'Remove page bookmark'
-                : 'Bookmark page',
-            onPressed: onBookmarkPage,
-            icon: Icon(
-              pageBookmarked
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_border_rounded,
-              color: pageBookmarked
-                  ? colors.primary
-                  : colors.foreground,
-              size: 26,
-            ),
-          ),
-        ],
+      centerTitle: false,
+      leadingWidth: 48,
+      titleSpacing: 0,
+      leading: IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: colors.textStrong,
+        ),
+        onPressed: onBack,
       ),
       title: InkWell(
         onTap: onTitleTap,
@@ -1312,10 +1365,10 @@ class _ReaderTopBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     surahName,
@@ -1346,6 +1399,21 @@ class _ReaderTopBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
+          tooltip: pageBookmarked
+              ? 'Remove page bookmark'
+              : 'Bookmark page',
+          onPressed: onBookmarkPage,
+          icon: Icon(
+            pageBookmarked
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            color: pageBookmarked
+                ? colors.primary
+                : colors.foreground,
+            size: 24,
+          ),
+        ),
+        IconButton(
           tooltip: isAudioPlaying ? 'Pause recitation' : 'Play recitation',
           onPressed: onPlay,
           icon: isAudioLoading
@@ -1361,6 +1429,14 @@ class _ReaderTopBar extends StatelessWidget {
                   isAudioPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
                   color: colors.primary,
                 ),
+        ),
+        IconButton(
+          tooltip: 'Toggle Translation',
+          icon: Icon(
+            showTranslationList ? Icons.menu_book_rounded : Icons.view_list_rounded,
+            color: showTranslationList ? colors.primary : colors.foreground,
+          ),
+          onPressed: onToggleTranslation,
         ),
         IconButton(
           tooltip: context.tr('mushaf_settings'),
@@ -2903,6 +2979,201 @@ class _FloatingAudioControlBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PageTranslationListView extends StatelessWidget {
+  final int pageNumber;
+  final int mushafId;
+  final QuranFoundationRepository foundationRepository;
+  final QuranRepository quranRepository;
+  final SettingsProvider settings;
+
+  const _PageTranslationListView({
+    required this.pageNumber,
+    required this.mushafId,
+    required this.foundationRepository,
+    required this.quranRepository,
+    required this.settings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = settings.getAppColors();
+    return FutureBuilder<MushafPage>(
+      future: foundationRepository.fetchPage(
+        mushafId: mushafId,
+        pageNumber: pageNumber,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || snapshot.data == null || snapshot.data!.verses.isEmpty) {
+          return const Center(child: Text('Failed to load page translations.'));
+        }
+        final verses = snapshot.data!.verses;
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(24, 100, 24, 120),
+          itemCount: verses.length,
+          separatorBuilder: (context, index) => Divider(
+            height: 48,
+            thickness: 0.8,
+            color: colors.foreground.withValues(alpha: 0.1),
+          ),
+          itemBuilder: (context, index) {
+            final mv = verses[index];
+            final surahId = mv.surahId;
+            final verseId = mv.verseId;
+            final surahVerses = quranRepository.getSurahVerses(surahId);
+            final verse = surahVerses.firstWhere(
+              (v) => v.id == verseId,
+              orElse: () => Verse(
+                id: verseId,
+                surahId: surahId,
+                arabic: '',
+                thaiV3: '',
+                thaiV2: '',
+                english: '',
+              ),
+            );
+
+            return _TranslationVerseRow(
+              verse: verse,
+              quranRepository: quranRepository,
+              settings: settings,
+              colors: colors,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _TranslationVerseRow extends StatefulWidget {
+  final Verse verse;
+  final QuranRepository quranRepository;
+  final SettingsProvider settings;
+  final AppThemeColors colors;
+
+  const _TranslationVerseRow({
+    required this.verse,
+    required this.quranRepository,
+    required this.settings,
+    required this.colors,
+  });
+
+  @override
+  State<_TranslationVerseRow> createState() => _TranslationVerseRowState();
+}
+
+class _TranslationVerseRowState extends State<_TranslationVerseRow> {
+  late Future<String> _arabicTextFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _arabicTextFuture = widget.verse.arabic.isNotEmpty
+        ? Future.value(widget.verse.arabic)
+        : widget.quranRepository.fetchArabicVerse(widget.verse.surahId, widget.verse.id);
+  }
+
+  @override
+  void didUpdateWidget(_TranslationVerseRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.verse.id != widget.verse.id || oldWidget.verse.surahId != widget.verse.surahId) {
+      _arabicTextFuture = widget.verse.arabic.isNotEmpty
+          ? Future.value(widget.verse.arabic)
+          : widget.quranRepository.fetchArabicVerse(widget.verse.surahId, widget.verse.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final arabicTextColor = isDark
+        ? const Color(0xFFD7E0EA)
+        : const Color(0xFF334155);
+
+    final arabicStyle = TextStyle(
+      fontFamily: 'UthmanicHafs',
+      fontSize: widget.settings.arabicFontSize,
+      height: 2.0,
+      color: arabicTextColor,
+    );
+
+    final primaryId = widget.settings.primaryTranslationId;
+    String rawTranslation = '';
+    if (primaryId == 'thai_v3') {
+      rawTranslation = widget.verse.thaiV3;
+    } else if (primaryId == 'thai_v2') {
+      rawTranslation = widget.verse.thaiV2;
+    } else if (primaryId == 'en_sahih') {
+      rawTranslation = widget.verse.english;
+    } else {
+      rawTranslation = widget.verse.thaiV3.isNotEmpty ? widget.verse.thaiV3 : widget.verse.thaiV2;
+    }
+
+    final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);
+    final translation = thaiTextProtection.protect(rawTranslation);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${widget.verse.surahId}:${widget.verse.id}',
+          style: GoogleFonts.notoSansThai(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: widget.colors.primary.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<String>(
+          future: _arabicTextFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: widget.colors.primary,
+                  ),
+                ),
+              );
+            }
+            final text = snapshot.data ?? '';
+            final cleanArabicText = text.split(' | ').join(' ');
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: RichText(
+                text: TextSpan(
+                  style: arabicStyle,
+                  children: [
+                    TextSpan(
+                      text: cleanArabicText,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Text(
+          translation,
+          style: GoogleFonts.notoSansThai(
+            fontSize: widget.settings.translationFontSize,
+            height: 1.5,
+            color: widget.colors.foreground,
+          ),
+        ),
+      ],
     );
   }
 }

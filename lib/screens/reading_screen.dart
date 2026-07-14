@@ -29,6 +29,7 @@ class ReadingScreen extends StatefulWidget {
   final String? initialVerseId;
   final bool openSettingsPanel;
   final bool saveToFreeReadOnly;
+  final String? shortcutId;
 
   const ReadingScreen({
     Key? key,
@@ -38,6 +39,7 @@ class ReadingScreen extends StatefulWidget {
     this.initialVerseId,
     this.openSettingsPanel = false,
     this.saveToFreeReadOnly = false,
+    this.shortcutId,
   }) : super(key: key);
 
   @override
@@ -699,6 +701,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   LocalReadingProfile? _progressProfile(LocalReadingProvider localReading) {
+    if (widget.shortcutId != null) {
+      return localReading.profileById(widget.shortcutId!);
+    }
     if (widget.saveToFreeReadOnly) {
       return localReading.freeReadProfile;
     }

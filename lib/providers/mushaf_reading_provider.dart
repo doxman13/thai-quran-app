@@ -522,8 +522,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       updatedAt: DateTime.now(),
     );
     _recentReadings.insert(0, recent);
-    if (_recentReadings.length > 20) {
-      _recentReadings = _recentReadings.take(20).toList();
+    if (_recentReadings.length > 30) {
+      _recentReadings = _recentReadings.take(30).toList();
     }
 
     final user = Supabase.instance.client.auth.currentUser;
