@@ -77,6 +77,9 @@ class MushafAudioProvider extends ChangeNotifier {
     _playlist = List.from(verses);
     _playlistIndex = startVerseIndex.clamp(0, verses.length - 1);
     _isContinuous = true;
+    _currentVerseKey = _playlist[_playlistIndex].verseKey;
+    _isLoading = true;
+    notifyListeners();
 
     await _loadAndPlayPlaylist(_playlistIndex);
   }
@@ -112,6 +115,9 @@ class MushafAudioProvider extends ChangeNotifier {
     final targetVerse = _playlist[_playlistIndex];
     _playlist = [targetVerse];
     _playlistIndex = 0;
+    _currentVerseKey = targetVerse.verseKey;
+    _isLoading = true;
+    notifyListeners();
 
     await _loadAndPlayPlaylist(_playlistIndex);
   }
@@ -135,6 +141,9 @@ class MushafAudioProvider extends ChangeNotifier {
     );
     _playlist = [verse];
     _playlistIndex = 0;
+    _currentVerseKey = verseKey;
+    _isLoading = true;
+    notifyListeners();
 
     await _loadAndPlayPlaylist(_playlistIndex);
   }
@@ -242,6 +251,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
       _playlist = List.from(nextPageData.verses);
       _playlistIndex = 0;
+      _currentVerseKey = _playlist[0].verseKey;
       await _loadAndPlayPlaylist(0);
     } catch (e) {
       debugPrint('Failed to load next page: $e');
@@ -269,6 +279,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
       _playlist = List.from(prevPageData.verses);
       _playlistIndex = _playlist.length - 1;
+      _currentVerseKey = _playlist[_playlistIndex].verseKey;
       await _loadAndPlayPlaylist(_playlistIndex);
     } catch (e) {
       debugPrint('Failed to load previous page: $e');
