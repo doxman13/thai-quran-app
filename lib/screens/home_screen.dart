@@ -99,6 +99,45 @@ class _ModeSelectionCard extends StatelessWidget {
   }
 }
 
+class _GoalRangeSection extends StatelessWidget {
+  final String title;
+  final AppThemeColors colors;
+  final List<Widget> children;
+
+  const _GoalRangeSection({
+    required this.title,
+    required this.colors,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.notoSansThai(
+              color: colors.textStrong,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   final QuranRepository repository;
   final bool repositoryReady;
@@ -446,7 +485,10 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _navigateToMushafFreeReadPage(int pageNumber, {String? shortcutId}) async {
+  Future<void> _navigateToMushafFreeReadPage(
+    int pageNumber, {
+    String? shortcutId,
+  }) async {
     final mushafProvider = context.read<MushafReadingProvider>();
     final profile = await mushafProvider.openUnifiedFreeRead();
     if (!mounted) return;
@@ -858,7 +900,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _chooseBrowseDestination(String surahId, String verseId, {String? shortcutId}) async {
+  Future<void> _chooseBrowseDestination(
+    String surahId,
+    String verseId, {
+    String? shortcutId,
+  }) async {
     final colorScheme = Theme.of(context).colorScheme;
     final surah = int.tryParse(surahId) ?? 1;
     final verse = int.tryParse(verseId) ?? 1;
@@ -1388,102 +1434,98 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _onQuickLinkTap(CustomQuickLink link) async {
     final provider = context.read<LocalReadingProvider>();
-    final shortcutId = link.id == 'system_mulk' 
-        ? shortcutMulkId 
-        : link.id == 'system_kahf' 
-            ? shortcutKahfId 
-            : null;
+    final shortcutId = '00000000-0000-0000-0000-00000000${link.surahNumber.toString().padLeft(4, '0')}';
 
     var targetVerseId = '1';
 
-    if (shortcutId != null) {
-      provider.checkAndResetShortcutProfiles();
-      final profile = provider.profileById(shortcutId);
-      if (profile != null) {
-        targetVerseId = profile.current.verseId;
-        if (targetVerseId != '1') {
-          // Show Continue or Start from 1 modal popup
-          final startOver = await showModalBottomSheet<bool>(
-            context: context,
-            showDragHandle: true,
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(AppTheme.radius),
-              ),
-            ),
-            builder: (ctx) {
-              final colors = ctx.read<SettingsProvider>().getAppColors();
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      link.id == 'system_mulk' ? 'Surah Al-Mulk' : 'Surah Al-Kahf',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: colors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
-                      style: GoogleFonts.notoSansThai(color: colors.foreground),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colors.primary,
-                        foregroundColor: colors.background,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text('Continue reading (Verse $targetVerseId)'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Start from Verse 1',
-                        style: GoogleFonts.notoSansThai(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
+    provider.checkAndResetShortcutProfiles();
+    final profile = await provider.ensureShortcutProfile(shortcutId, link.surahNumber);
+    targetVerseId = profile.current.verseId;
 
-          if (startOver == null) return; // Modal dismissed
-          if (startOver) {
-            targetVerseId = '1';
-            await provider.updateShortcutProgress(shortcutId, toVerseRef(link.surahNumber.toString(), '1'));
-          }
-        }
+    if (targetVerseId != '1') {
+      // Show Continue or Start from 1 modal popup
+      if (!mounted) return;
+      final startOver = await showModalBottomSheet<bool>(
+        context: context,
+        showDragHandle: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppTheme.radius),
+          ),
+        ),
+        builder: (ctx) {
+          final colors = ctx.read<SettingsProvider>().getAppColors();
+          final displayTitle = link.label.isNotEmpty 
+              ? link.label 
+              : 'Surah ${widget.repository.getSurahName(link.surahNumber.toString())}';
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  displayTitle,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: colors.primary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
+                  style: GoogleFonts.notoSansThai(color: colors.foreground),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.background,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text('Continue reading (Verse $targetVerseId)'),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Start from Verse 1',
+                    style: GoogleFonts.notoSansThai(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      if (startOver == null) return; // Modal dismissed
+      if (startOver) {
+        targetVerseId = '1';
+        await provider.updateShortcutProgress(
+          shortcutId,
+          toVerseRef(link.surahNumber.toString(), '1'),
+        );
       }
     }
 
     if (!mounted) return;
-    if (shortcutId != null) {
-      final surah = int.tryParse(link.surahNumber.toString()) ?? 1;
-      final verse = int.tryParse(targetVerseId) ?? 1;
-      final pageNumber = qcf.getPageNumber(surah, verse);
-      await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
-    } else {
-      await _chooseBrowseDestination(link.surahNumber.toString(), targetVerseId, shortcutId: shortcutId);
-    }
+    final surah = int.tryParse(link.surahNumber.toString()) ?? 1;
+    final verse = int.tryParse(targetVerseId) ?? 1;
+    final pageNumber = qcf.getPageNumber(surah, verse);
+    await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
   }
 
   Widget _buildSurahShortcutSquare(
@@ -2042,7 +2084,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: planMode,
+                      initialValue: planMode,
                       decoration: InputDecoration(labelText: trPlanType),
                       items: [
                         DropdownMenuItem(
@@ -2063,8 +2105,9 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ],
                       onChanged: (value) {
-                        if (value != null)
+                        if (value != null) {
                           setDialogState(() => planMode = value);
+                        }
                       },
                     ),
                     const SizedBox(height: 12),
@@ -2098,50 +2141,56 @@ class _HomeScreenState extends State<HomeScreen>
                         ],
                       )
                     else ...[
-                      _surahDropdown(
-                        label: trStartSurah,
-                        value: startSurah,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            startSurah = value;
-                            if (int.parse(endSurah) < int.parse(startSurah))
-                              endSurah = startSurah;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _surahDropdown(
-                        label: trTargetSurah,
-                        value: endSurah,
-                        min: int.parse(startSurah),
-                        onChanged: (value) =>
-                            setDialogState(() => endSurah = value),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
+                      _GoalRangeSection(
+                        title: context.tr('start'),
+                        colors: colors,
                         children: [
-                          Expanded(
-                            child: _ayahDropdown(
-                              label: trStartAyah,
-                              value: planMode == 'by_surah' ? '1' : startAyah,
-                              max: startAyahCount,
-                              enabled: planMode != 'by_surah',
-                              onChanged: (value) =>
-                                  setDialogState(() => startAyah = value),
-                            ),
+                          _surahDropdown(
+                            label: trStartSurah,
+                            value: startSurah,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                startSurah = value;
+                                if (int.parse(endSurah) <
+                                    int.parse(startSurah)) {
+                                  endSurah = startSurah;
+                                }
+                              });
+                            },
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _ayahDropdown(
-                              label: trTargetAyah,
-                              value: planMode == 'by_surah'
-                                  ? endAyahCount.toString()
-                                  : endAyah,
-                              max: endAyahCount,
-                              enabled: planMode != 'by_surah',
-                              onChanged: (value) =>
-                                  setDialogState(() => endAyah = value),
-                            ),
+                          const SizedBox(height: 12),
+                          _ayahDropdown(
+                            label: trStartAyah,
+                            value: planMode == 'by_surah' ? '1' : startAyah,
+                            max: startAyahCount,
+                            enabled: planMode != 'by_surah',
+                            onChanged: (value) =>
+                                setDialogState(() => startAyah = value),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _GoalRangeSection(
+                        title: context.tr('target'),
+                        colors: colors,
+                        children: [
+                          _surahDropdown(
+                            label: trTargetSurah,
+                            value: endSurah,
+                            min: int.parse(startSurah),
+                            onChanged: (value) =>
+                                setDialogState(() => endSurah = value),
+                          ),
+                          const SizedBox(height: 12),
+                          _ayahDropdown(
+                            label: trTargetAyah,
+                            value: planMode == 'by_surah'
+                                ? endAyahCount.toString()
+                                : endAyah,
+                            max: endAyahCount,
+                            enabled: planMode != 'by_surah',
+                            onChanged: (value) =>
+                                setDialogState(() => endAyah = value),
                           ),
                         ],
                       ),
@@ -2306,7 +2355,7 @@ class _HomeScreenState extends State<HomeScreen>
   }) {
     final safe = value.clamp(min, max);
     return DropdownButtonFormField<int>(
-      value: safe,
+      initialValue: safe,
       decoration: InputDecoration(labelText: label),
       items: [
         for (var n = min; n <= max; n++)
@@ -2327,7 +2376,7 @@ class _HomeScreenState extends State<HomeScreen>
     final parsed = int.tryParse(value) ?? min;
     final safe = parsed.clamp(min, 114);
     return DropdownButtonFormField<String>(
-      value: safe.toString(),
+      initialValue: safe.toString(),
       decoration: InputDecoration(labelText: label),
       items: [
         for (var s = min; s <= 114; s++)
@@ -2351,7 +2400,7 @@ class _HomeScreenState extends State<HomeScreen>
   }) {
     final safe = _clampAyah(value, max);
     return DropdownButtonFormField<String>(
-      value: safe,
+      initialValue: safe,
       decoration: InputDecoration(labelText: label),
       items: [
         for (var a = 1; a <= max; a++)
@@ -2832,70 +2881,36 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _showEditMushafGoalDialog(MushafProfile profile) async {
-    final TextEditingController nameCtrl = TextEditingController(
-      text: profile.name,
-    );
-
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(context.tr('edit_goal')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: InputDecoration(labelText: context.tr('goal_name')),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.restart_alt),
-                label: Text(context.tr('reset_progress')),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  context.read<MushafReadingProvider>().updateProgress(
-                    profileId: profile.id,
-                    pageNumber: profile.startPage,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.tr('goal_progress_reset'))),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(context.tr('cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (nameCtrl.text.trim().isNotEmpty) {
-                context.read<MushafReadingProvider>().updateProfile(
-                  profile.id,
-                  name: nameCtrl.text.trim(),
-                );
-              }
-              Navigator.pop(ctx);
-            },
-            child: Text(context.tr('save')),
-          ),
-        ],
-      ),
-    );
+    await _showMushafGoalDialog(profile: profile);
   }
 
   Future<void> _showCreateMushafGoalDialog() async {
+    await _showMushafGoalDialog();
+  }
+
+  Future<void> _showMushafGoalDialog({MushafProfile? profile}) async {
     final provider = context.read<MushafReadingProvider>();
-    final nameController = TextEditingController();
-    final pageCount = mushafTypeById(provider.displayMushafId).pageCount;
-    var startPage = 1;
-    var targetPage = pageCount;
+    final mushafId = profile?.mushafId ?? provider.displayMushafId;
+    final pageCount = mushafTypeById(mushafId).pageCount;
+    final nameController = TextEditingController(text: profile?.name ?? '');
+    var rangeType = switch (profile?.planMode) {
+      'by_surah' => 'surah_range',
+      'by_juz' => 'juz_range',
+      'detailed_range' => 'detailed_range',
+      _ => 'page_range',
+    };
+    var startPage = profile?.startPage ?? 1;
+    var targetPage = profile?.targetPage ?? pageCount;
+    var startSurah = _surahForMushafPage(startPage).toString();
+    var endSurah = _surahForMushafPage(targetPage).toString();
+    var startAyah = '1';
+    var endAyah = widget.repository
+        .getSurahVerses(endSurah)
+        .length
+        .clamp(1, 286)
+        .toString();
+    var startJuz = getOfflineJuzForPage(startPage);
+    var endJuz = getOfflineJuzForPage(targetPage);
     var isSaving = false;
     String? error;
 
@@ -2905,13 +2920,27 @@ class _HomeScreenState extends State<HomeScreen>
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final colorScheme = Theme.of(context).colorScheme;
+            final colors = context.read<SettingsProvider>().getAppColors();
+            final startAyahCount = widget.repository
+                .getSurahVerses(startSurah)
+                .length;
+            final endAyahCount = widget.repository
+                .getSurahVerses(endSurah)
+                .length;
+            startAyah = _clampAyah(startAyah, startAyahCount);
+            endAyah = _clampAyah(endAyah, endAyahCount);
+
             return AlertDialog(
               backgroundColor: colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
                 side: BorderSide(color: colorScheme.outlineVariant),
               ),
-              title: Text(context.tr('create_goal')),
+              title: Text(
+                profile == null
+                    ? context.tr('create_goal')
+                    : context.tr('edit_goal'),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -2925,41 +2954,231 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _numberDropdown(
-                            label: context.tr('start_page'),
-                            value: startPage,
-                            max: pageCount,
+                    DropdownButtonFormField<String>(
+                      initialValue: rangeType,
+                      decoration: InputDecoration(
+                        labelText: context.tr('mushaf_range_type'),
+                      ),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'surah_range',
+                          child: Text(context.tr('surah_range')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'juz_range',
+                          child: Text(context.tr('juz_range')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'page_range',
+                          child: Text(context.tr('page_range')),
+                        ),
+                        DropdownMenuItem(
+                          value: 'detailed_range',
+                          child: Text(context.tr('detailed_range')),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() {
+                          rangeType = value;
+                          error = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (rangeType == 'page_range')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _numberDropdown(
+                              label: context.tr('start_page'),
+                              value: startPage,
+                              max: pageCount,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  startPage = value;
+                                  error = null;
+                                  if (targetPage < startPage) {
+                                    targetPage = startPage;
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _numberDropdown(
+                              label: context.tr('target_page'),
+                              value: targetPage,
+                              min: startPage,
+                              max: pageCount,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  targetPage = value;
+                                  error = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (rangeType == 'juz_range')
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _numberDropdown(
+                              label: context.tr('start_juz'),
+                              value: startJuz,
+                              max: 30,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  startJuz = value;
+                                  error = null;
+                                  if (endJuz < startJuz) endJuz = startJuz;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _numberDropdown(
+                              label: context.tr('target_juz'),
+                              value: endJuz,
+                              min: startJuz,
+                              max: 30,
+                              onChanged: (value) {
+                                setDialogState(() {
+                                  endJuz = value;
+                                  error = null;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    else if (rangeType == 'surah_range')
+                      _GoalRangeSection(
+                        title: context.tr('surah_range'),
+                        colors: colors,
+                        children: [
+                          _surahDropdown(
+                            label: context.tr('start_surah'),
+                            value: startSurah,
                             onChanged: (value) {
                               setDialogState(() {
-                                startPage = value;
+                                startSurah = value;
                                 error = null;
-                                if (targetPage < startPage) {
-                                  targetPage = startPage;
+                                if (int.parse(endSurah) <
+                                    int.parse(startSurah)) {
+                                  endSurah = startSurah;
                                 }
                               });
                             },
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _numberDropdown(
-                            label: context.tr('target_page'),
-                            value: targetPage,
-                            min: startPage,
-                            max: pageCount,
+                          const SizedBox(height: 12),
+                          _surahDropdown(
+                            label: context.tr('target_surah'),
+                            value: endSurah,
+                            min: int.parse(startSurah),
                             onChanged: (value) {
                               setDialogState(() {
-                                targetPage = value;
+                                endSurah = value;
                                 error = null;
                               });
                             },
                           ),
+                        ],
+                      )
+                    else ...[
+                      _GoalRangeSection(
+                        title: context.tr('start'),
+                        colors: colors,
+                        children: [
+                          _surahDropdown(
+                            label: context.tr('start_surah'),
+                            value: startSurah,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                startSurah = value;
+                                error = null;
+                                if (int.parse(endSurah) <
+                                    int.parse(startSurah)) {
+                                  endSurah = startSurah;
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _ayahDropdown(
+                            label: context.tr('start_ayah'),
+                            value: startAyah,
+                            max: startAyahCount,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                startAyah = value;
+                                error = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _GoalRangeSection(
+                        title: context.tr('target'),
+                        colors: colors,
+                        children: [
+                          _surahDropdown(
+                            label: context.tr('target_surah'),
+                            value: endSurah,
+                            min: int.parse(startSurah),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                endSurah = value;
+                                error = null;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _ayahDropdown(
+                            label: context.tr('target_ayah'),
+                            value: endAyah,
+                            max: endAyahCount,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                endAyah = value;
+                                error = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (profile != null) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.restart_alt),
+                          label: Text(context.tr('reset_progress')),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            context
+                                .read<MushafReadingProvider>()
+                                .updateProgress(
+                                  profileId: profile.id,
+                                  pageNumber: profile.startPage,
+                                );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.tr('goal_progress_reset'),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                     if (error != null) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -3004,13 +3223,47 @@ class _HomeScreenState extends State<HomeScreen>
                             error = null;
                           });
                           try {
-                            await provider.createPageRangeProfile(
-                              name: name,
-                              mushafId: provider.displayMushafId,
+                            final range = _resolveMushafGoalRange(
+                              rangeType: rangeType,
+                              pageCount: pageCount,
                               startPage: startPage,
                               targetPage: targetPage,
-                              planMode: 'page_range',
+                              startSurah: startSurah,
+                              endSurah: endSurah,
+                              startAyah: startAyah,
+                              endAyah: endAyah,
+                              startJuz: startJuz,
+                              endJuz: endJuz,
                             );
+                            if (profile == null) {
+                              await provider.createPageRangeProfile(
+                                name: name,
+                                mushafId: mushafId,
+                                startPage: range.startPage,
+                                targetPage: range.endPage,
+                                planMode: rangeType == 'page_range'
+                                    ? 'page_range'
+                                    : rangeType == 'surah_range'
+                                    ? 'by_surah'
+                                    : rangeType == 'juz_range'
+                                    ? 'by_juz'
+                                    : 'detailed_range',
+                              );
+                            } else {
+                              await provider.updateProfileRange(
+                                profileId: profile.id,
+                                name: name,
+                                planMode: rangeType == 'page_range'
+                                    ? 'page_range'
+                                    : rangeType == 'surah_range'
+                                    ? 'by_surah'
+                                    : rangeType == 'juz_range'
+                                    ? 'by_juz'
+                                    : 'detailed_range',
+                                startPage: range.startPage,
+                                targetPage: range.endPage,
+                              );
+                            }
                             if (dialogContext.mounted) {
                               Navigator.pop(dialogContext);
                             }
@@ -3023,7 +3276,11 @@ class _HomeScreenState extends State<HomeScreen>
                           }
                         },
                   child: Text(
-                    isSaving ? context.tr('saving') : context.tr('create'),
+                    isSaving
+                        ? context.tr('saving')
+                        : profile == null
+                        ? context.tr('create')
+                        : context.tr('save'),
                   ),
                 ),
               ],
@@ -3034,6 +3291,98 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     nameController.dispose();
+  }
+
+  MushafPageRange _resolveMushafGoalRange({
+    required String rangeType,
+    required int pageCount,
+    required int startPage,
+    required int targetPage,
+    required String startSurah,
+    required String endSurah,
+    required String startAyah,
+    required String endAyah,
+    required int startJuz,
+    required int endJuz,
+  }) {
+    if (rangeType == 'juz_range') {
+      final start = _mushafJuzStartPage(startJuz);
+      final target = endJuz >= 30
+          ? pageCount
+          : _mushafJuzStartPage(endJuz + 1) - 1;
+      return MushafPageRange(startPage: start, endPage: target);
+    }
+    if (rangeType == 'surah_range') {
+      final start = getStartPageForSurah(int.parse(startSurah));
+      final endNumber = int.parse(endSurah);
+      final target = endNumber >= 114
+          ? pageCount
+          : getStartPageForSurah(endNumber + 1) - 1;
+      return MushafPageRange(startPage: start, endPage: target);
+    }
+    if (rangeType == 'detailed_range') {
+      final start = qcf.getPageNumber(
+        int.parse(startSurah),
+        int.parse(startAyah),
+      );
+      final target = qcf.getPageNumber(int.parse(endSurah), int.parse(endAyah));
+      return MushafPageRange(
+        startPage: start.clamp(1, pageCount),
+        endPage: target.clamp(start, pageCount),
+      );
+    }
+    return MushafPageRange(
+      startPage: startPage.clamp(1, pageCount),
+      endPage: targetPage.clamp(startPage, pageCount),
+    );
+  }
+
+  int _mushafJuzStartPage(int juz) {
+    const starts = [
+      1,
+      22,
+      42,
+      62,
+      82,
+      102,
+      121,
+      142,
+      162,
+      182,
+      201,
+      222,
+      242,
+      262,
+      282,
+      302,
+      322,
+      342,
+      362,
+      382,
+      402,
+      422,
+      442,
+      462,
+      482,
+      502,
+      522,
+      542,
+      562,
+      582,
+    ];
+    return starts[(juz - 1).clamp(0, starts.length - 1)];
+  }
+
+  int _surahForMushafPage(int page) {
+    var surah = 1;
+    for (var s = 1; s <= 114; s++) {
+      if (getStartPageForSurah(s) <= page) {
+        surah = s;
+      } else {
+        break;
+      }
+    }
+    return surah;
   }
 
   Widget _buildMushafGuestCard(ColorScheme colorScheme, int index) {

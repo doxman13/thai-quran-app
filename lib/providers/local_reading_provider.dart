@@ -2352,6 +2352,47 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _queueProfileSync(updated, delay: Duration.zero);
     }
   }
+
+  Future<LocalReadingProfile> ensureShortcutProfile(String shortcutId, int surahNumber) async {
+    await _loadCompleter.future;
+    final existing = profileById(shortcutId);
+    if (existing != null) {
+      if (existing.userId != currentUserId) {
+        final updated = existing.copyWith(userId: currentUserId);
+        final index = _profiles.indexWhere((p) => p.id == shortcutId);
+        if (index != -1) {
+          _profiles[index] = updated;
+          await _save(immediate: true);
+          notifyListeners();
+        }
+        return updated;
+      }
+      return existing;
+    }
+
+    final p = LocalReadingProfile(
+      id: shortcutId,
+      userId: currentUserId,
+      name: 'Shortcut Surah $surahNumber',
+      slug: 'shortcut_$surahNumber',
+      start: toVerseRef(surahNumber.toString(), '1'),
+      current: toVerseRef(surahNumber.toString(), '1'),
+      lastViewed: toVerseRef(surahNumber.toString(), '1'),
+      sortOrder: 0,
+      isArchived: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    _profiles.add(p);
+    await _save(immediate: true);
+    notifyListeners();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _queueProfileSync(p, delay: Duration.zero);
+    }
+    return p;
+  }
 }
 
 bool isFreeReadProfile(LocalReadingProfile profile) {

@@ -287,6 +287,44 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _queueProfileSync(updated, delay: Duration.zero);
   }
 
+  Future<void> updateProfileRange({
+    required String profileId,
+    required String name,
+    required String planMode,
+    required int startPage,
+    required int targetPage,
+    bool resetProgress = false,
+  }) async {
+    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    if (index == -1) return;
+    final profile = _profiles[index];
+    if (profile.isFreeRead) return;
+
+    final pageCount = mushafTypeById(profile.mushafId).pageCount;
+    final start = _clampInt(startPage, 1, pageCount);
+    final target = _clampInt(targetPage, start, pageCount);
+    final current = resetProgress
+        ? start
+        : _clampInt(profile.currentPage, start, target);
+    final lastViewed = resetProgress
+        ? start
+        : _clampInt(profile.lastViewedPage, start, target);
+    final updated = profile.copyWith(
+      name: name,
+      planMode: planMode,
+      startPage: start,
+      targetPage: target,
+      currentPage: current,
+      lastViewedPage: lastViewed,
+      updatedAt: DateTime.now(),
+    );
+    _profiles[index] = updated;
+    _upsertRecentReading(updated);
+    await _save();
+    notifyListeners();
+    _queueProfileSync(updated, delay: Duration.zero);
+  }
+
   Future<void> createPageRangeProfile({
     required String name,
     required int mushafId,
