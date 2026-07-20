@@ -12,14 +12,13 @@ import '../data/quran_foundation_repository.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import '../models/mushaf_models.dart';
-import 'settings_screen.dart';
 import 'reading_screen.dart';
 import '../shared/shared.dart';
 
 class BookmarksScreen extends StatefulWidget {
   final QuranRepository repository;
   final VoidCallback? onBackToHome;
-  const BookmarksScreen({Key? key, required this.repository, this.onBackToHome}) : super(key: key);
+  const BookmarksScreen({super.key, required this.repository, this.onBackToHome});
 
   @override
   State<BookmarksScreen> createState() => _BookmarksScreenState();
@@ -188,10 +187,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: colorScheme.outline.withOpacity(0.3),
+                      color: colorScheme.outline.withValues(alpha: 0.3),
                     ),
                     itemBuilder: (context, index) => items[index],
                   ),
@@ -329,7 +328,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               Divider(
                 height: 1,
                 thickness: 0.5,
-                color: colorScheme.outline.withOpacity(0.3),
+                color: colorScheme.outline.withValues(alpha: 0.3),
               ),
           ],
         ],
@@ -633,10 +632,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }).toList();
 
     final mushafVerseBookmarkItems = mushafReading.verseBookmarks.map((bookmark) {
-      final surahName = getSurahNameForPage(
-        bookmark.pageNumber,
-        widget.repository,
-      );
       final parts = bookmark.verseKey.split(':');
       final surahId = parts.isNotEmpty ? parts[0] : '';
       final verseId = parts.length > 1 ? parts[1] : '';
