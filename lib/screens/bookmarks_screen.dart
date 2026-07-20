@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
@@ -536,6 +537,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final verseBookmarkItems = localReading.bookmarks.map((bookmark) {
       final rawSurahId = int.parse(bookmark.verse.surahId).toString();
       final rawVerseId = bookmark.verse.verseId;
+      final sId = int.tryParse(rawSurahId) ?? 1;
+      final vId = int.tryParse(rawVerseId) ?? 1;
+      final pageNumber = qcf.getPageNumber(sId, vId);
+
       return _buildVerseItem(
         colorScheme,
         icon: Icons.bookmark,
@@ -543,14 +548,61 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             '${widget.repository.getSurahName(rawSurahId)}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
         subtitle:
             '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
-        onTap: () => _openReading(
-          surahId: rawSurahId,
-          verseId: rawVerseId,
-          saveToFreeReadOnly: true,
-        ),
-        trailing: IconButton(
-          icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 24),
-          onPressed: () => localReading.removeBookmark(bookmark.id),
+        onTap: () {
+          if (_isMushafSelected) {
+            _openMushaf(
+              null,
+              2,
+              pageNumber: pageNumber,
+              highlightedVerseKey: '$rawSurahId:$rawVerseId',
+            );
+          } else {
+            _openReading(
+              surahId: rawSurahId,
+              verseId: rawVerseId,
+              saveToFreeReadOnly: true,
+            );
+          }
+        },
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () => _openMushaf(
+                null,
+                2,
+                pageNumber: pageNumber,
+                highlightedVerseKey: '$rawSurahId:$rawVerseId',
+              ),
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.import_contacts, size: 12, color: colorScheme.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'มุศหัฟ',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: colorScheme.error, size: 22),
+              onPressed: () => localReading.removeBookmark(bookmark.id),
+            ),
+          ],
         ),
       );
     }).toList();

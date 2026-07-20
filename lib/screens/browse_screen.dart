@@ -2,13 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
+import 'mushaf_reader_screen.dart';
 import 'settings_screen.dart';
 
 class BrowseScreen extends StatefulWidget {
@@ -114,6 +117,29 @@ class BrowseScreenState extends State<BrowseScreen> {
           _isApiSearching = false;
         });
       }
+    });
+  }
+
+  void _openMushafForVerse(String surahId, String verseId) {
+    final sId = int.tryParse(surahId) ?? 1;
+    final vId = int.tryParse(verseId) ?? 1;
+    final pageNumber = qcf.getPageNumber(sId, vId);
+
+    final mushafProvider = context.read<MushafReadingProvider>();
+    mushafProvider.openFreeRead(2).then((profile) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MushafReaderScreen(
+            quranRepository: widget.repository,
+            foundationRepository: _foundationRepo,
+            profileId: profile.id,
+            initialPage: pageNumber,
+            initialHighlightVerseKey: '$surahId:$verseId',
+          ),
+        ),
+      );
     });
   }
 
@@ -515,17 +541,51 @@ class BrowseScreenState extends State<BrowseScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: textTheme.titleSmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: widget
-                                                        .colors
-                                                        .textStrong,
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: textTheme.titleSmall
+                                                        ?.copyWith(
+                                                          fontWeight: FontWeight.bold,
+                                                          color: widget
+                                                              .colors
+                                                              .textStrong,
+                                                        ),
                                                   ),
+                                                ),
+                                                InkWell(
+                                                  onTap: () => _openMushafForVerse(m.surahId, m.verseId),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: widget.colors.surfaceMuted,
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: widget.colors.borderSoft),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.import_contacts, size: 12, color: widget.colors.primary),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          'มุศหัฟ',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: widget.colors.primary,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
@@ -609,10 +669,42 @@ class BrowseScreenState extends State<BrowseScreen> {
                                               ),
                                             ),
                                           ),
-                                          Icon(
-                                            Icons.chevron_right,
-                                            color: widget.colors.foreground,
-                                            size: 18,
+                                          Row(
+                                            children: [
+                                              InkWell(
+                                                onTap: () => _openMushafForVerse(item.surahId, item.verseId),
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: widget.colors.surfaceMuted,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: widget.colors.borderSoft),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(Icons.import_contacts, size: 12, color: widget.colors.primary),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'มุศหัฟ',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: widget.colors.primary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Icon(
+                                                Icons.chevron_right,
+                                                color: widget.colors.foreground,
+                                                size: 18,
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
