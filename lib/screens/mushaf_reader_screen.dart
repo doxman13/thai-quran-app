@@ -35,14 +35,14 @@ class MushafReaderScreen extends StatefulWidget {
   final String? shortcutId;
 
   const MushafReaderScreen({
-    Key? key,
+    super.key,
     required this.quranRepository,
     required this.foundationRepository,
     this.profileId,
     this.initialPage,
     this.initialHighlightVerseKey,
     this.shortcutId,
-  }) : super(key: key);
+  });
 
   @override
   State<MushafReaderScreen> createState() => _MushafReaderScreenState();
@@ -115,7 +115,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         updatedAt: lp.updatedAt,
       );
     }
-    return context.read<MushafReadingProvider>().profileById(widget.profileId);
+    return context.read<MushafReadingProvider>().profileById(widget.profileId) ??
+        context.read<MushafReadingProvider>().activeProfile;
   }
 
   @override
@@ -162,9 +163,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             );
           }
           unawaited(_logMushafPageRead(currentProfile.mushafId, _pageNumber));
-          if (widget.initialHighlightVerseKey != null) {
+        }
+
+        if (widget.initialHighlightVerseKey != null) {
+          if (!mounted) return;
+          final profileForTranslation =
+              currentProfile ?? context.read<MushafReadingProvider>().activeProfile;
+          if (profileForTranslation != null) {
             _showVerseTranslation(
-              currentProfile,
+              profileForTranslation,
               widget.initialHighlightVerseKey!,
               _pageNumber,
             );
@@ -2507,32 +2514,6 @@ class _MushafLine extends StatelessWidget {
         .split('')
         .map((digit) => String.fromCharCode(digits[int.parse(digit)]))
         .join();
-  }
-}
-
-class _VerseGestureTarget extends StatelessWidget {
-  final String verseKey;
-  final Widget child;
-  final ValueChanged<String> onVerseTap;
-  final ValueChanged<String> onVerseLongPressStart;
-  final ValueChanged<String> onVerseLongPress;
-
-  const _VerseGestureTarget({
-    required this.verseKey,
-    required this.child,
-    required this.onVerseTap,
-    required this.onVerseLongPressStart,
-    required this.onVerseLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onVerseTap(verseKey),
-      onLongPressStart: (_) => onVerseLongPressStart(verseKey),
-      onLongPress: () => onVerseLongPress(verseKey),
-      child: child,
-    );
   }
 }
 

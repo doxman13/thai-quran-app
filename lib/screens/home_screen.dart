@@ -238,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen>
       setState(() {
         _isInit = true;
       });
+      unawaited(_triggerAutoSync());
     }
   }
 
@@ -488,6 +489,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _navigateToMushafFreeReadPage(
     int pageNumber, {
     String? shortcutId,
+    String? highlightedVerseKey,
   }) async {
     final mushafProvider = context.read<MushafReadingProvider>();
     final profile = await mushafProvider.openUnifiedFreeRead();
@@ -501,6 +503,7 @@ class _HomeScreenState extends State<HomeScreen>
           profileId: shortcutId != null ? null : profile.id,
           shortcutId: shortcutId,
           initialPage: pageNumber,
+          initialHighlightVerseKey: highlightedVerseKey,
         ),
       ),
     ).then((_) => _refreshHomeAfterReader());
@@ -3842,7 +3845,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Text('Select Surah', style: textTheme.titleSmall),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
-                    value: selectedSurah,
+                    initialValue: selectedSurah,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -3996,6 +3999,10 @@ class _HomeScreenState extends State<HomeScreen>
               verse.english.toLowerCase().contains(query) ||
               (verse.shortTafsir?.toLowerCase().contains(query) ?? false)) {
             final surahName = widget.repository.getSurahName(verse.surahId);
+            final sId = int.tryParse(verse.surahId) ?? 1;
+            final vId = int.tryParse(verse.id) ?? 1;
+            final mushafPage = qcf.getPageNumber(sId, vId);
+
             results.add(
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -4007,31 +4014,81 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                   tileColor: colorScheme.surface,
-                  title: Text(
-                    '$surahName, ${context.tr('ayah')} ${verse.id}',
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$surahName, ${context.tr('ayah')} ${verse.id}',
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _navigateToMushafFreeReadPage(
+                          mushafPage,
+                          highlightedVerseKey: '$sId:$vId',
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.import_contacts,
+                                size: 12,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'มุศหัฟ',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      verse.thaiV3,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
-                  subtitle: Text(
-                    verse.thaiV3,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 13,
-                    ),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right,
-                    color: colorScheme.onSurfaceVariant,
-                    size: 16,
-                  ),
-                  onTap: () => _navigateToReading(
-                    context,
-                    verse.surahId,
-                    verseId: verse.id,
-                  ),
+                  onTap: () {
+                    if (_selectedTabIndex == 1) {
+                      _navigateToMushafFreeReadPage(
+                        mushafPage,
+                        highlightedVerseKey: '$sId:$vId',
+                      );
+                    } else {
+                      _navigateToReading(
+                        context,
+                        verse.surahId,
+                        verseId: verse.id,
+                      );
+                    }
+                  },
                 ),
               ),
             );

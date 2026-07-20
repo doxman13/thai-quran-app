@@ -126,7 +126,7 @@ class BrowseScreenState extends State<BrowseScreen> {
     final pageNumber = qcf.getPageNumber(sId, vId);
 
     final mushafProvider = context.read<MushafReadingProvider>();
-    mushafProvider.openFreeRead(2).then((profile) {
+    mushafProvider.openUnifiedFreeRead().then((profile) {
       if (!mounted) return;
       Navigator.push(
         context,
@@ -136,7 +136,7 @@ class BrowseScreenState extends State<BrowseScreen> {
             foundationRepository: _foundationRepo,
             profileId: profile.id,
             initialPage: pageNumber,
-            initialHighlightVerseKey: '$surahId:$verseId',
+            initialHighlightVerseKey: '$sId:$vId',
           ),
         ),
       );

@@ -64,12 +64,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         targetProfileId.startsWith('free-read') ||
         targetProfileId.startsWith('mushaf-free');
     if (targetProfileId.isEmpty || isFreeReadId) {
-      final profile = await provider.openFreeRead(mushafId);
+      final profile = await provider.openUnifiedFreeRead();
       targetProfileId = profile.id;
     } else if (provider.profileById(targetProfileId) != null) {
       await provider.setActiveProfile(targetProfileId);
     } else {
-      final profile = await provider.openFreeRead(mushafId);
+      final profile = await provider.openUnifiedFreeRead();
       targetProfileId = profile.id;
     }
 
