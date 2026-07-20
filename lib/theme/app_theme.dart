@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Clean, modern Material 3 design system tokens matching thai-quran-web (iQra Foundation).
 class AppThemeColors {
   final Color background;
   final Color surface;
@@ -15,6 +16,9 @@ class AppThemeColors {
   final Color primaryLight;
   final Color primaryLightBorder;
   final Color accent;
+  final Color success;
+  final Color warning;
+  final Color danger;
 
   const AppThemeColors({
     required this.background,
@@ -29,11 +33,54 @@ class AppThemeColors {
     required this.primaryLight,
     required this.primaryLightBorder,
     required this.accent,
+    required this.success,
+    required this.warning,
+    required this.danger,
   });
+
+  /// Official Teal palette (iQra foundation: warm paper, deep teal, and quiet gold).
+  factory AppThemeColors.teal({required bool isDark}) {
+    if (isDark) {
+      return const AppThemeColors(
+        background: Color(0xFF0D0D0D),
+        surface: Color(0xFF161616),
+        surfaceMuted: Color(0xFF1C1C1C),
+        borderSoft: Color(0xFF2C2C2C),
+        foreground: Color(0xFFD1D5DB),
+        textStrong: Color(0xFFFFFFFF),
+        textInverse: Color(0xFF0D0D0D),
+        primary: Color(0xFF529665),
+        primaryHover: Color(0xFF407D51),
+        primaryLight: Color(0xFF122016),
+        primaryLightBorder: Color(0xFF1E3625),
+        accent: Color(0xFF78BD8C),
+        success: Color(0xFF78BD8C),
+        warning: Color(0xFFE2A65C),
+        danger: Color(0xFFE68585),
+      );
+    }
+    return const AppThemeColors(
+      background: Color(0xFFF5F4EE),
+      surface: Color(0xFFFFFDF9),
+      surfaceMuted: Color(0xFFEEEEEE),
+      borderSoft: Color(0xFFD9DDD4),
+      foreground: Color(0xFF3F4F4A),
+      textStrong: Color(0xFF123B3C),
+      textInverse: Color(0xFFFFFDF9),
+      primary: Color(0xFF0E5B59),
+      primaryHover: Color(0xFF084645),
+      primaryLight: Color(0xFFE3EFEB),
+      primaryLightBorder: Color(0xFFC3D9D1),
+      accent: Color(0xFFC59A52),
+      success: Color(0xFF2F8877),
+      warning: Color(0xFFB77C32),
+      danger: Color(0xFFB55454),
+    );
+  }
 }
 
 class AppTheme {
-  // 1. Upgrade radius from 8.0 to 16.0 for a softer, premium, modern feel
+  /// Standard geometry radius for soft modern M3 containers (16.0px)
   static const radius = 16.0;
 
   static Future<void> prewarmFonts() async {
@@ -46,47 +93,18 @@ class AppTheme {
     }
   }
 
+  /// Returns the theme color tokens. Forced to Teal (the web app active theme).
   static AppThemeColors colors({
     required bool isDark,
-    required String palette,
+    String palette = 'teal',
   }) {
-    if (isDark) {
-      return const AppThemeColors(
-        background: Color(0xFF121212),
-        surface: Color(0xFF1E1E1E),
-        surfaceMuted: Color(0xFF262626),
-        borderSoft: Color(0xFF2E2E2E),
-        foreground: Color(0xFF9CA3AF),
-        textStrong: Color(0xFFF3F4F6),
-        textInverse: Color(0xFF111827),
-        primary: Color(0xFF6E91C4),
-        primaryHover: Color(0xFF5F82B5),
-        primaryLight: Color(0xFF2A2A2A),
-        primaryLightBorder: Color(0xFF3A3A3A),
-        accent: Color(0xFF93B4E3),
-      );
-    }
-
-    return const AppThemeColors(
-      background: Color(0xFFEBEFF4),
-      surface: Color(0xFFFFFFFF),
-      surfaceMuted: Color(0xFFF0F4F8),
-      borderSoft: Color(0xFFD8E1EC),
-      foreground: Color(0xFF64748B),
-      textStrong: Color(0xFF334155),
-      textInverse: Color(0xFFF8FAFC),
-      primary: Color(0xFF4F7FB8),
-      primaryHover: Color(0xFF426FA4),
-      primaryLight: Color(0xFFEAF2FB),
-      primaryLightBorder: Color(0xFFC9DAEF),
-      accent: Color(0xFF6C93C5),
-    );
+    return AppThemeColors.teal(isDark: isDark);
   }
 
-  // 2. NEW: Native ThemeData bridge generator so your AI and Flutter Widgets recognize your styles instantly
+  /// Builds Material 3 ThemeData bridge using web theme tokens.
   static ThemeData toThemeData({
     required bool isDark,
-    String palette = 'default',
+    String palette = 'teal',
   }) {
     final c = colors(isDark: isDark, palette: palette);
     final baseTheme = ThemeData(
@@ -105,7 +123,6 @@ class AppTheme {
       textTheme: textTheme,
       primaryTextTheme: textTheme,
 
-      // Map your clean color variables directly into Flutter's native system
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: c.primary,
@@ -114,13 +131,13 @@ class AppTheme {
         onSecondary: c.textStrong,
         surface: c.surface,
         onSurface: c.textStrong,
-        surfaceContainerLow: c.surfaceMuted, // Perfect for list backdrops
+        surfaceContainerLow: c.surfaceMuted,
+        onSurfaceVariant: c.foreground,
         outline: c.borderSoft,
-        error: Colors.redAccent,
+        error: c.danger,
         onError: Colors.white,
       ),
 
-      // Set clean, standard component defaults based on your radius
       cardTheme: CardThemeData(
         color: c.surface,
         elevation: 0,
@@ -144,14 +161,12 @@ class AppTheme {
   }
 }
 
-// Add this at the absolute bottom of app_theme.dart
 extension BuildContextThemeExt on BuildContext {
   ThemeData get theme => Theme.of(this);
   ColorScheme get colorScheme => Theme.of(this).colorScheme;
 
-  // This lets you call your custom palette from anywhere instantly!
   AppThemeColors get appColors => AppTheme.colors(
     isDark: Theme.of(this).brightness == Brightness.dark,
-    palette: 'default',
+    palette: 'teal',
   );
 }

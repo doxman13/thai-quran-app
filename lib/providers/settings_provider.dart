@@ -22,7 +22,7 @@ class SettingsProvider extends ChangeNotifier {
   String _readingDisplayMode = quranTranslationMode;
   double _arabicFontSize = 28.0;
   double _translationFontSize = 16.0;
-  String _themeColor = 'blue';
+  String _themeColor = 'teal';
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
   String _languageCode = 'th'; // Default to Thai
@@ -264,7 +264,7 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setString('arabicFontFamily', 'UthmanicHafs');
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
     _translationFontSize = prefs.getDouble('translationFontSize') ?? 16.0;
-    _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'blue');
+    _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'teal');
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
     _settingsUpdatedAt =
         DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
@@ -463,10 +463,10 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void setThemeColor(String value) async {
-    _themeColor = 'blue';
+    _themeColor = _normalizeThemeColor(value);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeColor', 'blue');
+    await prefs.setString('themeColor', _themeColor);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
@@ -555,11 +555,11 @@ class SettingsProvider extends ChangeNotifier {
 
   // Helper method to get theme colors
   MaterialColor getThemeSwatch() {
-    return Colors.blue;
+    return Colors.teal;
   }
 
   AppThemeColors getAppColors() {
-    return AppTheme.colors(isDark: _isDarkMode, palette: 'blue');
+    return AppTheme.colors(isDark: _isDarkMode, palette: 'teal');
   }
 
   Color getPrimaryColor() {
@@ -571,6 +571,6 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   String _normalizeThemeColor(String value) {
-    return 'blue';
+    return 'teal';
   }
 }
