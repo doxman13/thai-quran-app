@@ -19,6 +19,7 @@ class BrowseScreen extends StatefulWidget {
   final ValueChanged<int> onOpenPage;
 
   const BrowseScreen({
+    super.key,
     required this.repository,
     required this.colors,
 
