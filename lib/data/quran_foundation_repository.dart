@@ -47,6 +47,34 @@ class _ResolvedQuranFoundationConfig {
   bool get isConfigured => clientId.isNotEmpty && authToken.isNotEmpty;
 }
 
+class QuranSearchResultItem {
+  final String verseKey;
+  final String surahId;
+  final String verseId;
+  final String arabicText;
+  final String translationText;
+
+  QuranSearchResultItem({
+    required this.verseKey,
+    required this.surahId,
+    required this.verseId,
+    required this.arabicText,
+    required this.translationText,
+  });
+}
+
+class QuranSearchResult {
+  final String query;
+  final int totalResults;
+  final List<QuranSearchResultItem> items;
+
+  QuranSearchResult({
+    required this.query,
+    required this.totalResults,
+    required this.items,
+  });
+}
+
 class QuranFoundationException implements Exception {
   final String message;
 
@@ -62,6 +90,77 @@ class QuranFoundationRepository {
 
   QuranFoundationRepository({http.Client? client})
     : _client = client ?? http.Client();
+
+  Future<QuranSearchResult> searchQuran({
+    required String query,
+    String language = 'th',
+    int size = 20,
+    int page = 1,
+  }) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.isEmpty) {
+      return QuranSearchResult(query: '', totalResults: 0, items: []);
+    }
+
+    try {
+      final uri = Uri.parse(
+        'https://api.quran.com/api/v4/search?q=${Uri.encodeComponent(cleanQuery)}&size=$size&page=$page&language=$language',
+      );
+      final response = await _client.get(
+        uri,
+        headers: {'accept': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final search = decoded['search'] as Map<String, dynamic>?;
+        if (search != null) {
+          final totalResults = search['total_results'] as int? ?? 0;
+          final rawResults = search['results'] as List<dynamic>? ?? [];
+          final items = <QuranSearchResultItem>[];
+
+          for (final raw in rawResults) {
+            if (raw is Map<String, dynamic>) {
+              final vk = raw['verse_key']?.toString() ?? '';
+              final parts = vk.split(':');
+              final sId = parts.isNotEmpty ? parts[0] : '';
+              final vId = parts.length > 1 ? parts[1] : '';
+              final text = raw['text']?.toString() ?? '';
+
+              String transText = '';
+              final translations = raw['translations'] as List<dynamic>?;
+              if (translations != null && translations.isNotEmpty) {
+                final firstTrans = translations.first;
+                if (firstTrans is Map<String, dynamic>) {
+                  transText = (firstTrans['text']?.toString() ?? '')
+                      .replaceAll(RegExp(r'<[^>]+>'), '')
+                      .trim();
+                }
+              }
+
+              items.add(QuranSearchResultItem(
+                verseKey: vk,
+                surahId: sId,
+                verseId: vId,
+                arabicText: text,
+                translationText: transText,
+              ));
+            }
+          }
+
+          return QuranSearchResult(
+            query: cleanQuery,
+            totalResults: totalResults,
+            items: items,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Quran search API error: $e');
+    }
+
+    return QuranSearchResult(query: cleanQuery, totalResults: 0, items: []);
+  }
 
   int _contentMushafId(int mushafId) {
     if (mushafId == qcfPackageMushafId) return 1;

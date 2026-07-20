@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/settings_provider.dart';
@@ -75,6 +77,44 @@ class BrowseScreenState extends State<BrowseScreen> {
 
   String _mode = 'surah';
   final TextEditingController _searchController = TextEditingController();
+  final QuranFoundationRepository _foundationRepo = QuranFoundationRepository();
+  QuranSearchResult? _apiSearchResult;
+  bool _isApiSearching = false;
+  Timer? _debounceTimer;
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchQueryChanged(String query) {
+    setState(() {});
+
+    _debounceTimer?.cancel();
+    if (query.trim().length < 2) {
+      setState(() {
+        _apiSearchResult = null;
+        _isApiSearching = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isApiSearching = true;
+    });
+
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
+      final res = await _foundationRepo.searchQuran(query: query.trim());
+      if (mounted && _searchController.text.trim() == query.trim()) {
+        setState(() {
+          _apiSearchResult = res;
+          _isApiSearching = false;
+        });
+      }
+    });
+  }
 
   void _setMode(String mode) {
     setState(() {
@@ -280,7 +320,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                 ),
                 child: TextField(
                   controller: _searchController,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: _onSearchQueryChanged,
                   decoration: InputDecoration(
                     hintText: context.tr('search_hint'),
                     hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
@@ -307,12 +347,55 @@ class BrowseScreenState extends State<BrowseScreen> {
                               ),
                               onPressed: () {
                                 _searchController.clear();
-                                setState(() {});
+                                _onSearchQueryChanged('');
                               },
                             ),
                           )
                         : null,
                   ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Popular Search Chips
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    'ความเมตตา', 'ความอดทน', 'การละหมาด', 'สวรรค์', 'นรก', 'ศรัทธา'
+                  ].map((chip) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      onTap: () {
+                        _searchController.text = chip;
+                        _onSearchQueryChanged(chip);
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _searchController.text == chip
+                              ? colorScheme.primary
+                              : colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '🔍 $chip',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _searchController.text == chip
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )).toList(),
                 ),
               ),
             ),
@@ -469,7 +552,107 @@ class BrowseScreenState extends State<BrowseScreen> {
                           ),
                         ),
                       ],
-                      if (surahs.isEmpty && verseMatches.isEmpty)
+                      // Live API search matches
+                      if (_isApiSearching)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: widget.colors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_apiSearchResult != null && _apiSearchResult!.items.isNotEmpty) ...[
+                        Text(
+                          'ผลการค้นหาจากอัลกุรอาน (${_apiSearchResult!.items.length})',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ..._apiSearchResult!.items.map(
+                          (item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(AppTheme.radius),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(AppTheme.radius),
+                                onTap: () => widget.onOpen(item.surahId, item.verseId),
+                                child: _SectionCard(
+                                  colors: widget.colors,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.primaryContainer,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId)} (${item.verseKey})',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: colorScheme.onPrimaryContainer,
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.chevron_right,
+                                            color: widget.colors.foreground,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ),
+                                      if (item.arabicText.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Text(
+                                            item.arabicText,
+                                            textDirection: TextDirection.rtl,
+                                            style: GoogleFonts.amiri(
+                                              fontSize: 16,
+                                              height: 1.8,
+                                              color: widget.colors.textStrong,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      if (item.translationText.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.translationText,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: widget.colors.foreground,
+                                            fontSize: 12,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (surahs.isEmpty && verseMatches.isEmpty && (_apiSearchResult == null || _apiSearchResult!.items.isEmpty) && !_isApiSearching)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 48),
                           child: Center(
