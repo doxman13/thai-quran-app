@@ -519,94 +519,76 @@ class BrowseScreenState extends State<BrowseScreen> {
                               borderRadius: BorderRadius.circular(
                                 AppTheme.radius,
                               ),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(
-                                  AppTheme.radius,
-                                ),
-                                onTap: () =>
-                                    widget.onOpen(m.surahId, m.verseId),
-                                child: _SectionCard(
-                                  colors: widget.colors,
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(
-                                        Icons.menu_book_outlined,
-                                        color: widget.colors.primary,
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: textTheme.titleSmall
-                                                        ?.copyWith(
-                                                          fontWeight: FontWeight.bold,
-                                                          color: widget
-                                                              .colors
-                                                              .textStrong,
-                                                        ),
-                                                  ),
-                                                ),
-                                                InkWell(
-                                                  onTap: () => _openMushafForVerse(m.surahId, m.verseId),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                    decoration: BoxDecoration(
-                                                      color: widget.colors.surfaceMuted,
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(color: widget.colors.borderSoft),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        Icon(Icons.import_contacts, size: 12, color: widget.colors.primary),
-                                                        const SizedBox(width: 4),
-                                                        Text(
-                                                          'มุศหัฟ',
-                                                          style: TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: widget.colors.primary,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              m.translationText,
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: widget.colors.foreground,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
+                              child: _SectionCard(
+                                colors: widget.colors,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.menu_book_outlined,
+                                          color: widget.colors.primary,
+                                          size: 18,
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        Icons.chevron_right,
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: textTheme.titleSmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: widget
+                                                      .colors
+                                                      .textStrong,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      m.translationText,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
                                         color: widget.colors.foreground,
+                                        fontSize: 13,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          onPressed: () => widget.onOpen(m.surahId, m.verseId),
+                                          icon: const Icon(Icons.menu_book, size: 14),
+                                          label: const Text('ฉบับแปล', style: TextStyle(fontSize: 12)),
+                                          style: OutlinedButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                            side: BorderSide(color: widget.colors.borderSoft),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FilledButton.icon(
+                                          onPressed: () => _openMushafForVerse(m.surahId, m.verseId),
+                                          icon: const Icon(Icons.import_contacts, size: 14),
+                                          label: const Text('อ่านในมุศหัฟ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: FilledButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                            backgroundColor: widget.colors.primary,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -643,101 +625,90 @@ class BrowseScreenState extends State<BrowseScreen> {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(AppTheme.radius),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(AppTheme.radius),
-                                onTap: () => widget.onOpen(item.surahId, item.verseId),
-                                child: _SectionCard(
-                                  colors: widget.colors,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: colorScheme.primaryContainer,
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId)} (${item.verseKey})',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: colorScheme.onPrimaryContainer,
-                                              ),
-                                            ),
+                              child: _SectionCard(
+                                colors: widget.colors,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primaryContainer,
+                                            borderRadius: BorderRadius.circular(6),
                                           ),
-                                          Row(
-                                            children: [
-                                              InkWell(
-                                                onTap: () => _openMushafForVerse(item.surahId, item.verseId),
-                                                borderRadius: BorderRadius.circular(6),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: widget.colors.surfaceMuted,
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: widget.colors.borderSoft),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      Icon(Icons.import_contacts, size: 12, color: widget.colors.primary),
-                                                      const SizedBox(width: 4),
-                                                      Text(
-                                                        'มุศหัฟ',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: widget.colors.primary,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Icon(
-                                                Icons.chevron_right,
-                                                color: widget.colors.foreground,
-                                                size: 18,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      if (item.arabicText.isNotEmpty) ...[
-                                        const SizedBox(height: 6),
-                                        Align(
-                                          alignment: Alignment.centerRight,
                                           child: Text(
-                                            item.arabicText,
-                                            textDirection: TextDirection.rtl,
-                                            style: GoogleFonts.amiri(
-                                              fontSize: 16,
-                                              height: 1.8,
-                                              color: widget.colors.textStrong,
+                                            'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId)} (${item.verseKey})',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onPrimaryContainer,
                                             ),
                                           ),
                                         ),
                                       ],
-                                      if (item.translationText.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          item.translationText,
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: widget.colors.foreground,
-                                            fontSize: 12,
-                                            height: 1.4,
+                                    ),
+                                    if (item.arabicText.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          item.arabicText,
+                                          textDirection: TextDirection.rtl,
+                                          style: GoogleFonts.amiri(
+                                            fontSize: 16,
+                                            height: 1.8,
+                                            color: widget.colors.textStrong,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    if (item.translationText.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        item.translationText,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: widget.colors.foreground,
+                                          fontSize: 12,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          onPressed: () => widget.onOpen(item.surahId, item.verseId),
+                                          icon: const Icon(Icons.menu_book, size: 14),
+                                          label: const Text('ฉบับแปล', style: TextStyle(fontSize: 12)),
+                                          style: OutlinedButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                            side: BorderSide(color: widget.colors.borderSoft),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FilledButton.icon(
+                                          onPressed: () => _openMushafForVerse(item.surahId, item.verseId),
+                                          icon: const Icon(Icons.import_contacts, size: 14),
+                                          label: const Text('อ่านในมุศหัฟ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: FilledButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            minimumSize: const Size(0, 32),
+                                            backgroundColor: widget.colors.primary,
+                                            foregroundColor: Colors.white,
                                           ),
                                         ),
                                       ],
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
