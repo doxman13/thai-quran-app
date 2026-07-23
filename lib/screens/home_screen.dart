@@ -26,6 +26,7 @@ import 'settings_screen.dart';
 import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
 import 'browse_screen.dart';
+import 'hifz_memorize_screen.dart';
 import 'tadabbur_private_screen.dart';
 
 class _ModeSelectionCard extends StatelessWidget {
@@ -912,6 +913,8 @@ class _HomeScreenState extends State<HomeScreen>
     final surah = int.tryParse(surahId) ?? 1;
     final verse = int.tryParse(verseId) ?? 1;
     final pageNumber = qcf.getPageNumber(surah, verse);
+    final totalVerses = widget.repository.getSurahVerses(surahId).length;
+
     final destination = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -958,6 +961,19 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModeSelectionCard(
+                      icon: Icons.psychology_outlined,
+                      title: 'ท่องจำฮิฟซ์',
+                      subtitle: 'Hifz Memorize',
+                      onTap: () => Navigator.pop(sheetContext, 'hifz'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -966,6 +982,22 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted || destination == null) return;
     if (destination == 'mushaf') {
       await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
+      return;
+    }
+    if (destination == 'hifz') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HifzMemorizeScreen(
+            quranRepository: widget.repository,
+            foundationRepository: _foundationRepository,
+            initialPage: pageNumber,
+            surahNumber: surah,
+            startVerse: verse,
+            endVerse: (verse + 2) <= totalVerses ? (verse + 2) : totalVerses,
+          ),
+        ),
+      );
       return;
     }
     _navigateToReading(

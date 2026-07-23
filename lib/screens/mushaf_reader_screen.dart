@@ -1856,7 +1856,7 @@ class _QcfPackagePageView extends StatelessWidget {
                   basmalaColor: textColor,
                   headerTextColor: textColor,
                   headerBackgroundColor: Colors.transparent,
-                  customHeaderBuilder: (surahNumber) => _QcfSurahHeader(
+                  customHeaderBuilder: (surahNumber) => QcfSurahHeader(
                     surahNumber: surahNumber,
                     colors: colors,
                     showBismillahText: false,
@@ -1955,7 +1955,7 @@ class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
             onRetry: () {},
           );
         }
-        return _MushafPageView(
+        return MushafPageView(
           colors: widget.colors,
           page: page,
           fontFamily: widget.repository.getFontFamily(
@@ -1973,7 +1973,7 @@ class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
   }
 }
 
-class _MushafPageView extends StatelessWidget {
+class MushafPageView extends StatelessWidget {
   final AppThemeColors colors;
   final MushafPage page;
   final String fontFamily;
@@ -1983,7 +1983,7 @@ class _MushafPageView extends StatelessWidget {
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
 
-  const _MushafPageView({
+  const MushafPageView({
     required this.colors,
     required this.page,
     required this.fontFamily,
@@ -1997,7 +1997,7 @@ class _MushafPageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surahStartsByLine = _surahStartsByLine(page);
-    final layout = _MushafLayoutProfile.forMushaf(mushafId);
+    final layout = MushafLayoutProfile.forMushaf(mushafId);
     final verseEndWords = _verseEndWords(page);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2010,13 +2010,13 @@ class _MushafPageView extends StatelessWidget {
                 for (final surahId
                     in surahStartsByLine[line.first.lineNumber] ??
                         const <String>[])
-                  _QcfSurahHeader(
+                  QcfSurahHeader(
                     surahNumber: int.tryParse(surahId) ?? 0,
                     colors: colors,
                   ),
                 Builder(
                   builder: (context) {
-                    return _MushafLine(
+                    return MushafLine(
                       line: line,
                       fontFamily: fontFamily,
                       mushafId: mushafId,
@@ -2088,7 +2088,7 @@ class _MushafPageView extends StatelessWidget {
   }
 }
 
-class _MushafLayoutProfile {
+class MushafLayoutProfile {
   final double pageWidth;
   final double lineWidth;
   final double lineHeight;
@@ -2096,7 +2096,7 @@ class _MushafLayoutProfile {
   final double horizontalPadding;
   final double wordPadding;
 
-  const _MushafLayoutProfile({
+  const MushafLayoutProfile({
     required this.pageWidth,
     required this.lineWidth,
     required this.lineHeight,
@@ -2105,11 +2105,11 @@ class _MushafLayoutProfile {
     required this.wordPadding,
   });
 
-  factory _MushafLayoutProfile.forMushaf(int mushafId) {
+  factory MushafLayoutProfile.forMushaf(int mushafId) {
     return switch (mushafId) {
       // QCF page fonts already carry their own spacing; keep padding at zero
       // and the canonical canvas tight so phone/tablet screens do not feel tiny.
-      1 => const _MushafLayoutProfile(
+      1 => const MushafLayoutProfile(
         pageWidth: 410,
         lineWidth: 410,
         lineHeight: 1.90,
@@ -2117,7 +2117,7 @@ class _MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0,
       ),
-      2 => const _MushafLayoutProfile(
+      2 => const MushafLayoutProfile(
         pageWidth: 412,
         lineWidth: 412,
         lineHeight: 1.74,
@@ -2125,7 +2125,7 @@ class _MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0,
       ),
-      19 => const _MushafLayoutProfile(
+      19 => const MushafLayoutProfile(
         pageWidth: 410,
         lineWidth: 410,
         lineHeight: 1.7,
@@ -2133,7 +2133,7 @@ class _MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0,
       ),
-      4 => const _MushafLayoutProfile(
+      4 => const MushafLayoutProfile(
         pageWidth: 390,
         lineWidth: 358,
         lineHeight: 1.8,
@@ -2141,7 +2141,7 @@ class _MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0.0,
       ),
-      6 || 11 => const _MushafLayoutProfile(
+      6 || 11 => const MushafLayoutProfile(
         pageWidth: 390,
         lineWidth: 358,
         lineHeight: 1.7,
@@ -2149,7 +2149,7 @@ class _MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0.0,
       ),
-      _ => const _MushafLayoutProfile(
+      _ => const MushafLayoutProfile(
         pageWidth: 390,
         lineWidth: 358,
         lineHeight: 1.7,
@@ -2161,12 +2161,12 @@ class _MushafLayoutProfile {
   }
 }
 
-class _QcfSurahHeader extends StatelessWidget {
+class QcfSurahHeader extends StatelessWidget {
   final int surahNumber;
   final AppThemeColors colors;
   final bool showBismillahText;
 
-  const _QcfSurahHeader({
+  const QcfSurahHeader({
     required this.surahNumber,
     required this.colors,
     this.showBismillahText = true,
@@ -2270,7 +2270,7 @@ class _QcfSurahHeader extends StatelessWidget {
   }
 }
 
-class _MushafLine extends StatelessWidget {
+class MushafLine extends StatelessWidget {
   final List<MushafWord> line;
   final String fontFamily;
   final int mushafId;
@@ -2282,11 +2282,14 @@ class _MushafLine extends StatelessWidget {
   final Set<MushafWord> verseEndWords;
   final Map<int, List<String>> surahStartsByLine;
   final String? highlightedVerseKey;
+  final Set<String>? highlightedVerseKeys;
   final ValueChanged<String> onVerseTap;
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
+  final bool Function(String)? isVerseHidden;
+  final bool isPeekActive;
 
-  const _MushafLine({
+  const MushafLine({
     required this.line,
     required this.fontFamily,
     required this.mushafId,
@@ -2298,9 +2301,12 @@ class _MushafLine extends StatelessWidget {
     required this.verseEndWords,
     required this.surahStartsByLine,
     required this.highlightedVerseKey,
+    this.highlightedVerseKeys,
     required this.onVerseTap,
     required this.onVerseLongPressStart,
     required this.onVerseLongPress,
+    this.isVerseHidden,
+    this.isPeekActive = false,
   });
 
   @override
@@ -2355,9 +2361,15 @@ class _MushafLine extends StatelessWidget {
     final textSpans = <InlineSpan>[];
     for (int i = 0; i < line.length; i++) {
       final word = line[i];
-      final isHighlighted = highlightedVerseKey == word.verseKey;
+      final isEndWord = verseEndWords.contains(word);
+      final isWordHidden = (isVerseHidden?.call(word.verseKey) ?? false) && !isPeekActive && !isEndWord;
+      final isHighlighted = (highlightedVerseKeys?.contains(word.verseKey) ?? false) || highlightedVerseKey == word.verseKey;
       final highlightColor = isHighlighted
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.16)
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.20)
+          : null;
+
+      final wordColor = isWordHidden
+          ? Colors.transparent
           : null;
 
       final recognizer = TapGestureRecognizer()
@@ -2369,7 +2381,7 @@ class _MushafLine extends StatelessWidget {
             TextSpan(
               text: part.text,
               style: baseStyle.copyWith(
-                color: _getTajweedColor(part.className, context),
+                color: wordColor ?? _getTajweedColor(part.className, context),
                 backgroundColor: highlightColor,
               ),
               recognizer: recognizer,
@@ -2387,7 +2399,10 @@ class _MushafLine extends StatelessWidget {
         textSpans.add(
           TextSpan(
             text: '${word.text} ',
-            style: baseStyle.copyWith(backgroundColor: highlightColor),
+            style: baseStyle.copyWith(
+              color: wordColor,
+              backgroundColor: highlightColor,
+            ),
             recognizer: recognizer,
           ),
         );
@@ -2404,9 +2419,11 @@ class _MushafLine extends StatelessWidget {
               fontFamily: 'UthmanicHafs',
               fontSize: 13,
               height: 1,
-              color: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
+              color: isWordHidden
+                  ? Colors.transparent
+                  : Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
               backgroundColor: highlightColor,
             ),
             recognizer: recognizer,
