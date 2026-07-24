@@ -913,51 +913,52 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                               Positioned.fill(
                                                 child: Padding(
                                                   padding: const EdgeInsets.all(8.0),
-                                                  child: InteractiveViewer(
-                                                    transformationController: _transformationController,
-                                                    minScale: 1.0,
-                                                    maxScale: 3.5,
-                                                    child: FutureBuilder<MushafPage>(
-                                                      future: widget.foundationRepository.fetchPage(
-                                                        mushafId: 2,
-                                                        pageNumber: _currentPage,
-                                                      ),
-                                                      builder: (context, snapshot) {
-                                                        if (!snapshot.hasData) {
-                                                          return const Center(
-                                                            child: CircularProgressIndicator(),
-                                                          );
-                                                        }
-                                                        final mushafPage = snapshot.data!;
-                                                        final activeVerseKey = (currentTask != null && currentTask.verseNumbers.isNotEmpty)
-                                                            ? '${provider.surahNumber}:${currentTask.verseNumbers.last}'
-                                                            : null;
-                                                        final activeVerseKeys = currentTask != null
-                                                            ? currentTask.verseNumbers.map((v) => '${provider.surahNumber}:$v').toSet()
-                                                            : const <String>{};
+                                                   child: InteractiveViewer(
+                                                     transformationController: _transformationController,
+                                                     minScale: 1.0,
+                                                     maxScale: 3.5,
+                                                     boundaryMargin: const EdgeInsets.symmetric(horizontal: 160, vertical: 320),
+                                                     child: FutureBuilder<MushafPage>(
+                                                       future: widget.foundationRepository.fetchPage(
+                                                         mushafId: 2,
+                                                         pageNumber: _currentPage,
+                                                       ),
+                                                       builder: (context, snapshot) {
+                                                         if (!snapshot.hasData) {
+                                                           return const Center(
+                                                             child: CircularProgressIndicator(),
+                                                           );
+                                                         }
+                                                         final mushafPage = snapshot.data!;
+                                                         final activeVerseKey = (currentTask != null && currentTask.verseNumbers.isNotEmpty)
+                                                             ? '${provider.surahNumber}:${currentTask.verseNumbers.last}'
+                                                             : null;
+                                                         final activeVerseKeys = currentTask != null
+                                                             ? currentTask.verseNumbers.map((v) => '${provider.surahNumber}:$v').toSet()
+                                                             : const <String>{};
 
-                                                        final surahStartsByLine = <int, List<String>>{};
-                                                        for (final verse in mushafPage.verses) {
-                                                          if (verse.verseId != '1' || verse.words.isEmpty) continue;
-                                                          final lineNumber = verse.words.first.lineNumber;
-                                                          surahStartsByLine.putIfAbsent(lineNumber, () => []).add(verse.surahId);
-                                                        }
+                                                         final surahStartsByLine = <int, List<String>>{};
+                                                         for (final verse in mushafPage.verses) {
+                                                           if (verse.verseId != '1' || verse.words.isEmpty) continue;
+                                                           final lineNumber = verse.words.first.lineNumber;
+                                                           surahStartsByLine.putIfAbsent(lineNumber, () => []).add(verse.surahId);
+                                                         }
 
-                                                        final verseEndWords = <MushafWord>{};
-                                                        for (final verse in mushafPage.verses) {
-                                                          if (verse.words.isNotEmpty) {
-                                                            verseEndWords.add(verse.words.last);
-                                                          }
-                                                        }
+                                                         final verseEndWords = <MushafWord>{};
+                                                         for (final verse in mushafPage.verses) {
+                                                           if (verse.words.isNotEmpty) {
+                                                             verseEndWords.add(verse.words.last);
+                                                           }
+                                                         }
 
-                                                        final layout = MushafLayoutProfile.forMushaf(2);
-                                                        final fontFamily = widget.foundationRepository.getFontFamily(2, _currentPage);
+                                                         final layout = MushafLayoutProfile.forMushaf(2);
+                                                         final fontFamily = widget.foundationRepository.getFontFamily(2, _currentPage);
 
-                                                        return SingleChildScrollView(
-                                                          physics: const ClampingScrollPhysics(),
-                                                          child: Center(
-                                                            child: FittedBox(
-                                                              fit: BoxFit.fitWidth,
+                                                         return SingleChildScrollView(
+                                                           physics: const NeverScrollableScrollPhysics(),
+                                                           child: Center(
+                                                             child: FittedBox(
+                                                               fit: BoxFit.fitWidth,
                                                               child: SizedBox(
                                                                 width: layout.pageWidth,
                                                                 child: Column(
