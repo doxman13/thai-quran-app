@@ -58,6 +58,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
   late int _currentPage;
   final FocusNode _focusNode = FocusNode();
   final FocusNode _hiddenInputFocusNode = FocusNode();
+  final TransformationController _transformationController = TransformationController();
 
   bool _isVerseHidden(int verseNum, HifzTask? currentTask) {
     if (currentTask == null) return false;
@@ -127,6 +128,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     _channel.setMethodCallHandler(null);
     _hiddenInputFocusNode.dispose();
     _focusNode.dispose();
+    _transformationController.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -836,13 +838,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                           ],
                         ),
                       ),
-                      // View container
                       Expanded(
                         child: Container(
-                          margin: const EdgeInsets.all(16),
+                          margin: _isMushafView
+                              ? const EdgeInsets.symmetric(horizontal: 4, vertical: 8)
+                              : const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(_isMushafView ? 8 : 16),
                             border: Border.all(
                               color: colorScheme.outlineVariant.withValues(alpha: 0.5),
                             ),
@@ -911,6 +914,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                 child: Padding(
                                                   padding: const EdgeInsets.all(8.0),
                                                   child: InteractiveViewer(
+                                                    transformationController: _transformationController,
                                                     minScale: 1.0,
                                                     maxScale: 3.5,
                                                     child: FutureBuilder<MushafPage>(
@@ -1019,6 +1023,52 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                     child: const SizedBox.expand(),
                                                   ),
                                                 ),
+                                               Positioned(
+                                                 bottom: 16,
+                                                 right: 16,
+                                                 child: Column(
+                                                   mainAxisSize: MainAxisSize.min,
+                                                   children: [
+                                                     FloatingActionButton.small(
+                                                       heroTag: 'zoom_in',
+                                                       backgroundColor: colorScheme.surfaceContainerHigh.withValues(alpha: 0.9),
+                                                       child: Icon(Icons.zoom_in, color: colorScheme.primary),
+                                                       onPressed: () {
+                                                         final Matrix4 matrix = _transformationController.value.clone();
+                                                         final double currentScale = matrix.getMaxScaleOnAxis();
+                                                         final double newScale = (currentScale + 0.25).clamp(1.0, 3.5);
+                                                         final double ratio = newScale / currentScale;
+                                                         final double x = paddedWidth / 2;
+                                                         final double y = paddedHeight / 2;
+                                                         
+                                                         matrix.translate(x, y);
+                                                         matrix.scale(ratio);
+                                                         matrix.translate(-x, -y);
+                                                         _transformationController.value = matrix;
+                                                       },
+                                                     ),
+                                                     const SizedBox(height: 8),
+                                                     FloatingActionButton.small(
+                                                       heroTag: 'zoom_out',
+                                                       backgroundColor: colorScheme.surfaceContainerHigh.withValues(alpha: 0.9),
+                                                       child: Icon(Icons.zoom_out, color: colorScheme.primary),
+                                                       onPressed: () {
+                                                         final Matrix4 matrix = _transformationController.value.clone();
+                                                         final double currentScale = matrix.getMaxScaleOnAxis();
+                                                         final double newScale = (currentScale - 0.25).clamp(1.0, 3.5);
+                                                         final double ratio = newScale / currentScale;
+                                                         final double x = paddedWidth / 2;
+                                                         final double y = paddedHeight / 2;
+                                                         
+                                                         matrix.translate(x, y);
+                                                         matrix.scale(ratio);
+                                                         matrix.translate(-x, -y);
+                                                         _transformationController.value = matrix;
+                                                       },
+                                                     ),
+                                                   ],
+                                                 ),
+                                               ),
                                             ],
                                           );
                                         },
