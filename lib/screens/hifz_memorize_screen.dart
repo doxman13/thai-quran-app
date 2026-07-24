@@ -13,6 +13,16 @@ import '../data/quran_repository.dart';
 import '../models/hifz_task.dart';
 import '../providers/hifz_session_provider.dart';
 import '../widgets/gundal_tally_widget.dart';
+import '../providers/mushaf_audio_provider.dart';
+
+import 'package:wakelock_plus/wakelock_plus.dart';
+import '../providers/settings_provider.dart';
+
+String _toArabicVerseNumber(int number) {
+  return '';
+}
+
+
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -39,7 +49,9 @@ class HifzMemorizeScreen extends StatefulWidget {
 class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
   static const _channel = MethodChannel('com.example.thai_quran_app/key_events');
   late HifzSessionProvider _hifzProvider;
-  bool _isMushafView = false;
+  bool _isMushafView = true;
+  bool _isSurahMode = true;
+  int _selectedPage = 1;
   late int _selectedRepeatStart;
   late int _selectedStartVerse;
   late int _selectedEndVerse;
@@ -70,6 +82,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
   void initState() {
     super.initState();
     _currentPage = widget.initialPage;
+    _selectedPage = widget.initialPage;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _showRangeSelectionModal(context);
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        if (settings.keepAwake) {
+          WakelockPlus.enable();
+        }
+      }
+    });
     _selectedRepeatStart = widget.startVerse;
     _selectedStartVerse = widget.startVerse;
     _selectedEndVerse = widget.endVerse;
@@ -83,6 +106,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     DateTime? lastClickTime;
     _channel.setMethodCallHandler((call) async {
       if (call.method == "keyClick") {
+        final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+        if (audio.isPlaying) return; // Disable key clicks when playing recitation
+
         final now = DateTime.now();
         if (lastClickTime != null && now.difference(lastClickTime!).inMilliseconds < 450) {
           return;
@@ -101,13 +127,22 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     _channel.setMethodCallHandler(null);
     _hiddenInputFocusNode.dispose();
     _focusNode.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 
+
+
+// Note: To allow selecting a surah inside _showRangeSelectionModal, we'll track a tempSurah variable in the modal builder state
   void _showRangeSelectionModal(BuildContext context) {
+    int tempSurah = _hifzProvider.currentTask?.verseNumbers.isNotEmpty == true 
+        ? _hifzProvider.surahNumber 
+        : widget.surahNumber;
     int tempRepeat = _selectedRepeatStart;
     int tempStart = _selectedStartVerse;
     int tempEnd = _selectedEndVerse;
+    bool tempIsSurahMode = _isSurahMode;
+    int tempPage = _selectedPage;
 
     showModalBottomSheet(
       context: context,
@@ -118,7 +153,24 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
           builder: (context, setModalState) {
             final colorScheme = Theme.of(context).colorScheme;
             final textTheme = Theme.of(context).textTheme;
-            final int totalVerses = qcf.getVerseCount(widget.surahNumber);
+            
+            // Logic for calculating max ranges depending on mode
+            int totalVerses = qcf.getVerseCount(tempSurah);
+            int minVerse = 1;
+            int maxVerse = totalVerses;
+            
+            if (!tempIsSurahMode) {
+              final pageItems = qcf.getPageData(tempPage);
+              if (pageItems.isNotEmpty) {
+                 final first = pageItems.first;
+                 final last = pageItems.last;
+                 // Limit to the surah of the first item on that page
+                 tempSurah = first['surah'];
+                 minVerse = first['start'];
+                 maxVerse = last['end'];
+              }
+            }
+
             final count = tempEnd - tempStart + 1;
 
             return Container(
@@ -149,14 +201,94 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Max range capped at 30 verses.',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                  const SizedBox(height: 16),
+                  Center(
+                    child: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: true, label: Text('Surah Mode')),
+                        ButtonSegment(value: false, label: Text('Page Mode')),
+                      ],
+                      selected: {tempIsSurahMode},
+                      onSelectionChanged: (val) {
+                        setModalState(() {
+                          tempIsSurahMode = val.first;
+                          if (!tempIsSurahMode) {
+                             final pageItems = qcf.getPageData(tempPage);
+                             if (pageItems.isNotEmpty) {
+                               tempSurah = pageItems.first['surah'];
+                               tempStart = pageItems.first['start'];
+                               tempRepeat = tempStart;
+                               tempEnd = pageItems.last['end'];
+                               if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
+                             }
+                          } else {
+                             tempSurah = widget.surahNumber;
+                             tempStart = 1;
+                             tempRepeat = 1;
+                             tempEnd = 3;
+                          }
+                        });
+                      },
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (tempIsSurahMode) ...[
+                    Text('Select Surah', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      value: tempSurah,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: List.generate(114, (i) => i + 1).map((v) {
+                        final surahName = widget.quranRepository.getSurahName(v.toString());
+                        return DropdownMenuItem(
+                          value: v,
+                          child: Text('$v. $surahName'),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            tempSurah = val;
+                            final limit = qcf.getVerseCount(tempSurah);
+                            tempStart = 1;
+                            tempRepeat = 1;
+                            tempEnd = limit > 3 ? 3 : limit;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    Text('Select Page', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<int>(
+                      value: tempPage,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: List.generate(604, (i) => i + 1).map((v) => DropdownMenuItem(value: v, child: Text('Page $v'))).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            tempPage = val;
+                            final pageItems = qcf.getPageData(tempPage);
+                             if (pageItems.isNotEmpty) {
+                               tempSurah = pageItems.first['surah'];
+                               tempStart = pageItems.first['start'];
+                               tempRepeat = tempStart;
+                               tempEnd = pageItems.last['end'];
+                               if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
+                             }
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Row(
                     children: [
                       Expanded(
@@ -178,7 +310,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
-                              items: List.generate(totalVerses, (i) => i + 1)
+                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i)
                                   .where((v) => v <= tempStart)
                                   .map((v) {
                                 return DropdownMenuItem(
@@ -217,7 +349,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
-                              items: List.generate(totalVerses, (i) => i + 1).map((v) {
+                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i).map((v) {
                                 return DropdownMenuItem(
                                   value: v,
                                   child: Text('Verse $v'),
@@ -230,7 +362,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                     if (tempRepeat > tempStart) tempRepeat = tempStart;
                                     if (tempEnd < tempStart) tempEnd = tempStart;
                                     if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
-                                    if (tempEnd > totalVerses) tempEnd = totalVerses;
+                                    if (tempEnd > maxVerse) tempEnd = maxVerse;
                                   });
                                 }
                               },
@@ -258,7 +390,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                               ),
-                              items: List.generate(totalVerses, (i) => i + 1)
+                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i)
                                   .where((v) => v >= tempStart && (v - tempStart + 1) <= 30)
                                   .map((v) {
                                 return DropdownMenuItem(
@@ -309,7 +441,24 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                           _selectedRepeatStart = tempRepeat;
                           _selectedStartVerse = tempStart;
                           _selectedEndVerse = tempEnd;
-                          _hifzProvider.initRoutine(tempRepeat, tempStart, tempEnd);
+                          _isSurahMode = tempIsSurahMode;
+                          _selectedPage = tempPage;
+                          if (tempIsSurahMode) {
+                            _currentPage = qcf.getPageNumber(tempSurah, tempStart);
+                          } else {
+                            _currentPage = tempPage;
+                          }
+                          // If Surah changed, make sure to re-init HifzSessionProvider with the new Surah
+                          if (_hifzProvider.surahNumber != tempSurah) {
+                            _hifzProvider = HifzSessionProvider(
+                              surahNumber: tempSurah,
+                              repeatStart: tempRepeat,
+                              startVerse: tempStart,
+                              endVerse: tempEnd,
+                            );
+                          } else {
+                            _hifzProvider.initRoutine(tempRepeat, tempStart, tempEnd);
+                          }
                         });
                         Navigator.pop(context);
                       },
@@ -552,11 +701,55 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
               title: const Text('Hifz Memorization'),
               centerTitle: true,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.tune_outlined),
-                  tooltip: 'Select Range (Max 10)',
-                  onPressed: () => _showRangeSelectionModal(context),
-                ),
+                 Consumer<MushafAudioProvider>(
+                   builder: (context, audio, _) {
+                     final isPlayingCurrentRange = audio.isPlaying &&
+                         audio.playlist.isNotEmpty &&
+                         audio.playlist.any((v) => v.surahId == provider.surahNumber.toString() &&
+                             int.parse(v.verseId) >= _selectedStartVerse &&
+                             int.parse(v.verseId) <= _selectedEndVerse);
+
+                     if (audio.isLoading) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12.0),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        );
+                      }
+
+                      return IconButton(
+                        icon: Icon(isPlayingCurrentRange ? Icons.stop_circle_outlined : Icons.play_circle_outline),
+                        tooltip: isPlayingCurrentRange ? 'Stop Playback' : 'Play Range',
+                        onPressed: () {
+                          if (isPlayingCurrentRange) {
+                            audio.stop();
+                          } else {
+                            // Generate list of verse IDs from _selectedStartVerse to _selectedEndVerse
+                            final verseIds = List.generate(
+                              _selectedEndVerse - _selectedStartVerse + 1,
+                              (i) => _selectedStartVerse + i,
+                            );
+                            audio.playRange(provider.surahNumber.toString(), verseIds);
+                          }
+                        },
+                      );
+                   },
+                 ),
+                 IconButton(
+                   icon: Icon(provider.isPeekActive ? Icons.visibility : Icons.visibility_off),
+                   tooltip: provider.isPeekActive ? 'Hide Verses' : 'Reveal Verses',
+                   onPressed: () {
+                     provider.setPeekActive(!provider.isPeekActive);
+                   },
+                 ),
+                 IconButton(
+                   icon: const Icon(Icons.tune_outlined),
+                   tooltip: 'Select Range (Max 10)',
+                   onPressed: () => _showRangeSelectionModal(context),
+                 ),
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(value: false, icon: Icon(Icons.view_list), label: Text('List')),
@@ -597,17 +790,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                     ),
                   ),
                 ),
-                Positioned.fill(
-                  child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () {
-                if (!provider.isSessionCompleted) {
-                  provider.incrementProgress();
-                  HapticFeedback.lightImpact();
-                }
-              },
-              child: Stack(
-              children: [
                 Positioned.fill(
                   child: Column(
                     children: [
@@ -705,7 +887,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                       child: LayoutBuilder(
                                         builder: (context, constraints) {
                                           final targetKey = currentTask != null && currentTask.verseNumbers.isNotEmpty
-                                              ? '1:${currentTask.verseNumbers.first}'
+                                              ? '${provider.surahNumber}:${currentTask.verseNumbers.first}'
                                               : null;
                                           final isHidden = currentTask != null &&
                                               currentTask.mode == TextVisibilityMode.hidden &&
@@ -744,10 +926,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                         }
                                                         final mushafPage = snapshot.data!;
                                                         final activeVerseKey = (currentTask != null && currentTask.verseNumbers.isNotEmpty)
-                                                            ? '${widget.surahNumber}:${currentTask.verseNumbers.last}'
+                                                            ? '${provider.surahNumber}:${currentTask.verseNumbers.last}'
                                                             : null;
                                                         final activeVerseKeys = currentTask != null
-                                                            ? currentTask.verseNumbers.map((v) => '${widget.surahNumber}:$v').toSet()
+                                                            ? currentTask.verseNumbers.map((v) => '${provider.surahNumber}:$v').toSet()
                                                             : const <String>{};
 
                                                         final surahStartsByLine = <int, List<String>>{};
@@ -806,7 +988,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                                               if (parts.length < 2) return false;
                                                                               final surahNum = int.tryParse(parts[0]) ?? 0;
                                                                               final verseNum = int.tryParse(parts[1]) ?? 0;
-                                                                              if (surahNum != widget.surahNumber) return false;
+                                                                              if (surahNum != provider.surahNumber) return false;
                                                                               return _isVerseHidden(verseNum, currentTask);
                                                                             },
                                                                             isPeekActive: provider.isPeekActive,
@@ -832,6 +1014,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                     onLongPressStart: (_) => provider.setPeekActive(true),
                                                     onLongPressEnd: (_) => provider.setPeekActive(false),
                                                     onLongPressCancel: () => provider.setPeekActive(false),
+                                                    onLongPressUp: () => provider.setPeekActive(false),
+                                                    onTapUp: (_) => provider.setPeekActive(false),
                                                     child: const SizedBox.expand(),
                                                   ),
                                                 ),
@@ -863,16 +1047,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                       onLongPressCancel: isHidden
                                           ? () => provider.setPeekActive(false)
                                           : null,
+                                      onLongPressUp: isHidden ? () => provider.setPeekActive(false) : null,
+                                      onTapUp: isHidden ? (_) => provider.setPeekActive(false) : null,
                                       child: AnimatedContainer(
                                         duration: const Duration(milliseconds: 200),
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
                                           color: isTarget
                                               ? (isHidden
-                                                  ? colorScheme.primaryContainer.withValues(alpha: 0.15)
-                                                  : colorScheme.primaryContainer.withValues(alpha: 0.4))
-                                              : colorScheme.surfaceContainerLow
-                                                  .withValues(alpha: 0.4),
+                                                  ? colorScheme.primaryContainer.withValues(alpha: 0.04)
+                                                  : colorScheme.primaryContainer.withValues(alpha: 0.08))
+                                              : colorScheme.surfaceContainerLow,
                                           borderRadius:
                                               BorderRadius.circular(16),
                                           border: Border.all(
@@ -880,35 +1065,64 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                                                 ? colorScheme.primary
                                                 : colorScheme.outlineVariant
                                                     .withValues(alpha: 0.3),
-                                            width: isTarget ? 2.0 : 1.0,
+                                            width: isTarget ? 1.5 : 1.0,
                                           ),
                                         ),
-                                        child: RichText(
-                                          textAlign: TextAlign.right,
-                                          text: TextSpan(
-                                            style: textTheme.bodyLarge?.copyWith(
-                                              fontSize: 22,
-                                              height: 1.8,
-                                            ),
-                                            children: [
-                                              TextSpan(
-                                                text: 'Verse $verseNum: ',
-                                                style: TextStyle(
-                                                  color: isTarget ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                                                  fontWeight: FontWeight.bold,
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            if (!isHidden)
+                                              IconButton(
+                                                icon: Icon(
+                                                  Icons.volume_up_outlined,
+                                                  color: isTarget ? colorScheme.primary : null,
                                                 ),
+                                                onPressed: () {
+                                                  context.read<MushafAudioProvider>().playSingleIndependentVerse('${provider.surahNumber}:$verseNum');
+                                                },
                                               ),
-                                              TextSpan(
-                                                text: qcf.getVerse(widget.surahNumber, verseNum),
-                                                style: TextStyle(
-                                                  color: isHidden
-                                                      ? Colors.transparent
-                                                      : (isTarget ? null : textTheme.bodyLarge?.color?.withValues(alpha: 0.4)),
+                                            Expanded(
+                                              child: FutureBuilder<String>(
+                                                future: widget.quranRepository.fetchArabicVerse(
+                                                  provider.surahNumber.toString(),
+                                                  verseNum.toString(),
                                                 ),
+                                                builder: (context, snapshot) {
+                                                  final arabicText = snapshot.data ?? '';
+                                                  final cleanedText = arabicText.split(' | ').join(' ');
+                                                   return Directionality(
+                                                    textDirection: TextDirection.rtl,
+                                                    child: RichText(
+                                                      textAlign: TextAlign.right,
+                                                      softWrap: true,
+                                                      text: TextSpan(
+                                                        style: const TextStyle(
+                                                          fontFamily: 'UthmanicHafs',
+                                                          fontSize: 28,
+                                                          height: 2.0,
+                                                          letterSpacing: 0.0,
+                                                          wordSpacing: 0.0,
+                                                        ),
+                                                        children: [
+                                                          TextSpan(
+                                                            text: cleanedText,
+                                                            style: TextStyle(
+                                                              color: isHidden
+                                                                  ? Colors.transparent
+                                                                  : (isTarget
+                                                                      ? textTheme.bodyLarge?.color
+                                                                      : textTheme.bodyLarge?.color?.withValues(alpha: 0.6)),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
                                               ),
-                                            ],
-                                          ),
-                                        ),
+                                            )
+                                      ],
+                                      ),
                                       ),
                                     );
                                   },
@@ -918,10 +1132,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
       ],
     ),
             bottomNavigationBar: Container(
@@ -999,40 +1209,24 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      Row(
-                        children: [
-
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _showGundalReportModal(context, provider),
-                              icon: const Icon(Icons.assessment_outlined),
-                              label: const Text('Session Report'),
-                              style: OutlinedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
+                      Consumer<MushafAudioProvider>(
+                        builder: (context, audio, _) {
+                          final isPlaying = audio.isPlaying;
+                          return SizedBox(
+                            width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: () => provider.incrementProgress(),
+                              onPressed: isPlaying ? null : () => provider.incrementProgress(),
                               icon: const Icon(Icons.add_circle_outline),
                               label: const Text('Tally (+1)'),
                               style: FilledButton.styleFrom(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ] else ...[
                       Text(

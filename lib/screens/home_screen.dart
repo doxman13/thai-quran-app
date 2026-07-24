@@ -1312,6 +1312,93 @@ class _HomeScreenState extends State<HomeScreen>
                     SliverToBoxAdapter(
                       child: _buildShortcutSection(colorScheme, textTheme),
                     ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        child: Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          color: colorScheme.surfaceContainerLow,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => HifzMemorizeScreen(
+                                    quranRepository: widget.repository,
+                                    foundationRepository: _foundationRepository,
+                                    initialPage: 1,
+                                    surahNumber: 1,
+                                    startVerse: 1,
+                                    endVerse: 7,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                                    child: Icon(
+                                      Icons.psychology,
+                                      color: colorScheme.primary,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'โหมดท่องจำกุรอาน',
+                                          style: GoogleFonts.notoSansThai(
+                                            color: colorScheme.onSurface,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Memorization Mode',
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'ฝึกฝนการท่องจำด้วยวิธี Gundal ซ้ำตามลำดับอย่างเป็นระบบ เลือกท่องเป็นรายซูเราะห์หรือรายหน้า พร้อมตัวช่วยซ่อน/แสดงและควบคุมการเล่นเสียงทีละอายะห์',
+                                          style: GoogleFonts.notoSansThai(
+                                            color: colorScheme.onSurfaceVariant,
+                                            fontSize: 13,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
 
                   const SliverPadding(padding: EdgeInsets.only(bottom: 24)),

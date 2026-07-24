@@ -148,6 +148,32 @@ class MushafAudioProvider extends ChangeNotifier {
     await _loadAndPlayPlaylist(_playlistIndex);
   }
 
+  Future<void> playRange(String surahId, List<int> verseIds) async {
+    await stop();
+
+    _isContinuous = false;
+    _currentPageNumber = null;
+    _mushafId = null;
+
+    _playlist = verseIds.map((vId) {
+      return MushafVerse(
+        verseKey: '$surahId:$vId',
+        surahId: surahId,
+        verseId: vId.toString(),
+        words: [],
+      );
+    }).toList();
+
+    if (_playlist.isEmpty) return;
+
+    _playlistIndex = 0;
+    _currentVerseKey = _playlist[0].verseKey;
+    _isLoading = true;
+    notifyListeners();
+
+    await _loadAndPlayPlaylist(0);
+  }
+
   Future<void> togglePlayPause() async {
     if (_isPlaying) {
       await _audioPlayer.pause();
