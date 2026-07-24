@@ -27,23 +27,26 @@ List<HifzTask> generateHifzRoutine(int repeatStart, int learnStart, int endVerse
   if (repeatStart > learnStart) repeatStart = learnStart;
 
   for (int v = learnStart; v <= endVerse; v++) {
-    // Single Verse: Visible x 10
-    tasks.add(HifzTask(
-      id: 'verse_${v}_visible',
-      type: TaskType.singleVerse,
-      verseNumbers: [v],
-      mode: TextVisibilityMode.visible,
-      targetRepetitions: 10,
-    ));
+    // 3 rounds of: 10x visible, 5x hidden
+    for (int round = 1; round <= 3; round++) {
+      // Single Verse: Visible x 10
+      tasks.add(HifzTask(
+        id: 'verse_${v}_visible_r$round',
+        type: TaskType.singleVerse,
+        verseNumbers: [v],
+        mode: TextVisibilityMode.visible,
+        targetRepetitions: 10,
+      ));
 
-    // Single Verse: Hidden x 5
-    tasks.add(HifzTask(
-      id: 'verse_${v}_hidden',
-      type: TaskType.singleVerse,
-      verseNumbers: [v],
-      mode: TextVisibilityMode.hidden,
-      targetRepetitions: 5,
-    ));
+      // Single Verse: Hidden x 5
+      tasks.add(HifzTask(
+        id: 'verse_${v}_hidden_r$round',
+        type: TaskType.singleVerse,
+        verseNumbers: [v],
+        mode: TextVisibilityMode.hidden,
+        targetRepetitions: 5,
+      ));
+    }
 
     // Cumulative Link
     List<int> linkVerses = [];
