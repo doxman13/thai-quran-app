@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../database/hifz_repository.dart';
+
 class SupabaseProvider extends ChangeNotifier {
   final _client = Supabase.instance.client;
   User? _user;
@@ -159,6 +161,14 @@ class SupabaseProvider extends ChangeNotifier {
               ignoreDuplicates: true,
             ),
       ];
+
+      // Add Hifz sync
+      try {
+        futures.add(HifzRepository().syncWithSupabase(userId));
+        futures.add(HifzRepository().syncHistoryWithSupabase());
+      } catch (e) {
+        debugPrint('Error triggering hifz sync: $e');
+      }
 
       if (countResult == null) {
         futures.add(

@@ -527,7 +527,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
               return DropdownMenuItem(
                 value: surahId,
                 child: Text(
-                  '${surahId}. ${widget.repository.getSurahName(surahId)} (${context.tr('notes_count_short', args: {'count': '$count'})})',
+                  '${widget.repository.getSurahName(surahId)} (${context.tr('notes_count_short', args: {'count': '$count'})})',
                   style: GoogleFonts.notoSansThai(
                     fontWeight: FontWeight.w500,
                     color: colorScheme.onSurface,

@@ -33,6 +33,7 @@ dependencies:
   sqflite: ^2.4.3
   path: ^1.9.1
   volume_key_board: ^0.0.2
+  uuid: ^4.6.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

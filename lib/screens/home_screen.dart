@@ -27,6 +27,7 @@ import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
 import 'browse_screen.dart';
 import 'hifz_memorize_screen.dart';
+import 'hifz_landing_screen.dart';
 import 'tadabbur_private_screen.dart';
 
 class _ModeSelectionCard extends StatelessWidget {
@@ -988,13 +989,9 @@ class _HomeScreenState extends State<HomeScreen>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => HifzMemorizeScreen(
+          builder: (_) => HifzLandingScreen(
             quranRepository: widget.repository,
             foundationRepository: _foundationRepository,
-            initialPage: pageNumber,
-            surahNumber: surah,
-            startVerse: verse,
-            endVerse: (verse + 2) <= totalVerses ? (verse + 2) : totalVerses,
           ),
         ),
       );
@@ -1310,94 +1307,13 @@ class _HomeScreenState extends State<HomeScreen>
                   else ...[
                     _buildDynamicDockSliver(colorScheme, textTheme),
                     SliverToBoxAdapter(
-                      child: _buildShortcutSection(colorScheme, textTheme),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                        child: _buildHifzBanner(colorScheme, textTheme),
+                      ),
                     ),
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        child: Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            side: BorderSide(
-                              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          color: colorScheme.surfaceContainerLow,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => HifzMemorizeScreen(
-                                    quranRepository: widget.repository,
-                                    foundationRepository: _foundationRepository,
-                                    initialPage: 1,
-                                    surahNumber: 1,
-                                    startVerse: 1,
-                                    endVerse: 7,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
-                                    child: Icon(
-                                      Icons.psychology,
-                                      color: colorScheme.primary,
-                                      size: 28,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'โหมดท่องจำกุรอาน',
-                                          style: GoogleFonts.notoSansThai(
-                                            color: colorScheme.onSurface,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Memorization Mode',
-                                          style: textTheme.bodySmall?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'ฝึกฝนการท่องจำด้วยวิธี Gundal ซ้ำตามลำดับอย่างเป็นระบบ เลือกท่องเป็นรายซูเราะห์หรือรายหน้า พร้อมตัวช่วยซ่อน/แสดงและควบคุมการเล่นเสียงทีละอายะห์',
-                                          style: GoogleFonts.notoSansThai(
-                                            color: colorScheme.onSurfaceVariant,
-                                            fontSize: 13,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.chevron_right,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      child: _buildShortcutSection(colorScheme, textTheme),
                     ),
                   ],
 
@@ -1456,7 +1372,7 @@ class _HomeScreenState extends State<HomeScreen>
       height: 56,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: colorScheme.onSurface.withValues(alpha: 0.88),
+        color: colorScheme.onSurface.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -1488,7 +1404,7 @@ class _HomeScreenState extends State<HomeScreen>
                       size: 18,
                       color: isActive
                           ? colorScheme.onPrimary
-                          : colorScheme.surface.withValues(alpha: 0.76),
+                          : colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -1499,7 +1415,7 @@ class _HomeScreenState extends State<HomeScreen>
                         style: textTheme.labelLarge?.copyWith(
                           color: isActive
                               ? colorScheme.onPrimary
-                              : colorScheme.surface.withValues(alpha: 0.76),
+                              : colorScheme.onSurface.withValues(alpha: 0.55),
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -1510,6 +1426,103 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           );
         }),
+      ),
+    );
+  }
+
+  Widget _buildHifzBanner(ColorScheme colorScheme, TextTheme textTheme) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HifzLandingScreen(
+            quranRepository: widget.repository,
+            foundationRepository: _foundationRepository,
+          ),
+        ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary,
+              colorScheme.primary.withValues(alpha: 0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.primary.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.psychology_alt_rounded,
+                size: 30,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'โหมดท่องจำกุรอาน',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Hifz Memorization Mode',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'New Verses · Review · Mastery Tracking',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3979,7 +3992,7 @@ class _HomeScreenState extends State<HomeScreen>
                       return DropdownMenuItem(
                         value: sNum,
                         child: Text(
-                          '$sNum. ${widget.repository.getSurahName(sNum.toString())}',
+                          widget.repository.getSurahName(sNum.toString()),
                         ),
                       );
                     }),

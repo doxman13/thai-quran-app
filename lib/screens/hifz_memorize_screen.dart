@@ -1,9 +1,7 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
-import 'package:volume_key_board/volume_key_board.dart';
 
 import '../models/mushaf_models.dart';
 import '../theme/app_theme.dart';
@@ -15,14 +13,15 @@ import '../providers/hifz_session_provider.dart';
 import '../widgets/gundal_tally_widget.dart';
 import '../providers/mushaf_audio_provider.dart';
 
+import '../models/hifz_session_config.dart';
+import '../database/hifz_repository.dart';
+import 'hifz_review_setup_screen.dart';
+import 'hifz_new_verses_setup_screen.dart';
+import 'hifz_mastery_list_screen.dart';
+
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/settings_provider.dart';
-
-String _toArabicVerseNumber(int number) {
-  return '';
-}
-
-
+import '../providers/translation_manager_provider.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -46,10 +45,12 @@ class HifzMemorizeScreen extends StatefulWidget {
   State<HifzMemorizeScreen> createState() => _HifzMemorizeScreenState();
 }
 
-class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
+class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
+    with SingleTickerProviderStateMixin {
   static const _channel = MethodChannel('com.example.thai_quran_app/key_events');
   late HifzSessionProvider _hifzProvider;
   bool _isMushafView = true;
+  bool _showMeaning = false;
   bool _isSurahMode = true;
   int _selectedPage = 1;
   late int _selectedRepeatStart;
@@ -59,6 +60,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
   final FocusNode _focusNode = FocusNode();
   final FocusNode _hiddenInputFocusNode = FocusNode();
   final TransformationController _transformationController = TransformationController();
+  int _reviewPageOffset = 0;
+  bool _isTransitioningStep = false;
+  String _transitionBannerMessage = '';
+
+  // Controls whether the top/bottom UI chrome is visible
+  bool _chromeVisible = true;
+  late AnimationController _chromeAnimController;
+  late Animation<double> _chromeAnim;
 
   bool _isVerseHidden(int verseNum, HifzTask? currentTask) {
     if (currentTask == null) return false;
@@ -85,13 +94,23 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     _currentPage = widget.initialPage;
     _selectedPage = widget.initialPage;
 
+    _chromeAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      value: 1.0, // start visible
+    );
+    _chromeAnim = CurvedAnimation(
+      parent: _chromeAnimController,
+      curve: Curves.easeInOut,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _showRangeSelectionModal(context);
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.keepAwake) {
           WakelockPlus.enable();
         }
+        _checkForResumableSession();
       }
     });
     _selectedRepeatStart = widget.startVerse;
@@ -108,7 +127,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     _channel.setMethodCallHandler((call) async {
       if (call.method == "keyClick") {
         final audio = Provider.of<MushafAudioProvider>(context, listen: false);
-        if (audio.isPlaying) return; // Disable key clicks when playing recitation
+        if (audio.isPlaying) return;
 
         final now = DateTime.now();
         if (lastClickTime != null && now.difference(lastClickTime!).inMilliseconds < 450) {
@@ -116,7 +135,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
         }
         lastClickTime = now;
         if (mounted && !_hifzProvider.isSessionCompleted) {
-          _hifzProvider.incrementProgress();
+          _handleIncrementOrAdvance();
           HapticFeedback.lightImpact();
         }
       }
@@ -129,361 +148,582 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     _hiddenInputFocusNode.dispose();
     _focusNode.dispose();
     _transformationController.dispose();
+    _chromeAnimController.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
 
+  void _toggleChrome() {
+    setState(() {
+      _chromeVisible = !_chromeVisible;
+    });
+    if (_chromeVisible) {
+      _chromeAnimController.forward();
+    } else {
+      _chromeAnimController.reverse();
+    }
+  }
 
+  // ---------------------------------------------------------------------------
+  // Session Recovery & Mode Selection Dialogs
+  // ---------------------------------------------------------------------------
 
-// Note: To allow selecting a surah inside _showRangeSelectionModal, we'll track a tempSurah variable in the modal builder state
-  void _showRangeSelectionModal(BuildContext context) {
-    int tempSurah = _hifzProvider.currentTask?.verseNumbers.isNotEmpty == true 
-        ? _hifzProvider.surahNumber 
-        : widget.surahNumber;
-    int tempRepeat = _selectedRepeatStart;
-    int tempStart = _selectedStartVerse;
-    int tempEnd = _selectedEndVerse;
-    bool tempIsSurahMode = _isSurahMode;
-    int tempPage = _selectedPage;
+  Future<void> _checkForResumableSession() async {
+    final repo = HifzRepository();
+    final snap = await repo.loadActiveSession();
+    if (!mounted) return;
+
+    if (snap == null) {
+      _showModeSelectionModal(context);
+      return;
+    }
+
+    final resume = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+        final typeLabel = snap.sessionType == HifzSessionType.newVerses
+            ? 'New Verses (Takrar)'
+            : 'Review Mode';
+        final stepLabel = snap.sessionType == HifzSessionType.review
+            ? 'Step ${snap.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'Hidden' : 'Visible'}'
+            : 'Task ${snap.currentStepIndex + 1} · tally ${snap.currentTally}';
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: colorScheme.surface,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.history_rounded, color: colorScheme.primary, size: 32),
+              const SizedBox(height: 8),
+              Text('Resume Session?',
+                  style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('A previous session was found:',
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ResumeRow('Mode', typeLabel, colorScheme),
+                    const SizedBox(height: 4),
+                    _ResumeRow('Progress', stepLabel, colorScheme),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx, false);
+                HifzRepository().clearActiveSession();
+              },
+              child: const Text('Start New'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Resume'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (resume == true) {
+      final restored = snap.sessionType == HifzSessionType.newVerses
+          ? HifzSessionProvider(
+              surahNumber: snap.nvSurahNumber ?? widget.surahNumber,
+              repeatStart: snap.nvRepeatStart ?? widget.startVerse,
+              startVerse: snap.nvStartVerse ?? widget.startVerse,
+              endVerse: snap.nvEndVerse ?? widget.endVerse,
+            )
+          : HifzSessionProvider.review(
+              granularity: snap.reviewGranularity ?? ReviewGranularity.bySurah,
+              targetParams: snap.reviewTargetParams ??
+                  ReviewTargetParams.bySurah(startSurah: 100, endSurah: 114),
+            );
+      restored.restoreFromSnapshot(snap);
+      setState(() {
+        _hifzProvider = restored;
+        if (snap.sessionType == HifzSessionType.newVerses) {
+          _selectedRepeatStart = snap.nvRepeatStart ?? _selectedRepeatStart;
+          _selectedStartVerse = snap.nvStartVerse ?? _selectedStartVerse;
+          _selectedEndVerse = snap.nvEndVerse ?? _selectedEndVerse;
+          _currentPage =
+              qcf.getPageNumber(_hifzProvider.surahNumber, _selectedStartVerse);
+        }
+      });
+    } else {
+      _showModeSelectionModal(context);
+    }
+  }
+
+  void _showModeSelectionModal(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final colorScheme = Theme.of(context).colorScheme;
-            final textTheme = Theme.of(context).textTheme;
-            
-            // Logic for calculating max ranges depending on mode
-            int totalVerses = qcf.getVerseCount(tempSurah);
-            int minVerse = 1;
-            int maxVerse = totalVerses;
-            
-            if (!tempIsSurahMode) {
-              final pageItems = qcf.getPageData(tempPage);
-              if (pageItems.isNotEmpty) {
-                 final first = pageItems.first;
-                 final last = pageItems.last;
-                 // Limit to the surah of the first item on that page
-                 tempSurah = first['surah'];
-                 minVerse = first['start'];
-                 maxVerse = last['end'];
-              }
-            }
-
-            final count = tempEnd - tempStart + 1;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: colorScheme.surface,
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Select Memorization Range',
-                    style: textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(value: true, label: Text('Surah Mode')),
-                        ButtonSegment(value: false, label: Text('Page Mode')),
-                      ],
-                      selected: {tempIsSurahMode},
-                      onSelectionChanged: (val) {
-                        setModalState(() {
-                          tempIsSurahMode = val.first;
-                          if (!tempIsSurahMode) {
-                             final pageItems = qcf.getPageData(tempPage);
-                             if (pageItems.isNotEmpty) {
-                               tempSurah = pageItems.first['surah'];
-                               tempStart = pageItems.first['start'];
-                               tempRepeat = tempStart;
-                               tempEnd = pageItems.last['end'];
-                               if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
-                             }
-                          } else {
-                             tempSurah = widget.surahNumber;
-                             tempStart = 1;
-                             tempRepeat = 1;
-                             tempEnd = 3;
-                          }
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (tempIsSurahMode) ...[
-                    Text('Select Surah', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: tempSurah,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      items: List.generate(114, (i) => i + 1).map((v) {
-                        final surahName = widget.quranRepository.getSurahName(v.toString());
-                        return DropdownMenuItem(
-                          value: v,
-                          child: Text('$v. $surahName'),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() {
-                            tempSurah = val;
-                            final limit = qcf.getVerseCount(tempSurah);
-                            tempStart = 1;
-                            tempRepeat = 1;
-                            tempEnd = limit > 3 ? 3 : limit;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ] else ...[
-                    Text('Select Page', style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: tempPage,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      items: List.generate(604, (i) => i + 1).map((v) => DropdownMenuItem(value: v, child: Text('Page $v'))).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setModalState(() {
-                            tempPage = val;
-                            final pageItems = qcf.getPageData(tempPage);
-                             if (pageItems.isNotEmpty) {
-                               tempSurah = pageItems.first['surah'];
-                               tempStart = pageItems.first['start'];
-                               tempRepeat = tempStart;
-                               tempEnd = pageItems.last['end'];
-                               if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
-                             }
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Repeat From',
-                              style: textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<int>(
-                              value: tempRepeat,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i)
-                                  .where((v) => v <= tempStart)
-                                  .map((v) {
-                                return DropdownMenuItem(
-                                  value: v,
-                                  child: Text('Verse $v'),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setModalState(() {
-                                    tempRepeat = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Start Verse',
-                              style: textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<int>(
-                              value: tempStart,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i).map((v) {
-                                return DropdownMenuItem(
-                                  value: v,
-                                  child: Text('Verse $v'),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setModalState(() {
-                                    tempStart = val;
-                                    if (tempRepeat > tempStart) tempRepeat = tempStart;
-                                    if (tempEnd < tempStart) tempEnd = tempStart;
-                                    if (tempEnd - tempStart + 1 > 30) tempEnd = tempStart + 29;
-                                    if (tempEnd > maxVerse) tempEnd = maxVerse;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'End Verse',
-                              style: textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<int>(
-                              value: tempEnd,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              ),
-                              items: List.generate(maxVerse - minVerse + 1, (i) => minVerse + i)
-                                  .where((v) => v >= tempStart && (v - tempStart + 1) <= 30)
-                                  .map((v) {
-                                return DropdownMenuItem(
-                                  value: v,
-                                  child: Text('Verse $v'),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setModalState(() {
-                                    tempEnd = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Selected Verses:'),
-                        Text(
-                          '$count / 30',
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: count > 30 ? colorScheme.error : colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _selectedRepeatStart = tempRepeat;
-                          _selectedStartVerse = tempStart;
-                          _selectedEndVerse = tempEnd;
-                          _isSurahMode = tempIsSurahMode;
-                          _selectedPage = tempPage;
-                          if (tempIsSurahMode) {
-                            _currentPage = qcf.getPageNumber(tempSurah, tempStart);
-                          } else {
-                            _currentPage = tempPage;
-                          }
-                          // If Surah changed, make sure to re-init HifzSessionProvider with the new Surah
-                          if (_hifzProvider.surahNumber != tempSurah) {
-                            _hifzProvider = HifzSessionProvider(
-                              surahNumber: tempSurah,
-                              repeatStart: tempRepeat,
-                              startVerse: tempStart,
-                              endVerse: tempEnd,
-                            );
-                          } else {
-                            _hifzProvider.initRoutine(tempRepeat, tempStart, tempEnd);
-                          }
-                        });
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(Icons.check),
-                      label: const Text('Apply Range'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 20),
+              Text('Select Hifz Mode',
+                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('Choose how you want to practice today:',
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              _ModeCard(
+                icon: Icons.menu_book_rounded,
+                title: 'New Verses (Takrar)',
+                subtitle: '3 rounds of (10x visible / 5x hidden) per verse, then sequence linking.',
+                colorScheme: colorScheme,
+                textTheme: textTheme,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _openNewVersesSetup(context);
+                },
               ),
-            );
-          },
+              const SizedBox(height: 12),
+              _ModeCard(
+                icon: Icons.replay_rounded,
+                title: 'Review Mode',
+                subtitle: 'Review by Surah, Verse range, or Page with 2x/2x cycle.',
+                colorScheme: colorScheme,
+                textTheme: textTheme,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final result = await Navigator.push<(ReviewGranularity, ReviewTargetParams)>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => HifzReviewSetupScreen(
+                        quranRepository: widget.quranRepository,
+                      ),
+                    ),
+                  );
+                  if (result != null && mounted) {
+                    final (granularity, params) = result;
+                    setState(() {
+                      _hifzProvider = HifzSessionProvider.review(
+                        granularity: granularity,
+                        targetParams: params,
+                      );
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
+  Future<void> _openNewVersesSetup(BuildContext context) async {
+    final result = await Navigator.push<NewVersesSetupResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HifzNewVersesSetupScreen(
+          quranRepository: widget.quranRepository,
+          initialSurah: _hifzProvider.surahNumber,
+          initialStartVerse: _selectedStartVerse,
+          initialEndVerse: _selectedEndVerse,
+          initialRepeatStart: _selectedRepeatStart,
+          initialPage: _selectedPage,
+          initialIsSurahMode: _isSurahMode,
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _selectedRepeatStart = result.repeatStart;
+        _selectedStartVerse = result.startVerse;
+        _selectedEndVerse = result.endVerse;
+        _isSurahMode = result.isSurahMode;
+        _selectedPage = result.page;
+        _currentPage = result.isSurahMode
+            ? qcf.getPageNumber(result.surah, result.startVerse)
+            : result.page;
+        _hifzProvider.initRoutine(
+          result.repeatStart,
+          result.startVerse,
+          result.endVerse,
+          surah: result.surah,
+        );
+      });
+    }
+  }
+
+  void _showNewVersesAudioOptionsDialog(
+      BuildContext context, HifzSessionProvider provider) {
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+
+    if (audio.isPlaying) {
+      audio.stop();
+      return;
+    }
+
+    final currentTask = provider.currentTask;
+    final currentTaskVerses = currentTask?.verseNumbers ?? [_selectedStartVerse];
+    final surahStr = provider.surahNumber.toString();
+
+    final fullRangeVerses = List.generate(
+      _selectedEndVerse - _selectedRepeatStart + 1,
+      (i) => _selectedRepeatStart + i,
+    );
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+
+        final taskLabel = currentTask == null
+            ? 'Current Verse ($surahStr:${currentTaskVerses.first})'
+            : currentTask.type == TaskType.singleVerse
+                ? 'Current Verse ($surahStr:${currentTaskVerses.first})'
+                : 'Current Sequence ($surahStr:${currentTaskVerses.first}–${currentTaskVerses.last})';
+
+        final fullRangeLabel =
+            'Full Selected Range ($surahStr:$_selectedRepeatStart–$_selectedEndVerse)';
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('Audio Recitation',
+                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('Choose audio playback range:',
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Icon(Icons.play_circle_outline, color: colorScheme.primary, size: 28),
+                title: Text('Play $taskLabel',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Recite active verse or current sequence'),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: colorScheme.surfaceContainerLow,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  audio.playRange(surahStr, currentTaskVerses);
+                },
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Icon(Icons.playlist_play_rounded, color: colorScheme.primary, size: 28),
+                title: Text('Play $fullRangeLabel',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Recite entire selected range including sequence start'),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: colorScheme.surfaceContainerLow,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  audio.playRange(surahStr, fullRangeVerses);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReviewAudioOptionsDialog(
+      BuildContext context, HifzSessionProvider provider) {
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+
+    if (audio.isPlaying) {
+      audio.stop();
+      return;
+    }
+
+    final step = provider.currentReviewStep;
+    if (step == null) return;
+
+    final granularity = provider.reviewGranularity;
+    final int basePageForStep;
+    if (granularity == ReviewGranularity.byPage) {
+      basePageForStep = step.primaryIndex;
+    } else {
+      final surah = step.surahNumber ?? step.primaryIndex;
+      final verse = step.verseStart ?? 1;
+      basePageForStep = qcf.getPageNumber(surah, verse);
+    }
+    final int currentReviewPage =
+        (basePageForStep + _reviewPageOffset).clamp(1, 604);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text('Review Audio Recitation',
+                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text('Choose audio playback range:',
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Icon(Icons.play_circle_outline, color: colorScheme.primary, size: 28),
+                title: Text('Play Current Step (${step.label})',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Recite active review step'),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: colorScheme.surfaceContainerLow,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (step.surahNumber != null || granularity != ReviewGranularity.byPage) {
+                    final surahNum = step.surahNumber ?? step.primaryIndex;
+                    final vStart = step.verseStart ?? 1;
+                    final vEnd = step.verseEnd ?? qcf.getVerseCount(surahNum);
+                    final verseList = List.generate(vEnd - vStart + 1, (i) => vStart + i);
+                    audio.playRange(surahNum.toString(), verseList);
+                  } else {
+                    _playPageAudio(audio, step.primaryIndex);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Icon(Icons.menu_book_rounded, color: colorScheme.primary, size: 28),
+                title: Text('Play Current Page (Page $currentReviewPage)',
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Recite page currently displayed on screen'),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                tileColor: colorScheme.surfaceContainerLow,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _playPageAudio(audio, currentReviewPage);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _playPageAudio(MushafAudioProvider audio, int pageNumber) {
+    final pageItems = qcf.getPageData(pageNumber);
+    if (pageItems.isEmpty) return;
+    final firstItem = pageItems.first;
+    final int surah = firstItem['surah'];
+    final int start = firstItem['start'];
+    final int end = pageItems.last['end'];
+    final verseList = List.generate(end - start + 1, (i) => start + i);
+    audio.playRange(surah.toString(), verseList);
+  }
+
+
+  Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          icon: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.errorContainer.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.logout_rounded, color: colorScheme.error, size: 28),
+          ),
+          title: Text(
+            'Exit Hifz Mode?',
+            textAlign: TextAlign.center,
+            style: textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to exit Hifz mode? Your memorization progress has been saved automatically.',
+            textAlign: TextAlign.center,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Exit'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  Future<void> _confirmExit(BuildContext context) async {
+    final shouldExit = await _showExitConfirmationDialog(context);
+    if (shouldExit && context.mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  String _getVerseTranslationText(
+      BuildContext context, int surahNumber, int verseNumber) {
+    final verse = widget.quranRepository
+        .getVerse(surahNumber.toString(), verseNumber.toString());
+    if (verse == null) return '';
+
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final primaryId = settings.primaryTranslationId;
+
+    if (primaryId == 'english') {
+      return verse.english;
+    } else if (primaryId == 'thai_v2') {
+      return verse.thaiV2;
+    } else if (primaryId == 'thai_v3') {
+      return verse.thaiV3;
+    } else {
+      final idInt = int.tryParse(primaryId) ?? -1;
+      try {
+        final transManager =
+            Provider.of<TranslationManagerProvider>(context, listen: false);
+        final customTrans = transManager.getVerseTranslation(
+            idInt, '$surahNumber:$verseNumber');
+        if (customTrans != null && customTrans.isNotEmpty) {
+          return customTrans;
+        }
+      } catch (_) {}
+      return verse.thaiV3;
+    }
+  }
+
+
   void _showGundalReportModal(BuildContext context, HifzSessionProvider provider) {
+    final isReview = provider.sessionType == HifzSessionType.review;
+    final String col1Title;
+    if (isReview) {
+      switch (provider.reviewGranularity) {
+        case ReviewGranularity.bySurah:
+          col1Title = 'Surah';
+          break;
+        case ReviewGranularity.byVerses:
+          col1Title = 'Verse Range';
+          break;
+        case ReviewGranularity.byPage:
+          col1Title = 'Page';
+          break;
+      }
+    } else {
+      col1Title = 'Verse';
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -492,8 +732,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
         final colorScheme = Theme.of(context).colorScheme;
         final textTheme = Theme.of(context).textTheme;
         final elapsed = DateTime.now().difference(provider.startTime);
-        final elapsedStr =
-            '${elapsed.inMinutes}m ${elapsed.inSeconds % 60}s';
+        final elapsedStr = '${elapsed.inMinutes}m ${elapsed.inSeconds % 60}s';
 
         return Container(
           decoration: BoxDecoration(
@@ -517,54 +756,39 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Gundal Session Analytics Report',
+                'Session Analytics',
                 style: textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 16),
-              // Session Stats Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                  ),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
+                    _buildStatItem(context, 'Recitations',
+                        '${provider.totalRecitationsCount}', Icons.repeat),
                     _buildStatItem(
-                      context,
-                      'Total Recitations',
-                      '${provider.totalRecitationsCount}',
-                      Icons.repeat,
-                    ),
+                        context, 'Time', elapsedStr, Icons.timer_outlined),
                     _buildStatItem(
-                      context,
-                      'Time Elapsed',
-                      elapsedStr,
-                      Icons.timer_outlined,
-                    ),
-                    _buildStatItem(
-                      context,
-                      'Routine Done',
-                      '${(provider.routineProgress * 100).round()}%',
-                      Icons.check_circle_outline,
-                    ),
+                        context,
+                        'Progress',
+                        '${(provider.routineProgress * 100).round()}%',
+                        Icons.check_circle_outline),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Gundal Grid Matrix',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text(isReview ? 'Review Summary' : 'Gundal Grid',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               Flexible(
                 child: SingleChildScrollView(
@@ -575,56 +799,52 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                     ),
                     children: [
                       TableRow(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
-                        ),
+                        decoration:
+                            BoxDecoration(color: colorScheme.surfaceContainerHigh),
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Verse',
-                              style: textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                            child: Text(col1Title,
+                                style: textTheme.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Gundal Tally Marks',
-                              style: textTheme.bodyLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                            child: Text('Recitations',
+                                style: textTheme.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center),
                           ),
                         ],
                       ),
-                      for (int v = provider.startVerse; v <= provider.endVerse; v++)
-                        TableRow(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Text(
-                                'Verse $v',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                textAlign: TextAlign.center,
+                      if (isReview)
+                        for (int i = 0; i < provider.reviewSteps.length; i++)
+                          _buildReviewTableRow(context, provider, i, colorScheme, textTheme)
+                      else
+                        for (int v = provider.startVerse; v <= provider.endVerse; v++)
+                          TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Text('Verse $v',
+                                    style: textTheme.bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(12.0),
-                              child: Center(
-                                child: GundalTallyWidget(
-                                  count: provider.verseTallyMap[v] ?? 0,
-                                  height: 28,
+                              Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Text(
+                                  '${provider.verseTallyMap[v] ?? 0}x',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
                     ],
                   ),
                 ),
@@ -635,11 +855,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
-                  label: const Text('Close Report'),
+                  label: const Text('Close'),
                   style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                        borderRadius: BorderRadius.circular(16)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
@@ -651,34 +870,85 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
     );
   }
 
-  Widget _buildStatItem(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+  TableRow _buildReviewTableRow(
+      BuildContext context,
+      HifzSessionProvider provider,
+      int index,
+      ColorScheme colorScheme,
+      TextTheme textTheme) {
+    final step = provider.reviewSteps[index];
+    final String countStr;
+    final bool isDone;
 
-    return Column(
+    if (provider.isReviewSessionCompleted || index < provider.reviewStepIndex) {
+      countStr = '2/2';
+      isDone = true;
+    } else if (index == provider.reviewStepIndex) {
+      countStr = '${provider.reviewTally}/2';
+      isDone = provider.reviewTally >= provider.reviewTargetTally;
+    } else {
+      countStr = '0/2';
+      isDone = false;
+    }
+
+    return TableRow(
       children: [
-        Icon(icon, color: colorScheme.primary, size: 24),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Text(
+            step.label,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDone ? colorScheme.primary : colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Text(
+            countStr,
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDone ? colorScheme.primary : colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildStatItem(
+      BuildContext context, String label, String value, IconData icon) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        Icon(icon, color: colorScheme.primary, size: 22),
+        const SizedBox(height: 4),
+        Text(value,
+            style: textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+        const SizedBox(height: 2),
+        Text(label,
+            style:
+                textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+      ],
+    );
+  }
+
+  PopupMenuItem<String> _buildPopupItem(
+      String value, IconData icon, String label) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
     );
   }
 
@@ -691,617 +961,1431 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen> {
       value: _hifzProvider,
       child: Consumer<HifzSessionProvider>(
         builder: (context, provider, child) {
-          final currentTask = provider.currentTask;
-          final isCompleted = provider.isSessionCompleted;
+          final isReview = provider.sessionType == HifzSessionType.review;
 
-          return Focus(
-            focusNode: _focusNode,
-            autofocus: true,
-            canRequestFocus: true,
-            child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Hifz Memorization'),
-              centerTitle: true,
-              actions: [
-                 Consumer<MushafAudioProvider>(
-                   builder: (context, audio, _) {
-                     final isPlayingCurrentRange = audio.isPlaying &&
-                         audio.playlist.isNotEmpty &&
-                         audio.playlist.any((v) => v.surahId == provider.surahNumber.toString() &&
-                             int.parse(v.verseId) >= _selectedStartVerse &&
-                             int.parse(v.verseId) <= _selectedEndVerse);
-
-                     if (audio.isLoading) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12.0),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        );
-                      }
-
-                      return IconButton(
-                        icon: Icon(isPlayingCurrentRange ? Icons.stop_circle_outlined : Icons.play_circle_outline),
-                        tooltip: isPlayingCurrentRange ? 'Stop Playback' : 'Play Range',
-                        onPressed: () {
-                          if (isPlayingCurrentRange) {
-                            audio.stop();
-                          } else {
-                            // Generate list of verse IDs from _selectedStartVerse to _selectedEndVerse
-                            final verseIds = List.generate(
-                              _selectedEndVerse - _selectedStartVerse + 1,
-                              (i) => _selectedStartVerse + i,
-                            );
-                            audio.playRange(provider.surahNumber.toString(), verseIds);
-                          }
-                        },
-                      );
-                   },
-                 ),
-                 IconButton(
-                   icon: Icon(provider.isPeekActive ? Icons.visibility : Icons.visibility_off),
-                   tooltip: provider.isPeekActive ? 'Hide Verses' : 'Reveal Verses',
-                   onPressed: () {
-                     provider.setPeekActive(!provider.isPeekActive);
-                   },
-                 ),
-                 IconButton(
-                   icon: const Icon(Icons.tune_outlined),
-                   tooltip: 'Select Range (Max 10)',
-                   onPressed: () => _showRangeSelectionModal(context),
-                 ),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, icon: Icon(Icons.view_list), label: Text('List')),
-                    ButtonSegment(value: true, icon: Icon(Icons.menu_book), label: Text('Mushaf')),
-                  ],
-                  selected: {_isMushafView},
-                  onSelectionChanged: (val) {
-                    setState(() {
-                      _isMushafView = val.first;
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.analytics_outlined),
-                  tooltip: 'Session Report',
-                  onPressed: () => _showGundalReportModal(context, provider),
-                ),
-              ],
-            ),
-            body: Stack(
-              children: [
-                // Hidden 0x0 TextField to forcefully attach Flutter to Android InputMethodManager on page load
-                Positioned(
-                  left: -100,
-                  top: -100,
-                  child: SizedBox(
-                    width: 1,
-                    height: 1,
-                    child: TextField(
-                      focusNode: _hiddenInputFocusNode,
-                      autofocus: true,
-                      readOnly: true,
-                      showCursor: false,
-                      enableInteractiveSelection: false,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) async {
+              if (didPop) return;
+              await _confirmExit(context);
+            },
+            child: Focus(
+              focusNode: _focusNode,
+              autofocus: true,
+              canRequestFocus: true,
+              child: Scaffold(
+              body: Stack(
+                children: [
+                  // Hidden input for key events
+                  Positioned(
+                    left: -100,
+                    top: -100,
+                    child: SizedBox(
+                      width: 1,
+                      height: 1,
+                      child: TextField(
+                        focusNode: _hiddenInputFocusNode,
+                        autofocus: true,
+                        readOnly: true,
+                        showCursor: false,
+                        enableInteractiveSelection: false,
+                        decoration:
+                            const InputDecoration(border: InputBorder.none),
                       ),
                     ),
                   ),
-                ),
-                Positioned.fill(
-                  child: Column(
-                    children: [
-                      // Header info
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        color: colorScheme.surfaceContainerLow,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Target Verses: $_selectedStartVerse - $_selectedEndVerse',
-                              style: textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.chevron_left, size: 20),
-                                  onPressed: _currentPage > 1
-                                      ? () => setState(() => _currentPage--)
-                                      : null,
-                                ),
-                                Text(
-                                  'Page $_currentPage',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurface,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                IconButton(
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(Icons.chevron_right, size: 20),
-                                  onPressed: _currentPage < 604
-                                      ? () => setState(() => _currentPage++)
-                                      : null,
-                                ),
-                              ],
-                            ),
-                          ],
+
+                  // Main content
+                  Positioned.fill(
+                    child: Column(
+                      children: [
+                        // Collapsible top chrome
+                        SizeTransition(
+                          sizeFactor: _chromeAnim,
+                          child: _buildCompactTopBar(
+                              context, provider, colorScheme, textTheme, isReview),
                         ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          margin: _isMushafView
-                              ? const EdgeInsets.symmetric(horizontal: 4, vertical: 8)
-                              : const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surface,
-                            borderRadius: BorderRadius.circular(_isMushafView ? 8 : 16),
-                            border: Border.all(
-                              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                            ),
+
+                        // Reading area - takes all remaining space
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              // Single tap on reading area toggles top chrome
+                              _toggleChrome();
+                            },
+                            behavior: HitTestBehavior.translucent,
+                            child: isReview
+                                ? _buildReviewBody(
+                                    context, provider, colorScheme, textTheme)
+                                : _buildNewVersesBody(
+                                    context, provider, colorScheme, textTheme),
                           ),
-                          child: isCompleted
-                              ? Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.stars_rounded,
-                                        size: 64,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Routine Completed!',
-                                        style: textTheme.headlineMedium
-                                            ?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Great job memorizing these verses.',
-                                        style: textTheme.bodyMedium,
-                                      ),
-                                      const SizedBox(height: 24),
-                                      FilledButton.icon(
-                                        onPressed: () =>
-                                            provider.resetSession(),
-                                        icon: const Icon(Icons.replay),
-                                        label: const Text('Restart Session'),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : _isMushafView
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          final targetKey = currentTask != null && currentTask.verseNumbers.isNotEmpty
-                                              ? '${provider.surahNumber}:${currentTask.verseNumbers.first}'
-                                              : null;
-                                          final isHidden = currentTask != null &&
-                                              currentTask.mode == TextVisibilityMode.hidden &&
-                                              !provider.isPeekActive;
-
-                                          final availWidth = constraints.maxWidth;
-                                          final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
-                                          
-                                          // Keep standard sp/h to preserve proper Surah header frame aspect ratio, while scaling font size dynamically
-                                          final fontSize = isTablet 
-                                              ? (availWidth / 15.0).clamp(32.0, 64.0) 
-                                              : (availWidth / 16.0).clamp(22.0, 40.0);
-
-                                          final horizontalPadding = isTablet ? 16.0 : 8.0;
-                                          final verticalPadding = isTablet ? 12.0 : 8.0;
-                                          final paddedWidth = (constraints.maxWidth - (horizontalPadding * 2)).clamp(100.0, double.infinity);
-                                          final paddedHeight = (constraints.maxHeight - (verticalPadding * 2)).clamp(100.0, double.infinity);
-                                          return Stack(
-                                            children: [
-                                              Positioned.fill(
-                                                child: Padding(
-                                                  padding: const EdgeInsets.all(8.0),
-                                                   child: InteractiveViewer(
-                                                     transformationController: _transformationController,
-                                                     minScale: 1.0,
-                                                     maxScale: 3.5,
-                                                     boundaryMargin: const EdgeInsets.symmetric(horizontal: 160, vertical: 320),
-                                                     child: FutureBuilder<MushafPage>(
-                                                       future: widget.foundationRepository.fetchPage(
-                                                         mushafId: 2,
-                                                         pageNumber: _currentPage,
-                                                       ),
-                                                       builder: (context, snapshot) {
-                                                         if (!snapshot.hasData) {
-                                                           return const Center(
-                                                             child: CircularProgressIndicator(),
-                                                           );
-                                                         }
-                                                         final mushafPage = snapshot.data!;
-                                                         final activeVerseKey = (currentTask != null && currentTask.verseNumbers.isNotEmpty)
-                                                             ? '${provider.surahNumber}:${currentTask.verseNumbers.last}'
-                                                             : null;
-                                                         final activeVerseKeys = currentTask != null
-                                                             ? currentTask.verseNumbers.map((v) => '${provider.surahNumber}:$v').toSet()
-                                                             : const <String>{};
-
-                                                         final surahStartsByLine = <int, List<String>>{};
-                                                         for (final verse in mushafPage.verses) {
-                                                           if (verse.verseId != '1' || verse.words.isEmpty) continue;
-                                                           final lineNumber = verse.words.first.lineNumber;
-                                                           surahStartsByLine.putIfAbsent(lineNumber, () => []).add(verse.surahId);
-                                                         }
-
-                                                         final verseEndWords = <MushafWord>{};
-                                                         for (final verse in mushafPage.verses) {
-                                                           if (verse.words.isNotEmpty) {
-                                                             verseEndWords.add(verse.words.last);
-                                                           }
-                                                         }
-
-                                                         final layout = MushafLayoutProfile.forMushaf(2);
-                                                         final fontFamily = widget.foundationRepository.getFontFamily(2, _currentPage);
-
-                                                         return SingleChildScrollView(
-                                                           physics: const NeverScrollableScrollPhysics(),
-                                                           child: Center(
-                                                             child: FittedBox(
-                                                               fit: BoxFit.fitWidth,
-                                                              child: SizedBox(
-                                                                width: layout.pageWidth,
-                                                                child: Column(
-                                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                                  children: [
-                                                                    for (final line in mushafPage.lines) ...[
-                                                                      for (final surahId in surahStartsByLine[line.first.lineNumber] ?? const <String>[])
-                                                                        QcfSurahHeader(
-                                                                          surahNumber: int.tryParse(surahId) ?? 0,
-                                                                          colors: AppTheme.colors(isDark: Theme.of(context).brightness == Brightness.dark),
-                                                                        ),
-                                                                      Builder(
-                                                                        builder: (context) {
-                                                                          return MushafLine(
-                                                                            line: line,
-                                                                            fontFamily: fontFamily,
-                                                                            mushafId: 2,
-                                                                            pageNumber: mushafPage.pageNumber,
-                                                                            lineWidth: layout.lineWidth,
-                                                                            lineHeight: layout.lineHeight,
-                                                                            lineVerticalPadding: layout.lineVerticalPadding,
-                                                                            wordPadding: layout.wordPadding,
-                                                                            verseEndWords: verseEndWords,
-                                                                            surahStartsByLine: surahStartsByLine,
-                                                                            highlightedVerseKey: activeVerseKey,
-                                                                            highlightedVerseKeys: activeVerseKeys,
-                                                                            onVerseTap: (_) {},
-                                                                            onVerseLongPressStart: (_) {},
-                                                                            onVerseLongPress: (_) {},
-                                                                            isVerseHidden: (verseKey) {
-                                                                              final parts = verseKey.split(':');
-                                                                              if (parts.length < 2) return false;
-                                                                              final surahNum = int.tryParse(parts[0]) ?? 0;
-                                                                              final verseNum = int.tryParse(parts[1]) ?? 0;
-                                                                              if (surahNum != provider.surahNumber) return false;
-                                                                              return _isVerseHidden(verseNum, currentTask);
-                                                                            },
-                                                                            isPeekActive: provider.isPeekActive,
-                                                                          );
-                                                                        },
-                                                                      ),
-                                                                    ],
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                           if (isHidden)
-                                                Positioned.fill(
-                                                  child: GestureDetector(
-                                                    behavior: HitTestBehavior.opaque,
-                                                    onLongPressStart: (_) => provider.setPeekActive(true),
-                                                    onLongPressEnd: (_) => provider.setPeekActive(false),
-                                                    onLongPressCancel: () => provider.setPeekActive(false),
-                                                    onLongPressUp: () => provider.setPeekActive(false),
-                                                    onTapUp: (_) => provider.setPeekActive(false),
-                                                    child: const SizedBox.expand(),
-                                                  ),
-                                                ),
-                                               Positioned(
-                                                 bottom: 16,
-                                                 right: 16,
-                                                 child: Column(
-                                                   mainAxisSize: MainAxisSize.min,
-                                                   children: [
-                                                     FloatingActionButton.small(
-                                                       heroTag: 'zoom_in',
-                                                       backgroundColor: colorScheme.surfaceContainerHigh.withValues(alpha: 0.9),
-                                                       child: Icon(Icons.zoom_in, color: colorScheme.primary),
-                                                       onPressed: () {
-                                                         final Matrix4 matrix = _transformationController.value.clone();
-                                                         final double currentScale = matrix.getMaxScaleOnAxis();
-                                                         final double newScale = (currentScale + 0.25).clamp(1.0, 3.5);
-                                                         final double ratio = newScale / currentScale;
-                                                         final double x = paddedWidth / 2;
-                                                         final double y = paddedHeight / 2;
-                                                         
-                                                         matrix.translate(x, y);
-                                                         matrix.scale(ratio);
-                                                         matrix.translate(-x, -y);
-                                                         _transformationController.value = matrix;
-                                                       },
-                                                     ),
-                                                     const SizedBox(height: 8),
-                                                     FloatingActionButton.small(
-                                                       heroTag: 'zoom_out',
-                                                       backgroundColor: colorScheme.surfaceContainerHigh.withValues(alpha: 0.9),
-                                                       child: Icon(Icons.zoom_out, color: colorScheme.primary),
-                                                       onPressed: () {
-                                                         final Matrix4 matrix = _transformationController.value.clone();
-                                                         final double currentScale = matrix.getMaxScaleOnAxis();
-                                                         final double newScale = (currentScale - 0.25).clamp(1.0, 3.5);
-                                                         final double ratio = newScale / currentScale;
-                                                         final double x = paddedWidth / 2;
-                                                         final double y = paddedHeight / 2;
-                                                         
-                                                         matrix.translate(x, y);
-                                                         matrix.scale(ratio);
-                                                         matrix.translate(-x, -y);
-                                                         _transformationController.value = matrix;
-                                                       },
-                                                     ),
-                                                   ],
-                                                 ),
-                                               ),
-                                            ],
-                                          );
-                                        },
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: (_selectedEndVerse - _selectedStartVerse + 1),
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 12),
-                                  itemBuilder: (context, index) {
-                                    int verseNum = _selectedStartVerse + index;
-                                    bool isTarget = currentTask != null &&
-                                        currentTask.verseNumbers
-                                            .contains(verseNum);
-                                    bool isHidden = _isVerseHidden(verseNum, currentTask) &&
-                                        !provider.isPeekActive;
-
-                                    return GestureDetector(
-                                      onLongPressStart: isHidden
-                                          ? (_) => provider.setPeekActive(true)
-                                          : null,
-                                      onLongPressEnd: isHidden
-                                          ? (_) => provider.setPeekActive(false)
-                                          : null,
-                                      onLongPressCancel: isHidden
-                                          ? () => provider.setPeekActive(false)
-                                          : null,
-                                      onLongPressUp: isHidden ? () => provider.setPeekActive(false) : null,
-                                      onTapUp: isHidden ? (_) => provider.setPeekActive(false) : null,
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 200),
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: isTarget
-                                              ? (isHidden
-                                                  ? colorScheme.primaryContainer.withValues(alpha: 0.04)
-                                                  : colorScheme.primaryContainer.withValues(alpha: 0.08))
-                                              : colorScheme.surfaceContainerLow,
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                          border: Border.all(
-                                            color: isTarget
-                                                ? colorScheme.primary
-                                                : colorScheme.outlineVariant
-                                                    .withValues(alpha: 0.3),
-                                            width: isTarget ? 1.5 : 1.0,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                            if (!isHidden)
-                                              IconButton(
-                                                icon: Icon(
-                                                  Icons.volume_up_outlined,
-                                                  color: isTarget ? colorScheme.primary : null,
-                                                ),
-                                                onPressed: () {
-                                                  context.read<MushafAudioProvider>().playSingleIndependentVerse('${provider.surahNumber}:$verseNum');
-                                                },
-                                              ),
-                                            Expanded(
-                                              child: FutureBuilder<String>(
-                                                future: widget.quranRepository.fetchArabicVerse(
-                                                  provider.surahNumber.toString(),
-                                                  verseNum.toString(),
-                                                ),
-                                                builder: (context, snapshot) {
-                                                  final arabicText = snapshot.data ?? '';
-                                                  final cleanedText = arabicText.split(' | ').join(' ');
-                                                   return Directionality(
-                                                    textDirection: TextDirection.rtl,
-                                                    child: RichText(
-                                                      textAlign: TextAlign.right,
-                                                      softWrap: true,
-                                                      text: TextSpan(
-                                                        style: const TextStyle(
-                                                          fontFamily: 'UthmanicHafs',
-                                                          fontSize: 28,
-                                                          height: 2.0,
-                                                          letterSpacing: 0.0,
-                                                          wordSpacing: 0.0,
-                                                        ),
-                                                        children: [
-                                                          TextSpan(
-                                                            text: cleanedText,
-                                                            style: TextStyle(
-                                                              color: isHidden
-                                                                  ? Colors.transparent
-                                                                  : (isTarget
-                                                                      ? textTheme.bodyLarge?.color
-                                                                      : textTheme.bodyLarge?.color?.withValues(alpha: 0.6)),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            )
-                                      ],
-                                      ),
-                                      ),
-                                    );
-                                  },
-                                ),
                         ),
-                      ),
-                    ],
+
+                        // Bottom chrome - stays visible so user can see count and tap tally
+                        _buildBottomBar(
+                            context, provider, colorScheme, textTheme, isReview),
+                      ],
+                    ),
                   ),
-                ),
-      ],
-    ),
-            bottomNavigationBar: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (currentTask != null) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  currentTask.type == TaskType.singleVerse
-                                      ? 'Verse ${currentTask.verseNumbers.join(', ')} (${currentTask.mode.name.toUpperCase()})'
-                                      : 'Link ${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last} (${currentTask.mode.name.toUpperCase()})',
+
+                  // Step completion banner (always on top)
+                  if (_isTransitioningStep)
+                    Positioned(
+                      top: _chromeVisible ? kToolbarHeight + 16 : 16,
+                      left: 20,
+                      right: 20,
+                      child: Material(
+                        elevation: 8,
+                        borderRadius: BorderRadius.circular(16),
+                        color: colorScheme.tertiaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.tertiary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.check_rounded,
+                                    color: colorScheme.onTertiary, size: 20),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  _transitionBannerMessage,
                                   style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  currentTask.mode == TextVisibilityMode.hidden
-                                      ? 'Recite from memory'
-                                      : 'Read clearly',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: colorScheme.outlineVariant
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                GundalTallyWidget(
-                                  count: currentTask.currentProgress,
-                                  height: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '/ ${currentTask.targetRepetitions}',
-                                  style: textTheme.bodyLarge?.copyWith(
+                                    color: colorScheme.onTertiaryContainer,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Consumer<MushafAudioProvider>(
-                        builder: (context, audio, _) {
-                          final isPlaying = audio.isPlaying;
-                          return SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: isPlaying ? null : () => provider.incrementProgress(),
-                              icon: const Icon(Icons.add_circle_outline),
-                              label: const Text('Tally (+1)'),
-                              style: FilledButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ] else ...[
-                      Text(
-                        'Session Completed',
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: colorScheme.tertiary),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      FilledButton.icon(
-                        onPressed: () =>
-                            _showGundalReportModal(context, provider),
-                        icon: const Icon(Icons.assessment_outlined),
-                        label: const Text('View Analytics Report'),
-                      ),
-                    ],
-                  ],
-                ),
+                    ),
+
+
+                ],
               ),
             ),
           ),
         );
+      },
+    ),
+  );
+}
+
+  // ---------------------------------------------------------------------------
+  // Compact top bar (replaces AppBar)
+  // ---------------------------------------------------------------------------
+  Widget _buildCompactTopBar(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme, bool isReview) {
+    final modeColor = isReview ? colorScheme.secondary : colorScheme.primary;
+    final modeLabel = isReview ? 'Review' : 'New Verses';
+
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 4,
+        left: 8,
+        right: 8,
+        bottom: 4,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Back button
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => _confirmExit(context),
+            tooltip: 'Back',
+          ),
+
+          // Mode pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: modeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: modeColor.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              modeLabel,
+              style: textTheme.labelMedium?.copyWith(
+                  color: modeColor, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          const Spacer(),
+
+          // Audio recitation options button (for both New Verses & Review mode)
+          Consumer<MushafAudioProvider>(
+            builder: (context, audio, _) {
+              return IconButton(
+                icon: Icon(
+                  audio.isPlaying
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.volume_up_rounded,
+                  color: audio.isPlaying ? colorScheme.primary : null,
+                  size: 22,
+                ),
+                tooltip: 'Audio Recitation',
+                onPressed: () {
+                  if (isReview) {
+                    _showReviewAudioOptionsDialog(context, provider);
+                  } else {
+                    _showNewVersesAudioOptionsDialog(context, provider);
+                  }
+                },
+              );
+            },
+          ),
+
+          // View toggle & Meaning toggle for new verses mode
+          if (!isReview) ...[
+            IconButton(
+              icon: Icon(
+                _isMushafView ? Icons.view_list_rounded : Icons.menu_book_rounded,
+                size: 20,
+              ),
+              tooltip: _isMushafView ? 'List View' : 'Mushaf View',
+              onPressed: () => setState(() => _isMushafView = !_isMushafView),
+            ),
+            if (!_isMushafView)
+              IconButton(
+                icon: Icon(
+                  _showMeaning
+                      ? Icons.translate_rounded
+                      : Icons.translate_outlined,
+                  color: _showMeaning ? colorScheme.primary : null,
+                  size: 20,
+                ),
+                tooltip: _showMeaning ? 'Hide Meaning' : 'Show Meaning',
+                onPressed: () => setState(() => _showMeaning = !_showMeaning),
+              ),
+          ],
+
+          // Dark mode toggle (for both modes)
+          Consumer<SettingsProvider>(
+            builder: (context, settings, _) {
+              return IconButton(
+                icon: Icon(
+                  settings.isDarkMode
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  size: 20,
+                ),
+                tooltip: settings.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                onPressed: () => settings.toggleDarkMode(!settings.isDarkMode),
+              );
+            },
+          ),
+
+          // Peek toggle
+          IconButton(
+            icon: Icon(
+              provider.isPeekActive
+                  ? Icons.visibility_rounded
+                  : Icons.visibility_off_rounded,
+              size: 20,
+            ),
+            tooltip: provider.isPeekActive ? 'Hide Text' : 'Reveal Text',
+            onPressed: () => provider.setPeekActive(!provider.isPeekActive),
+          ),
+
+          // Gear icon with popup menu (all settings consolidated)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, size: 22),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            onSelected: (val) async {
+              switch (val) {
+                case 'switch_mode':
+                  _showModeSelectionModal(context);
+                  break;
+                case 'range':
+                  _openNewVersesSetup(context);
+                  break;
+                case 'report':
+                  _showGundalReportModal(context, provider);
+                  break;
+                case 'mastery':
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => HifzMasteryListScreen(
+                          quranRepository: widget.quranRepository),
+                    ),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (_) => [
+              _buildPopupItem('switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
+              if (!isReview)
+                _buildPopupItem('range', Icons.tune_rounded, 'Select Range'),
+              _buildPopupItem('report', Icons.analytics_outlined, 'Report'),
+              _buildPopupItem('mastery', Icons.workspace_premium_outlined, 'Mastery'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Review body
+  // ---------------------------------------------------------------------------
+  Widget _buildReviewBody(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme) {
+    if (provider.isReviewSessionCompleted) {
+      return _buildCompletionView(context, provider, colorScheme, textTheme,
+          'Review Complete!', 'All selected Surahs/pages reviewed successfully.');
+    }
+
+    final step = provider.currentReviewStep;
+    if (step == null) return const SizedBox();
+
+    final isHiddenPhase = provider.reviewPhase == ReviewPhase.hidden;
+    final isPeeking = provider.isPeekActive;
+    final granularity = provider.reviewGranularity;
+
+    final int basePageForStep;
+    if (granularity == ReviewGranularity.byPage) {
+      basePageForStep = step.primaryIndex;
+    } else {
+      final surah = step.surahNumber ?? step.primaryIndex;
+      final verse = step.verseStart ?? 1;
+      basePageForStep = qcf.getPageNumber(surah, verse);
+    }
+    final int currentReviewPage =
+        (basePageForStep + _reviewPageOffset).clamp(1, 604);
+
+    final activeSurah = (granularity != ReviewGranularity.byPage)
+        ? (step.surahNumber ?? step.primaryIndex)
+        : null;
+    Set<String> highlightedVerseKeys = const {};
+    if (activeSurah != null) {
+      final vStart = step.verseStart ?? 1;
+      final vEnd = step.verseEnd ?? qcf.getVerseCount(activeSurah);
+      highlightedVerseKeys = {
+        for (int v = vStart; v <= vEnd; v++) '$activeSurah:$v'
+      };
+    }
+
+    return Column(
+      children: [
+        _buildReviewHeaderBand(
+            colorScheme, textTheme, provider, step, isHiddenPhase, currentReviewPage),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                        begin: const Offset(0.04, 0), end: Offset.zero)
+                    .animate(anim),
+                child: child,
+              ),
+            ),
+            child: _buildReviewMushafView(
+              key: ValueKey('review_page_$currentReviewPage'),
+              context: context,
+              provider: provider,
+              step: step,
+              colorScheme: colorScheme,
+              pageToShow: currentReviewPage,
+              activeSurah: activeSurah,
+              highlightedVerseKeys: highlightedVerseKeys,
+              isHiddenPhase: isHiddenPhase,
+              isPeeking: isPeeking,
+            ),
+          ),
+        ),
+        _buildReviewPageNav(colorScheme, textTheme, currentReviewPage),
+      ],
+    );
+  }
+
+  Widget _buildReviewPageNav(
+      ColorScheme colorScheme, TextTheme textTheme, int currentPage) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: colorScheme.surfaceContainerLow,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // RTL Quran reading order: Left button goes to Next page (+1)
+          _NavPillButton(
+            icon: Icons.chevron_left_rounded,
+            label: 'Next',
+            enabled: currentPage < 604,
+            colorScheme: colorScheme,
+            onTap: () => setState(() {
+              _reviewPageOffset++;
+              _transformationController.value = Matrix4.identity();
+            }),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Page $currentPage',
+              style: textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // RTL Quran reading order: Right button goes to Prev page (-1)
+          _NavPillButton(
+            icon: Icons.chevron_right_rounded,
+            label: 'Prev',
+            enabled: currentPage > 1,
+            colorScheme: colorScheme,
+            onTap: () => setState(() {
+              _reviewPageOffset--;
+              _transformationController.value = Matrix4.identity();
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewHeaderBand(ColorScheme colorScheme, TextTheme textTheme,
+      HifzSessionProvider provider, ReviewStep step, bool isHiddenPhase,
+      int currentPage) {
+    final phaseColor = isHiddenPhase ? colorScheme.error : colorScheme.primary;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            phaseColor.withValues(alpha: 0.12),
+            colorScheme.surfaceContainerLow,
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(color: phaseColor.withValues(alpha: 0.3), width: 1.5),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: phaseColor.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: phaseColor.withValues(alpha: 0.5)),
+            ),
+            child: Icon(
+              isHiddenPhase
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              color: phaseColor,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  step.label,
+                  style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  isHiddenPhase
+                      ? 'Recite from memory'
+                      : 'Read clearly',
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: phaseColor.withValues(alpha: 0.8)),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '${provider.reviewStepIndex + 1} / ${provider.reviewSteps.length}',
+              style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewMushafView({
+    Key? key,
+    required BuildContext context,
+    required HifzSessionProvider provider,
+    required ReviewStep step,
+    required ColorScheme colorScheme,
+    required int pageToShow,
+    required int? activeSurah,
+    required Set<String> highlightedVerseKeys,
+    required bool isHiddenPhase,
+    required bool isPeeking,
+  }) {
+    return Stack(
+      key: key,
+      children: [
+        Positioned.fill(
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 1.0,
+            maxScale: 4.0,
+            child: FutureBuilder<MushafPage>(
+              future: widget.foundationRepository
+                  .fetchPage(mushafId: 2, pageNumber: pageToShow),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final mushafPage = snapshot.data!;
+                final layout = MushafLayoutProfile.forMushaf(2);
+                final fontFamily =
+                    widget.foundationRepository.getFontFamily(2, pageToShow);
+
+                final surahStartsByLine = <int, List<String>>{};
+                for (final v in mushafPage.verses) {
+                  if (v.verseId != '1' || v.words.isEmpty) continue;
+                  surahStartsByLine
+                      .putIfAbsent(v.words.first.lineNumber, () => [])
+                      .add(v.surahId);
+                }
+                final verseEndWords = <MushafWord>{};
+                for (final v in mushafPage.verses) {
+                  if (v.words.isNotEmpty) verseEndWords.add(v.words.last);
+                }
+
+                return LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    return FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: layout.pageWidth,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final line in mushafPage.lines) ...[
+                              for (final sid in surahStartsByLine[
+                                          line.first.lineNumber] ??
+                                      const <String>[])
+                                QcfSurahHeader(
+                                  surahNumber: int.tryParse(sid) ?? 0,
+                                  colors: AppTheme.colors(
+                                      isDark: Theme.of(ctx).brightness ==
+                                          Brightness.dark),
+                                ),
+                              MushafLine(
+                                line: line,
+                                fontFamily: fontFamily,
+                                mushafId: 2,
+                                pageNumber: mushafPage.pageNumber,
+                                lineWidth: layout.lineWidth,
+                                lineHeight: layout.lineHeight,
+                                lineVerticalPadding: layout.lineVerticalPadding,
+                                wordPadding: layout.wordPadding,
+                                verseEndWords: verseEndWords,
+                                surahStartsByLine: surahStartsByLine,
+                                highlightedVerseKey: null,
+                                highlightedVerseKeys: isHiddenPhase
+                                    ? const {}
+                                    : highlightedVerseKeys,
+                                onVerseTap: (_) {},
+                                onVerseLongPressStart: (_) {},
+                                onVerseLongPress: (_) {},
+                                isVerseHidden: (verseKey) {
+                                  if (!isHiddenPhase || isPeeking) return false;
+                                  if (activeSurah == null) {
+                                    return true;
+                                  }
+                                  return highlightedVerseKeys.contains(verseKey);
+                                },
+                                isPeekActive: isPeeking,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+
+        if (isHiddenPhase && !isPeeking)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      colorScheme.errorContainer.withValues(alpha: 0.18),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // New Verses body
+  // ---------------------------------------------------------------------------
+  Widget _buildNewVersesBody(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme) {
+    final currentTask = provider.currentTask;
+    final isCompleted = provider.isSessionCompleted;
+    final isHidden = currentTask?.mode == TextVisibilityMode.hidden;
+    final headerColor = isHidden ? colorScheme.error : colorScheme.primary;
+
+    return Column(
+      children: [
+        // Compact page nav strip
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                headerColor.withValues(alpha: 0.08),
+                colorScheme.surfaceContainerLow,
+              ],
+            ),
+            border: Border(
+                bottom: BorderSide(
+                    color: headerColor.withValues(alpha: 0.2), width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Surah ${provider.surahNumber} · V${_selectedRepeatStart < _selectedStartVerse ? _selectedRepeatStart : _selectedStartVerse}–$_selectedEndVerse',
+                  style: textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+              // RTL Quran reading order: Left button goes to Next page (+1)
+              _NavPillButton(
+                icon: Icons.chevron_left_rounded,
+                label: 'Next',
+                enabled: _currentPage < 604,
+                colorScheme: colorScheme,
+                onTap: () => setState(() => _currentPage++),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  'Page $_currentPage',
+                  style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // RTL Quran reading order: Right button goes to Prev page (-1)
+              _NavPillButton(
+                icon: Icons.chevron_right_rounded,
+                label: 'Prev',
+                enabled: _currentPage > 1,
+                colorScheme: colorScheme,
+                onTap: () => setState(() => _currentPage--),
+              ),
+            ],
+          ),
+        ),
+        // Reading area
+        Expanded(
+          child: isCompleted
+              ? _buildCompletionView(context, provider, colorScheme, textTheme,
+                  'Routine Complete!', 'Great job memorizing these verses.')
+              : _isMushafView
+                  ? _buildMushafView(context, provider, currentTask, colorScheme)
+                  : _buildListView(context, provider, currentTask, colorScheme, textTheme),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bottom bar
+  // ---------------------------------------------------------------------------
+  Widget _buildBottomBar(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme, bool isReview) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: isReview
+            ? _buildReviewBottomBar(context, provider, colorScheme, textTheme)
+            : _buildNewVersesBottomBar(context, provider, colorScheme, textTheme),
+      ),
+    );
+  }
+
+  Widget _buildReviewBottomBar(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme) {
+    if (provider.isReviewSessionCompleted) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Review Complete! 🎉',
+                style:
+                    textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showGundalReportModal(context, provider),
+                icon: const Icon(Icons.assessment_outlined),
+                label: const Text('View Analytics'),
+                style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 12)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final phase = provider.reviewPhase;
+    final tally = provider.reviewTally;
+    final target = provider.reviewTargetTally;
+    final phaseColor =
+        phase == ReviewPhase.hidden ? colorScheme.error : colorScheme.primary;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            // Phase indicator
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: phaseColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: phaseColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    phase == ReviewPhase.hidden
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 14,
+                    color: phaseColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    phase == ReviewPhase.hidden ? 'Hidden' : 'Visible',
+                    style: textTheme.labelMedium
+                        ?.copyWith(color: phaseColor, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${provider.reviewStepIndex + 1}/${provider.reviewSteps.length} steps',
+              style: textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const Spacer(),
+            // Tally count display
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: phaseColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+              ),
+              child: Text(
+                '$tally / $target',
+                style: textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold, color: phaseColor),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Consumer<MushafAudioProvider>(
+          builder: (context, audio, _) {
+            return SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: (audio.isPlaying || _isTransitioningStep)
+                    ? null
+                    : () => _handleIncrementOrAdvance(),
+                icon: const Icon(Icons.add_circle_outline, size: 20),
+                label: Text('Tally (+1)  ·  $tally/$target'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: phaseColor,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildNewVersesBottomBar(BuildContext context,
+      HifzSessionProvider provider, ColorScheme colorScheme, TextTheme textTheme) {
+    final currentTask = provider.currentTask;
+
+    if (currentTask == null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Session Complete! 🎉',
+                style:
+                    textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _showGundalReportModal(context, provider),
+                icon: const Icon(Icons.assessment_outlined),
+                label: const Text('View Analytics'),
+                style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 12)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final isHiddenTask = currentTask.mode == TextVisibilityMode.hidden;
+    final taskColor = isHiddenTask ? colorScheme.error : colorScheme.primary;
+    final progress = currentTask.currentProgress;
+    final target = currentTask.targetRepetitions;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            // Task info
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: taskColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: taskColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isHiddenTask
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    size: 14,
+                    color: taskColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    currentTask.type == TaskType.singleVerse
+                        ? 'V${currentTask.verseNumbers.join()}'
+                        : 'V${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last}',
+                    style: textTheme.labelMedium?.copyWith(
+                        color: taskColor, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isHiddenTask ? 'Recite from memory' : 'Read clearly',
+              style: textTheme.bodySmall
+                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+            ),
+            const Spacer(),
+            // Tally widget + count
+            GundalTallyWidget(count: progress, height: 22),
+            const SizedBox(width: 6),
+            Text(
+              '$progress/$target',
+              style: textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold, color: taskColor),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Consumer<MushafAudioProvider>(
+          builder: (context, audio, _) {
+            return SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: (audio.isPlaying || _isTransitioningStep)
+                    ? null
+                    : () => _handleIncrementOrAdvance(),
+                icon: const Icon(Icons.add_circle_outline, size: 20),
+                label: Text('Tally (+1)  ·  $progress/$target'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: taskColor,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Increment / advance logic
+  // ---------------------------------------------------------------------------
+  void _handleIncrementOrAdvance() {
+    if (_isTransitioningStep) return;
+
+    final isNewVerses = _hifzProvider.sessionType == HifzSessionType.newVerses;
+    final int currentCount = isNewVerses
+        ? (_hifzProvider.currentTask?.currentProgress ?? 0)
+        : _hifzProvider.reviewTally;
+    final int targetCount = isNewVerses
+        ? (_hifzProvider.currentTask?.targetRepetitions ?? 1)
+        : _hifzProvider.reviewTargetTally;
+
+    // Already completed – nothing to do
+    if (currentCount >= targetCount) return;
+
+    _hifzProvider.incrementProgress();
+    HapticFeedback.lightImpact();
+
+    final int newCount = isNewVerses
+        ? (_hifzProvider.currentTask?.currentProgress ?? 0)
+        : _hifzProvider.reviewTally;
+
+    // When reaching the target, show banner then advance
+    if (newCount >= targetCount) {
+      _triggerStepCompletionAndHold();
+    }
+  }
+
+  void _triggerStepCompletionAndHold() {
+    setState(() {
+      _isTransitioningStep = true;
+      _transitionBannerMessage = 'Step Complete! ✓';
+    });
+
+    Future.delayed(const Duration(milliseconds: 1600), () {
+      if (!mounted) return;
+      _hifzProvider.advanceStepOrPhase();
+      setState(() {
+        _isTransitioningStep = false;
+        _transitionBannerMessage = '';
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Completion view
+  // ---------------------------------------------------------------------------
+  Widget _buildCompletionView(BuildContext context, HifzSessionProvider provider,
+      ColorScheme colorScheme, TextTheme textTheme, String title, String subtitle) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.stars_rounded, size: 64, color: colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(title,
+              style: textTheme.headlineMedium?.copyWith(
+                  color: colorScheme.primary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(subtitle, style: textTheme.bodyMedium),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () => provider.resetSession(),
+            icon: const Icon(Icons.replay),
+            label: const Text('Restart Session'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mushaf view (new verses)
+  // ---------------------------------------------------------------------------
+  Widget _buildMushafView(BuildContext context, HifzSessionProvider provider,
+      HifzTask? currentTask, ColorScheme colorScheme) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final Set<String> highlightedKeys = currentTask != null
+              ? currentTask.verseNumbers
+                  .map((v) => '${provider.surahNumber}:$v')
+                  .toSet()
+              : {};
+          final availWidth = constraints.maxWidth;
+          final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
+          final double paddedWidth =
+              isTablet ? availWidth.clamp(300.0, 600.0) : availWidth;
+          final double paddedHeight =
+              isTablet ? (paddedWidth * 1.45) : (availWidth * 1.45);
+
+          return Stack(
+            children: [
+              Center(
+                child: SizedBox(
+                  width: paddedWidth,
+                  height: paddedHeight,
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    minScale: 1.0,
+                    maxScale: 3.5,
+                    child: FutureBuilder<MushafPage>(
+                      future: widget.foundationRepository
+                          .fetchPage(mushafId: 2, pageNumber: _currentPage),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final mushafPage = snapshot.data!;
+                        final layout = MushafLayoutProfile.forMushaf(2);
+                        final fontFamily = widget.foundationRepository
+                            .getFontFamily(2, _currentPage);
+
+                        final surahStartsByLine = <int, List<String>>{};
+                        for (final v in mushafPage.verses) {
+                          if (v.verseId != '1' || v.words.isEmpty) continue;
+                          surahStartsByLine
+                              .putIfAbsent(v.words.first.lineNumber, () => [])
+                              .add(v.surahId);
+                        }
+                        final verseEndWords = <MushafWord>{};
+                        for (final v in mushafPage.verses) {
+                          if (v.words.isNotEmpty) verseEndWords.add(v.words.last);
+                        }
+
+                        return FittedBox(
+                          fit: BoxFit.contain,
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            width: layout.pageWidth,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final line in mushafPage.lines) ...[
+                                  for (final sid in surahStartsByLine[
+                                              line.first.lineNumber] ??
+                                          const <String>[])
+                                    QcfSurahHeader(
+                                      surahNumber: int.tryParse(sid) ?? 0,
+                                      colors: AppTheme.colors(
+                                          isDark: Theme.of(context).brightness ==
+                                              Brightness.dark),
+                                    ),
+                                  MushafLine(
+                                    line: line,
+                                    fontFamily: fontFamily,
+                                    mushafId: 2,
+                                    pageNumber: mushafPage.pageNumber,
+                                    lineWidth: layout.lineWidth,
+                                    lineHeight: layout.lineHeight,
+                                    lineVerticalPadding:
+                                        layout.lineVerticalPadding,
+                                    wordPadding: layout.wordPadding,
+                                    verseEndWords: verseEndWords,
+                                    surahStartsByLine: surahStartsByLine,
+                                    highlightedVerseKey: null,
+                                    highlightedVerseKeys: highlightedKeys,
+                                    onVerseTap: (_) {},
+                                    onVerseLongPressStart: (_) {},
+                                    onVerseLongPress: (_) {},
+                                    isVerseHidden: (verseKey) {
+                                      if (currentTask == null) return false;
+                                      final parts = verseKey.split(':');
+                                      if (parts.length == 2 &&
+                                          parts[0] ==
+                                              provider.surahNumber.toString()) {
+                                        final vNum = int.tryParse(parts[1]);
+                                        if (vNum != null) {
+                                          return _isVerseHidden(vNum, currentTask);
+                                        }
+                                      }
+                                      return false;
+                                    },
+                                    isPeekActive: provider.isPeekActive,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+            ],
+          );
         },
       ),
     );
   }
+
+  Widget _buildListView(BuildContext context, HifzSessionProvider provider,
+      HifzTask? currentTask, ColorScheme colorScheme, TextTheme textTheme) {
+    final startDisplayVerse = _selectedRepeatStart < _selectedStartVerse
+        ? _selectedRepeatStart
+        : _selectedStartVerse;
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _selectedEndVerse - startDisplayVerse + 1,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final verseNum = startDisplayVerse + index;
+        final isTarget =
+            currentTask != null && currentTask.verseNumbers.contains(verseNum);
+        final isHidden =
+            _isVerseHidden(verseNum, currentTask) && !provider.isPeekActive;
+        final translation = _showMeaning
+            ? _getVerseTranslationText(context, provider.surahNumber, verseNum)
+            : '';
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isTarget
+                ? (isHidden
+                    ? colorScheme.primaryContainer.withValues(alpha: 0.04)
+                    : colorScheme.primaryContainer.withValues(alpha: 0.08))
+                : colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isTarget
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant.withValues(alpha: 0.3),
+              width: isTarget ? 1.5 : 1.0,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (!isHidden)
+                    IconButton(
+                      icon: Icon(Icons.volume_up_outlined,
+                          color: isTarget ? colorScheme.primary : null),
+                      onPressed: () {
+                        _showNewVersesAudioOptionsDialog(context, provider);
+                      },
+                    ),
+                  Expanded(
+                    child: FutureBuilder<String>(
+                      future: widget.quranRepository.fetchArabicVerse(
+                          provider.surahNumber.toString(), verseNum.toString()),
+                      builder: (context, snapshot) {
+                        final arabicText = snapshot.data ?? '';
+                        final cleanedText = arabicText.split(' | ').join(' ');
+                        return Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: RichText(
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontFamily: 'UthmanicHafs',
+                                fontSize: 28,
+                                height: 2.0,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: cleanedText,
+                                  style: TextStyle(
+                                    color: isHidden
+                                        ? Colors.transparent
+                                        : (isTarget
+                                            ? textTheme.bodyLarge?.color
+                                            : textTheme.bodyLarge?.color
+                                                ?.withValues(alpha: 0.6)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              if (_showMeaning && translation.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Divider(
+                  height: 1,
+                  thickness: 0.8,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  translation,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: isHidden
+                        ? Colors.transparent
+                        : colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+
+
+
+// =============================================================================
+// Helper Widgets
+// =============================================================================
+
+
+
+class _ResumeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final ColorScheme colorScheme;
+
+  const _ResumeRow(this.label, this.value, this.colorScheme);
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+        ),
+        Text(
+          value,
+          style: textTheme.bodySmall
+              ?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+}
+
+class _NavPillButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+
+  const _NavPillButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.colorScheme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? colorScheme.primary : colorScheme.onSurfaceVariant;
+    final isNext = label == 'Next';
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: enabled ? 1.0 : 0.35,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isNext) Icon(icon, size: 14, color: color),
+              Text(
+                label,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold, color: color),
+              ),
+              if (!isNext) Icon(icon, size: 14, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  const _ModeCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: colorScheme.primary, size: 26),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
