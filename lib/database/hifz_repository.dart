@@ -180,14 +180,86 @@ class HifzRepository {
       return null;
     }
   }
-
-  /// Deletes ALL active session records (call on explicit "new session" start).
-  Future<void> clearActiveSession() async {
+  /// Loads the most recently saved active session matching the specific configuration.
+  Future<ActiveSessionSnapshot?> loadActiveSessionByConfig({
+    required HifzSessionType sessionType,
+    int? nvSurahNumber,
+    int? nvStartVerse,
+    int? nvEndVerse,
+    ReviewGranularity? reviewGranularity,
+    ReviewTargetParams? reviewTargetParams,
+  }) async {
     try {
       final db = await database;
-      await db.delete('active_session');
+      if (sessionType == HifzSessionType.newVerses) {
+        final rows = await db.query(
+          'active_session',
+          where: 'session_type = ? AND nv_surah_number = ? AND nv_start_verse = ? AND nv_end_verse = ?',
+          whereArgs: [sessionType.name, nvSurahNumber, nvStartVerse, nvEndVerse],
+          orderBy: 'last_updated_timestamp DESC',
+          limit: 1,
+        );
+        if (rows.isEmpty) return null;
+        return _rowToSnapshot(rows.first);
+      } else {
+        final rows = await db.query(
+          'active_session',
+          where: 'session_type = ? AND review_granularity = ?',
+          whereArgs: [sessionType.name, reviewGranularity?.name],
+          orderBy: 'last_updated_timestamp DESC',
+        );
+        for (final row in rows) {
+          final snap = _rowToSnapshot(row);
+          if (_areParamsEqual(snap.reviewTargetParams, reviewTargetParams)) {
+            return snap;
+          }
+        }
+        return null;
+      }
+    } catch (e) {
+      debugLog('HifzRepository.loadActiveSessionByConfig error: $e');
+      return null;
+    }
+  }
+
+  bool _areParamsEqual(ReviewTargetParams? a, ReviewTargetParams? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.startSurah == b.startSurah &&
+        a.endSurah == b.endSurah &&
+        a.surahNumber == b.surahNumber &&
+        a.startVerse == b.startVerse &&
+        a.endVerse == b.endVerse &&
+        a.startPage == b.startPage &&
+        a.endPage == b.endPage;
+  }
+
+  /// Deletes active session (either specific ID or all).
+  Future<void> clearActiveSession({String? sessionId}) async {
+    try {
+      final db = await database;
+      if (sessionId != null) {
+        await db.delete('active_session', where: 'session_id = ?', whereArgs: [sessionId]);
+      } else {
+        await db.delete('active_session');
+      }
     } catch (e) {
       debugLog('HifzRepository.clearActiveSession error: $e');
+    }
+  }
+
+  /// Fetches all active sessions.
+  Future<List<ActiveSessionSnapshot>> getAllActiveSessions() async {
+    try {
+      final db = await database;
+      final rows = await db.query(
+        'active_session',
+        orderBy: 'last_updated_timestamp DESC',
+      );
+      return rows.map(_rowToSnapshot).toList();
+    } catch (e) {
+      debugLog('HifzRepository.getAllActiveSessions error: $e');
+      return [];
     }
   }
 

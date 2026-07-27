@@ -241,6 +241,11 @@ const Map<String, Map<String, String>> _localizedValues = {
     'login_success': 'เข้าสู่ระบบสำเร็จ',
     'register_success': 'สมัครสมาชิกสำเร็จและเข้าสู่ระบบเรียบร้อย',
     'logout_success': 'ออกจากระบบสำเร็จ',
+    'content_updates': 'อัปเดตเนื้อหา',
+    'remote_quran_content': 'เนื้อหาอัลกุรอานระยะไกล',
+    'content_updates_desc': 'ระบบจะตรวจสอบการอัปเดตภาษาไทยฉบับปรับปรุง ธีม และบทแปลสรุป Mokhtasar โดยอัตโนมัติวันละครั้ง',
+    'checking_updates': 'กำลังตรวจสอบการอัปเดต...',
+    'check_now': 'ตรวจสอบทันที',
   },
   'en': {
     'settings': 'Settings',
@@ -483,6 +488,11 @@ const Map<String, Map<String, String>> _localizedValues = {
     'login_success': 'Successfully logged in!',
     'register_success': 'Registration successful!',
     'logout_success': 'Logged out successfully.',
+    'content_updates': 'Content Updates',
+    'remote_quran_content': 'Remote Quran Content',
+    'content_updates_desc': 'Thai v3, Quran themes, and Mokhtasar short tafsir are checked automatically once per day.',
+    'checking_updates': 'Checking updates...',
+    'check_now': 'Check Now',
   },
 };
 

@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'firebase_options.dart';
+import 'providers/ble_remote_provider.dart';
 import 'providers/progress_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/notes_provider.dart';
@@ -33,7 +36,14 @@ void main() async {
   );
 }
 
+
+
 Future<void> _initializeAppServices() async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
   await AppTheme.prewarmFonts();
 
   await Supabase.initialize(
@@ -83,6 +93,7 @@ class ThaiQuranBootstrap extends StatelessWidget {
 
         return MultiProvider(
           providers: [
+            ChangeNotifierProvider(create: (_) => BleRemoteProvider()),
             ChangeNotifierProvider(create: (_) => SupabaseProvider()),
             ChangeNotifierProvider(create: (_) => ProgressProvider()),
             ChangeNotifierProvider(create: (_) => SettingsProvider()),

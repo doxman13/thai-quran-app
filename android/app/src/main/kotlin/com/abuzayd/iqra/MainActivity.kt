@@ -1,4 +1,4 @@
-package com.example.thai_quran_app
+package com.abuzayd.iqra
 
 import android.view.KeyEvent
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
@@ -10,7 +10,7 @@ class MainActivity : AudioServiceFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.thai_quran_app/key_events")
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.abuzayd.iqra/key_events")
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {

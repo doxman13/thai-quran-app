@@ -7,6 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/translation_database.dart';
 import '../theme/app_theme.dart';
 
+enum HifzInputMode {
+  bluetoothShutter,
+  bleSmartRing,
+}
+
 class SettingsProvider extends ChangeNotifier {
   static const quranOnlyMode = 'quran_only';
   static const translationOnlyMode = 'translation_only';
@@ -26,6 +31,10 @@ class SettingsProvider extends ChangeNotifier {
   String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
   String _languageCode = 'th'; // Default to Thai
+
+  // New setting for Hifz input mode
+  static const String _hifzInputModeKey = 'hifz_input_mode';
+  HifzInputMode _hifzInputMode = HifzInputMode.bluetoothShutter;
 
   // Dual-slot translation model
   // Built-in ID: 'thai_v3'. Other active IDs should come from downloaded API translations.
@@ -51,6 +60,7 @@ class SettingsProvider extends ChangeNotifier {
   double get translationFontSize => _translationFontSize;
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
+  HifzInputMode get hifzInputMode => _hifzInputMode;
 
   // New dual-slot getters
   String get primaryTranslationId => _primaryTranslationId;
@@ -60,8 +70,12 @@ class SettingsProvider extends ChangeNotifier {
   bool get showThaiV3 =>
       _primaryTranslationId == 'thai_v3' ||
       _secondaryTranslationId == 'thai_v3';
-  bool get showThaiV2 => false;
-  bool get showEnglish => false;
+  bool get showThaiV2 =>
+      _primaryTranslationId == 'thai_v2' ||
+      _secondaryTranslationId == 'thai_v2';
+  bool get showEnglish =>
+      _primaryTranslationId == 'english' ||
+      _secondaryTranslationId == 'english';
 
   SettingsProvider() {
     _loadSettings();
@@ -209,8 +223,6 @@ class SettingsProvider extends ChangeNotifier {
       _primaryTranslationId = sanitizedIds.$1;
       _secondaryTranslationId = sanitizedIds.$2;
 
-      notifyListeners();
-
       // Save to local SharedPreferences
       await prefs.setString('themeColor', _themeColor);
       await prefs.setBool('isDarkMode', _isDarkMode);
@@ -236,6 +248,14 @@ class SettingsProvider extends ChangeNotifier {
         );
       } else {
         await prefs.remove('secondaryTranslationId');
+      }
+
+      // Load Hifz input mode
+      final savedHifzMode = prefs.getString(_hifzInputModeKey);
+      if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
+        _hifzInputMode = HifzInputMode.bleSmartRing;
+      } else {
+        _hifzInputMode = HifzInputMode.bluetoothShutter;
       }
     } catch (e) {
       debugPrint('Error loading/applying user settings: $e');
@@ -315,7 +335,6 @@ class SettingsProvider extends ChangeNotifier {
         );
       }
     }
-
     notifyListeners();
   }
 
@@ -336,7 +355,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   bool _isBundledTranslationId(String id) {
-    return id == 'thai_v3';
+    return id == 'thai_v3' || id == 'thai_v2' || id == 'english';
   }
 
   Future<bool> _isTranslationAvailableOnDevice(String? id) async {
@@ -483,9 +502,15 @@ class SettingsProvider extends ChangeNotifier {
   void setLanguageCode(String value) async {
     if (value != 'th' && value != 'en') return;
     _languageCode = value;
+    if (value == 'en' && _primaryTranslationId == 'thai_v3') {
+      _primaryTranslationId = 'english';
+    } else if (value == 'th' && _primaryTranslationId == 'english') {
+      _primaryTranslationId = 'thai_v3';
+    }
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('languageCode', _languageCode);
+    await prefs.setString('primaryTranslationId', _primaryTranslationId);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
@@ -521,6 +546,16 @@ class SettingsProvider extends ChangeNotifier {
     }
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
+  }
+
+  Future<void> setHifzInputMode(HifzInputMode mode) async {
+    if (_hifzInputMode == mode) return;
+
+    _hifzInputMode = mode;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_hifzInputModeKey, mode.toString());
   }
 
   // Legacy adaptor setters — delegate to updateTranslationSlot for backwards compat

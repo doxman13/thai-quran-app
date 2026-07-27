@@ -15,12 +15,12 @@ import '../providers/mushaf_audio_provider.dart';
 
 import '../models/hifz_session_config.dart';
 import '../database/hifz_repository.dart';
-import 'hifz_review_setup_screen.dart';
+import '../providers/settings_provider.dart';
 import 'hifz_new_verses_setup_screen.dart';
+import '../providers/ble_remote_provider.dart';
 import 'hifz_mastery_list_screen.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
-import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
@@ -30,6 +30,12 @@ class HifzMemorizeScreen extends StatefulWidget {
   final int surahNumber;
   final int startVerse;
   final int endVerse;
+  final HifzSessionType? initialSessionType;
+  final int? repeatStart;
+  final bool? isSurahMode;
+  final ReviewGranularity? reviewGranularity;
+  final ReviewTargetParams? reviewTargetParams;
+  final ActiveSessionSnapshot? resumeSessionSnapshot;
 
   const HifzMemorizeScreen({
     super.key,
@@ -39,6 +45,12 @@ class HifzMemorizeScreen extends StatefulWidget {
     this.surahNumber = 1,
     this.startVerse = 1,
     this.endVerse = 3,
+    this.initialSessionType,
+    this.repeatStart,
+    this.isSurahMode,
+    this.reviewGranularity,
+    this.reviewTargetParams,
+    this.resumeSessionSnapshot,
   });
 
   @override
@@ -47,7 +59,8 @@ class HifzMemorizeScreen extends StatefulWidget {
 
 class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     with SingleTickerProviderStateMixin {
-  static const _channel = MethodChannel('com.example.thai_quran_app/key_events');
+  static const _channel = MethodChannel('com.abuzayd.iqra/key_events');
+  int _lastBleClickCount = 0;
   late HifzSessionProvider _hifzProvider;
   bool _isMushafView = true;
   bool _showMeaning = false;
@@ -104,24 +117,77 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       curve: Curves.easeInOut,
     );
 
+    // Listen for BLE smart ring clicks
+    Provider.of<BleRemoteProvider>(context, listen: false)
+        .addListener(_onBleClick);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.keepAwake) {
           WakelockPlus.enable();
         }
-        _checkForResumableSession();
+        if (widget.resumeSessionSnapshot == null) {
+          _checkForResumableSession();
+        }
       }
     });
-    _selectedRepeatStart = widget.startVerse;
-    _selectedStartVerse = widget.startVerse;
-    _selectedEndVerse = widget.endVerse;
-    _hifzProvider = HifzSessionProvider(
-      surahNumber: widget.surahNumber,
-      repeatStart: _selectedRepeatStart,
-      startVerse: _selectedStartVerse,
-      endVerse: _selectedEndVerse,
-    );
+
+    if (widget.resumeSessionSnapshot != null) {
+      final snap = widget.resumeSessionSnapshot!;
+      final restored = snap.sessionType == HifzSessionType.newVerses
+          ? HifzSessionProvider(
+              surahNumber: snap.nvSurahNumber ?? widget.surahNumber,
+              repeatStart: snap.nvRepeatStart ?? widget.startVerse,
+              startVerse: snap.nvStartVerse ?? widget.startVerse,
+              endVerse: snap.nvEndVerse ?? widget.endVerse,
+            )
+          : HifzSessionProvider.review(
+              granularity: snap.reviewGranularity ?? ReviewGranularity.bySurah,
+              targetParams: snap.reviewTargetParams ??
+                  ReviewTargetParams.bySurah(startSurah: 100, endSurah: 114),
+            );
+      restored.restoreFromSnapshot(snap);
+      _hifzProvider = restored;
+      _selectedRepeatStart = snap.nvRepeatStart ?? widget.startVerse;
+      _selectedStartVerse = snap.nvStartVerse ?? widget.startVerse;
+      _selectedEndVerse = snap.nvEndVerse ?? widget.endVerse;
+      _currentPage = snap.sessionType == HifzSessionType.newVerses
+          ? qcf.getPageNumber(snap.nvSurahNumber ?? widget.surahNumber, snap.nvStartVerse ?? widget.startVerse)
+          : widget.initialPage;
+    } else if (widget.initialSessionType == HifzSessionType.newVerses) {
+      _isSurahMode = widget.isSurahMode ?? true;
+      _selectedRepeatStart = widget.repeatStart ?? widget.startVerse;
+      _selectedStartVerse = widget.startVerse;
+      _selectedEndVerse = widget.endVerse;
+      _currentPage = _isSurahMode
+          ? qcf.getPageNumber(widget.surahNumber, _selectedStartVerse)
+          : widget.initialPage;
+      _hifzProvider = HifzSessionProvider(
+        surahNumber: widget.surahNumber,
+        repeatStart: _selectedRepeatStart,
+        startVerse: _selectedStartVerse,
+        endVerse: _selectedEndVerse,
+      );
+    } else if (widget.initialSessionType == HifzSessionType.review) {
+      _selectedRepeatStart = 1;
+      _selectedStartVerse = 1;
+      _selectedEndVerse = 1;
+      _hifzProvider = HifzSessionProvider.review(
+        granularity: widget.reviewGranularity!,
+        targetParams: widget.reviewTargetParams!,
+      );
+    } else {
+      _selectedRepeatStart = widget.startVerse;
+      _selectedStartVerse = widget.startVerse;
+      _selectedEndVerse = widget.endVerse;
+      _hifzProvider = HifzSessionProvider(
+        surahNumber: widget.surahNumber,
+        repeatStart: _selectedRepeatStart,
+        startVerse: _selectedStartVerse,
+        endVerse: _selectedEndVerse,
+      );
+    }
 
     DateTime? lastClickTime;
     _channel.setMethodCallHandler((call) async {
@@ -143,6 +209,25 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize the last known click count from the provider
+    _lastBleClickCount =
+        Provider.of<BleRemoteProvider>(context, listen: false).clickCount;
+  }
+
+  void _onBleClick() {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.hifzInputMode != HifzInputMode.bleSmartRing) return;
+
+    final bleProvider = Provider.of<BleRemoteProvider>(context, listen: false);
+    if (bleProvider.clickCount > _lastBleClickCount) {
+      _lastBleClickCount = bleProvider.clickCount;
+      _handleIncrementOrAdvance();
+    }
+  }
+
+  @override
   void dispose() {
     _channel.setMethodCallHandler(null);
     _hiddenInputFocusNode.dispose();
@@ -150,6 +235,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     _transformationController.dispose();
     _chromeAnimController.dispose();
     WakelockPlus.disable();
+    Provider.of<BleRemoteProvider>(context, listen: false)
+        .removeListener(_onBleClick);
     super.dispose();
   }
 
@@ -170,13 +257,28 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   Future<void> _checkForResumableSession() async {
     final repo = HifzRepository();
-    final snap = await repo.loadActiveSession();
+    final snap = widget.initialSessionType != null
+        ? await repo.loadActiveSessionByConfig(
+            sessionType: widget.initialSessionType!,
+            nvSurahNumber: widget.surahNumber,
+            nvStartVerse: widget.startVerse,
+            nvEndVerse: widget.endVerse,
+            reviewGranularity: widget.reviewGranularity,
+            reviewTargetParams: widget.reviewTargetParams,
+          )
+        : await repo.loadActiveSession();
     if (!mounted) return;
 
     if (snap == null) {
-      _showModeSelectionModal(context);
+      if (widget.initialSessionType != null) {
+        return;
+      }
+      Navigator.pop(context);
       return;
     }
+
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
 
     final resume = await showDialog<bool>(
       context: context,
@@ -185,11 +287,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         final colorScheme = Theme.of(ctx).colorScheme;
         final textTheme = Theme.of(ctx).textTheme;
         final typeLabel = snap.sessionType == HifzSessionType.newVerses
-            ? 'New Verses (Takrar)'
-            : 'Review Mode';
+            ? (isThai ? 'ท่องจำอายะห์ใหม่ (Takrar)' : 'New Verses (Takrar)')
+            : (isThai ? 'ทบทวนฮิฟซ์ (Review)' : 'Review Mode');
         final stepLabel = snap.sessionType == HifzSessionType.review
-            ? 'Step ${snap.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'Hidden' : 'Visible'}'
-            : 'Task ${snap.currentStepIndex + 1} · tally ${snap.currentTally}';
+            ? (isThai
+                ? 'ขั้นตอนที่ ${snap.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'ซ่อน' : 'แสดง'}'
+                : 'Step ${snap.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'Hidden' : 'Visible'}')
+            : (isThai
+                ? 'งานที่ ${snap.currentStepIndex + 1} · จำนวนรอบ ${snap.currentTally}'
+                : 'Task ${snap.currentStepIndex + 1} · tally ${snap.currentTally}');
 
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -199,17 +305,23 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             children: [
               Icon(Icons.history_rounded, color: colorScheme.primary, size: 32),
               const SizedBox(height: 8),
-              Text('Resume Session?',
-                  style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Text(
+                isThai ? 'กู้คืนเซสชัน?' : 'Resume Session?',
+                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('A previous session was found:',
-                  style: textTheme.bodyMedium
-                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
+              Text(
+                isThai
+                    ? 'พบการเรียนที่ทำค้างไว้ของโหมดนี้:'
+                    : 'A previous session of this type was found:',
+                style: textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -222,9 +334,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ResumeRow('Mode', typeLabel, colorScheme),
+                    _ResumeRow(isThai ? 'โหมด' : 'Mode', typeLabel, colorScheme),
                     const SizedBox(height: 4),
-                    _ResumeRow('Progress', stepLabel, colorScheme),
+                    _ResumeRow(isThai ? 'ความคืบหน้า' : 'Progress', stepLabel, colorScheme),
                   ],
                 ),
               ),
@@ -234,13 +346,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx, false);
-                HifzRepository().clearActiveSession();
               },
-              child: const Text('Start New'),
+              child: Text(isThai ? 'เริ่มใหม่' : 'Start New'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Resume'),
+              child: Text(isThai ? 'ทำต่อ' : 'Resume'),
             ),
           ],
         );
@@ -273,90 +384,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         }
       });
     } else {
-      _showModeSelectionModal(context);
+      if (widget.initialSessionType != null) {
+        return;
+      }
+      Navigator.pop(context);
     }
   }
 
-  void _showModeSelectionModal(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: colorScheme.surface,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text('Select Hifz Mode',
-                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text('Choose how you want to practice today:',
-                  style: textTheme.bodyMedium
-                      ?.copyWith(color: colorScheme.onSurfaceVariant)),
-              const SizedBox(height: 20),
-              _ModeCard(
-                icon: Icons.menu_book_rounded,
-                title: 'New Verses (Takrar)',
-                subtitle: '3 rounds of (10x visible / 5x hidden) per verse, then sequence linking.',
-                colorScheme: colorScheme,
-                textTheme: textTheme,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openNewVersesSetup(context);
-                },
-              ),
-              const SizedBox(height: 12),
-              _ModeCard(
-                icon: Icons.replay_rounded,
-                title: 'Review Mode',
-                subtitle: 'Review by Surah, Verse range, or Page with 2x/2x cycle.',
-                colorScheme: colorScheme,
-                textTheme: textTheme,
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final result = await Navigator.push<(ReviewGranularity, ReviewTargetParams)>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => HifzReviewSetupScreen(
-                        quranRepository: widget.quranRepository,
-                      ),
-                    ),
-                  );
-                  if (result != null && mounted) {
-                    final (granularity, params) = result;
-                    setState(() {
-                      _hifzProvider = HifzSessionProvider.review(
-                        granularity: granularity,
-                        targetParams: params,
-                      );
-                    });
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _openNewVersesSetup(BuildContext context) async {
     final result = await Navigator.push<NewVersesSetupResult>(
@@ -595,6 +629,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
 
   Future<bool> _showExitConfirmationDialog(BuildContext context) async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
+
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -612,7 +649,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             child: Icon(Icons.logout_rounded, color: colorScheme.error, size: 28),
           ),
           title: Text(
-            'Exit Hifz Mode?',
+            isThai ? 'ออกจากโหมดท่องจำ?' : 'Exit Hifz Mode?',
             textAlign: TextAlign.center,
             style: textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
@@ -620,7 +657,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ),
           ),
           content: Text(
-            'Are you sure you want to exit Hifz mode? Your memorization progress has been saved automatically.',
+            isThai
+                ? 'คุณแน่ใจหรือไม่ว่าต้องการออกจากโหมดท่องจำ? ระบบได้บันทึกความคืบหน้าของคุณโดยอัตโนมัติแล้ว'
+                : 'Are you sure you want to exit Hifz mode? Your memorization progress has been saved automatically.',
             textAlign: TextAlign.center,
             style: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
@@ -640,7 +679,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Cancel'),
+                    child: Text(isThai ? 'ยกเลิก' : 'Cancel'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -655,7 +694,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Exit'),
+                    child: Text(isThai ? 'ออก' : 'Exit'),
                   ),
                 ),
               ],
@@ -1222,7 +1261,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             onSelected: (val) async {
               switch (val) {
                 case 'switch_mode':
-                  _showModeSelectionModal(context);
+                  Navigator.pop(context);
                   break;
                 case 'range':
                   _openNewVersesSetup(context);
@@ -1472,9 +1511,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       key: key,
       children: [
         Positioned.fill(
-          child: InteractiveViewer(
-            transformationController: _transformationController,
-            minScale: 1.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            child: InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 1.0,
             maxScale: 4.0,
             child: FutureBuilder<MushafPage>(
               future: widget.foundationRepository
@@ -1535,7 +1576,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                 highlightedVerseKeys: isHiddenPhase
                                     ? const {}
                                     : highlightedVerseKeys,
-                                onVerseTap: (_) {},
+                                onVerseTap: (_) => _toggleChrome(),
                                 onVerseLongPressStart: (_) {},
                                 onVerseLongPress: (_) {},
                                 isVerseHidden: (verseKey) {
@@ -1558,6 +1599,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ),
           ),
         ),
+      ),
 
         if (isHiddenPhase && !isPeeking)
           Positioned(
@@ -1938,6 +1980,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         ? (_hifzProvider.currentTask?.targetRepetitions ?? 1)
         : _hifzProvider.reviewTargetTally;
 
+    // Check if audio is playing, which should block tallying
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+    if (audio.isPlaying) return;
+
     // Already completed – nothing to do
     if (currentCount >= targetCount) return;
 
@@ -2015,18 +2061,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
           final double paddedWidth =
               isTablet ? availWidth.clamp(300.0, 600.0) : availWidth;
-          final double paddedHeight =
-              isTablet ? (paddedWidth * 1.45) : (availWidth * 1.45);
-
           return Stack(
             children: [
               Center(
                 child: SizedBox(
                   width: paddedWidth,
-                  height: paddedHeight,
-                  child: InteractiveViewer(
-                    transformationController: _transformationController,
-                    minScale: 1.0,
+                  height: constraints.maxHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: InteractiveViewer(
+                      transformationController: _transformationController,
+                      minScale: 1.0,
                     maxScale: 3.5,
                     child: FutureBuilder<MushafPage>(
                       future: widget.foundationRepository
@@ -2084,7 +2129,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     surahStartsByLine: surahStartsByLine,
                                     highlightedVerseKey: null,
                                     highlightedVerseKeys: highlightedKeys,
-                                    onVerseTap: (_) {},
+                                    onVerseTap: (_) => _toggleChrome(),
                                     onVerseLongPressStart: (_) {},
                                     onVerseLongPress: (_) {},
                                     isVerseHidden: (verseKey) {
@@ -2112,6 +2157,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   ),
                 ),
               ),
+            ),
 
             ],
           );
@@ -2140,96 +2186,138 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ? _getVerseTranslationText(context, provider.surahNumber, verseNum)
             : '';
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isTarget
-                ? (isHidden
-                    ? colorScheme.primaryContainer.withValues(alpha: 0.04)
-                    : colorScheme.primaryContainer.withValues(alpha: 0.08))
-                : colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isTarget
-                  ? colorScheme.primary
-                  : colorScheme.outlineVariant.withValues(alpha: 0.3),
-              width: isTarget ? 1.5 : 1.0,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (!isHidden)
-                    IconButton(
-                      icon: Icon(Icons.volume_up_outlined,
-                          color: isTarget ? colorScheme.primary : null),
-                      onPressed: () {
-                        _showNewVersesAudioOptionsDialog(context, provider);
-                      },
-                    ),
-                  Expanded(
-                    child: FutureBuilder<String>(
-                      future: widget.quranRepository.fetchArabicVerse(
-                          provider.surahNumber.toString(), verseNum.toString()),
-                      builder: (context, snapshot) {
-                        final arabicText = snapshot.data ?? '';
-                        final cleanedText = arabicText.split(' | ').join(' ');
-                        return Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: RichText(
-                            textAlign: TextAlign.right,
-                            softWrap: true,
-                            text: TextSpan(
-                              style: const TextStyle(
-                                fontFamily: 'UthmanicHafs',
-                                fontSize: 28,
-                                height: 2.0,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text: cleanedText,
-                                  style: TextStyle(
-                                    color: isHidden
-                                        ? Colors.transparent
-                                        : (isTarget
-                                            ? textTheme.bodyLarge?.color
-                                            : textTheme.bodyLarge?.color
-                                                ?.withValues(alpha: 0.6)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+        return Consumer<MushafAudioProvider>(
+          builder: (context, audio, _) {
+            final isCurrentPlaying = audio.isPlaying &&
+                audio.currentVerseKey == '${provider.surahNumber}:$verseNum';
+            final isCurrentLoading = audio.isLoading &&
+                audio.currentVerseKey == '${provider.surahNumber}:$verseNum';
+
+            Widget playIcon;
+            if (isCurrentLoading) {
+              playIcon = SizedBox(
+                width: 24,
+                height: 24,
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: isTarget ? colorScheme.primary : colorScheme.onSurfaceVariant,
                   ),
+                ),
+              );
+            } else if (isCurrentPlaying) {
+              playIcon = Icon(
+                Icons.stop_circle_rounded,
+                color: isTarget ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                size: 24,
+              );
+            } else {
+              playIcon = Icon(
+                Icons.volume_up_outlined,
+                color: isTarget ? colorScheme.primary : null,
+                size: 24,
+              );
+            }
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isTarget
+                    ? (isHidden
+                        ? colorScheme.primaryContainer.withValues(alpha: 0.04)
+                        : colorScheme.primaryContainer.withValues(alpha: 0.08))
+                    : colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isTarget
+                      ? colorScheme.primary
+                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  width: isTarget ? 1.5 : 1.0,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (!isHidden)
+                        IconButton(
+                          icon: playIcon,
+                          onPressed: () {
+                            if (isCurrentPlaying || isCurrentLoading) {
+                              audio.stop();
+                            } else {
+                              audio.playRange(
+                                provider.surahNumber.toString(),
+                                [verseNum],
+                              );
+                            }
+                          },
+                        ),
+                      Expanded(
+                        child: FutureBuilder<String>(
+                          future: widget.quranRepository.fetchArabicVerse(
+                              provider.surahNumber.toString(), verseNum.toString()),
+                          builder: (context, snapshot) {
+                            final arabicText = snapshot.data ?? '';
+                            final cleanedText = arabicText.split(' | ').join(' ');
+                            return Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: RichText(
+                                textAlign: TextAlign.right,
+                                softWrap: true,
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    fontFamily: 'UthmanicHafs',
+                                    fontSize: 28,
+                                    height: 2.0,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: cleanedText,
+                                      style: TextStyle(
+                                        color: isHidden
+                                            ? Colors.transparent
+                                            : (isTarget
+                                                ? textTheme.bodyLarge?.color
+                                                : textTheme.bodyLarge?.color
+                                                    ?.withValues(alpha: 0.6)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_showMeaning && translation.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      thickness: 0.8,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      translation,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: isHidden
+                            ? Colors.transparent
+                            : colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-              if (_showMeaning && translation.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Divider(
-                  height: 1,
-                  thickness: 0.8,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  translation,
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: isHidden
-                        ? Colors.transparent
-                        : colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -2320,72 +2408,3 @@ class _NavPillButton extends StatelessWidget {
     );
   }
 }
-
-class _ModeCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
-
-  const _ModeCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    required this.colorScheme,
-    required this.textTheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: colorScheme.primary, size: 26),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
-          ],
-        ),
-      ),
-    );
-  }
-}
-

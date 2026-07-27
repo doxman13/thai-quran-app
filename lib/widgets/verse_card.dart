@@ -1119,15 +1119,15 @@ class _VerseCardState extends State<VerseCard> {
     Locale? locale;
 
     if (translationId == 'thai_v3') {
-      label = 'ภาษาไทย (ปรับปรุงภาษา)';
+      label = context.tr('thai_v3');
       text = thaiTextProtection.protect(widget.verse.thaiV3);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'thai_v2') {
-      label = 'ภาษาไทย (ฉบับเก่า)';
+      label = context.tr('thai_v2');
       text = thaiTextProtection.protect(widget.verse.thaiV2);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'english') {
-      label = 'English\nSaheeh International';
+      label = context.tr('english');
       text = widget.verse.english;
     } else {
       final transManager = Provider.of<TranslationManagerProvider>(context);

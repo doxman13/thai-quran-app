@@ -6,14 +6,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
+import '../providers/settings_provider.dart';
 import 'hifz_history_screen.dart';
 import 'hifz_mastery_list_screen.dart';
+import 'hifz_settings_screen.dart';
 import 'hifz_memorize_screen.dart';
 import 'hifz_new_verses_setup_screen.dart';
 import 'hifz_review_setup_screen.dart';
@@ -106,6 +109,10 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             surahNumber: result.surah,
             startVerse: result.startVerse,
             endVerse: result.endVerse,
+            initialSessionType: HifzSessionType.newVerses,
+            repeatStart: result.repeatStart,
+            initialPage: result.page,
+            isSurahMode: result.isSurahMode,
           ),
         ),
       );
@@ -122,12 +129,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       ),
     );
     if (result != null && mounted) {
+      final (granularity, params) = result;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => HifzMemorizeScreen(
             quranRepository: widget.quranRepository,
             foundationRepository: widget.foundationRepository,
+            initialSessionType: HifzSessionType.review,
+            reviewGranularity: granularity,
+            reviewTargetParams: params,
           ),
         ),
       );
@@ -148,7 +159,10 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const HifzHistoryScreen(),
+        builder: (_) => HifzHistoryScreen(
+          quranRepository: widget.quranRepository,
+          foundationRepository: widget.foundationRepository,
+        ),
       ),
     );
   }
@@ -170,6 +184,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final screenHeight = MediaQuery.of(context).size.height;
+    final settings = Provider.of<SettingsProvider>(context);
+    final isThai = settings.languageCode == 'th';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -183,19 +199,27 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             foregroundColor: colorScheme.onSurface,
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
-              background: _buildHeroHeader(colorScheme, textTheme),
+              background: _buildHeroHeader(colorScheme, textTheme, isThai),
             ),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new_rounded),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: 'Settings',
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const HifzSettingsScreen())),
+              ),
+            ],
           ),
 
           // ── Stats Strip ─────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: FadeTransition(
               opacity: _fadeAnim,
-              child: _buildStatsStrip(colorScheme, textTheme),
+              child: _buildStatsStrip(colorScheme, textTheme, isThai),
             ),
           ),
 
@@ -204,7 +228,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             SliverToBoxAdapter(
               child: FadeTransition(
                 opacity: _fadeAnim,
-                child: _buildResumeBanner(colorScheme, textTheme),
+                child: _buildResumeBanner(colorScheme, textTheme, isThai),
               ),
             ),
 
@@ -213,7 +237,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
               child: Text(
-                'Choose Your Practice',
+                isThai ? 'เลือกรูปแบบการฝึกฝน' : 'Choose Your Practice',
                 style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: colorScheme.onSurface,
@@ -234,8 +258,9 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     accentColor: colorScheme.primary,
                     title: 'New Verses (Takrar)',
                     titleThai: 'ท่องอายะห์ใหม่',
-                    subtitle:
-                        'Practice new verses with the Gundal method — 3 rounds of visible & hidden recitation, then sequence linking.',
+                    subtitle: isThai
+                        ? 'ฝึกฝนอายะห์ใหม่ด้วยวิธี Gundal — อ่านแบบเปิดเผยและซ่อนอย่างละ 3 รอบ จากนั้นเชื่อมโยงลำดับอายะห์'
+                        : 'Practice new verses with the Gundal method — 3 rounds of visible & hidden recitation, then sequence linking.',
                     badge: null,
                     colorScheme: colorScheme,
                     textTheme: textTheme,
@@ -250,9 +275,14 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     accentColor: colorScheme.tertiary,
                     title: 'Review Mode',
                     titleThai: 'ทบทวนฮิฟซ์',
-                    subtitle:
-                        'Strengthen memorized content. Review by Surah, Verse range, or Mushaf page with 2×/2× visible-hidden cycle.',
-                    badge: _inProgressCount > 0 ? '$_inProgressCount in progress' : null,
+                    subtitle: isThai
+                        ? 'เสริมสร้างความจำที่เคยท่องจำ ทบทวนรายสูเราะฮ์ ช่วงอายะห์ หรือหน้ามุสฮัฟ ด้วยวงจรเปิดเผย-ซ่อนแบบ 2x/2x'
+                        : 'Strengthen memorized content. Review by Surah, Verse range, or Mushaf page with 2×/2× visible-hidden cycle.',
+                    badge: _inProgressCount > 0
+                        ? (isThai
+                            ? 'กำลังดำเนินการ $_inProgressCount เซสชัน'
+                            : '$_inProgressCount in progress')
+                        : null,
                     colorScheme: colorScheme,
                     textTheme: textTheme,
                     onTap: _openReview,
@@ -269,7 +299,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               opacity: _fadeAnim,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: _buildMasteryTile(colorScheme, textTheme),
+                child: _buildMasteryTile(colorScheme, textTheme, isThai),
               ),
             ),
           ),
@@ -280,7 +310,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               opacity: _fadeAnim,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                child: _buildHistoryTile(colorScheme, textTheme),
+                child: _buildHistoryTile(colorScheme, textTheme, isThai),
               ),
             ),
           ),
@@ -290,7 +320,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   // ── Hero Header ─────────────────────────────────────────────────────────────
-  Widget _buildHeroHeader(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildHeroHeader(ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -331,21 +361,12 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'โหมดท่องจำ',
+                isThai ? 'โหมดท่องจำ' : 'Hifz Memorization',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   color: colorScheme.onPrimaryContainer,
                   height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Hifz Memorization',
-                style: textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
                 ),
               ),
             ],
@@ -356,7 +377,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   // ── Stats Strip ─────────────────────────────────────────────────────────────
-  Widget _buildStatsStrip(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildStatsStrip(ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(16),
@@ -379,7 +400,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               children: [
                 _StatPill(
                   icon: Icons.military_tech_rounded,
-                  label: 'Mastered',
+                  label: isThai ? 'เชี่ยวชาญ' : 'Mastered',
                   value: '$_masteredCount',
                   color: colorScheme.primary,
                   colorScheme: colorScheme,
@@ -388,7 +409,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 _VertDivider(colorScheme: colorScheme),
                 _StatPill(
                   icon: Icons.trending_up_rounded,
-                  label: 'In Progress',
+                  label: isThai ? 'กำลังฝึก' : 'In Progress',
                   value: '$_inProgressCount',
                   color: colorScheme.tertiary,
                   colorScheme: colorScheme,
@@ -397,7 +418,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 _VertDivider(colorScheme: colorScheme),
                 _StatPill(
                   icon: Icons.import_contacts_rounded,
-                  label: 'Surahs',
+                  label: isThai ? 'สูเราะฮ์' : 'Surahs',
                   value: '114',
                   color: colorScheme.secondary,
                   colorScheme: colorScheme,
@@ -409,7 +430,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   // ── Resume Banner ────────────────────────────────────────────────────────────
-  Widget _buildResumeBanner(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildResumeBanner(ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     return GestureDetector(
       onTap: _resumeSession,
       child: Container(
@@ -429,14 +450,14 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Active session found',
+                    isThai ? 'พบเซสชันที่ดำเนินการอยู่' : 'Active session found',
                     style: textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
                   Text(
-                    'Tap to resume where you left off',
+                    isThai ? 'แตะเพื่ออ่านต่อจากที่คุณทำค้างไว้' : 'Tap to resume where you left off',
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                     ),
@@ -453,7 +474,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   // ── History Tile ─────────────────────────────────────────────────────────────
-  Widget _buildHistoryTile(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildHistoryTile(ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     return GestureDetector(
       onTap: _openHistory,
       child: Container(
@@ -473,14 +494,14 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Practice History',
+                    isThai ? 'ประวัติการฝึกฝน' : 'Practice History',
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: colorScheme.onSurface,
                     ),
                   ),
                   Text(
-                    'View past sessions & memorization logs',
+                    isThai ? 'ดูเซสชันที่ผ่านมาและบันทึกการท่องจำ' : 'View past sessions & memorization logs',
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -497,7 +518,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   // ── Mastery Tile ─────────────────────────────────────────────────────────────
-  Widget _buildMasteryTile(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildMasteryTile(ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     final progress = _masteredCount / 114;
     return GestureDetector(
       onTap: _openMastery,
@@ -518,7 +539,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     color: colorScheme.primary, size: 22),
                 const SizedBox(width: 10),
                 Text(
-                  'Mastery Progress',
+                  isThai ? 'ความคืบหน้าการท่องจำ' : 'Mastery Progress',
                   style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface,
@@ -526,7 +547,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 ),
                 const Spacer(),
                 Text(
-                  '$_masteredCount / 114 Surahs',
+                  isThai ? '$_masteredCount / 114 สูเราะฮ์' : '$_masteredCount / 114 Surahs',
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -549,7 +570,9 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              '${(progress * 100).toStringAsFixed(1)}% of full Quran memorized',
+              isThai
+                  ? '${(progress * 100).toStringAsFixed(1)}% ของอัลกุรอานทั้งหมดถูกท่องจำแล้ว'
+                  : '${(progress * 100).toStringAsFixed(1)}% of full Quran memorized',
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -596,6 +619,8 @@ class _HifzModeCardState extends State<_HifzModeCard> {
   Widget build(BuildContext context) {
     final cs = widget.colorScheme;
     final tt = widget.textTheme;
+    final settings = Provider.of<SettingsProvider>(context);
+    final isThai = settings.languageCode == 'th';
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -637,26 +662,13 @@ class _HifzModeCardState extends State<_HifzModeCard> {
                     Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.titleThai,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                              Text(
-                                widget.title,
-                                style: tt.bodySmall?.copyWith(
-                                  color: widget.accentColor,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            isThai ? widget.titleThai : widget.title,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: cs.onSurface,
+                            ),
                           ),
                         ),
                         if (widget.badge != null) ...[

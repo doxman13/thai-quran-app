@@ -26,9 +26,7 @@ import 'settings_screen.dart';
 import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
 import 'browse_screen.dart';
-import 'hifz_memorize_screen.dart';
 import 'hifz_landing_screen.dart';
-import 'tadabbur_private_screen.dart';
 
 class _ModeSelectionCard extends StatelessWidget {
   final IconData icon;
@@ -1177,11 +1175,6 @@ class _HomeScreenState extends State<HomeScreen>
               label: 'Surahs',
             ),
             NavigationDestination(
-              icon: Icon(Icons.favorite_border),
-              selectedIcon: Icon(Icons.favorite),
-              label: 'Favourites',
-            ),
-            NavigationDestination(
               icon: Icon(Icons.bookmark_outline),
               selectedIcon: Icon(Icons.bookmark),
               label: 'Bookmarks',
@@ -1308,7 +1301,30 @@ class _HomeScreenState extends State<HomeScreen>
                     _buildDynamicDockSliver(colorScheme, textTheme),
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.psychology_alt_rounded,
+                              color: colorScheme.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              settings.languageCode == 'th' ? 'ท่องให้จำ' : 'Hifz Memorization',
+                              style: GoogleFonts.notoSansThai(
+                                color: colorScheme.onSurface,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                         child: _buildHifzBanner(colorScheme, textTheme),
                       ),
                     ),
@@ -1328,16 +1344,14 @@ class _HomeScreenState extends State<HomeScreen>
               onOpen: _chooseBrowseDestination,
               onOpenPage: _navigateToMushafFreeReadPage,
             ),
-            // 2: Favourites (Tadabbur)
-            TadabburPrivateScreen(repository: widget.repository),
-            // 3: Bookmarks
+            // 2: Bookmarks
             BookmarksScreen(
               repository: widget.repository,
               onBackToHome: () {
                 setState(() => _navIndex = 0);
               },
             ),
-            // 4: Profile
+            // 3: Profile
             const ProfileScreen(),
           ],
         ),
@@ -1431,6 +1445,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHifzBanner(ColorScheme colorScheme, TextTheme textTheme) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
+
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -1443,18 +1460,18 @@ class _HomeScreenState extends State<HomeScreen>
       ),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              colorScheme.primary,
-              colorScheme.primary.withValues(alpha: 0.8),
+              Color(0xFF0A4D3C),
+              Color(0xFFB58E3D),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.3),
+              color: const Color(0xFF0A4D3C).withValues(alpha: 0.3),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -1482,27 +1499,22 @@ class _HomeScreenState extends State<HomeScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'โหมดท่องจำกุรอาน',
+                    isThai ? 'โหมดท่องจำกุรอาน' : 'Hifz Memorization',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
-                    'Hifz Memorization Mode',
+                    isThai
+                        ? 'ท่องจำอายะห์ใหม่ · ทบทวน · ติดตามความเชี่ยวชาญ'
+                        : 'New Verses · Review · Mastery Tracking',
                     style: textTheme.bodySmall?.copyWith(
                       color: Colors.white.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'New Verses · Review · Mastery Tracking',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.7),
                     ),
                   ),
                 ],

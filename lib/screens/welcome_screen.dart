@@ -96,32 +96,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final primaryColor = colorScheme.primary;
-    final accentColor = colorScheme.secondary;
+    const backgroundColor = Color(0xFF0E5C59);
+    const textColor = Color(0xFFF5EDDC);
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: backgroundColor,
       body: Stack(
         children: [
-          // Elegant subtle gradient background
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.surfaceContainerLow,
-                    colorScheme.surface,
-                    colorScheme.surfaceContainerLow,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
           // Subtle graphic elements in background
           Positioned(
             top: -100,
@@ -131,19 +112,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: primaryColor.withValues(alpha: 0.08),
+                color: textColor.withValues(alpha: 0.05),
               ),
             ),
           ),
           Positioned(
-            bottom: -80,
-            left: -80,
+            bottom: 240,
+            left: -100,
             child: Container(
               width: 250,
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: accentColor.withValues(alpha: 0.08),
+                color: textColor.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -167,8 +148,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     SvgPicture.asset(
                       'assets/Bismillah_Calligraphy6.svg',
                       width: 240,
-                      colorFilter: ColorFilter.mode(
-                        colorScheme.onSurface,
+                      colorFilter: const ColorFilter.mode(
+                        textColor,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -180,7 +161,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       style: GoogleFonts.notoSansThai(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface.withValues(alpha: 0.8),
+                        color: textColor,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -188,21 +169,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     const Spacer(),
 
                     // Logo at the bottom
-                    Image.asset(
-                      'assets/icons/mipmap-xxxhdpi/ic_launcher_foreground.png',
-                      height: 96,
-                      color: isDark ? Colors.white : null,
-                    ),
-                    const SizedBox(height: 8),
-
-                    // App Name
-                    Text(
-                      context.tr('welcome_app_name'),
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
+                    SvgPicture.asset(
+                      'assets/logo.svg',
+                      height: 128,
                     ),
                     const SizedBox(height: 32),
                   ],

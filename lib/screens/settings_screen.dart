@@ -293,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader(colorScheme, 'Content updates'),
+        _buildSectionHeader(colorScheme, context.tr('content_updates')),
         const SizedBox(height: 8),
         _SettingsCard(
           colorScheme: colorScheme,
@@ -303,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Remote Quran content',
+                  context.tr('remote_quran_content'),
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
@@ -312,7 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Thai v3, Quran themes, and Mokhtasar short tafsir are checked automatically once per day.',
+                  context.tr('content_updates_desc'),
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 12,
@@ -338,8 +338,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : const Icon(Icons.system_update_alt_rounded),
                     label: Text(
                       _isCheckingContentUpdates
-                          ? 'Checking updates...'
-                          : 'Check now',
+                          ? context.tr('checking_updates')
+                          : context.tr('check_now'),
                     ),
                   ),
                 ),

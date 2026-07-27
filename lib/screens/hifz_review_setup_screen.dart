@@ -6,10 +6,12 @@
 // and pops it back to the caller.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../data/quran_repository.dart';
 import '../models/hifz_session_config.dart';
+import '../providers/settings_provider.dart';
 
 class HifzReviewSetupScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -98,13 +100,14 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          'Review Mode Setup',
+          isThai ? 'ตั้งค่าโหมดทบทวน' : 'Review Mode Setup',
           style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(
@@ -112,10 +115,19 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
           labelColor: colorScheme.primary,
           indicatorColor: colorScheme.primary,
           unselectedLabelColor: colorScheme.onSurfaceVariant,
-          tabs: const [
-            Tab(icon: Icon(Icons.menu_book_outlined), text: 'By Surah'),
-            Tab(icon: Icon(Icons.format_list_numbered), text: 'By Verses'),
-            Tab(icon: Icon(Icons.auto_stories_outlined), text: 'By Page'),
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.menu_book_outlined),
+              text: isThai ? 'ตามซูเราะฮ์' : 'By Surah',
+            ),
+            Tab(
+              icon: const Icon(Icons.format_list_numbered),
+              text: isThai ? 'ตามอายะห์' : 'By Verses',
+            ),
+            Tab(
+              icon: const Icon(Icons.auto_stories_outlined),
+              text: isThai ? 'ตามหน้า' : 'By Page',
+            ),
           ],
         ),
       ),
@@ -158,7 +170,7 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
           child: FilledButton.icon(
             onPressed: _confirmAndReturn,
             icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Start Review Session'),
+            label: Text(isThai ? 'เริ่มทบทวน' : 'Start Review Session'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
@@ -210,16 +222,21 @@ class _BySurahTabState extends State<_BySurahTab> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final count = (_end - _start + 1).clamp(0, 114);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _SectionHeader('Select Surah Range',
-            'Review entire Surahs — 2× visible then 2× hidden, auto-advance.'),
+        _SectionHeader(
+          isThai ? 'เลือกช่วงซูเราะฮ์' : 'Select Surah Range',
+          isThai
+              ? 'ทบทวนทั้งซูเราะฮ์ — เห็น  2× แล้วซ่อน 2× เลื่อนอัตโนมัติ'
+              : 'Review entire Surahs — 2× visible then 2× hidden, auto-advance.',
+        ),
         const SizedBox(height: 24),
         _LabeledDropdown<int>(
-          label: 'Start Surah',
+          label: isThai ? 'ซูเราะฮ์เริ่ม' : 'Start Surah',
           value: _start,
           items: List.generate(114, (i) => i + 1),
           itemLabel: (v) => widget.quranRepository.getSurahName(v.toString()),
@@ -233,7 +250,7 @@ class _BySurahTabState extends State<_BySurahTab> {
         ),
         const SizedBox(height: 16),
         _LabeledDropdown<int>(
-          label: 'End Surah',
+          label: isThai ? 'ซูเราะฮ์สิ้นสุด' : 'End Surah',
           value: _end,
           items: List.generate(114 - _start + 1, (i) => _start + i),
           itemLabel: (v) => widget.quranRepository.getSurahName(v.toString()),
@@ -247,9 +264,9 @@ class _BySurahTabState extends State<_BySurahTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            ('Surahs', '$count'),
-            ('Phases/Surah', '2V + 2H'),
-            ('Total Steps', '$count'),
+            (isThai ? 'ซูเราะฮ์' : 'Surahs', '$count'),
+            (isThai ? 'เฟส/ซูเราะฮ์' : 'Phases/Surah', '2V + 2H'),
+            (isThai ? 'ทั้งหมด' : 'Total Steps', '$count'),
           ],
         ),
       ],
@@ -301,16 +318,21 @@ class _ByVersesTabState extends State<_ByVersesTab> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final count = (_end - _start + 1).clamp(0, _totalVerses);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _SectionHeader('Select Verse Range',
-            'Review a specific verse block — displayed as a single unit, 2× visible then 2× hidden.'),
+        _SectionHeader(
+          isThai ? 'เลือกช่วงอายะห์' : 'Select Verse Range',
+          isThai
+              ? 'ทบทวนอายะห์ที่เป็นชุด — เห็น 2× แล้วซ่อน 2×'
+              : 'Review a specific verse block — displayed as a single unit, 2× visible then 2× hidden.',
+        ),
         const SizedBox(height: 24),
         _LabeledDropdown<int>(
-          label: 'Surah',
+          label: isThai ? 'ซูเราะฮ์' : 'Surah',
           value: _surah,
           items: List.generate(114, (i) => i + 1),
           itemLabel: (v) => widget.quranRepository.getSurahName(v.toString()),
@@ -329,10 +351,10 @@ class _ByVersesTabState extends State<_ByVersesTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'Start Verse',
+                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_totalVerses, (i) => i + 1),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -345,10 +367,10 @@ class _ByVersesTabState extends State<_ByVersesTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'End Verse',
+                label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
                 value: _end,
                 items: List.generate(_totalVerses - _start + 1, (i) => _start + i),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -362,9 +384,9 @@ class _ByVersesTabState extends State<_ByVersesTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            ('Verses', '$count'),
-            ('Single Block', 'Yes'),
-            ('Phases', '2V + 2H'),
+            (isThai ? 'อายะห์' : 'Verses', '$count'),
+            (isThai ? 'ชุดเดียว' : 'Single Block', isThai ? 'ใช่' : 'Yes'),
+            (isThai ? 'เฟส' : 'Phases', '2V + 2H'),
           ],
         ),
       ],
@@ -408,22 +430,27 @@ class _ByPageTabState extends State<_ByPageTab> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final count = (_end - _start + 1).clamp(0, 604);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        _SectionHeader('Select Page Range',
-            'Review page by page — 2× visible then 2× hidden, auto-advance to next page.'),
+        _SectionHeader(
+          isThai ? 'เลือกช่วงหน้า' : 'Select Page Range',
+          isThai
+              ? 'ทบทวนทีละหน้า — เห็น 2× แล้วซ่อน 2× เลื่อนอัตโนมัติ'
+              : 'Review page by page — 2× visible then 2× hidden, auto-advance to next page.',
+        ),
         const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'Start Page',
+                label: isThai ? 'หน้าเริ่ม' : 'Start Page',
                 value: _start,
                 items: List.generate(604, (i) => i + 1),
-                itemLabel: (v) => 'Page $v',
+                itemLabel: (v) => isThai ? 'หน้า $v' : 'Page $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -436,10 +463,10 @@ class _ByPageTabState extends State<_ByPageTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'End Page',
+                label: isThai ? 'หน้าสุดท้าย' : 'End Page',
                 value: _end,
                 items: List.generate(604 - _start + 1, (i) => _start + i),
-                itemLabel: (v) => 'Page $v',
+                itemLabel: (v) => isThai ? 'หน้า $v' : 'Page $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -453,9 +480,9 @@ class _ByPageTabState extends State<_ByPageTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            ('Pages', '$count'),
-            ('Phases/Page', '2V + 2H'),
-            ('Total Steps', '$count'),
+            (isThai ? 'หน้า' : 'Pages', '$count'),
+            (isThai ? 'เฟส/หน้า' : 'Phases/Page', '2V + 2H'),
+            (isThai ? 'ทั้งหมด' : 'Total Steps', '$count'),
           ],
         ),
       ],

@@ -286,6 +286,7 @@ class HifzSessionProvider extends ChangeNotifier {
       if (isNewVersesSessionCompleted) {
         unawaited(_repo.markNewVersesCompleted(_surahNumber));
         unawaited(_repo.recordHistory(HifzSessionType.newVerses, 'Surah $_surahNumber (New Verses)', surahNumber: _surahNumber));
+        unawaited(_repo.clearActiveSession(sessionId: _sessionId));
       }
     } else {
       if (isReviewSessionCompleted) return;
@@ -305,10 +306,16 @@ class HifzSessionProvider extends ChangeNotifier {
         _reviewStepIndex++;
         _reviewPhase = ReviewPhase.visible;
         _reviewTally = 0;
+
+        if (isReviewSessionCompleted) {
+          unawaited(_repo.clearActiveSession(sessionId: _sessionId));
+        }
       }
     }
     notifyListeners();
-    unawaited(_autoSave());
+    if (!isSessionCompleted) {
+      unawaited(_autoSave());
+    }
   }
 
   void _incrementNewVerses() {
@@ -378,7 +385,7 @@ class HifzSessionProvider extends ChangeNotifier {
     } else if (_reviewTargetParams != null) {
       initReviewRoutine(_reviewGranularity, _reviewTargetParams!);
     }
-    unawaited(_repo.clearActiveSession());
+    unawaited(_repo.clearActiveSession(sessionId: _sessionId));
   }
 
   // ---------------------------------------------------------------------------

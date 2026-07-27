@@ -5,9 +5,11 @@
 // Returns (surah, repeatStart, startVerse, endVerse, page, isSurahMode) to caller.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../data/quran_repository.dart';
+import '../providers/settings_provider.dart';
 
 /// Return type from the setup screen.
 class NewVersesSetupResult {
@@ -132,13 +134,14 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          'New Verses Setup',
+          isThai ? 'ตั้งค่าโหมดท่องจำคำใหม่' : 'New Verses Setup',
           style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(
@@ -146,9 +149,15 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
           labelColor: colorScheme.primary,
           indicatorColor: colorScheme.primary,
           unselectedLabelColor: colorScheme.onSurfaceVariant,
-          tabs: const [
-            Tab(icon: Icon(Icons.menu_book_outlined), text: 'By Surah'),
-            Tab(icon: Icon(Icons.auto_stories_outlined), text: 'By Page'),
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.menu_book_outlined),
+              text: isThai ? 'ตามซูเราะฮ์' : 'By Surah',
+            ),
+            Tab(
+              icon: const Icon(Icons.auto_stories_outlined),
+              text: isThai ? 'ตามหน้า' : 'By Page',
+            ),
           ],
         ),
       ),
@@ -190,7 +199,7 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
           child: FilledButton.icon(
             onPressed: _confirmAndReturn,
             icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Start Memorization'),
+            label: Text(isThai ? 'เริ่มท่องจำ' : 'Start Memorization'),
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
@@ -251,18 +260,21 @@ class _BySurahTabState extends State<_BySurahTab> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final count = _end - _start + 1;
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         _SectionHeader(
-          'Select Surah & Verse Range',
-          'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
+          isThai ? 'เลือกซูเราะฮ์ & ช่วงอายะห์' : 'Select Surah & Verse Range',
+          isThai
+              ? 'ท่องจำแต่ละอายะห์ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
+              : 'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
         ),
         const SizedBox(height: 24),
         _LabeledDropdown<int>(
-          label: 'Surah',
+          label: isThai ? 'ซูเราะฮ์' : 'Surah',
           value: _surah,
           items: List.generate(114, (i) => i + 1),
           itemLabel: (v) => widget.quranRepository.getSurahName(v.toString()),
@@ -282,10 +294,10 @@ class _BySurahTabState extends State<_BySurahTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'Start Verse',
+                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_totalVerses, (i) => i + 1),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -301,12 +313,12 @@ class _BySurahTabState extends State<_BySurahTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'End Verse',
+                label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
                 value: _end,
                 items: List.generate(_totalVerses - _start + 1, (i) => _start + i)
                     .where((v) => v - _start + 1 <= 30)
                     .toList(),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -317,10 +329,10 @@ class _BySurahTabState extends State<_BySurahTab> {
         ),
         const SizedBox(height: 16),
         _LabeledDropdown<int>(
-          label: 'Sequence Linked From (Repeat Start)',
+          label: isThai ? 'ลำดับเริ่มต้น (ทบทวนจาก)' : 'Sequence Linked From (Repeat Start)',
           value: _repeat,
           items: List.generate(_start, (i) => i + 1),
-          itemLabel: (v) => 'Verse $v',
+          itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
           onChanged: (v) {
             setState(() => _repeat = v);
             _notify();
@@ -331,9 +343,9 @@ class _BySurahTabState extends State<_BySurahTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            ('Verses', '$count'),
-            ('Per Verse', '3× (10V + 5H)'),
-            ('Sequence', 'V$_repeat → V$_end'),
+            (isThai ? 'อายะห์' : 'Verses', '$count'),
+            (isThai ? 'ต่ออายะห์' : 'Per Verse', '3× (10V + 5H)'),
+            (isThai ? 'ลำดับ' : 'Sequence', 'V$_repeat → V$_end'),
           ],
         ),
       ],
@@ -401,21 +413,24 @@ class _ByPageTabState extends State<_ByPageTab> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final count = _end - _start + 1;
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         _SectionHeader(
-          'Select Page & Verse Range',
-          'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
+          isThai ? 'เลือกหน้า & ช่วงอายะห์' : 'Select Page & Verse Range',
+          isThai
+              ? 'ท่องจำแต่ละอายะห์ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
+              : 'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
         ),
         const SizedBox(height: 24),
         _LabeledDropdown<int>(
-          label: 'Page',
+          label: isThai ? 'หน้า' : 'Page',
           value: _page,
           items: List.generate(604, (i) => i + 1),
-          itemLabel: (v) => 'Page $v',
+          itemLabel: (v) => isThai ? 'หน้า $v' : 'Page $v',
           onChanged: (v) {
             setState(() => _loadPage(v));
             _notify();
@@ -426,12 +441,12 @@ class _ByPageTabState extends State<_ByPageTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'Start Verse',
+                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_end - _start + 10, (i) => _start + i - 5)
                     .where((v) => v >= 1)
                     .toList(),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -446,10 +461,10 @@ class _ByPageTabState extends State<_ByPageTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: 'End Verse',
+                label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
                 value: _end,
                 items: List.generate(30, (i) => _start + i),
-                itemLabel: (v) => 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -460,10 +475,10 @@ class _ByPageTabState extends State<_ByPageTab> {
         ),
         const SizedBox(height: 16),
         _LabeledDropdown<int>(
-          label: 'Sequence Linked From (Repeat Start)',
+          label: isThai ? 'ลำดับเริ่มต้น (ทบทวนจาก)' : 'Sequence Linked From (Repeat Start)',
           value: _repeat,
           items: List.generate(_start, (i) => i + 1),
-          itemLabel: (v) => 'Verse $v',
+          itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
           onChanged: (v) {
             setState(() => _repeat = v);
             _notify();
@@ -474,9 +489,9 @@ class _ByPageTabState extends State<_ByPageTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            ('Verses', '$count'),
-            ('Per Verse', '3× (10V + 5H)'),
-            ('Sequence', 'V$_repeat → V$_end'),
+            (isThai ? 'อายะห์' : 'Verses', '$count'),
+            (isThai ? 'ต่ออายะห์' : 'Per Verse', '3× (10V + 5H)'),
+            (isThai ? 'ลำดับ' : 'Sequence', 'V$_repeat → V$_end'),
           ],
         ),
       ],

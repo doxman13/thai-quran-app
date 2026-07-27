@@ -17,6 +17,8 @@ dependencies:
   path_provider: ^2.1.3
   scrollable_positioned_list: ^0.3.8
   google_fonts: ^8.1.0
+  flutter_blue_plus: ^1.31.18
+  collection: ^1.18.0
   http: ^1.6.0
   supabase_flutter: ^2.8.0
   flutter_svg: ^2.0.10
@@ -34,6 +36,8 @@ dependencies:
   path: ^1.9.1
   volume_key_board: ^0.0.2
   uuid: ^4.6.0
+  firebase_core: ^4.12.1
+  firebase_analytics: ^12.4.5
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -52,6 +56,7 @@ flutter:
     - assets/icons/mipmap-xxxhdpi/
     - assets/quran_arabic.json
     - assets/Bismillah_Calligraphy6.svg
+    - assets/logo.svg
     - assets/reconciled_thai_quran_themes.json
     - assets/surah_summary_th_exact.json
     - assets/images/

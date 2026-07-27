@@ -1,19 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
+import '../providers/settings_provider.dart';
+import '../data/quran_repository.dart';
+import '../data/quran_foundation_repository.dart';
+import 'hifz_memorize_screen.dart';
 
 class HifzHistoryScreen extends StatefulWidget {
-  const HifzHistoryScreen({super.key});
+  final QuranRepository quranRepository;
+  final QuranFoundationRepository foundationRepository;
+
+  const HifzHistoryScreen({
+    super.key,
+    required this.quranRepository,
+    required this.foundationRepository,
+  });
 
   @override
   State<HifzHistoryScreen> createState() => _HifzHistoryScreenState();
 }
 
+class _HistoryItem {
+  final String id;
+  final HifzSessionType sessionType;
+  final int? surahNumber;
+  final String title;
+  final DateTime date;
+  final bool isInProgress;
+  final ActiveSessionSnapshot? snapshot;
+
+  _HistoryItem({
+    required this.id,
+    required this.sessionType,
+    this.surahNumber,
+    required this.title,
+    required this.date,
+    required this.isInProgress,
+    this.snapshot,
+  });
+}
+
 class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
   final HifzRepository _repo = HifzRepository();
-  List<HifzHistoryRecord> _records = [];
+  List<_HistoryItem> _items = [];
   bool _loading = true;
 
   @override
@@ -24,12 +56,77 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final records = await _repo.getHistory();
+    final activeSessions = await _repo.getAllActiveSessions();
+    final completedRecords = await _repo.getHistory();
+
+    final List<_HistoryItem> items = [];
+
+    // Convert active sessions (in progress)
+    for (final s in activeSessions) {
+      String title = '';
+      if (s.sessionType == HifzSessionType.newVerses) {
+        title = 'Surah ${s.nvSurahNumber} (New Verses)';
+      } else {
+        final gran = s.reviewGranularity;
+        if (gran == ReviewGranularity.bySurah) {
+          title = 'Surah ${s.reviewTargetParams?.startSurah ?? 1} (Review)';
+        } else if (gran == ReviewGranularity.byVerses) {
+          title = 'Surah ${s.reviewTargetParams?.surahNumber ?? 1} (Review)';
+        } else {
+          title = 'Page ${s.reviewTargetParams?.startPage ?? 1} (Review)';
+        }
+      }
+      items.add(_HistoryItem(
+        id: s.sessionId,
+        sessionType: s.sessionType,
+        surahNumber: s.sessionType == HifzSessionType.newVerses
+            ? s.nvSurahNumber
+            : (s.reviewTargetParams?.surahNumber ?? s.reviewTargetParams?.startSurah),
+        title: title,
+        date: DateTime.fromMillisecondsSinceEpoch(s.lastUpdatedTimestamp),
+        isInProgress: true,
+        snapshot: s,
+      ));
+    }
+
+    // Convert completed records
+    for (final r in completedRecords) {
+      items.add(_HistoryItem(
+        id: r.id,
+        sessionType: r.sessionType,
+        surahNumber: r.surahNumber,
+        title: r.title,
+        date: r.completedAt,
+        isInProgress: false,
+      ));
+    }
+
+    // Sort by date DESC
+    items.sort((a, b) => b.date.compareTo(a.date));
+
     if (mounted) {
       setState(() {
-        _records = records;
+        _items = items;
         _loading = false;
       });
+    }
+  }
+
+  String _getLocalizedTitle(_HistoryItem r, bool isThai) {
+    if (r.sessionType == HifzSessionType.newVerses) {
+      final surah = r.surahNumber ?? 1;
+      return isThai ? 'สูเราะฮ์ $surah (อายะห์ใหม่)' : 'Surah $surah (New Verses)';
+    } else {
+      final surahOrPage = r.surahNumber;
+      final isPage = r.title.startsWith('Page');
+      if (isPage) {
+        final match = RegExp(r'\d+').firstMatch(r.title);
+        final pageNum = match != null ? match.group(0) : '1';
+        return isThai ? 'หน้า $pageNum (ทบทวน)' : 'Page $pageNum (Review)';
+      } else {
+        final surah = surahOrPage ?? 1;
+        return isThai ? 'สูเราะฮ์ $surah (ทบทวน)' : 'Surah $surah (Review)';
+      }
     }
   }
 
@@ -37,13 +134,15 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final settings = Provider.of<SettingsProvider>(context);
+    final isThai = settings.languageCode == 'th';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          'Practice History',
+          isThai ? 'ประวัติการฝึกฝน' : 'Practice History',
           style: textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: colorScheme.onSurface,
@@ -59,27 +158,30 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _records.isEmpty
+          : _items.isEmpty
               ? Center(
                   child: Text(
-                    'No history recorded yet.',
+                    isThai ? 'ยังไม่มีประวัติการฝึกฝน' : 'No history recorded yet.',
                     style: textTheme.bodyLarge?.copyWith(
                         color: colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 )
               : ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _records.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemCount: _items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    final r = _records[index];
+                    final r = _items[index];
                     final isNew = r.sessionType == HifzSessionType.newVerses;
                     return Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                        color: colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: colorScheme.outline.withValues(alpha: 0.1),
+                          color: r.isInProgress
+                              ? colorScheme.primary.withValues(alpha: 0.3)
+                              : colorScheme.outlineVariant.withValues(alpha: 0.3),
+                          width: r.isInProgress ? 1.5 : 1.0,
                         ),
                       ),
                       child: ListTile(
@@ -97,22 +199,69 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
                             color: isNew ? colorScheme.primary : colorScheme.tertiary,
                           ),
                         ),
-                        title: Text(
-                          r.title,
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _getLocalizedTitle(r, isThai),
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            if (r.isInProgress)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primaryContainer,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  isThai ? 'กำลังดำเนินการ' : 'In Progress',
+                                  style: textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
-                            DateFormat.yMMMMEEEEd().add_jm().format(r.completedAt),
+                            DateFormat.yMMMMEEEEd().add_jm().format(r.date),
                             style: textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ),
+                        trailing: r.isInProgress
+                            ? Icon(
+                                Icons.play_arrow_rounded,
+                                color: colorScheme.primary,
+                                size: 28,
+                              )
+                            : null,
+                        onTap: r.isInProgress && r.snapshot != null
+                            ? () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => HifzMemorizeScreen(
+                                      quranRepository: widget.quranRepository,
+                                      foundationRepository: widget.foundationRepository,
+                                      resumeSessionSnapshot: r.snapshot,
+                                    ),
+                                  ),
+                                );
+                                _load();
+                              }
+                            : null,
                       ),
                     );
                   },
