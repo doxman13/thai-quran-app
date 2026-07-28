@@ -338,6 +338,57 @@ class HifzSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void undoLastIncrement() {
+    if (_sessionType == HifzSessionType.newVerses) {
+      _undoNewVerses();
+    } else {
+      _undoReview();
+    }
+    notifyListeners();
+    unawaited(_autoSave());
+  }
+
+  void _undoNewVerses() {
+    if (currentTask == null || isNewVersesSessionCompleted) return;
+    final task = currentTask!;
+    if (task.currentProgress > 0) {
+      task.currentProgress--;
+      for (int v in task.verseNumbers) {
+        _verseTallyMap[v] = (_verseTallyMap[v] ?? 0) - 1;
+      }
+    }
+  }
+
+  void _undoReview() {
+    if (isReviewSessionCompleted) return;
+    if (_reviewTally > 0) {
+      _reviewTally--;
+    }
+  }
+
+  void resetCurrentTask() {
+    if (_sessionType == HifzSessionType.newVerses) {
+      if (currentTask == null || isNewVersesSessionCompleted) return;
+      currentTask!.currentProgress = 0;
+      for (int v in currentTask!.verseNumbers) {
+        _verseTallyMap[v] = 0;
+      }
+    } else {
+      _reviewTally = 0;
+    }
+    notifyListeners();
+    unawaited(_autoSave());
+  }
+
+  void resetSession() {
+    if (_sessionType == HifzSessionType.newVerses) {
+      initRoutine(_repeatStart, _startVerse, _endVerse);
+    } else if (_reviewTargetParams != null) {
+      initReviewRoutine(_reviewGranularity, _reviewTargetParams!);
+    }
+    unawaited(_repo.clearActiveSession(sessionId: _sessionId));
+  }
+
   // ---------------------------------------------------------------------------
   // Restore from snapshot (called by resume dialog)
   // ---------------------------------------------------------------------------
@@ -374,18 +425,6 @@ class HifzSessionProvider extends ChangeNotifier {
 
     _isPeekActive = false;
     notifyListeners();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Reset
-  // ---------------------------------------------------------------------------
-  void resetSession() {
-    if (_sessionType == HifzSessionType.newVerses) {
-      initRoutine(_repeatStart, _startVerse, _endVerse);
-    } else if (_reviewTargetParams != null) {
-      initReviewRoutine(_reviewGranularity, _reviewTargetParams!);
-    }
-    unawaited(_repo.clearActiveSession(sessionId: _sessionId));
   }
 
   // ---------------------------------------------------------------------------
@@ -428,5 +467,4 @@ class HifzSessionProvider extends ChangeNotifier {
       // Never surface auto-save errors to the user.
     }
   }
-
 }

@@ -11,6 +11,8 @@ class HifzSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -21,12 +23,22 @@ class HifzSettingsScreen extends StatelessWidget {
         children: [
           Text(
             'Input Mode',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          Text(
+            'Choose how you advance through verses during memorization.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
           RadioListTile<HifzInputMode>(
             title: const Text('Bluetooth Remote / Shutter'),
-            subtitle: const Text('Uses volume keys. In-app volume control is disabled.'),
+            subtitle: const Text(
+              'Use a Bluetooth shutter or remote to tap through verses. '
+              'Volume keys are captured by the app for navigation.',
+            ),
             value: HifzInputMode.bluetoothShutter,
             groupValue: settings.hifzInputMode,
             onChanged: (value) {
@@ -37,8 +49,25 @@ class HifzSettingsScreen extends StatelessWidget {
           ),
           RadioListTile<HifzInputMode>(
             title: const Text('BLE Smart Ring'),
-            subtitle: const Text('Connect to a dedicated BLE device.'),
+            subtitle: const Text(
+              'Connect to a BLE smart ring for hands-free verse advancement. '
+              'A single ring tap advances to the next verse.',
+            ),
             value: HifzInputMode.bleSmartRing,
+            groupValue: settings.hifzInputMode,
+            onChanged: (value) {
+              if (value != null) {
+                settings.setHifzInputMode(value);
+              }
+            },
+          ),
+          RadioListTile<HifzInputMode>(
+            title: const Text('In-App Tally Button'),
+            subtitle: const Text(
+              'Use the tally button at the bottom of the reading page to '
+              'manually mark each verse. No external hardware or key capture needed.',
+            ),
+            value: HifzInputMode.inAppTally,
             groupValue: settings.hifzInputMode,
             onChanged: (value) {
               if (value != null) {
@@ -63,7 +92,6 @@ class BleDeviceManagementUI extends StatelessWidget {
   Widget build(BuildContext context) {
     final bleProvider = Provider.of<BleRemoteProvider>(context);
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
 
     String statusText = 'Unknown';
     Color statusColor = Colors.grey;

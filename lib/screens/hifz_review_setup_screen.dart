@@ -5,9 +5,12 @@
 // Strictly UI-only — no business logic, only builds a ReviewTargetParams
 // and pops it back to the caller.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
 import '../models/hifz_session_config.dart';
@@ -30,22 +33,25 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
   late final TabController _tabController;
 
   // --- bySurah ---
-  int _startSurah = 100;
-  int _endSurah = 114;
+  int _startSurah = 67;
+  int _endSurah = 67;
 
   // --- byVerses ---
-  int _versesSurah = 2;
-  int _versesStart = 255;
-  int _versesEnd = 260;
+  int _versesSurah = 67;
+  int _versesStart = 1;
+  int _versesEnd = 10;
 
   // --- byPage ---
-  int _startPage = 590;
-  int _endPage = 592;
+  int _startPage = qcf.getPageNumber(67, 1);
+  int _endPage = qcf.getPageNumber(67, 1);
+
+  static const _prefKey = 'hifz_review_last_setup';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadLastSetup();
   }
 
   @override
@@ -54,11 +60,56 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
     super.dispose();
   }
 
+  Future<void> _loadLastSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_prefKey);
+    if (saved == null || !mounted) return;
+
+    try {
+      final data = jsonDecode(saved) as Map<String, dynamic>;
+      final tabIndex = data['tabIndex'] as int? ?? 0;
+      _tabController.index = tabIndex.clamp(0, 2);
+
+      if (tabIndex == 0) {
+        _startSurah = (data['startSurah'] as int?) ?? 67;
+        _endSurah = (data['endSurah'] as int?) ?? 67;
+      } else if (tabIndex == 1) {
+        _versesSurah = (data['versesSurah'] as int?) ?? 67;
+        _versesStart = (data['versesStart'] as int?) ?? 1;
+        _versesEnd = (data['versesEnd'] as int?) ?? 10;
+      } else {
+        _startPage = (data['startPage'] as int?) ?? _startPage;
+        _endPage = (data['endPage'] as int?) ?? _endPage;
+      }
+
+      setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _saveLastSetup() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = <String, dynamic>{
+      'tabIndex': _tabController.index,
+    };
+    if (_tabController.index == 0) {
+      data['startSurah'] = _startSurah;
+      data['endSurah'] = _endSurah;
+    } else if (_tabController.index == 1) {
+      data['versesSurah'] = _versesSurah;
+      data['versesStart'] = _versesStart;
+      data['versesEnd'] = _versesEnd;
+    } else {
+      data['startPage'] = _startPage;
+      data['endPage'] = _endPage;
+    }
+    await prefs.setString(_prefKey, jsonEncode(data));
+  }
+
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
 
-  void _confirmAndReturn() {
+  void _confirmAndReturn() async {
     final idx = _tabController.index;
     ReviewGranularity granularity;
     ReviewTargetParams params;
@@ -89,6 +140,7 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
         break;
     }
 
+    await _saveLastSetup();
     Navigator.pop(context, (granularity, params));
   }
 
@@ -216,6 +268,15 @@ class _BySurahTabState extends State<_BySurahTab> {
     _end = widget.endSurah;
   }
 
+  @override
+  void didUpdateWidget(covariant _BySurahTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.startSurah != widget.startSurah || oldWidget.endSurah != widget.endSurah) {
+      _start = widget.startSurah;
+      _end = widget.endSurah;
+    }
+  }
+
   void _notify() => widget.onChanged(_start, _end);
 
   @override
@@ -308,6 +369,18 @@ class _ByVersesTabState extends State<_ByVersesTab> {
     _surah = widget.surah;
     _start = widget.startVerse;
     _end = widget.endVerse;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ByVersesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.surah != widget.surah ||
+        oldWidget.startVerse != widget.startVerse ||
+        oldWidget.endVerse != widget.endVerse) {
+      _surah = widget.surah;
+      _start = widget.startVerse;
+      _end = widget.endVerse;
+    }
   }
 
   void _notify() => widget.onChanged(_surah, _start, _end);
@@ -422,6 +495,15 @@ class _ByPageTabState extends State<_ByPageTab> {
     super.initState();
     _start = widget.startPage;
     _end = widget.endPage;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ByPageTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.startPage != widget.startPage || oldWidget.endPage != widget.endPage) {
+      _start = widget.startPage;
+      _end = widget.endPage;
+    }
   }
 
   void _notify() => widget.onChanged(_start, _end);

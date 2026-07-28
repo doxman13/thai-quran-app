@@ -101,39 +101,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          // Subtle graphic elements in background
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: textColor.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 240,
-            left: -100,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: textColor.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: SizedBox(
-              width: double.infinity,
-              height: double.infinity,
-              child: Padding(
+      body: SafeArea(
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32.0,
                   vertical: 24.0,
@@ -173,14 +145,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       'assets/logo.svg',
                       height: 128,
                     ),
-                    const SizedBox(height: 32),
+                     const SizedBox(height: 32),
                   ],
                 ),
+                ),
+               ),
               ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

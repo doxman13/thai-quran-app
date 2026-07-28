@@ -144,6 +144,15 @@ class HifzRepository {
     }
   }
 
+  Future<void> deleteHistory(String id) async {
+    try {
+      final db = await database;
+      await db.delete('hifz_history', where: 'id = ?', whereArgs: [id]);
+    } catch (e) {
+      debugLog('HifzRepository.deleteHistory error: $e');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Active Session CRUD
   // ---------------------------------------------------------------------------

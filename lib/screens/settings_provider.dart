@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum HifzInputMode {
   bluetoothShutter,
   bleSmartRing,
+  inAppTally,
 }
 
 class SettingsProvider extends ChangeNotifier {

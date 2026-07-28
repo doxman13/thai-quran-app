@@ -32,6 +32,7 @@ class MushafReaderScreen extends StatefulWidget {
   final String? profileId;
   final int? initialPage;
   final String? initialHighlightVerseKey;
+  final Set<String>? initialHighlightVerseKeys;
   final String? shortcutId;
 
   const MushafReaderScreen({
@@ -41,6 +42,7 @@ class MushafReaderScreen extends StatefulWidget {
     this.profileId,
     this.initialPage,
     this.initialHighlightVerseKey,
+    this.initialHighlightVerseKeys,
     this.shortcutId,
   });
 
@@ -919,6 +921,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                                 widget.foundationRepository,
                                             highlightedVerseKey:
                                                 activeHighlightKey,
+                                            highlightedVerseKeys: widget.initialHighlightVerseKeys,
                                             onVerseTap: _toggleVerseHighlight,
                                             onVerseLongPressStart: (verseKey) =>
                                                 _beginVersePress(
@@ -1886,6 +1889,7 @@ class _MushafRemotePageView extends StatefulWidget {
   final int mushafId;
   final QuranFoundationRepository repository;
   final String? highlightedVerseKey;
+  final Set<String>? highlightedVerseKeys;
   final ValueChanged<String> onVerseTap;
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
@@ -1896,6 +1900,7 @@ class _MushafRemotePageView extends StatefulWidget {
     required this.mushafId,
     required this.repository,
     required this.highlightedVerseKey,
+    this.highlightedVerseKeys,
     required this.onVerseTap,
     required this.onVerseLongPressStart,
     required this.onVerseLongPress,
@@ -1964,6 +1969,7 @@ class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
           ),
           mushafId: widget.mushafId,
           highlightedVerseKey: widget.highlightedVerseKey,
+          highlightedVerseKeys: widget.highlightedVerseKeys,
           onVerseTap: widget.onVerseTap,
           onVerseLongPressStart: widget.onVerseLongPressStart,
           onVerseLongPress: widget.onVerseLongPress,
@@ -1979,6 +1985,7 @@ class MushafPageView extends StatelessWidget {
   final String fontFamily;
   final int mushafId;
   final String? highlightedVerseKey;
+  final Set<String>? highlightedVerseKeys;
   final ValueChanged<String> onVerseTap;
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
@@ -1989,6 +1996,7 @@ class MushafPageView extends StatelessWidget {
     required this.fontFamily,
     required this.mushafId,
     required this.highlightedVerseKey,
+    this.highlightedVerseKeys,
     required this.onVerseTap,
     required this.onVerseLongPressStart,
     required this.onVerseLongPress,
@@ -2028,6 +2036,7 @@ class MushafPageView extends StatelessWidget {
                       verseEndWords: verseEndWords,
                       surahStartsByLine: surahStartsByLine,
                       highlightedVerseKey: highlightedVerseKey,
+                      highlightedVerseKeys: highlightedVerseKeys,
                       onVerseTap: onVerseTap,
                       onVerseLongPressStart: onVerseLongPressStart,
                       onVerseLongPress: onVerseLongPress,

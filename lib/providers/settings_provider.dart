@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 enum HifzInputMode {
   bluetoothShutter,
   bleSmartRing,
+  inAppTally,
 }
 
 class SettingsProvider extends ChangeNotifier {
@@ -254,6 +255,8 @@ class SettingsProvider extends ChangeNotifier {
       final savedHifzMode = prefs.getString(_hifzInputModeKey);
       if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
         _hifzInputMode = HifzInputMode.bleSmartRing;
+      } else if (savedHifzMode == HifzInputMode.inAppTally.toString()) {
+        _hifzInputMode = HifzInputMode.inAppTally;
       } else {
         _hifzInputMode = HifzInputMode.bluetoothShutter;
       }

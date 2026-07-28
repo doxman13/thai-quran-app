@@ -117,9 +117,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       curve: Curves.easeInOut,
     );
 
-    // Listen for BLE smart ring clicks
-    Provider.of<BleRemoteProvider>(context, listen: false)
-        .addListener(_onBleClick);
+    // Sync input mode to native so volume keys are handled correctly
+    _syncInputModeToNative();
+
+    // Listen for BLE smart ring clicks (only when BLE mode is active)
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.hifzInputMode == HifzInputMode.bleSmartRing) {
+      Provider.of<BleRemoteProvider>(context, listen: false)
+          .addListener(_onBleClick);
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -189,31 +195,43 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       );
     }
 
-    DateTime? lastClickTime;
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == "keyClick") {
-        final audio = Provider.of<MushafAudioProvider>(context, listen: false);
-        if (audio.isPlaying) return;
+    // Listen for hardware key events (only when Bluetooth Shutter mode is active)
+    if (settings.hifzInputMode == HifzInputMode.bluetoothShutter) {
+      DateTime? lastClickTime;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == "keyClick") {
+          final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+          if (audio.isPlaying) return;
 
-        final now = DateTime.now();
-        if (lastClickTime != null && now.difference(lastClickTime!).inMilliseconds < 450) {
-          return;
+          final now = DateTime.now();
+          if (lastClickTime != null && now.difference(lastClickTime!).inMilliseconds < 450) {
+            return;
+          }
+          lastClickTime = now;
+          if (mounted && !_hifzProvider.isSessionCompleted) {
+            _handleIncrementOrAdvance();
+            HapticFeedback.lightImpact();
+          }
         }
-        lastClickTime = now;
-        if (mounted && !_hifzProvider.isSessionCompleted) {
-          _handleIncrementOrAdvance();
-          HapticFeedback.lightImpact();
-        }
-      }
-    });
+      });
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Initialize the last known click count from the provider
-    _lastBleClickCount =
-        Provider.of<BleRemoteProvider>(context, listen: false).clickCount;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.hifzInputMode == HifzInputMode.bleSmartRing) {
+      _lastBleClickCount =
+          Provider.of<BleRemoteProvider>(context, listen: false).clickCount;
+    }
+    _syncInputModeToNative();
+  }
+
+  void _syncInputModeToNative() {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final modeName = settings.hifzInputMode.name;
+    _channel.invokeMethod('setInputMode', {'mode': modeName});
   }
 
   void _onBleClick() {
@@ -229,14 +247,19 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   @override
   void dispose() {
-    _channel.setMethodCallHandler(null);
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.hifzInputMode == HifzInputMode.bleSmartRing) {
+      Provider.of<BleRemoteProvider>(context, listen: false)
+          .removeListener(_onBleClick);
+    }
+    if (settings.hifzInputMode == HifzInputMode.bluetoothShutter) {
+      _channel.setMethodCallHandler(null);
+    }
     _hiddenInputFocusNode.dispose();
     _focusNode.dispose();
     _transformationController.dispose();
     _chromeAnimController.dispose();
     WakelockPlus.disable();
-    Provider.of<BleRemoteProvider>(context, listen: false)
-        .removeListener(_onBleClick);
     super.dispose();
   }
 
@@ -1811,19 +1834,33 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
             const Spacer(),
-            // Tally count display
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: phaseColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
-              ),
-              child: Text(
-                '$tally / $target',
-                style: textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold, color: phaseColor),
-              ),
+            // Tally count display + undo/reset
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.undo_rounded, size: 18, color: phaseColor),
+                  tooltip: 'Undo last tally',
+                  onPressed: () => _handleUndo(),
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, size: 18, color: phaseColor),
+                  tooltip: 'Reset count',
+                  onPressed: () => _showResetDialog(context),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: phaseColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    '$tally / $target',
+                    style: textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold, color: phaseColor),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1930,13 +1967,27 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   ?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
             const Spacer(),
-            // Tally widget + count
-            GundalTallyWidget(count: progress, height: 22),
-            const SizedBox(width: 6),
-            Text(
-              '$progress/$target',
-              style: textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold, color: taskColor),
+            // Tally widget + undo/reset + count
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.undo_rounded, size: 18, color: taskColor),
+                  tooltip: 'Undo last tally',
+                  onPressed: () => _handleUndo(),
+                ),
+                IconButton(
+                  icon: Icon(Icons.refresh_rounded, size: 18, color: taskColor),
+                  tooltip: 'Reset count',
+                  onPressed: () => _showResetDialog(context),
+                ),
+                GundalTallyWidget(count: progress, height: 22),
+                const SizedBox(width: 6),
+                Text(
+                  '$progress/$target',
+                  style: textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold, color: taskColor),
+                ),
+              ],
             ),
           ],
         ),
@@ -2016,6 +2067,61 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     });
   }
 
+  void _handleUndo() {
+    if (_isTransitioningStep) return;
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+    if (audio.isPlaying) return;
+    _hifzProvider.undoLastIncrement();
+  }
+
+  Future<void> _showResetDialog(BuildContext context) async {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: colorScheme.surface,
+          title: Text(
+            isThai ? 'รีเซ็ตการนับ?' : 'Reset count?',
+            style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            isThai
+                ? 'คุณต้องการรีเซ็ตเฉพาะอายะห์ปัจจุบัน หรือรีเซ็ตทั้งลำดับ?'
+                : 'Do you want to reset just the current verse, or the entire sequence?',
+            style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: Text(isThai ? 'ยกเลิก' : 'Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'current'),
+              child: Text(isThai ? 'รีเซ็ตอายะห์นี้' : 'Reset current verse'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'all'),
+              style: FilledButton.styleFrom(backgroundColor: colorScheme.error),
+              child: Text(isThai ? 'รีเซ็ตทั้งลำดับ' : 'Reset whole sequence'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+    if (choice == 'current') {
+      _hifzProvider.resetCurrentTask();
+    } else if (choice == 'all') {
+      _hifzProvider.resetSession();
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Completion view
   // ---------------------------------------------------------------------------
@@ -2038,7 +2144,77 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             icon: const Icon(Icons.replay),
             label: const Text('Restart Session'),
           ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => _viewCompletedVerses(context, provider),
+            icon: const Icon(Icons.visibility_rounded),
+            label: const Text('View Verses'),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              foregroundColor: colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _viewCompletedVerses(BuildContext context, HifzSessionProvider provider) {
+    int page;
+    late Set<String> highlightedKeys;
+
+    if (provider.sessionType == HifzSessionType.newVerses) {
+      final surah = provider.surahNumber;
+      page = qcf.getPageNumber(surah, provider.startVerse);
+      highlightedKeys = {
+        for (int v = provider.repeatStart; v <= provider.endVerse; v++)
+          '$surah:$v',
+      };
+    } else {
+      final params = provider.reviewTargetParams!;
+      switch (provider.reviewGranularity) {
+        case ReviewGranularity.byVerses:
+          final surah = params.surahNumber!;
+          page = qcf.getPageNumber(surah, params.startVerse!);
+          highlightedKeys = {
+            for (int v = params.startVerse!; v <= params.endVerse!; v++)
+              '$surah:$v',
+          };
+          break;
+        case ReviewGranularity.bySurah:
+          final startSurah = params.startSurah!;
+          final endSurah = params.endSurah!;
+          page = qcf.getPageNumber(startSurah, 1);
+          highlightedKeys = {
+            for (int s = startSurah; s <= endSurah; s++)
+              for (int v = 1; v <= qcf.getVerseCount(s); v++)
+                '$s:$v',
+          };
+          break;
+        case ReviewGranularity.byPage:
+          page = params.startPage!;
+          final items = qcf.getPageData(page);
+          highlightedKeys = {
+            for (final item in items)
+              for (int v = item['start']; v <= item['end']; v++)
+                '${item['surah']}:$v',
+          };
+          break;
+      }
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.quranRepository,
+          foundationRepository: widget.foundationRepository,
+          initialPage: page,
+          initialHighlightVerseKeys: highlightedKeys,
+        ),
       ),
     );
   }
