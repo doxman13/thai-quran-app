@@ -94,6 +94,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     final transManager = context.watch<TranslationManagerProvider>();
     final settings = context.watch<SettingsProvider>();
     final colorScheme = Theme.of(context).colorScheme;
+    final availableOptions = _allAvailableOptions(transManager);
 
     // Sync progress overlay if active
     if (_progressOverlayEntry != null && _activeProgressNotifier != null && _activeDownloadingId != null) {
@@ -133,61 +134,85 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
           children: [
             _sectionTitle(colorScheme, context.tr('active_translations')),
             const SizedBox(height: 8),
-            ..._groupedDownloadedTranslations(downloadedOptions).entries.expand((entry) {
-              final lang = entry.key;
-              final options = entry.value;
-              return [
-                Padding(
-                  padding: const EdgeInsets.only(top: 12, bottom: 6, left: 4),
-                  child: Text(
-                    _languageLabel(lang, settings.languageCode),
-                    style: GoogleFonts.notoSansThai(
-                      color: colorScheme.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('primary'),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
                   ),
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                      width: 1,
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: settings.primaryTranslationId,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: colorScheme.surface,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
                     ),
                   ),
-                  child: Column(
-                    children: List.generate(options.length, (index) {
-                      final option = options[index];
-                      return Column(
-                        children: [
-                          _buildTranslationRow(
-                            option: option,
-                            settings: settings,
-                            colorScheme: colorScheme,
-                            isActiveList: true,
-                            onDelete: option.id == _builtInThaiV3.id
-                                ? null
-                                : () => _deleteTranslation(
-                                      int.parse(option.id),
-                                      transManager,
-                                      settings,
-                                    ),
-                          ),
-                          if (index < options.length - 1)
-                            Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-                            ),
-                        ],
+                  items: availableOptions.map((opt) {
+                    return DropdownMenuItem<String>(
+                      value: opt.id,
+                      child: Text(opt.displayName(settings.languageCode)),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      settings.updateTranslationSlot('primary', val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  context.tr('secondary'),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: settings.secondaryTranslationId ?? '',
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: colorScheme.surface,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(value: '', child: Text('None / ไม่เลือก')),
+                    ...availableOptions.map((opt) {
+                      return DropdownMenuItem<String>(
+                        value: opt.id,
+                        child: Text(opt.displayName(settings.languageCode)),
                       );
-                    }),
-                  ),
+                    }).toList(),
+                  ],
+                  onChanged: (val) {
+                    if (val == null || val.isEmpty) {
+                      settings.updateTranslationSlot('secondary', null);
+                    } else if (val != settings.primaryTranslationId) {
+                      settings.updateTranslationSlot('secondary', val);
+                    }
+                  },
                 ),
-              ];
-            }),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(height: 1, color: colorScheme.outlineVariant),
+            const SizedBox(height: 16),
+            _sectionTitle(colorScheme, context.tr('download_more')),
             const SizedBox(height: 16),
             Divider(height: 1, color: colorScheme.outlineVariant),
             const SizedBox(height: 16),
@@ -496,31 +521,22 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     }).toList()..sort(_compareTranslationOptions);
   }
 
-  Map<String, List<_TranslationOption>> _groupedDownloadedTranslations(
-    List<_TranslationOption> downloadedOptions,
-  ) {
-    final groups = <String, List<_TranslationOption>>{};
+  List<_TranslationOption> _allAvailableOptions(TranslationManagerProvider transManager) {
+    final downloaded = _downloadedOptions(transManager);
 
-    // Always start with the built-in Thai V3 in 'thai'
-    groups.putIfAbsent(_builtInThaiV3.language, () => []).add(_builtInThaiV3);
+    final builtIns = <_TranslationOption>[];
+    builtIns.add(_builtInThaiV3);
 
-    // Add other downloaded translations
-    for (final option in downloadedOptions) {
-      groups.putIfAbsent(option.language, () => []).add(option);
+    final all = <String, _TranslationOption>{};
+    for (final opt in builtIns) {
+      all[opt.id] = opt;
+    }
+    for (final opt in downloaded) {
+      all[opt.id] = opt;
     }
 
-    // Sort keys based on sort order
-    final sortedKeys = groups.keys.toList()
-      ..sort((a, b) => _languageSortOrder(a).compareTo(_languageSortOrder(b)));
-
-    // Sort options inside each group
-    final result = <String, List<_TranslationOption>>{};
-    for (final key in sortedKeys) {
-      final list = groups[key]!;
-      list.sort(_compareTranslationOptions);
-      result[key] = list;
-    }
-
+    final result = all.values.toList();
+    result.sort(_compareTranslationOptions);
     return result;
   }
 

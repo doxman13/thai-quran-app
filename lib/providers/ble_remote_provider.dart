@@ -16,6 +16,11 @@ class BleRemoteProvider extends ChangeNotifier {
   final List<StreamSubscription<List<int>>> _notificationSubscriptions = [];
 
   int _clickCount = 0;
+  int? _lastMode;
+  final Map<int, int> _lastCounts = {};
+  List<int>? _lastNotificationValue;
+  DateTime? _lastNotificationTime;
+  DateTime? _lastClickTime;
 
   BleConnectionState get connectionState => _connectionState;
   List<ScanResult> get scanResults => _scanResults;
@@ -111,7 +116,6 @@ class BleRemoteProvider extends ChangeNotifier {
 
   Future<void> _discoverServicesAndListen(BluetoothDevice device) async {
     try {
-      // Clear previous subscriptions before discovering new ones
       for (var sub in _notificationSubscriptions) {
         await sub.cancel();
       }
@@ -120,7 +124,6 @@ class BleRemoteProvider extends ChangeNotifier {
       List<BluetoothService> services = await device.discoverServices();
       for (var s in services) {
         for (var c in s.characteristics) {
-          // Check if characteristic supports NOTIFY or INDICATE
           if (c.properties.notify || c.properties.indicate) {
             try {
               await c.setNotifyValue(true);
@@ -135,29 +138,90 @@ class BleRemoteProvider extends ChangeNotifier {
           }
         }
       }
+      notifyListeners();
     } catch (e) {
       debugPrint('Error discovering services or listening to characteristics: $e');
     }
   }
 
+  bool _canCountClick() {
+    if (_lastClickTime == null) return true;
+    return DateTime.now().difference(_lastClickTime!).inMilliseconds >= 150;
+  }
+
   void _handleNotification(List<int> value) {
+    final now = DateTime.now();
+    if (_lastNotificationTime != null &&
+        now.difference(_lastNotificationTime!).inMilliseconds < 100 &&
+        _listEquals(_lastNotificationValue, value)) {
+      debugPrint('Ignoring duplicate BLE notification: $value');
+      return;
+    }
+    _lastNotificationTime = now;
+    _lastNotificationValue = List<int>.from(value);
+
     debugPrint('Received BLE notification: $value');
 
     if (value.isEmpty) return;
 
-    // BEIQI-S7 frame packet: header 0x06. Ignore reset packet (byte 1 is 0xFF).
     if (value.first == 0x06) {
-      if (value.length > 1 && value[1] == 0xFF) {
-        debugPrint('Ignoring BEIQI-S7 reset packet.');
+      if (value.length <= 4) {
+        if (value.length > 1) {
+          final mode = value[1];
+          if (mode != _lastMode) {
+            _lastMode = mode;
+            _lastCounts[mode] = 0;
+            debugPrint('BEIQI-S7 mode sync: $mode');
+          }
+        }
         return;
       }
-      debugPrint('BEIQI-S7 click detected.');
-      _triggerClick();
+
+      final mode = value[1];
+      final count = value[4];
+
+      if (mode != _lastMode) {
+        _lastMode = mode;
+        _lastCounts[mode] = count;
+        debugPrint('BEIQI-S7 mode changed to $mode, baseline count set to $count.');
+        return;
+      }
+
+      if (count == 0x00) {
+        _lastCounts[mode] = 0;
+        debugPrint('BEIQI-S7 counter reset to 0 for mode $mode.');
+        return;
+      }
+
+      if (count > (_lastCounts[mode] ?? 0)) {
+        if (!_canCountClick()) {
+          debugPrint('BEIQI-S7 click ignored (cooldown). Mode: $mode, Count: $count.');
+          return;
+        }
+        _lastCounts[mode] = count;
+        _clickCount++;
+        _lastClickTime = now;
+        notifyListeners();
+        debugPrint('BEIQI-S7 click counted. Mode: $mode, Count: $count.');
+      }
       return;
     }
 
-    // Fallback: any non-empty packet is a click. This covers simple shutters.
+    if (!_canCountClick()) {
+      debugPrint('Fallback click ignored (cooldown).');
+      return;
+    }
     _triggerClick();
+    _lastClickTime = now;
+  }
+
+  bool _listEquals(List<int>? a, List<int> b) {
+    if (a == null) return false;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _triggerClick() {
@@ -184,6 +248,11 @@ class BleRemoteProvider extends ChangeNotifier {
 
     _connectedDevice = null;
     _connectionState = BleConnectionState.disconnected;
+    _lastMode = null;
+    _lastCounts.clear();
+    _lastNotificationValue = null;
+    _lastNotificationTime = null;
+    _lastClickTime = null;
     await _clearSavedDevice();
     notifyListeners();
   }

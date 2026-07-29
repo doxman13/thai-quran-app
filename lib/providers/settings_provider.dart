@@ -505,15 +505,9 @@ class SettingsProvider extends ChangeNotifier {
   void setLanguageCode(String value) async {
     if (value != 'th' && value != 'en') return;
     _languageCode = value;
-    if (value == 'en' && _primaryTranslationId == 'thai_v3') {
-      _primaryTranslationId = 'english';
-    } else if (value == 'th' && _primaryTranslationId == 'english') {
-      _primaryTranslationId = 'thai_v3';
-    }
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('languageCode', _languageCode);
-    await prefs.setString('primaryTranslationId', _primaryTranslationId);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }

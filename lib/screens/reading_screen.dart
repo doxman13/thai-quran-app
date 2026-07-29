@@ -46,6 +46,31 @@ class ReadingScreen extends StatefulWidget {
   State<ReadingScreen> createState() => _ReadingScreenState();
 }
 
+class _TranslationOption {
+  final String id;
+  final int? apiId;
+  final String name;
+  final String? nameTh;
+  final String author;
+  final String language;
+
+  const _TranslationOption({
+    required this.id,
+    required this.apiId,
+    required this.name,
+    this.nameTh,
+    required this.author,
+    required this.language,
+  });
+
+  String displayName(String appLanguage) {
+    if (appLanguage == 'th' && nameTh != null && nameTh!.isNotEmpty) {
+      return nameTh!;
+    }
+    return name;
+  }
+}
+
 class _ReadingScreenState extends State<ReadingScreen> {
   List<Verse> verses = [];
   String _currentSurah = '1';
@@ -832,40 +857,83 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             width: 1,
                           ),
                         ),
-                        child: Column(
-                          children: [
-                            _buildTranslationCheckbox(
-                              context,
-                              settings,
-                              'thai_v3',
-                              'ภาษาไทย',
-                              colorScheme,
-                              subtitleText: context.tr('thai_v3'),
-                            ),
-
-                            ...transManager.downloadedTranslations.map((t) {
-                              final idStr = t['id'].toString();
-                              final lang = t['language_name'] ?? t['language'] ?? '';
-                              final langTitle = _getLanguageDisplayName(lang, settings.languageCode);
-                              final transName = t['name'] ?? '';
-                              return Column(
-                                children: [
-                                  Divider(
-                                    height: 1,
-                                    color: colorScheme.outline,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('primary'),
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                value: settings.primaryTranslationId,
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: colorScheme.surfaceContainerLow,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
                                   ),
-                                  _buildTranslationCheckbox(
-                                    context,
-                                    settings,
-                                    idStr,
-                                    langTitle,
-                                    colorScheme,
-                                    subtitleText: transName,
+                                ),
+                                items: _availableTranslationOptions(transManager).map((opt) {
+                                  return DropdownMenuItem<String>(
+                                    value: opt.id,
+                                    child: Text(opt.displayName(settings.languageCode)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    settings.updateTranslationSlot('primary', val);
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                context.tr('secondary'),
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              DropdownButtonFormField<String>(
+                                value: settings.secondaryTranslationId ?? '',
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: colorScheme.surfaceContainerLow,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
                                   ),
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String>(value: '', child: Text('None / ไม่เลือก')),
+                                  ..._availableTranslationOptions(transManager).map((opt) {
+                                    return DropdownMenuItem<String>(
+                                      value: opt.id,
+                                      child: Text(opt.displayName(settings.languageCode)),
+                                    );
+                                  }).toList(),
                                 ],
-                              );
-                            }),
-                          ],
+                                onChanged: (val) {
+                                  if (val == null || val.isEmpty) {
+                                    settings.updateTranslationSlot('secondary', null);
+                                  } else if (val != settings.primaryTranslationId) {
+                                    settings.updateTranslationSlot('secondary', val);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
 
@@ -977,99 +1045,50 @@ class _ReadingScreenState extends State<ReadingScreen> {
     });
   }
 
-  Widget _buildTranslationCheckbox(
-    BuildContext context,
-    SettingsProvider settings,
-    String id,
-    String label,
-    ColorScheme colorScheme, {
-    String? subtitleText,
-  }) {
-    final isPrimary = settings.primaryTranslationId == id;
-    final isSecondary = settings.secondaryTranslationId == id;
-    final isChecked = isPrimary || isSecondary;
+  List<_TranslationOption> _availableTranslationOptions(TranslationManagerProvider transManager) {
+    final downloaded = transManager.downloadedTranslations;
 
-    final status = isPrimary
-        ? context.tr('primary')
-        : isSecondary
-        ? context.tr('secondary')
-        : null;
-
-    final displaySubtitle = status != null
-        ? '$status • $subtitleText'
-        : (subtitleText ?? '');
-
-    return CheckboxListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      title: Text(
-        label,
-        style: GoogleFonts.notoSansThai(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-        ),
+    final builtIns = <_TranslationOption>[
+      _TranslationOption(
+        id: 'thai_v3',
+        apiId: null,
+        name: 'ภาษาไทย',
+        nameTh: 'ภาษาไทย',
+        author: 'Society of Institutes and Universities',
+        language: 'thai',
       ),
-      subtitle: Text(
-        displaySubtitle,
-        style: GoogleFonts.notoSansThai(
-          color: isPrimary
-              ? colorScheme.primary
-              : isSecondary
-              ? Colors.blue
-              : colorScheme.onSurfaceVariant,
-          fontSize: 12,
-          fontWeight: (isPrimary || isSecondary)
-              ? FontWeight.bold
-              : FontWeight.normal,
-        ),
-      ),
-      value: isChecked,
-      activeColor: colorScheme.primary,
-      onChanged: (val) {
-        if (val == true) {
-          if (settings.secondaryTranslationId == null &&
-              settings.primaryTranslationId != id) {
-            settings.updateTranslationSlot('secondary', id);
-          } else {
-            settings.updateTranslationSlot('secondary', id);
-          }
-        } else {
-          if (isPrimary) {
-            if (settings.secondaryTranslationId != null) {
-              settings.updateTranslationSlot(
-                'primary',
-                settings.secondaryTranslationId,
-              );
-              settings.updateTranslationSlot('secondary', null);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(context.tr('at_least_one_active'))),
-              );
-            }
-          } else {
-            settings.updateTranslationSlot('secondary', null);
-          }
-        }
-      },
-    );
+    ];
+
+    final result = <String, _TranslationOption>{};
+    for (final opt in builtIns) {
+      result[opt.id] = opt;
+    }
+    for (final item in downloaded) {
+      final id = item['id'].toString();
+      result[id] = _TranslationOption(
+        id: id,
+        apiId: int.tryParse(id),
+        name: item['name']?.toString() ?? 'Downloaded translation',
+        author: item['author_name']?.toString() ?? '',
+        language: item['language_name']?.toString() ?? '',
+      );
+    }
+
+    final list = result.values.toList();
+    list.sort((a, b) {
+      final langCompare = _languageSortOrder(a.language).compareTo(_languageSortOrder(b.language));
+      if (langCompare != 0) return langCompare;
+      return a.name.compareTo(b.name);
+    });
+    return list;
   }
 
-  String _getLanguageDisplayName(String language, String appLanguage) {
-    final normalized = language.toLowerCase();
-    if (normalized == 'thai' || normalized == 'th') {
-      return 'ภาษาไทย';
-    }
-    if (appLanguage == 'th') {
-      return switch (normalized) {
-        'english' => 'ภาษาอังกฤษ',
-        'malay' => 'ภาษามลายู',
-        _ => language,
-      };
-    }
-    return switch (normalized) {
-      'english' => 'English',
-      'malay' => 'Malay',
-      _ => language,
+  int _languageSortOrder(String language) {
+    return switch (language.toLowerCase()) {
+      'thai' => 0,
+      'english' => 1,
+      'malay' => 2,
+      _ => 99,
     };
   }
 
