@@ -10,6 +10,8 @@ class Verse {
   final String english;
   final String? shortTafsir;
   final String? shortTafsirSource;
+  final String? shortTafsirEn;
+  final String? shortTafsirSourceEn;
   bool isArabicLoading;
   bool isArabicVisible;
 
@@ -24,6 +26,8 @@ class Verse {
     required this.english,
     this.shortTafsir,
     this.shortTafsirSource,
+    this.shortTafsirEn,
+    this.shortTafsirSourceEn,
     this.isArabicLoading = false,
     this.isArabicVisible = false,
   });

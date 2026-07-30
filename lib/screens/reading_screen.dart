@@ -78,6 +78,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   bool _isMenuVisible = true;
   Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
   Map<String, _SurahObjective> _surahObjectives = {};
+  Map<String, _SurahObjective> _surahObjectivesEn = {};
   late final PageController _versePageController;
   late final VerseCardController _verseCardController;
   bool _isProgrammaticPageMove = false;
@@ -251,6 +252,52 @@ class _ReadingScreenState extends State<ReadingScreen> {
     } catch (error) {
       debugPrint('Unable to load Thai surah objectives: $error');
     }
+
+    try {
+      final jsonStringEn = await rootBundle.loadString(
+        'assets/surah_summary_en_exact.json',
+      );
+      final decodedEn = jsonDecode(jsonStringEn);
+      if (decodedEn is! Map<String, dynamic>) return;
+
+      final objectivesEn = <String, _SurahObjective>{};
+      decodedEn.forEach((surahId, value) {
+        if (value is! Map<String, dynamic>) return;
+
+        final text = value['text']?.toString().trim();
+        final source = value['source']?.toString().trim();
+        if (text == null || text.isEmpty || source == null || source.isEmpty) {
+          return;
+        }
+
+        objectivesEn[surahId] = _SurahObjective(text: text, source: source);
+      });
+
+      _surahObjectivesEn = objectivesEn;
+    } catch (error) {
+      debugPrint('Unable to load English surah objectives: $error');
+    }
+  }
+
+  bool _isNonThaiPrimary(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final primaryId = settings.primaryTranslationId;
+    if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
+    if (primaryId == 'english') return true;
+    
+    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+    final customId = int.tryParse(primaryId);
+    if (customId != null) {
+      final translation = transManager.downloadedTranslations.firstWhere(
+        (t) => t['id'] == customId,
+        orElse: () => <String, dynamic>{},
+      );
+      final lang = translation['language']?.toString().toLowerCase();
+      if (lang != null && lang != 'th' && lang != 'thai') {
+        return true;
+      }
+    }
+    return false;
   }
 
   int? _parseFlexibleInt(dynamic value) {
@@ -1119,10 +1166,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
     SettingsProvider settings,
     bool isDark,
   ) {
-    final objective = _surahObjectives[surahId];
+    final isNonThai = _isNonThaiPrimary(context);
+    final objective = isNonThai ? _surahObjectivesEn[surahId] : _surahObjectives[surahId];
     if (objective == null) return const SizedBox.shrink();
 
     final colors = settings.getAppColors();
+    final title = isNonThai ? "Surah's Objective" : 'เป้าหมายหลักของซูเราะฮ์';
+    final sourceLabel = isNonThai ? 'Source: ' : 'ที่มา: ';
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
@@ -1142,13 +1193,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'เป้าหมายหลักของซูเราะฮ์',
-                  locale: const Locale('th', 'TH'),
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: colors.primary,
-                  ),
+                  title,
+                  locale: isNonThai ? null : const Locale('th', 'TH'),
+                  style: isNonThai 
+                    ? GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      )
+                    : GoogleFonts.notoSansThai(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
                 ),
               ),
             ],
@@ -1156,23 +1213,36 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 10),
           Text(
             objective.text,
-            locale: const Locale('th', 'TH'),
-            style: GoogleFonts.notoSansThai(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              height: 1.45,
-              color: colors.textStrong,
-            ),
+            locale: isNonThai ? null : const Locale('th', 'TH'),
+            style: isNonThai
+              ? GoogleFonts.inter(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
+                  color: colors.textStrong,
+                )
+              : GoogleFonts.notoSansThai(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
+                  color: colors.textStrong,
+                ),
           ),
           const SizedBox(height: 10),
           Text(
-            'ที่มา: ${objective.source}',
-            locale: const Locale('th', 'TH'),
-            style: GoogleFonts.notoSansThai(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: colors.foreground.withOpacity(0.72),
-            ),
+            '$sourceLabel${objective.source}',
+            locale: isNonThai ? null : const Locale('th', 'TH'),
+            style: isNonThai
+              ? GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: colors.foreground.withOpacity(0.72),
+                )
+              : GoogleFonts.notoSansThai(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: colors.foreground.withOpacity(0.72),
+                ),
           ),
         ],
       ),

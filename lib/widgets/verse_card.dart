@@ -132,6 +132,36 @@ class _VerseCardState extends State<VerseCard> {
   final String _shareStatus = '';
   String? _lastTrackedVerseKey;
 
+  bool _isNonThaiPrimary() {
+    if (!mounted) return false;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final primaryId = settings.primaryTranslationId;
+    if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
+    if (primaryId == 'english') return true;
+    
+    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+    final customId = int.tryParse(primaryId);
+    if (customId != null) {
+      final translation = transManager.downloadedTranslations.firstWhere(
+        (t) => t['id'] == customId,
+        orElse: () => <String, dynamic>{},
+      );
+      final lang = translation['language']?.toString().toLowerCase();
+      if (lang != null && lang != 'th' && lang != 'thai') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String? _getTafsir() {
+    return _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
+  }
+
+  String? _getTafsirSource() {
+    return _isNonThaiPrimary() ? widget.verse.shortTafsirSourceEn : widget.verse.shortTafsirSource;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -164,7 +194,7 @@ class _VerseCardState extends State<VerseCard> {
   void _bindController() {
     if (widget.controller != null) {
       widget.controller!.toggleTafsir = () {
-        if (widget.verse.shortTafsir != null) {
+        if (_getTafsir() != null) {
           setState(() {
             _showTafsirBox = !_showTafsirBox;
             _showAuditBox = false;
@@ -227,7 +257,7 @@ class _VerseCardState extends State<VerseCard> {
         isAudioLoading: _isAudioLoading,
         showTafsirBox: _showTafsirBox,
         showAuditBox: _showAuditBox,
-        hasTafsir: widget.verse.shortTafsir != null,
+        hasTafsir: _getTafsir() != null,
         hasCommunityNotes: true,
         communityNotesFuture: _communityNotesFuture,
       );
@@ -471,11 +501,12 @@ class _VerseCardState extends State<VerseCard> {
     } else if (widget.verse.english.trim().isNotEmpty) {
       text.writeln(widget.verse.english.trim());
     }
-    if (_showTafsirBox && widget.verse.shortTafsir?.trim().isNotEmpty == true) {
+    final currentTafsir = _getTafsir();
+    if (_showTafsirBox && currentTafsir?.trim().isNotEmpty == true) {
       text
         ..writeln()
         ..writeln('Short tafsir')
-        ..writeln(widget.verse.shortTafsir!.trim());
+        ..writeln(currentTafsir!.trim());
     }
     text
       ..writeln()
@@ -958,7 +989,7 @@ class _VerseCardState extends State<VerseCard> {
               ),
 
               // Collapsible Short Tafsir
-              if (_showTafsirBox && widget.verse.shortTafsir != null) ...[
+              if (_showTafsirBox && _getTafsir() != null) ...[
                 const SizedBox(height: 8),
                 Container(
                   key: _tafsirKey,
@@ -989,7 +1020,7 @@ class _VerseCardState extends State<VerseCard> {
                             ),
                           ),
                           Text(
-                            widget.verse.shortTafsirSource ??
+                            _getTafsirSource() ??
                                 'QuranEnc Thai Mokhtasar',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 10,
@@ -1002,16 +1033,27 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        thaiTextProtection.protect(widget.verse.shortTafsir!),
-                        locale: const Locale('th', 'TH'),
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 17,
-                          height: 1.7,
-                          color: isDark
-                              ? const Color(0xFFE2E8F0)
-                              : const Color(0xFF334155),
-                          fontWeight: FontWeight.w400,
-                        ),
+                        _isNonThaiPrimary() 
+                            ? _getTafsir()!
+                            : thaiTextProtection.protect(_getTafsir()!),
+                        locale: _isNonThaiPrimary() ? null : const Locale('th', 'TH'),
+                        style: _isNonThaiPrimary()
+                          ? GoogleFonts.inter(
+                              fontSize: 15,
+                              height: 1.5,
+                              color: isDark
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFF334155),
+                              fontWeight: FontWeight.w400,
+                            )
+                          : GoogleFonts.notoSansThai(
+                              fontSize: 17,
+                              height: 1.7,
+                              color: isDark
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFF334155),
+                              fontWeight: FontWeight.w400,
+                            ),
                       ),
                     ],
                   ),
