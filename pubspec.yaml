@@ -62,8 +62,12 @@ flutter:
     - assets/images/
     - assets/qcf_v1_pages/
     - assets/qcf_v1_fonts/
+    - assets/Tajweed/
 
   fonts:
     - family: UthmanicHafs
       fonts:
         - asset: assets/fonts/UthmanicHafs.ttf
+    - family: Tajweed
+      fonts:
+        - asset: assets/Tajweed/DigitalKhattQuranicV1.otf

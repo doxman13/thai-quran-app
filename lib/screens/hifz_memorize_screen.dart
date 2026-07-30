@@ -21,6 +21,8 @@ import 'hifz_mastery_list_screen.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
+import '../services/tajweed_service.dart';
+import '../widgets/tajweed_text.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -62,6 +64,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   int _lastBleClickCount = 0;
   late HifzSessionProvider _hifzProvider;
   bool _isMushafView = true;
+  bool _isTajweedMushaf = false;
   bool _showMeaning = false;
   bool _isSurahMode = true;
   int _selectedPage = 1;
@@ -129,6 +132,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        TajweedService.load();
         final settings = Provider.of<SettingsProvider>(context, listen: false);
         if (settings.keepAwake) {
           WakelockPlus.enable();
@@ -1328,10 +1332,16 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     ),
                   );
                   break;
+                case 'tajweed':
+                  setState(() {
+                    _isTajweedMushaf = !_isTajweedMushaf;
+                  });
+                  break;
               }
             },
             itemBuilder: (_) => [
               _buildPopupItem('switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
+              _buildPopupItem('tajweed', Icons.font_download_outlined, _isTajweedMushaf ? 'Standard Mushaf' : 'Tajweed Mushaf'),
               if (!isReview)
                 _buildPopupItem('range', Icons.tune_rounded, 'Select Range'),
               _buildPopupItem('report', Icons.analytics_outlined, 'Report'),
@@ -1423,6 +1433,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required bool isHiddenPhase,
     required bool isPeeking,
   }) {
+    if (_isTajweedMushaf) return _buildTajweedMushafView(context, pageToShow);
     return Stack(
       key: key,
       children: [
@@ -2035,8 +2046,115 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   // Mushaf view (new verses)
   // ---------------------------------------------------------------------------
+  Widget _buildTajweedMushafView(BuildContext context, int pageNumber) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availWidth = constraints.maxWidth;
+        final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
+        final double paddedWidth = isTablet ? availWidth.clamp(300.0, 600.0) : availWidth;
+
+        final pageDataList = qcf.getPageData(pageNumber);
+
+        return FutureBuilder(
+          future: TajweedService.load(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final spans = <TextSpan>[];
+            final regex = RegExp(r'<rule class=([^>]+)>([^<]+)</rule>|([^<]+)');
+
+            Color getColor(String ruleClass) {
+              ruleClass = ruleClass.replaceAll("'", "").replaceAll('"', '');
+              switch (ruleClass) {
+                case 'madda_normal':
+                case 'madda_permissible':
+                case 'madda_necessary':
+                case 'madda_obligatory_mottasel':
+                case 'madda_obligatory_monfasel':
+                  return Colors.red;
+                case 'ghunnah':
+                case 'idgham_ghunnah':
+                  return Colors.green;
+                case 'idgham_wo_ghunnah':
+                case 'slnt':
+                case 'ham_wasl':
+                case 'laam_shamsiyah':
+                  return Colors.grey;
+                case 'qalaqah':
+                  return Colors.blue;
+                case 'ikhafa':
+                case 'ikhafa_shafawi':
+                  return Colors.orange;
+                case 'iqlab':
+                  return Colors.purple;
+                default:
+                  return Colors.black;
+              }
+            }
+
+            for (final item in pageDataList) {
+              final surah = item['surah'] as int;
+              final start = item['start'] as int;
+              final end = item['end'] as int;
+
+              for (int ayah = start; ayah <= end; ayah++) {
+                final verseText = TajweedService.getVerse(surah, ayah);
+                if (verseText != null) {
+                  final matches = regex.allMatches(verseText);
+                  for (final match in matches) {
+                    if (match.group(1) != null) {
+                      spans.add(TextSpan(
+                        text: match.group(2)!,
+                        style: TextStyle(
+                          fontFamily: 'Tajweed',
+                          fontSize: 28.0,
+                          color: getColor(match.group(1)!),
+                        ),
+                      ));
+                    } else {
+                      spans.add(TextSpan(
+                        text: match.group(3)!,
+                        style: TextStyle(
+                          fontFamily: 'Tajweed',
+                          fontSize: 28.0,
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                        ),
+                      ));
+                    }
+                  }
+                  spans.add(const TextSpan(text: ' '));
+                }
+              }
+            }
+
+            return Center(
+              child: SizedBox(
+                width: paddedWidth,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
+                  child: InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 3.5,
+                    child: RichText(
+                      textAlign: TextAlign.justify,
+                      textDirection: TextDirection.rtl,
+                      text: TextSpan(children: spans),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildMushafView(BuildContext context, HifzSessionProvider provider,
       HifzTask? currentTask, ColorScheme colorScheme, int pageNumber, {Key? key}) {
+    if (_isTajweedMushaf) return _buildTajweedMushafView(context, pageNumber);
     return ClipRRect(
       key: key,
       borderRadius: BorderRadius.circular(8),
