@@ -42,9 +42,10 @@ class TajweedService {
         final oldWord = verse.words[i];
         if (i < alignedTajWords.length) {
           final tajStr = alignedTajWords[i];
-          final parts = _parseTajweedParts(tajStr);
+          final isLastWord = (i == verse.words.length - 1);
+          final parts = isLastWord ? <MushafTajweedPart>[] : _parseTajweedParts(tajStr);
           newWords.add(MushafWord(
-            text: _stripTags(tajStr),
+            text: isLastWord ? oldWord.text : _stripTags(tajStr),
             verseKey: oldWord.verseKey,
             lineNumber: oldWord.lineNumber,
             position: oldWord.position,

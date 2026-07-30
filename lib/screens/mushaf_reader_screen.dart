@@ -2344,7 +2344,7 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 => 22.0,
+      11 => pageNumber <= 2 ? 38.0 : 31.0,
       19 => 25.2,
       _ => 22.5,
     };
@@ -2405,12 +2405,14 @@ class MushafLine extends StatelessWidget {
           ),
         );
       } else {
+        final overrideFont = (mushafId == 11 && isEndWord) ? 'p$pageNumber' : null;
         textSpans.add(
           TextSpan(
             text: '${word.text} ',
             style: baseStyle.copyWith(
               color: wordColor,
               backgroundColor: highlightColor,
+              fontFamily: overrideFont,
             ),
             recognizer: recognizer,
           ),
