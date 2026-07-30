@@ -2344,7 +2344,7 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 => pageNumber <= 2 ? 38.0 : 31.0,
+      11 => pageNumber <= 2 ? 42.0 : 36.0,
       19 => 25.2,
       _ => 22.5,
     };
@@ -2406,6 +2406,7 @@ class MushafLine extends StatelessWidget {
         );
       } else {
         final overrideFont = (mushafId == 11 && isEndWord) ? 'qcf_v1_p$pageNumber' : null;
+        final overrideFontSize = (mushafId == 11 && isEndWord) ? (pageNumber <= 2 ? 38.0 : 30.5) : baseStyle.fontSize;
         textSpans.add(
           TextSpan(
             text: '${word.text} ',
@@ -2413,6 +2414,7 @@ class MushafLine extends StatelessWidget {
               color: wordColor,
               backgroundColor: highlightColor,
               fontFamily: overrideFont,
+              fontSize: overrideFontSize,
             ),
             recognizer: recognizer,
           ),
