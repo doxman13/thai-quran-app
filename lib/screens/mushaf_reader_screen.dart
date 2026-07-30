@@ -2405,7 +2405,7 @@ class MushafLine extends StatelessWidget {
           ),
         );
       } else {
-        final overrideFont = (mushafId == 11 && isEndWord) ? 'p$pageNumber' : null;
+        final overrideFont = (mushafId == 11 && isEndWord) ? 'qcf_v1_p$pageNumber' : null;
         textSpans.add(
           TextSpan(
             text: '${word.text} ',
