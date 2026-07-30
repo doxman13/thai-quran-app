@@ -1433,7 +1433,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required bool isHiddenPhase,
     required bool isPeeking,
   }) {
-    if (_isTajweedMushaf) return _buildTajweedMushafView(context, pageToShow);
     return Stack(
       key: key,
       children: [
@@ -1444,16 +1443,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               minScale: 1.0,
             maxScale: 4.0,
             child: FutureBuilder<MushafPage>(
-              future: widget.foundationRepository
-                  .fetchPage(mushafId: 2, pageNumber: pageToShow),
+              future: _loadPage(pageToShow),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final mushafPage = snapshot.data!;
                 final layout = MushafLayoutProfile.forMushaf(2);
-                final fontFamily =
-                    widget.foundationRepository.getFontFamily(2, pageToShow);
+                final fontFamily = _isTajweedMushaf
+                    ? 'Tajweed'
+                    : widget.foundationRepository.getFontFamily(2, pageToShow);
+                final actualMushafId = _isTajweedMushaf ? 11 : 2;
 
                 final surahStartsByLine = <int, List<String>>{};
                 for (final v in mushafPage.verses) {
@@ -1490,7 +1490,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               MushafLine(
                                 line: line,
                                 fontFamily: fontFamily,
-                                mushafId: 2,
+                                mushafId: actualMushafId,
                                 pageNumber: mushafPage.pageNumber,
                                 lineWidth: layout.lineWidth,
                                 lineHeight: layout.lineHeight,
@@ -2046,115 +2046,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   // Mushaf view (new verses)
   // ---------------------------------------------------------------------------
-  Widget _buildTajweedMushafView(BuildContext context, int pageNumber) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availWidth = constraints.maxWidth;
-        final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
-        final double paddedWidth = isTablet ? availWidth.clamp(300.0, 600.0) : availWidth;
-
-        final pageDataList = qcf.getPageData(pageNumber);
-
-        return FutureBuilder(
-          future: TajweedService.load(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final spans = <TextSpan>[];
-            final regex = RegExp(r'<rule class=([^>]+)>([^<]+)</rule>|([^<]+)');
-
-            Color getColor(String ruleClass) {
-              ruleClass = ruleClass.replaceAll("'", "").replaceAll('"', '');
-              switch (ruleClass) {
-                case 'madda_normal':
-                case 'madda_permissible':
-                case 'madda_necessary':
-                case 'madda_obligatory_mottasel':
-                case 'madda_obligatory_monfasel':
-                  return Colors.red;
-                case 'ghunnah':
-                case 'idgham_ghunnah':
-                  return Colors.green;
-                case 'idgham_wo_ghunnah':
-                case 'slnt':
-                case 'ham_wasl':
-                case 'laam_shamsiyah':
-                  return Colors.grey;
-                case 'qalaqah':
-                  return Colors.blue;
-                case 'ikhafa':
-                case 'ikhafa_shafawi':
-                  return Colors.orange;
-                case 'iqlab':
-                  return Colors.purple;
-                default:
-                  return Colors.black;
-              }
-            }
-
-            for (final item in pageDataList) {
-              final surah = item['surah'] as int;
-              final start = item['start'] as int;
-              final end = item['end'] as int;
-
-              for (int ayah = start; ayah <= end; ayah++) {
-                final verseText = TajweedService.getVerse(surah, ayah);
-                if (verseText != null) {
-                  final matches = regex.allMatches(verseText);
-                  for (final match in matches) {
-                    if (match.group(1) != null) {
-                      spans.add(TextSpan(
-                        text: match.group(2)!,
-                        style: TextStyle(
-                          fontFamily: 'Tajweed',
-                          fontSize: 28.0,
-                          color: getColor(match.group(1)!),
-                        ),
-                      ));
-                    } else {
-                      spans.add(TextSpan(
-                        text: match.group(3)!,
-                        style: TextStyle(
-                          fontFamily: 'Tajweed',
-                          fontSize: 28.0,
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
-                        ),
-                      ));
-                    }
-                  }
-                  spans.add(const TextSpan(text: ' '));
-                }
-              }
-            }
-
-            return Center(
-              child: SizedBox(
-                width: paddedWidth,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 16.0),
-                  child: InteractiveViewer(
-                    minScale: 1.0,
-                    maxScale: 3.5,
-                    child: RichText(
-                      textAlign: TextAlign.justify,
-                      textDirection: TextDirection.rtl,
-                      text: TextSpan(children: spans),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  Future<MushafPage> _loadPage(int pageNumber) async {
+    final page = await widget.foundationRepository.fetchPage(mushafId: 2, pageNumber: pageNumber);
+    if (_isTajweedMushaf) {
+      await TajweedService.load();
+      return TajweedService.augmentMushafPage(page);
+    }
+    return page;
   }
 
   Widget _buildMushafView(BuildContext context, HifzSessionProvider provider,
       HifzTask? currentTask, ColorScheme colorScheme, int pageNumber, {Key? key}) {
-    if (_isTajweedMushaf) return _buildTajweedMushafView(context, pageNumber);
     return ClipRRect(
       key: key,
       borderRadius: BorderRadius.circular(8),
@@ -2181,16 +2083,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       minScale: 1.0,
                     maxScale: 3.5,
                     child: FutureBuilder<MushafPage>(
-                      future: widget.foundationRepository
-                          .fetchPage(mushafId: 2, pageNumber: pageNumber),
+                      future: _loadPage(pageNumber),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(child: CircularProgressIndicator());
                         }
                         final mushafPage = snapshot.data!;
                         final layout = MushafLayoutProfile.forMushaf(2);
-                        final fontFamily = widget.foundationRepository
-                            .getFontFamily(2, pageNumber);
+                        final fontFamily = _isTajweedMushaf
+                            ? 'Tajweed'
+                            : widget.foundationRepository.getFontFamily(2, pageNumber);
+                        final actualMushafId = _isTajweedMushaf ? 11 : 2;
 
                         final surahStartsByLine = <int, List<String>>{};
                         for (final v in mushafPage.verses) {
@@ -2225,7 +2128,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                   MushafLine(
                                     line: line,
                                     fontFamily: fontFamily,
-                                    mushafId: 2,
+                                    mushafId: actualMushafId,
                                     pageNumber: mushafPage.pageNumber,
                                     lineWidth: layout.lineWidth,
                                     lineHeight: layout.lineHeight,
