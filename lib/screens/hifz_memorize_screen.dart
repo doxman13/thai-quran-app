@@ -1443,17 +1443,16 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               minScale: 1.0,
             maxScale: 4.0,
             child: FutureBuilder<MushafPage>(
-              future: _loadPage(pageToShow),
+              future: widget.foundationRepository.fetchPage(
+                  mushafId: _isTajweedMushaf ? 11 : 2, pageNumber: pageToShow),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final mushafPage = snapshot.data!;
                 final layout = MushafLayoutProfile.forMushaf(2);
-                final fontFamily = _isTajweedMushaf
-                    ? 'Tajweed'
-                    : widget.foundationRepository.getFontFamily(2, pageToShow);
                 final actualMushafId = _isTajweedMushaf ? 11 : 2;
+                final fontFamily = widget.foundationRepository.getFontFamily(actualMushafId, pageToShow);
 
                 final surahStartsByLine = <int, List<String>>{};
                 for (final v in mushafPage.verses) {
@@ -2046,15 +2045,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   // Mushaf view (new verses)
   // ---------------------------------------------------------------------------
-  Future<MushafPage> _loadPage(int pageNumber) async {
-    final page = await widget.foundationRepository.fetchPage(mushafId: 2, pageNumber: pageNumber);
-    if (_isTajweedMushaf) {
-      await TajweedService.load();
-      return TajweedService.augmentMushafPage(page);
-    }
-    return page;
-  }
-
   Widget _buildMushafView(BuildContext context, HifzSessionProvider provider,
       HifzTask? currentTask, ColorScheme colorScheme, int pageNumber, {Key? key}) {
     return ClipRRect(
@@ -2083,17 +2073,16 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       minScale: 1.0,
                     maxScale: 3.5,
                     child: FutureBuilder<MushafPage>(
-                      future: _loadPage(pageNumber),
+                      future: widget.foundationRepository.fetchPage(
+                          mushafId: _isTajweedMushaf ? 11 : 2, pageNumber: pageNumber),
                       builder: (context, snapshot) {
                         if (!snapshot.hasData) {
                           return const Center(child: CircularProgressIndicator());
                         }
                         final mushafPage = snapshot.data!;
                         final layout = MushafLayoutProfile.forMushaf(2);
-                        final fontFamily = _isTajweedMushaf
-                            ? 'Tajweed'
-                            : widget.foundationRepository.getFontFamily(2, pageNumber);
                         final actualMushafId = _isTajweedMushaf ? 11 : 2;
+                        final fontFamily = widget.foundationRepository.getFontFamily(actualMushafId, pageNumber);
 
                         final surahStartsByLine = <int, List<String>>{};
                         for (final v in mushafPage.verses) {

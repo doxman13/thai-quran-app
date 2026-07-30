@@ -2126,7 +2126,7 @@ class MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0,
       ),
-      2 => const MushafLayoutProfile(
+      2 || 11 => const MushafLayoutProfile(
         pageWidth: 412,
         lineWidth: 412,
         lineHeight: 1.74,
@@ -2150,7 +2150,7 @@ class MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0.0,
       ),
-      6 || 11 => const MushafLayoutProfile(
+      6 => const MushafLayoutProfile(
         pageWidth: 390,
         lineWidth: 358,
         lineHeight: 1.7,

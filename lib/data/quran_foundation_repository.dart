@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/mushaf_models.dart';
+import '../services/tajweed_service.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 class QuranFoundationConfig {
@@ -176,6 +177,12 @@ class QuranFoundationRepository {
     final pageCount = mushafTypeById(resolvedMushafId).pageCount;
     final safePage = _clampInt(pageNumber, 1, pageCount);
 
+    if (mushafId == 11) {
+      final basePage = await fetchPage(mushafId: 2, pageNumber: safePage);
+      await TajweedService.load();
+      return TajweedService.augmentMushafPage(basePage);
+    }
+
     if (mushafId == qcfPackageMushafId) {
       final List<MushafVerse> verses = [];
       try {
@@ -269,7 +276,7 @@ class QuranFoundationRepository {
     } else if (mushafId == 2) {
       return 'qcf_v1_p$pageNumber';
     } else if (mushafId == 11) {
-      return 'UthmanicHafs';
+      return 'Tajweed';
     } else if (mushafId == 19) {
       return 'p$pageNumber-v4';
     } else if (mushafId == 3 || mushafId == 6 || mushafId == 7) {
