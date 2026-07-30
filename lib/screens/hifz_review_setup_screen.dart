@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_repository.dart';
 import '../models/hifz_session_config.dart';
+import '../database/hifz_repository.dart';
 import '../providers/settings_provider.dart';
 
 class HifzReviewSetupScreen extends StatefulWidget {
@@ -52,6 +53,111 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadLastSetup();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _checkForResumableSession();
+      }
+    });
+  }
+
+  Future<void> _checkForResumableSession() async {
+    final repo = HifzRepository();
+    final allSessions = await repo.getAllActiveSessions();
+    
+    ActiveSessionSnapshot? snap;
+    for (var s in allSessions) {
+      if (s.sessionType == HifzSessionType.review) {
+        snap = s;
+        break;
+      }
+    }
+    
+    if (snap == null) return;
+    if (!mounted) return;
+
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
+
+    final resume = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final colorScheme = Theme.of(ctx).colorScheme;
+        final textTheme = Theme.of(ctx).textTheme;
+        final typeLabel = isThai ? 'ทบทวนฮิฟซ์ (Review)' : 'Review Mode';
+        final stepLabel = isThai
+                ? 'ขั้นตอนที่ ${snap!.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'ซ่อน' : 'แสดง'}'
+                : 'Step ${snap!.currentStepIndex + 1} · ${snap.currentMode == 'hidden' ? 'Hidden' : 'Visible'}';
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: colorScheme.surface,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.history_rounded, color: colorScheme.primary, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                isThai ? 'กู้คืนเซสชัน?' : 'Resume Session?',
+                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isThai
+                    ? 'พบการเรียนที่ทำค้างไว้ของโหมดนี้:'
+                    : 'A previous session of this type was found:',
+                style: textTheme.bodyMedium
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ResumeRow(isThai ? 'โหมด' : 'Mode', typeLabel, colorScheme),
+                    const SizedBox(height: 4),
+                    _ResumeRow(isThai ? 'ความคืบหน้า' : 'Progress', stepLabel, colorScheme),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx, false);
+              },
+              child: Text(isThai ? 'เริ่มใหม่' : 'Start New'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(isThai ? 'ทำต่อ' : 'Resume'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (resume == true) {
+      Navigator.pop(
+        context,
+        (snap.reviewGranularity ?? ReviewGranularity.bySurah, snap.reviewTargetParams ?? ReviewTargetParams.bySurah(startSurah: 114, endSurah: 114), snap),
+      );
+    }
   }
 
   @override
@@ -141,7 +247,7 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
     }
 
     await _saveLastSetup();
-    Navigator.pop(context, (granularity, params));
+    Navigator.pop(context, (granularity, params, null));
   }
 
   // ---------------------------------------------------------------------------
@@ -687,6 +793,33 @@ class _SummaryCard extends StatelessWidget {
                 ))
             .toList(),
       ),
+    );
+  }
+}
+
+class _ResumeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final ColorScheme colorScheme;
+
+  const _ResumeRow(this.label, this.value, this.colorScheme);
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Text(
+          '$label: ',
+          style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+        ),
+        Text(
+          value,
+          style: textTheme.bodySmall
+              ?.copyWith(color: colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }

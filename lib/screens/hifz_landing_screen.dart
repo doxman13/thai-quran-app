@@ -94,6 +94,20 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     );
     
     if (result != null && mounted) {
+      if (result.resumeSnapshot != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HifzMemorizeScreen(
+              quranRepository: widget.quranRepository,
+              foundationRepository: widget.foundationRepository,
+              resumeSessionSnapshot: result.resumeSnapshot,
+            ),
+          ),
+        );
+        return;
+      }
+
       await prefs.setInt('hifz_nv_surah', result.surah);
       await prefs.setInt('hifz_nv_start_verse', result.startVerse);
       await prefs.setInt('hifz_nv_end_verse', result.endVerse);
@@ -121,7 +135,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
 
   Future<void> _openReview() async {
     final result =
-        await Navigator.push<(ReviewGranularity, ReviewTargetParams)>(
+        await Navigator.push<(ReviewGranularity, ReviewTargetParams, ActiveSessionSnapshot?)>(
       context,
       MaterialPageRoute(
         builder: (_) =>
@@ -129,7 +143,21 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       ),
     );
     if (result != null && mounted) {
-      final (granularity, params) = result;
+      final (granularity, params, resumeSnap) = result;
+      if (resumeSnap != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HifzMemorizeScreen(
+              quranRepository: widget.quranRepository,
+              foundationRepository: widget.foundationRepository,
+              resumeSessionSnapshot: resumeSnap,
+            ),
+          ),
+        );
+        return;
+      }
+      
       Navigator.push(
         context,
         MaterialPageRoute(
