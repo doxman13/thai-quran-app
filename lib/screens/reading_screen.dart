@@ -206,6 +206,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         final surah = _parseFlexibleInt(item['surah']);
         final verseRange = item['verse_range']?.toString().trim();
         final themeTh = item['theme_th']?.toString().trim();
+        final themeEn = item['theme_en']?.toString().trim();
         if (surah == null ||
             verseRange == null ||
             verseRange.isEmpty ||
@@ -218,7 +219,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         if (startVerse == null) continue;
 
         sectionsBySurah.putIfAbsent(surah, () => {})[startVerse] =
-            _ThaiThemeSection(themeTh: themeTh, verseRange: verseRange);
+            _ThaiThemeSection(themeTh: themeTh, themeEn: themeEn, verseRange: verseRange);
       }
 
       _themeSectionsBySurah = sectionsBySurah;
@@ -280,10 +281,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   bool _isNonThaiPrimary(BuildContext context) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = Provider.of<SettingsProvider>(context, listen: true);
     final primaryId = settings.primaryTranslationId;
     if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
-    if (primaryId == 'english') return true;
     
     final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
     final customId = int.tryParse(primaryId);
@@ -293,11 +293,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
         orElse: () => <String, dynamic>{},
       );
       final lang = translation['language']?.toString().toLowerCase();
-      if (lang != null && lang != 'th' && lang != 'thai') {
-        return true;
+      if (lang == 'th' || lang == 'thai') {
+        return false;
       }
     }
-    return false;
+    return true;
   }
 
   int? _parseFlexibleInt(dynamic value) {
@@ -347,11 +347,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
   String getHeaderTitle(BuildContext context, int verseNumber) {
     final section = _getActiveTheme(verseNumber);
     if (section == null) return '';
+    final isNonThai = _isNonThaiPrimary(context);
+    final themeText = (isNonThai && section.themeEn != null && section.themeEn!.isNotEmpty) 
+        ? section.themeEn! 
+        : section.themeTh;
     final protectedTheme = Provider.of<ThaiTextProtectionProvider>(
       context,
       listen: false,
-    ).protect(section.themeTh);
-    return '$protectedTheme (อายะฮฺ ${section.verseRange})';
+    ).protect(themeText);
+    final ayahLabel = isNonThai ? 'Ayah' : 'อายะฮฺ';
+    return '$protectedTheme ($ayahLabel ${section.verseRange})';
   }
 
   Future<void> _loadSurah(
@@ -512,7 +517,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
     if (surahId == null) return;
 
     final completedSurahId = _currentSurah;
-    final completedSurahName = widget.repository.getSurahName(_currentSurah);
+    final isThai = !_isNonThaiPrimary(context);
+    final completedSurahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
     final targetVerses = _visibleVersesForActiveProfile(
       surahId,
       widget.repository.getSurahVerses(surahId),
@@ -524,7 +530,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     await _loadSurah(surahId, jumpToVerseId: targetVerseId);
     if (!mounted) return;
 
-    final surahName = widget.repository.getSurahName(surahId);
+    final surahName = widget.repository.getSurahName(surahId, isThai: isThai);
     final ayahCount = widget.repository.getSurahVerses(surahId).length;
     if (direction > 0) {
       _showSurahCompletionDialog(
@@ -1399,7 +1405,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     .map(
                       (id) => DropdownMenuItem(
                         value: id,
-                        child: Text(widget.repository.getSurahName(id)),
+                        child: Text(widget.repository.getSurahName(id, isThai: !_isNonThaiPrimary(context))),
                       ),
                     )
                     .toList(),
@@ -1593,7 +1599,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                           .getSurahVerses(_currentSurah)
                                           .length;
                                       final surahName = widget.repository
-                                          .getSurahName(_currentSurah);
+                                          .getSurahName(_currentSurah, isThai: !_isNonThaiPrimary(context));
                                       final theme = Theme.of(context);
 
                                       return Padding(
@@ -2574,9 +2580,10 @@ class _RibbonFallPainter extends CustomPainter {
 
 class _ThaiThemeSection {
   final String themeTh;
+  final String? themeEn;
   final String verseRange;
 
-  const _ThaiThemeSection({required this.themeTh, required this.verseRange});
+  const _ThaiThemeSection({required this.themeTh, this.themeEn, required this.verseRange});
 }
 
 class _SurahObjective {

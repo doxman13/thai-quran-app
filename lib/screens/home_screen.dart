@@ -4141,7 +4141,8 @@ class _HomeScreenState extends State<HomeScreen>
           if (verse.thaiV3.toLowerCase().contains(query) ||
               verse.thaiV2.toLowerCase().contains(query) ||
               verse.english.toLowerCase().contains(query) ||
-              (verse.shortTafsir?.toLowerCase().contains(query) ?? false)) {
+              (verse.shortTafsir?.toLowerCase().contains(query) ?? false) ||
+              (verse.shortTafsirEn?.toLowerCase().contains(query) ?? false)) {
             final surahName = widget.repository.getSurahName(verse.surahId);
             final sId = int.tryParse(verse.surahId) ?? 1;
             final vId = int.tryParse(verse.id) ?? 1;

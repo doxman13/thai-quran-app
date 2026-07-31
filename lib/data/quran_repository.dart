@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../models/verse.dart';
 import '../services/remote_content_service.dart';
 import '../shared/quran_contract.dart';
+import 'offline_surah_names.dart';
 
 class QuranRepository {
   Map<String, dynamic>? _quranData;
@@ -14,6 +15,8 @@ class QuranRepository {
   Map<String, dynamic>? _tafsirData;
   Map<String, dynamic>? _tafsirDataEn;
   Map<String, String> _offlineArabicData = {};
+  
+  static bool globalIsThaiName = true;
   final Map<String, String> surahNames = {};
 
   // Loads all Surahs from the local JSON asset and fetches Surah Names
@@ -54,9 +57,7 @@ class QuranRepository {
         }
       }
 
-      if (surahNames.isEmpty) {
-        await _loadSurahNames();
-      }
+      // Offline surah names are loaded synchronously via offline_surah_names.dart
       return;
     }
 
@@ -64,23 +65,7 @@ class QuranRepository {
     await initOfflineMushaf();
   }
 
-  Future<void> _loadSurahNames() async {
-    try {
-      final res = await http.get(
-        Uri.parse('https://api.quran.com/api/v4/chapters'),
-      );
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        for (var chapter in data['chapters']) {
-          surahNames[chapter['id'].toString()] = chapter['name_simple'];
-        }
-      }
-    } catch (e) {
-      for (int i = 1; i <= 114; i++) {
-        surahNames[i.toString()] = 'Surah $i';
-      }
-    }
-  }
+  // Removed _loadSurahNames() as it is now offline
 
   Future<void> initOfflineMushaf() async {
     if (_offlineArabicData.isNotEmpty && _quranData != null) return;
@@ -149,9 +134,7 @@ class QuranRepository {
       }
     }
 
-    if (surahNames.isEmpty) {
-      await _loadSurahNames();
-    }
+    // Offline surah names are loaded synchronously via offline_surah_names.dart
   }
 
   Future<void> reloadRemoteContent() async {
@@ -162,9 +145,12 @@ class QuranRepository {
     await initOfflineMushaf();
   }
 
-  String getSurahName(String surahId) {
-    final name = surahNames[surahId] ?? 'Surah $surahId';
-    return '$surahId. $name';
+  String getSurahName(String surahId, {bool? isThai}) {
+    final useThai = isThai ?? globalIsThaiName;
+    final name = useThai
+        ? offlineSurahNamesTh[surahId]
+        : offlineSurahNamesEn[surahId];
+    return '$surahId. ${name ?? 'Surah $surahId'}';
   }
 
   // Gets the verses for a specific Surah
@@ -183,7 +169,8 @@ class QuranRepository {
       final verseKey = createVerseKey(surahId, key);
       final mergedVerse = _mergedQuranData?[verseKey];
       final shortTafsir = _tafsirData?[surahId]?[key]?.toString();
-      final shortTafsirEn = _tafsirDataEn?[surahId]?[key]?.toString();
+      final enTafsirRaw = _tafsirDataEn?['$surahId:$key'];
+      final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
 
       versesList.add(
         Verse(
@@ -217,7 +204,8 @@ class QuranRepository {
     final verseKey = createVerseKey(surahId, verseId);
     final mergedVerse = _mergedQuranData?[verseKey];
     final shortTafsir = _tafsirData?[surahId]?[verseId]?.toString();
-    final shortTafsirEn = _tafsirDataEn?[surahId]?[verseId]?.toString();
+    final enTafsirRaw = _tafsirDataEn?['$surahId:$verseId'];
+    final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
 
     return Verse(
       id: verseId,

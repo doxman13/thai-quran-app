@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/translation_database.dart';
+import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
 
 enum HifzInputMode {
@@ -223,6 +224,7 @@ class SettingsProvider extends ChangeNotifier {
       );
       _primaryTranslationId = sanitizedIds.$1;
       _secondaryTranslationId = sanitizedIds.$2;
+      _syncGlobalState();
 
       // Save to local SharedPreferences
       await prefs.setString('themeColor', _themeColor);
@@ -338,6 +340,7 @@ class SettingsProvider extends ChangeNotifier {
         );
       }
     }
+    _syncGlobalState();
     notifyListeners();
   }
 
@@ -400,6 +403,10 @@ class SettingsProvider extends ChangeNotifier {
     if (!showArabic && showTranslation) return translationOnlyMode;
     if (showArabic && showTranslation) return quranTranslationMode;
     return quranTranslationMode;
+  }
+
+  void _syncGlobalState() {
+    QuranRepository.globalIsThaiName = _languageCode == 'th' || _primaryTranslationId.startsWith('thai');
   }
 
   Future<void> _markSettingsChanged(SharedPreferences prefs) async {
@@ -505,6 +512,7 @@ class SettingsProvider extends ChangeNotifier {
   void setLanguageCode(String value) async {
     if (value != 'th' && value != 'en') return;
     _languageCode = value;
+    _syncGlobalState();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('languageCode', _languageCode);
@@ -534,6 +542,7 @@ class SettingsProvider extends ChangeNotifier {
       if (id == _primaryTranslationId) return; // collision — reject
       _secondaryTranslationId = id;
     }
+    _syncGlobalState();
     notifyListeners();
     await prefs.setString('primaryTranslationId', _primaryTranslationId);
     if (_secondaryTranslationId != null) {

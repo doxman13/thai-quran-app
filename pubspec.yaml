@@ -59,6 +59,8 @@ flutter:
     - assets/logo.svg
     - assets/reconciled_thai_quran_themes.json
     - assets/surah_summary_th_exact.json
+    - assets/surah_summary_en_exact.json
+    - assets/tafsir_eng_mokhtasar.json
     - assets/images/
     - assets/qcf_v1_pages/
     - assets/qcf_v1_fonts/

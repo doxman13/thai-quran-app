@@ -134,10 +134,9 @@ class _VerseCardState extends State<VerseCard> {
 
   bool _isNonThaiPrimary() {
     if (!mounted) return false;
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = Provider.of<SettingsProvider>(context, listen: true);
     final primaryId = settings.primaryTranslationId;
     if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
-    if (primaryId == 'english') return true;
     
     final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
     final customId = int.tryParse(primaryId);
@@ -147,11 +146,11 @@ class _VerseCardState extends State<VerseCard> {
         orElse: () => <String, dynamic>{},
       );
       final lang = translation['language']?.toString().toLowerCase();
-      if (lang != null && lang != 'th' && lang != 'thai') {
-        return true;
+      if (lang == 'th' || lang == 'thai') {
+        return false;
       }
     }
-    return false;
+    return true;
   }
 
   String? _getTafsir() {
