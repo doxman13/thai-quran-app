@@ -2047,20 +2047,23 @@ class MushafPageView extends StatelessWidget {
             ],
           ),
         );
+        final topPadding = MediaQuery.paddingOf(context).top;
         final availableWidth =
             (constraints.maxWidth - (layout.horizontalPadding * 2)).clamp(
               1.0,
               double.infinity,
             );
-        final availableHeight = (constraints.maxHeight - 8).clamp(
+        final availableHeight = (constraints.maxHeight - 8 - topPadding).clamp(
           1.0,
           double.infinity,
         );
 
         return Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: layout.horizontalPadding,
-            vertical: 4,
+          padding: EdgeInsets.only(
+            left: layout.horizontalPadding,
+            right: layout.horizontalPadding,
+            top: 4 + topPadding,
+            bottom: 4,
           ),
           child: SizedBox(
             width: availableWidth,
@@ -2126,12 +2129,20 @@ class MushafLayoutProfile {
         horizontalPadding: 16,
         wordPadding: 0,
       ),
-      2 || 11 => const MushafLayoutProfile(
+      2 => const MushafLayoutProfile(
         pageWidth: 412,
         lineWidth: 412,
-        lineHeight: 1.74,
-        lineVerticalPadding: 1.5,
-        horizontalPadding: 16,
+        lineHeight: 1.35, // Reduced to shrink the highlight box vertical size
+        lineVerticalPadding: 7.5, // Increased to compensate for line spacing
+        horizontalPadding: 14,
+        wordPadding: 0,
+      ),
+      11 => const MushafLayoutProfile(
+        pageWidth: 412, 
+        lineWidth: 412,
+        lineHeight: 1.25, // Significantly reduced to shrink highlight box
+        lineVerticalPadding: 11.0, // Increased to maintain the line gap
+        horizontalPadding: 14, // Good side margins
         wordPadding: 0,
       ),
       19 => const MushafLayoutProfile(
@@ -2344,11 +2355,11 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 => pageNumber <= 2 ? 42.0 : 36.0,
+      11 => pageNumber <= 2 ? 34.0 : 29.5,
       19 => 25.2,
       _ => 22.5,
     };
-    final bool isQcf = mushafId == 1 || mushafId == 2 || mushafId == 19;
+    final bool isQcf = mushafId == 1 || mushafId == 2 || mushafId == 19 || mushafId == 11;
     final isUthmaniTajweed = mushafId == 11;
     final baseStyle = TextStyle(
       fontFamily: fontFamily,
@@ -2373,8 +2384,9 @@ class MushafLine extends StatelessWidget {
       final isEndWord = verseEndWords.contains(word);
       final isWordHidden = (isVerseHidden?.call(word.verseKey) ?? false) && !isPeekActive && !isEndWord;
       final isHighlighted = (highlightedVerseKeys?.contains(word.verseKey) ?? false) || highlightedVerseKey == word.verseKey;
+      final isDarkMode = Theme.of(context).brightness == Brightness.dark;
       final highlightColor = isHighlighted
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.20)
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: isDarkMode ? 0.20 : 0.10)
           : null;
 
       final wordColor = isWordHidden

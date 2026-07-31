@@ -1450,8 +1450,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   return const Center(child: CircularProgressIndicator());
                 }
                 final mushafPage = snapshot.data!;
-                final layout = MushafLayoutProfile.forMushaf(2);
                 final actualMushafId = _isTajweedMushaf ? 11 : 2;
+                final layout = MushafLayoutProfile.forMushaf(actualMushafId);
                 final fontFamily = widget.foundationRepository.getFontFamily(actualMushafId, pageToShow);
 
                 final surahStartsByLine = <int, List<String>>{};
@@ -1468,10 +1468,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
                 return LayoutBuilder(
                   builder: (ctx, constraints) {
-                    return FittedBox(
-                      fit: BoxFit.contain,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: layout.horizontalPadding),
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
                         width: layout.pageWidth,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -1517,6 +1519,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           ],
                         ),
                       ),
+                    ),
                     );
                   },
                 );
@@ -2080,8 +2083,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           return const Center(child: CircularProgressIndicator());
                         }
                         final mushafPage = snapshot.data!;
-                        final layout = MushafLayoutProfile.forMushaf(2);
                         final actualMushafId = _isTajweedMushaf ? 11 : 2;
+                        final layout = MushafLayoutProfile.forMushaf(actualMushafId);
                         final fontFamily = widget.foundationRepository.getFontFamily(actualMushafId, pageNumber);
 
                         final surahStartsByLine = <int, List<String>>{};
@@ -2096,10 +2099,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           if (v.words.isNotEmpty) verseEndWords.add(v.words.last);
                         }
 
-                        return FittedBox(
-                          fit: BoxFit.contain,
-                          alignment: Alignment.topCenter,
-                          child: SizedBox(
+                        return Padding(
+                          padding: EdgeInsets.symmetric(horizontal: layout.horizontalPadding),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.topCenter,
+                            child: SizedBox(
                             width: layout.pageWidth,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -2150,6 +2155,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ],
                             ),
                           ),
+                        ),
                         );
                       },
                     ),
