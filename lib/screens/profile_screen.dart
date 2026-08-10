@@ -329,11 +329,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _openReading(String surahId, String verseId) {
+  Future<void> _openReading(String surahId, String verseId) async {
     final repository = widget.repository;
     if (repository == null) return;
 
-    Navigator.push(
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ReadingScreen(
@@ -343,6 +343,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+    if (!mounted || result is! Map) return;
+    final resultSurahId = result['surahId']?.toString();
+    final resultVerseId = result['verseId']?.toString();
+    if (resultSurahId != null && resultVerseId != null) {
+      final localReading = context.read<LocalReadingProvider>();
+      final resultProfileId = result['profileId']?.toString();
+      final profile = resultProfileId != null
+          ? localReading.profileById(resultProfileId)
+          : localReading.activeProfile;
+      await localReading.addRecentReading(
+        verse: toVerseRef(resultSurahId, resultVerseId),
+        profileId: profile?.id,
+      );
+    }
   }
 
   Future<void> _openBookmarks() async {

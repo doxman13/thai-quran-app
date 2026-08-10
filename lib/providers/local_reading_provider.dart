@@ -453,11 +453,17 @@ class LocalRecentReading {
   factory LocalRecentReading.fromJson(Map<String, dynamic> json) {
     return LocalRecentReading(
       id: json['id'].toString(),
-      userId: json['userId']?.toString() ?? 'local',
-      verse: toVerseRef(json['surahId'], json['verseId']),
-      profileId: json['profileId']?.toString(),
+      userId: (json['userId'] ?? json['user_id'])?.toString() ?? 'local',
+      verse: toVerseRef(
+        json['surahId'] ?? json['surah_id'],
+        json['verseId'] ?? json['verse_id'],
+      ),
+      profileId: (json['profileId'] ?? json['profile_id'])?.toString(),
       readAt:
-          DateTime.tryParse(json['readAt']?.toString() ?? '') ?? DateTime.now(),
+          DateTime.tryParse(
+            (json['readAt'] ?? json['read_at'])?.toString() ?? '',
+          ) ??
+          DateTime.now(),
     );
   }
 }

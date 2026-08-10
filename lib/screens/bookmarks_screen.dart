@@ -43,13 +43,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   static const int _displayLimit = 3;
   int _selectedMenuIndex = 0;
 
-  void _openReading({
+  Future<void> _openReading({
     required String surahId,
     String? verseId,
     int? verseIndex,
     bool saveToFreeReadOnly = false,
-  }) {
-    Navigator.push(
+  }) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ReadingScreen(
@@ -62,6 +62,22 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ),
       ),
     );
+    if (!mounted || result is! Map) return;
+    final resultSurahId = result['surahId']?.toString();
+    final resultVerseId = result['verseId']?.toString();
+    if (resultSurahId != null && resultVerseId != null) {
+      final localReading = context.read<LocalReadingProvider>();
+      final resultProfileId = result['profileId']?.toString();
+      final profile = resultProfileId != null
+          ? localReading.profileById(resultProfileId)
+          : saveToFreeReadOnly
+          ? localReading.freeReadProfile
+          : localReading.activeProfile;
+      await localReading.addRecentReading(
+        verse: toVerseRef(resultSurahId, resultVerseId),
+        profileId: profile?.id,
+      );
+    }
   }
 
   void _openMushaf(
@@ -1340,15 +1356,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                         surahName: surahName,
                         note: note,
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ReadingScreen(
-                                repository: widget.repository,
-                                initialSurah: surahId,
-                                initialVerseId: verseId,
-                              ),
-                            ),
+                          _openReading(
+                            surahId: surahId,
+                            verseId: verseId,
                           );
                         },
                         onEdit: () {
