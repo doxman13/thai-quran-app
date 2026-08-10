@@ -5,14 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../services/remote_content_service.dart';
-import '../theme/app_theme.dart';
 import '../widgets/translation_manager_section.dart';
 import '../shared/shared.dart';
 
 class SettingsScreen extends StatefulWidget {
   final QuranRepository? repository;
 
-  const SettingsScreen({Key? key, this.repository}) : super(key: key);
+  const SettingsScreen({super.key, this.repository});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -37,10 +36,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: colorScheme.onSurface,
           ),
         ),
-        backgroundColor: colorScheme.surfaceContainerLow,
+        backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
-        shape: Border(bottom: BorderSide(color: colorScheme.outline, width: 1)),
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -66,9 +65,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   value: settings.isDarkMode,
                   onChanged: (val) => settings.toggleDarkMode(val),
-                  activeColor: colorScheme.primary,
+                  activeThumbColor: colorScheme.primary,
                 ),
-                Divider(height: 1, color: colorScheme.outline, thickness: 1),
+                Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                  thickness: 1,
+                ),
                 SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -91,13 +94,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   value: settings.keepAwake,
                   onChanged: settings.toggleKeepAwake,
-                  activeColor: colorScheme.primary,
+                  activeThumbColor: colorScheme.primary,
                 ),
-                Divider(height: 1, color: colorScheme.outline, thickness: 1),
+                Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                  thickness: 1,
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: DropdownButtonFormField<String>(
-                    value: settings.languageCode,
+                    initialValue: settings.languageCode,
                     dropdownColor: colorScheme.surfaceContainerLow,
                     decoration: InputDecoration(
                       labelText: context.tr('language'),
@@ -112,21 +119,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         vertical: 12,
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: colorScheme.outline,
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.3,
+                          ),
                           width: 1,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: colorScheme.outline,
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.3,
+                          ),
                           width: 1,
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: colorScheme.primary,
                           width: 1.5,
@@ -140,6 +151,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       DropdownMenuItem(value: 'en', child: Text('English')),
                     ],
+                    selectedItemBuilder: (context) {
+                      return [
+                        Text(
+                          'ภาษาไทย',
+                          style: GoogleFonts.notoSansThai(
+                            color: colorScheme.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'English',
+                          style: GoogleFonts.notoSansThai(
+                            color: colorScheme.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ];
+                    },
                     onChanged: (val) {
                       if (val != null) settings.setLanguageCode(val);
                     },
@@ -186,7 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       activeTrackColor: colorScheme.primary,
                       inactiveTrackColor: colorScheme.outline,
                       thumbColor: colorScheme.primary,
-                      overlayColor: colorScheme.primary.withOpacity(0.1),
+                      overlayColor: colorScheme.primary.withValues(alpha: 0.1),
                     ),
                     child: Slider(
                       value: settings.arabicFontSize,
@@ -223,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       activeTrackColor: colorScheme.primary,
                       inactiveTrackColor: colorScheme.outline,
                       thumbColor: colorScheme.primary,
-                      overlayColor: colorScheme.primary.withOpacity(0.1),
+                      overlayColor: colorScheme.primary.withValues(alpha: 0.1),
                     ),
                     child: Slider(
                       value: settings.translationFontSize,
@@ -352,7 +383,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// A flat M3-styled settings group container.
+/// A minimal flat M3-styled settings group container.
 class _SettingsCard extends StatelessWidget {
   final ColorScheme colorScheme;
   final Widget child;
@@ -363,10 +394,12 @@ class _SettingsCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: colorScheme.outline, width: 1),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: child,
+      ),
     );
   }
 }

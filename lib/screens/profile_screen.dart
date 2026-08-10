@@ -29,7 +29,7 @@ const String googleLogoSvg = '''
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
 
-  const ProfileScreen({Key? key, this.repository}) : super(key: key);
+  const ProfileScreen({super.key, this.repository});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -627,7 +627,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.error.withOpacity(0.1),
+                    color: colorScheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   child: Text(
@@ -644,7 +644,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withOpacity(0.1),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   child: Text(
@@ -1524,18 +1524,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     switch (status) {
       case 'reviewed_fixed':
-        bgColor = colorScheme.primary.withOpacity(0.15);
+        bgColor = colorScheme.primary.withValues(alpha: 0.15);
         textColor = colorScheme.primary;
         label = 'แก้ไขแล้ว (Fixed)';
         break;
       case 'reviewed_not_needed':
-        bgColor = colorScheme.outline.withOpacity(0.15);
+        bgColor = colorScheme.outline.withValues(alpha: 0.15);
         textColor = colorScheme.onSurfaceVariant;
         label = 'ไม่ต้องแก้ไข (No Action)';
         break;
       case 'pending_review':
       default:
-        bgColor = colorScheme.secondary.withOpacity(0.15);
+        bgColor = colorScheme.secondary.withValues(alpha: 0.15);
         textColor = colorScheme.secondary;
         label = 'รอดำเนินการ (Pending)';
         break;
@@ -1546,7 +1546,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: textColor.withOpacity(0.2), width: 1),
+        border: Border.all(color: textColor.withValues(alpha: 0.2), width: 1),
       ),
       child: Text(
         label,
@@ -1684,8 +1684,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.primary.withOpacity(
-                                      0.15,
+                                    color: colorScheme.primary.withValues(
+                                      alpha: 0.15,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -1764,10 +1764,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               padding: const EdgeInsets.all(10),
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withOpacity(0.08),
+                                color: colorScheme.primary.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: colorScheme.primary.withOpacity(0.15),
+                                  color: colorScheme.primary.withValues(alpha: 0.15),
                                 ),
                               ),
                               child: Column(

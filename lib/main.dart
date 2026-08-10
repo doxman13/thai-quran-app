@@ -186,7 +186,7 @@ class _StartupErrorScreen extends StatelessWidget {
 
 class ThaiQuranApp extends StatelessWidget {
   final QuranRepository repository;
-  const ThaiQuranApp({Key? key, required this.repository}) : super(key: key);
+  const ThaiQuranApp({super.key, required this.repository});
 
   @override
   Widget build(BuildContext context) {

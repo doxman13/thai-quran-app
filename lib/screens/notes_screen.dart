@@ -12,7 +12,7 @@ import 'reading_screen.dart';
 class NotesScreen extends StatelessWidget {
   final QuranRepository repository;
 
-  const NotesScreen({Key? key, required this.repository}) : super(key: key);
+  const NotesScreen({super.key, required this.repository});
 
   @override
   Widget build(BuildContext context) {

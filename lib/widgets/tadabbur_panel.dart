@@ -15,11 +15,11 @@ class TadabburPanel extends StatefulWidget {
   final VoidCallback onClose;
 
   const TadabburPanel({
-    Key? key,
+    super.key,
     required this.surahId,
     required this.verseId,
     required this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<TadabburPanel> createState() => _TadabburPanelState();
@@ -138,7 +138,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -206,7 +206,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
-                      color: colors.foreground.withOpacity(0.6),
+                      color: colors.foreground.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -245,7 +245,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isDark
-                  ? colors.background.withOpacity(0.4)
+                  ? colors.background.withValues(alpha: 0.4)
                   : colors.surfaceMuted,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: colors.borderSoft),
@@ -273,7 +273,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
-                            color: colors.textStrong.withOpacity(0.6),
+                            color: colors.textStrong.withValues(alpha: 0.6),
                           ),
                         ),
                       ),
@@ -291,7 +291,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 timeago.format(_savedNote!.updatedAt),
                 style: GoogleFonts.inter(
                   fontSize: 11,
-                  color: colors.foreground.withOpacity(0.6),
+                  color: colors.foreground.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -450,13 +450,13 @@ class _TadabburPanelState extends State<TadabburPanel> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isPublic
-            ? Colors.green.withOpacity(0.08)
-            : colors.primary.withOpacity(0.08),
+            ? Colors.green.withValues(alpha: 0.08)
+            : colors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPublic
-              ? Colors.green.withOpacity(0.2)
-              : colors.primary.withOpacity(0.2),
+              ? Colors.green.withValues(alpha: 0.2)
+              : colors.primary.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -500,7 +500,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
               Icon(
                 Icons.rate_review_outlined,
                 size: 15,
-                color: colors.primary.withOpacity(0.8),
+                color: colors.primary.withValues(alpha: 0.8),
               ),
               const SizedBox(width: 6),
               Text(
@@ -527,7 +527,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
               ),
               filled: true,
               fillColor: isDark
-                  ? colors.background.withOpacity(0.4)
+                  ? colors.background.withValues(alpha: 0.4)
                   : colors.surfaceMuted,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -552,7 +552,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 Icon(
                   Icons.visibility_outlined,
                   size: 15,
-                  color: colors.primary.withOpacity(0.8),
+                  color: colors.primary.withValues(alpha: 0.8),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -570,7 +570,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: isDark
-                    ? colors.background.withOpacity(0.5)
+                    ? colors.background.withValues(alpha: 0.5)
                     : colors.surfaceMuted,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colors.borderSoft),
@@ -585,7 +585,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                         decoration: BoxDecoration(
                           color: !_isPublic
                               ? (isDark
-                                    ? colors.primary.withOpacity(0.2)
+                                    ? colors.primary.withValues(alpha: 0.2)
                                     : colors.primary)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
@@ -600,7 +600,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                                   ? (isDark
                                         ? colors.primary
                                         : colors.textInverse)
-                                  : colors.foreground.withOpacity(0.6),
+                                  : colors.foreground.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -614,7 +614,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                                     ? (isDark
                                           ? colors.primary
                                           : colors.textInverse)
-                                    : colors.foreground.withOpacity(0.8),
+                                    : colors.foreground.withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -630,7 +630,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                         decoration: BoxDecoration(
                           color: _isPublic
                               ? (isDark
-                                    ? colors.primary.withOpacity(0.2)
+                                    ? colors.primary.withValues(alpha: 0.2)
                                     : colors.primary)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(8),
@@ -645,7 +645,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                                   ? (isDark
                                         ? colors.primary
                                         : colors.textInverse)
-                                  : colors.foreground.withOpacity(0.6),
+                                  : colors.foreground.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -659,7 +659,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                                     ? (isDark
                                           ? colors.primary
                                           : colors.textInverse)
-                                    : colors.foreground.withOpacity(0.8),
+                                    : colors.foreground.withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -682,8 +682,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 foregroundColor: colors.textInverse,
                 disabledBackgroundColor:
                     (isTextEmpty ? Colors.red.shade400 : colors.primary)
-                        .withOpacity(0.25),
-                disabledForegroundColor: colors.textInverse.withOpacity(0.5),
+                        .withValues(alpha: 0.25),
+                disabledForegroundColor: colors.textInverse.withValues(alpha: 0.5),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

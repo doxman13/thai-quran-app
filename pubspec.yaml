@@ -38,6 +38,7 @@ dependencies:
   uuid: ^4.6.0
   firebase_core: ^4.12.1
   firebase_analytics: ^12.4.5
+  intl: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -57,6 +58,9 @@ flutter:
     - assets/quran_arabic.json
     - assets/Bismillah_Calligraphy6.svg
     - assets/logo.svg
+    - assets/logo-eng.svg
+    - assets/quran-app-LOGO-th.svg
+    - assets/quran-app-LOGO-eng.svg
     - assets/reconciled_thai_quran_themes.json
     - assets/surah_summary_th_exact.json
     - assets/surah_summary_en_exact.json

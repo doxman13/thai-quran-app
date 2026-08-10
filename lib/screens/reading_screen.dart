@@ -32,7 +32,7 @@ class ReadingScreen extends StatefulWidget {
   final String? shortcutId;
 
   const ReadingScreen({
-    Key? key,
+    super.key,
     required this.repository,
     this.initialSurah,
     this.initialVerseIndex,
@@ -40,7 +40,7 @@ class ReadingScreen extends StatefulWidget {
     this.openSettingsPanel = false,
     this.saveToFreeReadOnly = false,
     this.shortcutId,
-  }) : super(key: key);
+  });
 
   @override
   State<ReadingScreen> createState() => _ReadingScreenState();
@@ -694,7 +694,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     final verseNumber = int.tryParse(currentVerse.id) ?? -1;
     final showThemeHeader =
-        verseNumber != null && shouldShowHeader(verseNumber);
+        shouldShowHeader(verseNumber);
 
     final pageScrollableBody = NotificationListener<ScrollNotification>(
       onNotification: (notification) =>
@@ -884,7 +884,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           ),
                         ),
                         value: settings.isDarkMode,
-                        activeColor: colorScheme.primary,
+                        activeThumbColor: colorScheme.primary,
                         onChanged: (val) => settings.toggleDarkMode(val),
                       ),
                       const SizedBox(height: 16),
@@ -925,7 +925,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                value: settings.primaryTranslationId,
+                                initialValue: settings.primaryTranslationId,
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: colorScheme.surfaceContainerLow,
@@ -958,7 +958,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                value: settings.secondaryTranslationId ?? '',
+                                initialValue: settings.secondaryTranslationId ?? '',
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: colorScheme.surfaceContainerLow,
@@ -975,7 +975,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       value: opt.id,
                                       child: Text(opt.displayName(settings.languageCode)),
                                     );
-                                  }).toList(),
+                                  }),
                                 ],
                                 onChanged: (val) {
                                   if (val == null || val.isEmpty) {
@@ -1022,8 +1022,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               activeTrackColor: colorScheme.primary,
                               inactiveTrackColor: colorScheme.outline,
                               thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withOpacity(
-                                0.1,
+                              overlayColor: colorScheme.primary.withValues(
+                                alpha: 0.1,
                               ),
                             ),
                             child: Slider(
@@ -1069,8 +1069,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               activeTrackColor: colorScheme.primary,
                               inactiveTrackColor: colorScheme.outline,
                               thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withOpacity(
-                                0.1,
+                              overlayColor: colorScheme.primary.withValues(
+                                alpha: 0.1,
                               ),
                             ),
                             child: Slider(
@@ -1152,8 +1152,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: isDark
-            ? colors.surfaceMuted.withOpacity(0.5)
-            : colors.primaryLight.withOpacity(0.5),
+            ? colors.surfaceMuted.withValues(alpha: 0.5)
+            : colors.primaryLight.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.borderSoft),
       ),
@@ -1185,8 +1185,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       decoration: BoxDecoration(
         color: isDark
-            ? colors.surfaceMuted.withOpacity(0.7)
-            : colors.primaryLight.withOpacity(0.55),
+            ? colors.surfaceMuted.withValues(alpha: 0.7)
+            : colors.primaryLight.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.borderSoft),
       ),
@@ -1242,12 +1242,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ? GoogleFonts.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: colors.foreground.withOpacity(0.72),
+                  color: colors.foreground.withValues(alpha: 0.72),
                 )
               : GoogleFonts.notoSansThai(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
-                  color: colors.foreground.withOpacity(0.72),
+                  color: colors.foreground.withValues(alpha: 0.72),
                 ),
           ),
         ],
@@ -1954,7 +1954,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       border: Border.all(
                                         color: isDark
                                             ? Colors.blueGrey.shade800
-                                                  .withOpacity(0.4)
+                                                  .withValues(alpha: 0.4)
                                             : Colors.grey.shade200,
                                         width: 1,
                                       ),
@@ -2004,12 +2004,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark
-              ? Colors.blueGrey.shade800.withOpacity(0.5)
+              ? Colors.blueGrey.shade800.withValues(alpha: 0.5)
               : Colors.grey.shade200,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2087,8 +2087,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   currentSurahInt < 114 &&
                   _activeProfileHasVisibleVersesInSurah(nextSurahId);
 
-              if (!hasPrevSurah && !hasNextSurah)
+              if (!hasPrevSurah && !hasNextSurah) {
                 return const SizedBox.shrink();
+              }
 
               return Row(
                 children: [
@@ -2099,7 +2100,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
                           side: BorderSide(
-                            color: primaryColor.withOpacity(0.5),
+                            color: primaryColor.withValues(alpha: 0.5),
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -2124,7 +2125,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryColor,
                           side: BorderSide(
-                            color: primaryColor.withOpacity(0.5),
+                            color: primaryColor.withValues(alpha: 0.5),
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -2270,13 +2271,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
         backgroundColor: active && !disabled
-            ? colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08)
+            ? colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08)
             : Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
             color: active && !disabled
-                ? colorScheme.primary.withOpacity(isDark ? 0.3 : 0.15)
+                ? colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15)
                 : Colors.transparent,
             width: 1,
           ),
@@ -2285,10 +2286,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
       icon: Icon(
         icon,
         color: disabled
-            ? colorScheme.onSurfaceVariant.withOpacity(0.2)
+            ? colorScheme.onSurfaceVariant.withValues(alpha: 0.2)
             : active
             ? colorScheme.primary
-            : colorScheme.onSurfaceVariant.withOpacity(0.45),
+            : colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
       ),
       onPressed: onPressed,
     );

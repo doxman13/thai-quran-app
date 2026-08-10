@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
@@ -11,6 +13,8 @@ import '../data/quran_repository.dart';
 import '../models/hifz_task.dart';
 import '../providers/hifz_session_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
+import '../providers/mushaf_reading_provider.dart';
+import '../providers/notes_provider.dart';
 
 import '../models/hifz_session_config.dart';
 import '../database/hifz_repository.dart';
@@ -18,11 +22,11 @@ import '../providers/settings_provider.dart';
 import 'hifz_new_verses_setup_screen.dart';
 import '../providers/ble_remote_provider.dart';
 import 'hifz_mastery_list_screen.dart';
+import 'hifz_settings_screen.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/tajweed_service.dart';
-import '../widgets/tajweed_text.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -548,6 +552,47 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   audio.playRange(surahStr, fullRangeVerses);
                 },
               ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              StatefulBuilder(
+                builder: (context, setModalState) {
+                  final vol = audio.volume;
+                  final pct = (vol * 100).round();
+                  return Row(
+                    children: [
+                      Icon(
+                        vol == 0.0
+                            ? Icons.volume_off_rounded
+                            : vol < 0.5
+                                ? Icons.volume_down_rounded
+                                : Icons.volume_up_rounded,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: vol,
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (v) {
+                            audio.setVolume(v);
+                            setModalState(() {});
+                          },
+                          activeColor: colorScheme.primary,
+                        ),
+                      ),
+                      Text(
+                        '$pct%',
+                        style: textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -643,6 +688,47 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                 onTap: () {
                   Navigator.pop(ctx);
                   _playPageAudio(audio, currentReviewPage);
+                },
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              StatefulBuilder(
+                builder: (context, setModalState) {
+                  final vol = audio.volume;
+                  final pct = (vol * 100).round();
+                  return Row(
+                    children: [
+                      Icon(
+                        vol == 0.0
+                            ? Icons.volume_off_rounded
+                            : vol < 0.5
+                                ? Icons.volume_down_rounded
+                                : Icons.volume_up_rounded,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: vol,
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (v) {
+                            audio.setVolume(v);
+                            setModalState(() {});
+                          },
+                          activeColor: colorScheme.primary,
+                        ),
+                      ),
+                      Text(
+                        '$pct%',
+                        style: textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  );
                 },
               ),
             ],
@@ -1236,14 +1322,23 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           Consumer<MushafAudioProvider>(
             builder: (context, audio, _) {
               return IconButton(
-                icon: Icon(
-                  audio.isPlaying
-                      ? Icons.pause_circle_filled_rounded
-                      : Icons.volume_up_rounded,
-                  color: audio.isPlaying ? colorScheme.primary : null,
-                  size: 22,
-                ),
-                tooltip: 'Audio Recitation',
+                icon: audio.isLoading
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        audio.isPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.volume_up_rounded,
+                        color: audio.isPlaying ? colorScheme.primary : null,
+                        size: 22,
+                      ),
+                tooltip: audio.isLoading ? 'Loading audio...' : 'Audio Recitation',
                 onPressed: () {
                   if (isReview) {
                     _showReviewAudioOptionsDialog(context, provider);
@@ -1337,11 +1432,22 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     _isTajweedMushaf = !_isTajweedMushaf;
                   });
                   break;
+                case 'ble_settings':
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const HifzSettingsScreen(),
+                    ),
+                  );
+                  _syncInputModeToNative();
+                  if (mounted) setState(() {});
+                  break;
               }
             },
             itemBuilder: (_) => [
               _buildPopupItem('switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
               _buildPopupItem('tajweed', Icons.font_download_outlined, _isTajweedMushaf ? 'Standard Mushaf' : 'Tajweed Mushaf'),
+              _buildPopupItem('ble_settings', Icons.settings_outlined, 'Hifz & Translation Settings'),
               if (!isReview)
                 _buildPopupItem('range', Icons.tune_rounded, 'Select Range'),
               _buildPopupItem('report', Icons.analytics_outlined, 'Report'),
@@ -1378,8 +1484,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       final verse = step.verseStart ?? 1;
       basePageForStep = qcf.getPageNumber(surah, verse);
     }
-    final int currentReviewPage =
-        (basePageForStep + _reviewPageOffset).clamp(1, 604);
 
     final activeSurah = (granularity != ReviewGranularity.byPage)
         ? (step.surahNumber ?? step.primaryIndex)
@@ -1589,23 +1693,141 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   Widget _buildBottomBar(BuildContext context, HifzSessionProvider provider,
       ColorScheme colorScheme, TextTheme textTheme, bool isReview) {
+    return Consumer<MushafAudioProvider>(
+      builder: (context, audio, _) {
+        final showAudioPlayer = audio.isPlaying || audio.isLoading || audio.currentVerseKey != null;
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, -3),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showAudioPlayer)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildLiveAudioPlayerBar(context, audio, colorScheme, textTheme),
+                  )
+                else if (isReview)
+                  _buildReviewBottomBar(context, provider, colorScheme, textTheme)
+                else
+                  _buildNewVersesBottomBar(context, provider, colorScheme, textTheme),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLiveAudioPlayerBar(BuildContext context, MushafAudioProvider audio,
+      ColorScheme colorScheme, TextTheme textTheme) {
+    final volume = audio.volume;
+    final percentage = (volume * 100).round();
+    final verseKey = audio.currentVerseKey ?? '';
+
+    IconData volumeIcon;
+    if (volume == 0.0) {
+      volumeIcon = Icons.volume_off_rounded;
+    } else if (volume < 0.5) {
+      volumeIcon = Icons.volume_down_rounded;
+    } else {
+      volumeIcon = Icons.volume_up_rounded;
+    }
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -3),
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.graphic_eq_rounded, color: colorScheme.primary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  verseKey.isNotEmpty ? 'Reciting Verse $verseKey' : 'Audio Recitation',
+                  style: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: audio.isLoading
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        audio.isPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.play_circle_fill_rounded,
+                        color: colorScheme.primary,
+                        size: 24,
+                      ),
+                onPressed: () => audio.togglePlayPause(),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.stop_rounded, color: colorScheme.error, size: 22),
+                onPressed: () => audio.stop(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(volumeIcon, size: 16, color: colorScheme.onSurfaceVariant),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  ),
+                  child: Slider(
+                    value: volume,
+                    min: 0.0,
+                    max: 1.0,
+                    onChanged: (v) => audio.setVolume(v),
+                    activeColor: colorScheme.primary,
+                  ),
+                ),
+              ),
+              Text(
+                '$percentage%',
+                style: textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: isReview
-            ? _buildReviewBottomBar(context, provider, colorScheme, textTheme)
-            : _buildNewVersesBottomBar(context, provider, colorScheme, textTheme),
       ),
     );
   }
@@ -2225,7 +2447,25 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               );
             }
 
-            return AnimatedContainer(
+            final verseKey = '${provider.surahNumber}:$verseNum';
+            final notesProvider = context.watch<NotesProvider>();
+            final readingProvider = context.watch<MushafReadingProvider>();
+            final favorited = notesProvider.getNoteObjectForVerse(
+                  provider.surahNumber.toString(),
+                  verseNum.toString(),
+                ) !=
+                null;
+            final bookmarked = readingProvider.isVerseBookmarked(
+              1,
+              1,
+              verseKey,
+            );
+
+            final showBismillah = (index == 0 || verseNum == 1) &&
+                provider.surahNumber != 1 &&
+                provider.surahNumber != 9;
+
+            final card = AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -2245,6 +2485,142 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        verseKey,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          Icons.more_horiz_rounded,
+                          size: 20,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        onSelected: (val) async {
+                          if (val == 'play') {
+                            if (isCurrentPlaying || isCurrentLoading) {
+                              audio.stop();
+                            } else {
+                              audio.playRange(
+                                provider.surahNumber.toString(),
+                                [verseNum],
+                              );
+                            }
+                          } else if (val == 'bookmark') {
+                            await readingProvider.toggleVerseBookmark(
+                              mushafId: 1,
+                              pageNumber: 1,
+                              verseKey: verseKey,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    bookmarked
+                                        ? 'Bookmark removed'
+                                        : 'Verse bookmarked',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          } else if (val == 'favorite') {
+                            final surahStr = provider.surahNumber.toString();
+                            final verseStr = verseNum.toString();
+                            if (favorited) {
+                              await notesProvider.deleteNote(surahStr, verseStr);
+                            } else {
+                              await notesProvider.saveNote(
+                                surahId: surahStr,
+                                verseId: verseStr,
+                                noteText: '',
+                              );
+                            }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    favorited
+                                        ? 'Removed from favorites'
+                                        : 'Saved to favorites',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'play',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isCurrentPlaying
+                                      ? Icons.pause_circle_filled_rounded
+                                      : Icons.play_circle_fill_rounded,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  isCurrentPlaying ? 'Pause verse' : 'Play verse',
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'bookmark',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  bookmarked
+                                      ? Icons.bookmark_rounded
+                                      : Icons.bookmark_border_rounded,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  bookmarked ? 'Remove bookmark' : 'Bookmark',
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'favorite',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  favorited
+                                      ? Icons.favorite_rounded
+                                      : Icons.favorite_border_rounded,
+                                  size: 20,
+                                  color: favorited
+                                      ? Colors.red
+                                      : colorScheme.primary,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  favorited ? 'Remove favorite' : 'Favorite',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -2321,6 +2697,28 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   ],
                 ],
               ),
+            );
+
+            if (!showBismillah) return card;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 16),
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/Bismillah_Calligraphy6.svg',
+                      height: 48,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                ),
+                card,
+              ],
             );
           },
         );

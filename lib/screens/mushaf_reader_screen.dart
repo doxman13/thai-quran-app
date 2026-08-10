@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart';
@@ -24,6 +25,7 @@ import '../models/verse.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
+import 'settings_screen.dart';
 import '../widgets/tadabbur_panel.dart';
 
 class MushafReaderScreen extends StatefulWidget {
@@ -56,6 +58,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   bool _isTranslationView = false;
   bool _isMenuVisible = true;
   bool _completionShown = false;
+  bool _dismissedCompletionCard = false;
   String? _highlightedVerseKey;
   String? _translationVerseKey;
   String? _translationText;
@@ -63,6 +66,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   Timer? _translationTimer;
   Timer? _highlightTimer;
   Timer? _menuAutoHideTimer;
+  Timer? _completionAutoDismissTimer;
   int? _lastAudioPageNumber;
 
   void _startAutoHideTimer() {
@@ -189,6 +193,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     _translationTimer?.cancel();
     _highlightTimer?.cancel();
     _menuAutoHideTimer?.cancel();
+    _completionAutoDismissTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -209,7 +214,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
   Future<void> _handlePageChanged(MushafProfile profile, int page) async {
     _dismissTranslation();
-    setState(() => _pageNumber = page);
+    setState(() {
+      _pageNumber = page;
+      _dismissedCompletionCard = false;
+    });
     if (widget.shortcutId != null) {
       final pageData = await widget.foundationRepository.fetchPage(
         mushafId: 2,
@@ -275,6 +283,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   void _showCompletionOnce() {
     if (_completionShown || !mounted) return;
     _completionShown = true;
+    _dismissedCompletionCard = false;
+    _completionAutoDismissTimer?.cancel();
+    _completionAutoDismissTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && !_dismissedCompletionCard) {
+        setState(() {
+          _dismissedCompletionCard = true;
+        });
+      }
+    });
     setState(() {});
   }
 
@@ -942,7 +959,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                   ),
                                 ),
                                 if (!profile.isFreeRead &&
-                                    _pageNumber == profile.targetPage)
+                                    _pageNumber == profile.targetPage &&
+                                    !_dismissedCompletionCard)
                                   Positioned(
                                     left: 16,
                                     right: 16,
@@ -956,6 +974,12 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     child: _CompletionCard(
                                       colors: colors,
                                       profile: profile,
+                                      onDismiss: () {
+                                        _completionAutoDismissTimer?.cancel();
+                                        setState(() {
+                                          _dismissedCompletionCard = true;
+                                        });
+                                      },
                                     ),
                                   ),
                                 if (_translationText != null)
@@ -1355,7 +1379,7 @@ class _MushafReaderSettingsSheetState
               border: Border.all(color: colors.borderSoft),
             ),
             child: SwitchListTile(
-              activeColor: colors.primary,
+              activeThumbColor: colors.primary,
               secondary: Icon(
                 settings.isDarkMode ? Icons.dark_mode : Icons.light_mode,
                 color: colors.primary,
@@ -1430,6 +1454,88 @@ class _MushafReaderSettingsSheetState
                 },
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+
+          // Translation Selection Label
+          Text(
+            context.tr('translation'),
+            style: GoogleFonts.notoSansThai(
+              color: colors.textStrong,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Translation Selection Dropdown
+          Builder(
+            builder: (context) {
+              final transManager = Provider.of<TranslationManagerProvider>(context);
+              final translationOptions = <Map<String, String>>[
+                {'id': 'thai_v3', 'name': 'ภาษาไทย (ฉบับสมาคมฯ)'},
+              ];
+              for (final item in transManager.downloadedTranslations) {
+                final id = item['id'].toString();
+                final name = item['name']?.toString() ?? 'Downloaded translation';
+                if (!translationOptions.any((o) => o['id'] == id)) {
+                  translationOptions.add({'id': id, 'name': name});
+                }
+              }
+              translationOptions.add({
+                'id': 'download_more',
+                'name': '+ ดาวน์โหลดเพิ่มเติม... / Download more...',
+              });
+
+              final selectedTranslationId = translationOptions.any((o) => o['id'] == settings.primaryTranslationId)
+                  ? settings.primaryTranslationId
+                  : 'thai_v3';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: colors.borderSoft),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedTranslationId,
+                    dropdownColor: colors.surface,
+                    icon: Icon(Icons.keyboard_arrow_down, color: colors.foreground),
+                    isExpanded: true,
+                    items: translationOptions
+                        .map(
+                          (opt) => DropdownMenuItem<String>(
+                            value: opt['id'],
+                            child: Text(
+                              opt['name']!,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14,
+                                fontWeight: opt['id'] == 'download_more' ? FontWeight.w800 : FontWeight.w600,
+                                color: opt['id'] == 'download_more' ? colors.primary : colors.textStrong,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == 'download_more') {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        );
+                      } else if (value != null) {
+                        settings.updateTranslationSlot('primary', value);
+                      }
+                    },
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Text(
@@ -1862,7 +1968,7 @@ class _QcfPackagePageView extends StatelessWidget {
                   customHeaderBuilder: (surahNumber) => QcfSurahHeader(
                     surahNumber: surahNumber,
                     colors: colors,
-                    showBismillahText: false,
+                    showBismillahText: true,
                   ),
                 ),
                 verseBackgroundColor: (surah, verse) {
@@ -1990,7 +2096,7 @@ class MushafPageView extends StatelessWidget {
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
 
-  const MushafPageView({
+  const MushafPageView({super.key, 
     required this.colors,
     required this.page,
     required this.fontFamily,
@@ -2186,7 +2292,7 @@ class QcfSurahHeader extends StatelessWidget {
   final AppThemeColors colors;
   final bool showBismillahText;
 
-  const QcfSurahHeader({
+  const QcfSurahHeader({super.key, 
     required this.surahNumber,
     required this.colors,
     this.showBismillahText = true,
@@ -2309,7 +2415,7 @@ class MushafLine extends StatelessWidget {
   final bool Function(String)? isVerseHidden;
   final bool isPeekActive;
 
-  const MushafLine({
+  const MushafLine({super.key, 
     required this.line,
     required this.fontFamily,
     required this.mushafId,
@@ -2355,7 +2461,7 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 => pageNumber <= 2 ? 34.0 : 29.5,
+      11 => pageNumber <= 2 ? 34.0 : 25.5,
       19 => 25.2,
       _ => 22.5,
     };
@@ -2379,6 +2485,8 @@ class MushafLine extends StatelessWidget {
         : null;
 
     final textSpans = <InlineSpan>[];
+    final wordWidgets = <Widget>[];
+
     for (int i = 0; i < line.length; i++) {
       final word = line[i];
       final isEndWord = verseEndWords.contains(word);
@@ -2396,18 +2504,20 @@ class MushafLine extends StatelessWidget {
       final recognizer = TapGestureRecognizer()
         ..onTap = () => onVerseTap(word.verseKey);
 
+      final wordSpans = <InlineSpan>[];
+
       if ((mushafId == 11) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
-          textSpans.add(
-            TextSpan(
-              text: part.text,
-              style: baseStyle.copyWith(
-                color: wordColor ?? _getTajweedColor(part.className, context),
-                backgroundColor: highlightColor,
-              ),
-              recognizer: recognizer,
+          final span = TextSpan(
+            text: part.text,
+            style: baseStyle.copyWith(
+              color: wordColor ?? _getTajweedColor(part.className, context),
+              backgroundColor: highlightColor,
             ),
+            recognizer: recognizer,
           );
+          textSpans.add(span);
+          wordSpans.add(span);
         }
         textSpans.add(
           TextSpan(
@@ -2418,16 +2528,23 @@ class MushafLine extends StatelessWidget {
         );
       } else {
         final overrideFont = (mushafId == 11 && isEndWord) ? 'qcf_v1_p$pageNumber' : null;
-        final overrideFontSize = (mushafId == 11 && isEndWord) ? (pageNumber <= 2 ? 38.0 : 30.5) : baseStyle.fontSize;
+        final overrideFontSize = (mushafId == 11 && isEndWord) ? (pageNumber <= 2 ? 38.0 : 26.5) : baseStyle.fontSize;
+        final span = TextSpan(
+          text: word.text,
+          style: baseStyle.copyWith(
+            color: wordColor,
+            backgroundColor: highlightColor,
+            fontFamily: overrideFont,
+            fontSize: overrideFontSize,
+          ),
+          recognizer: recognizer,
+        );
+        textSpans.add(span);
+        wordSpans.add(span);
         textSpans.add(
           TextSpan(
-            text: '${word.text} ',
-            style: baseStyle.copyWith(
-              color: wordColor,
-              backgroundColor: highlightColor,
-              fontFamily: overrideFont,
-              fontSize: overrideFontSize,
-            ),
+            text: ' ',
+            style: baseStyle.copyWith(backgroundColor: highlightColor),
             recognizer: recognizer,
           ),
         );
@@ -2437,35 +2554,55 @@ class MushafLine extends StatelessWidget {
         final verseNumber = int.tryParse(word.verseKey.split(':').last) ?? 0;
         final marker =
             '${String.fromCharCode(0x06dd)}${_arabicIndicDigits(verseNumber)}';
-        textSpans.add(
-          TextSpan(
-            text: marker,
-            style: TextStyle(
-              fontFamily: 'UthmanicHafs',
-              fontSize: 13,
-              height: 1,
-              color: isWordHidden
-                  ? Colors.transparent
-                  : Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
-              backgroundColor: highlightColor,
-            ),
-            recognizer: recognizer,
+        final markerSpan = TextSpan(
+          text: marker,
+          style: TextStyle(
+            fontFamily: 'UthmanicHafs',
+            fontSize: 13,
+            height: 1,
+            color: isWordHidden
+                ? Colors.transparent
+                : Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
+            backgroundColor: highlightColor,
+          ),
+          recognizer: recognizer,
+        );
+        textSpans.add(markerSpan);
+        wordSpans.add(markerSpan);
+      }
+
+      if (mushafId == 11) {
+        wordWidgets.add(
+          RichText(
+            textDirection: TextDirection.rtl,
+            strutStyle: strutStyle,
+            textHeightBehavior: textHeightBehavior,
+            text: TextSpan(children: wordSpans),
           ),
         );
       }
     }
 
-    final richText = RichText(
-      textAlign: isShortLine ? TextAlign.center : TextAlign.justify,
-      textDirection: TextDirection.rtl,
-      strutStyle: strutStyle,
-      textHeightBehavior: textHeightBehavior,
-      softWrap:
-          false, // ensures it calculates width identically to Row without wrapping
-      text: TextSpan(children: textSpans),
-    );
+    final Widget lineChild;
+    if (mushafId == 11 && !isShortLine && wordWidgets.length > 1) {
+      lineChild = Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        textDirection: TextDirection.rtl,
+        children: wordWidgets,
+      );
+    } else {
+      lineChild = RichText(
+        textAlign: isShortLine ? TextAlign.center : TextAlign.justify,
+        textDirection: TextDirection.rtl,
+        strutStyle: strutStyle,
+        textHeightBehavior: textHeightBehavior,
+        softWrap:
+            false, // ensures it calculates width identically to Row without wrapping
+        text: TextSpan(children: textSpans),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: lineVerticalPadding),
@@ -2488,7 +2625,7 @@ class MushafLine extends StatelessWidget {
             alignment: Alignment.center,
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: lineWidth),
-              child: richText,
+              child: lineChild,
             ),
           ),
         ),
@@ -2690,17 +2827,29 @@ class _TranslationPanel extends StatelessWidget {
 class _CompletionCard extends StatelessWidget {
   final AppThemeColors colors;
   final MushafProfile profile;
+  final VoidCallback onDismiss;
 
-  const _CompletionCard({required this.colors, required this.profile});
+  const _CompletionCard({
+    required this.colors,
+    required this.profile,
+    required this.onDismiss,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colors.primaryLight,
         border: Border.all(color: colors.primaryLightBorder),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -2708,12 +2857,23 @@ class _CompletionCard extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '${profile.name} complete',
+              '${profile.name} complete 🎉',
               style: GoogleFonts.notoSansThai(
                 color: colors.textStrong,
                 fontWeight: FontWeight.w900,
               ),
             ),
+          ),
+          IconButton(
+            onPressed: onDismiss,
+            icon: Icon(
+              Icons.close_rounded,
+              color: colors.foreground.withValues(alpha: 0.6),
+              size: 20,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Close',
           ),
         ],
       ),
@@ -3098,70 +3258,112 @@ class _FloatingAudioControlBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colors.borderSoft, width: 1),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        surahName,
-                        style: GoogleFonts.notoSansThai(
-                          color: colors.textStrong,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        verseText,
-                        style: GoogleFonts.notoSansThai(
-                          color: colors.foreground.withValues(alpha: 0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.skip_previous_rounded),
-                  color: colors.primary,
-                  onPressed: audioProvider.previousVerse,
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: audioProvider.isLoading
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colors.primary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            surahName,
+                            style: GoogleFonts.notoSansThai(
+                              color: colors.textStrong,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                      : Icon(
-                          audioProvider.isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                          const SizedBox(height: 2),
+                          Text(
+                            verseText,
+                            style: GoogleFonts.notoSansThai(
+                              color: colors.foreground.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.skip_previous_rounded),
+                      color: colors.primary,
+                      onPressed: audioProvider.previousVerse,
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: audioProvider.isLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colors.primary,
+                              ),
+                            )
+                          : Icon(
+                              audioProvider.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                            ),
+                      color: colors.primary,
+                      iconSize: 32,
+                      onPressed: audioProvider.togglePlayPause,
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.skip_next_rounded),
+                      color: colors.primary,
+                      onPressed: audioProvider.nextVerse,
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(Icons.stop_rounded),
+                      color: Colors.redAccent,
+                      onPressed: audioProvider.stop,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      audioProvider.volume == 0.0
+                          ? Icons.volume_off_rounded
+                          : audioProvider.volume < 0.5
+                              ? Icons.volume_down_rounded
+                              : Icons.volume_up_rounded,
+                      size: 18,
+                      color: colors.foreground.withValues(alpha: 0.7),
+                    ),
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 3,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                         ),
-                  color: colors.primary,
-                  iconSize: 32,
-                  onPressed: audioProvider.togglePlayPause,
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.skip_next_rounded),
-                  color: colors.primary,
-                  onPressed: audioProvider.nextVerse,
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.stop_rounded),
-                  color: Colors.redAccent,
-                  onPressed: audioProvider.stop,
+                        child: Slider(
+                          value: audioProvider.volume,
+                          min: 0.0,
+                          max: 1.0,
+                          onChanged: (v) => audioProvider.setVolume(v),
+                          activeColor: colors.primary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(audioProvider.volume * 100).round()}%',
+                      style: GoogleFonts.notoSansThai(
+                        color: colors.foreground.withValues(alpha: 0.7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -3334,7 +3536,11 @@ class _PageTranslationListViewState extends State<_PageTranslationListView> {
                       notesProvider.getNoteObjectForVerse(surahId, verseId) !=
                       null;
 
-                  return Center(
+                  final showBismillah = (verseId == '1' || verseId == 1) &&
+                      surahId != '1' &&
+                      surahId != '9';
+
+                  final rowCard = Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 720),
                       child: _TranslationVerseRow(
@@ -3358,6 +3564,26 @@ class _PageTranslationListViewState extends State<_PageTranslationListView> {
                         onFavorite: () => widget.onFavoriteVerse(verseKey),
                       ),
                     ),
+                  );
+
+                  if (!showBismillah) return rowCard;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 16),
+                        child: SvgPicture.asset(
+                          'assets/Bismillah_Calligraphy6.svg',
+                          height: 48,
+                          colorFilter: ColorFilter.mode(
+                            colors.textStrong,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                      rowCard,
+                    ],
                   );
                 },
               );

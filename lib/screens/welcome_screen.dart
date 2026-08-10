@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 import 'home_screen.dart';
 import '../data/quran_repository.dart';
 import '../services/remote_content_service.dart';
@@ -99,6 +101,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     const backgroundColor = Color(0xFF0E5C59);
     const textColor = Color(0xFFF5EDDC);
 
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
+    final logoAsset =
+        isThai ? 'assets/quran-app-LOGO-th.svg' : 'assets/quran-app-LOGO-eng.svg';
+
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
@@ -142,7 +148,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
                     // Logo at the bottom
                     SvgPicture.asset(
-                      'assets/logo.svg',
+                      logoAsset,
                       height: 128,
                     ),
                      const SizedBox(height: 32),

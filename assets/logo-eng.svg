@@ -1,0 +1,23 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4267 4267" width="4267" height="4267">
+	<style>
+		tspan { white-space:pre } 
+		.s0 { fill: #0e5c59 } 
+		.s1 { fill: #f5eede } 
+		.s2 { fill: #8f7e5e } 
+		.t3 { font-size: 500px;fill: #f5eede;font-weight: 400;font-family: "NotoSans-Regular", "Noto Sans" } 
+	</style>
+	<g id="Page 1">
+		<path id="Path 1" fill-rule="evenodd" class="s0" d="m0 4267h4266.67v-4266.67h-4266.67z"/>
+		<path id="Path 2" fill-rule="evenodd" class="s1" d="m1710.55 1368.1c16.05-1.87 50.45-1.04 67.39-1.02l124.11 0.14 408.43-0.08-0.04 510.94 170.77-0.06-0.04-510.88 849.93 0.01 0.02 849.79h-763.41l-595.8 0.04 0.1-512.58h-172.51l0.06 512.56-849.59 0.02-0.02-339.02 510.69 0.08-0.05-509.1 163.51 0.16c22.46 0.02 66.21 1.33 86.45-1z"/>
+		<path id="Path 3" fill-rule="evenodd" class="s0" d="m2821.15 1704.41h170.75l-0.03 173.63-170.72 0.01z"/>
+		<path id="Path 4" fill-rule="evenodd" class="s1" d="m3503.31 858.09l337.23-0.09v1358.96l-337.14-0.02z"/>
+		<path id="Path 5" fill-rule="evenodd" class="s1" d="m440.17 858.11l337.31-0.09 0.01 71.45-169.22-0.03 0.01 87.48 169.16-0.01 0.02 1032.38 0.01 167.67-337.25 0.02z"/>
+		<path id="Path 6" fill-rule="evenodd" class="s2" d="m364.49 2555.73l3537.61 0.08-0.04 106.54-3537.51 0.19z"/>
+		<path id="Path 7" fill-rule="evenodd" class="s1" d="m2481.12 858.09l340.07-0.11v338.46l-340.02 0.01z"/>
+		<path id="Path 8" fill-rule="evenodd" class="s1" d="m2991.81 858.13c111.34-1.81 227.57-0.1 339.31-0.11v338.36l-339.27 0.11z"/>
+		<text id="QURAN SPACE" style="transform: matrix(1.027,0,0,1.027,393.191,3382.065)">
+			<tspan x="0" y="0" class="t3">Q</tspan><tspan  y="0" class="t3">U</tspan><tspan  y="0" class="t3">R</tspan><tspan  y="0" class="t3">A</tspan><tspan  y="0" class="t3">N</tspan><tspan  y="0" class="t3"> </tspan><tspan  y="0" class="t3">S</tspan><tspan  y="0" class="t3">P</tspan><tspan  y="0" class="t3">A</tspan><tspan  y="0" class="t3">C</tspan><tspan  y="0" class="t3">E</tspan><tspan  y="0" class="t3">
+</tspan>
+		</text>
+	</g>
+</svg>

@@ -17,8 +17,7 @@ import 'tadabbur_community_screen.dart';
 class TadabburPrivateScreen extends StatefulWidget {
   final QuranRepository repository;
 
-  const TadabburPrivateScreen({Key? key, required this.repository})
-    : super(key: key);
+  const TadabburPrivateScreen({super.key, required this.repository});
 
   @override
   State<TadabburPrivateScreen> createState() => _TadabburPrivateScreenState();
@@ -369,7 +368,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isActive
-                                  ? colorScheme.primary.withOpacity(0.2)
+                                  ? colorScheme.primary.withValues(alpha: 0.2)
                                   : colorScheme.surface,
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -534,7 +533,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
           onChanged: (val) {
             setState(() {
@@ -628,7 +627,7 @@ class _NoteCardState extends State<_NoteCard> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: widget.primaryColor.withOpacity(0.1),
+                      color: widget.primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -730,12 +729,12 @@ class _NoteCardState extends State<_NoteCard> {
                             ),
                             decoration: BoxDecoration(
                               color: note.isPublic
-                                  ? Colors.green.withOpacity(0.1)
+                                  ? Colors.green.withValues(alpha: 0.1)
                                   : colorScheme.surfaceContainerLow,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
                                 color: note.isPublic
-                                    ? Colors.green.withOpacity(0.3)
+                                    ? Colors.green.withValues(alpha: 0.3)
                                     : colorScheme.outlineVariant,
                               ),
                             ),

@@ -49,7 +49,7 @@ void main() {
         if (verseKey == '2:181' || verseKey == '8:6' || verseKey == '13:37') {
           for (int i = 0; i < tajWords.length - 1; i++) {
             if (tajWords[i].contains('عۡدَ') && tajWords[i+1].contains('مَا')) {
-              tajWords[i] = tajWords[i] + ' ' + tajWords[i+1];
+              tajWords[i] = '${tajWords[i]} ${tajWords[i+1]}';
               tajWords.removeAt(i + 1);
               break;
             }
@@ -59,7 +59,7 @@ void main() {
         if (tajWords.length > qcfWords.length && tajWords.contains('۩')) {
           final idx = tajWords.indexOf('۩');
           if (idx > 0) {
-            tajWords[idx - 1] = tajWords[idx - 1] + ' ' + tajWords[idx];
+            tajWords[idx - 1] = '${tajWords[idx - 1]} ${tajWords[idx]}';
             tajWords.removeAt(idx);
           }
         }

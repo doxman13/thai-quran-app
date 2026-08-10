@@ -115,7 +115,7 @@ class TajweedService {
     if (verseKey == '2:181' || verseKey == '8:6' || verseKey == '13:37') {
       for (int i = 0; i < result.length - 1; i++) {
         if (result[i].contains('عۡدَ') && result[i+1].contains('مَا')) {
-          result[i] = result[i] + ' ' + result[i+1];
+          result[i] = '${result[i]} ${result[i+1]}';
           result.removeAt(i + 1);
           break;
         }
@@ -125,7 +125,7 @@ class TajweedService {
     if (result.length > qcfLength && result.contains('۩')) {
       final idx = result.indexOf('۩');
       if (idx > 0) {
-        result[idx - 1] = result[idx - 1] + ' ' + result[idx];
+        result[idx - 1] = '${result[idx - 1]} ${result[idx]}';
         result.removeAt(idx);
       }
     }
@@ -139,16 +139,70 @@ class TajweedService {
 
   static List<MushafTajweedPart> _parseTajweedParts(String wordStr) {
     final parts = <MushafTajweedPart>[];
-    final regex = RegExp(r'<rule class=([^>]+)>([^<]+)</rule>|([^<]+)');
-    final matches = regex.allMatches(wordStr);
-    for (final match in matches) {
-      if (match.group(1) != null) {
-        final className = match.group(1)!.replaceAll("'", "").replaceAll('"', '').trim();
-        parts.add(MushafTajweedPart(text: match.group(2)!, className: className));
-      } else {
-        parts.add(MushafTajweedPart(text: match.group(3)!, className: ''));
-      }
+    final classStack = <String>[];
+    var buffer = StringBuffer();
+    var bufferClass = '';
+
+    String activeClass() => classStack.isEmpty ? '' : classStack.last;
+
+    void flushBuffer() {
+      if (buffer.isEmpty) return;
+      parts.add(MushafTajweedPart(
+        text: buffer.toString(),
+        className: bufferClass,
+      ));
+      buffer = StringBuffer();
     }
+
+    var index = 0;
+    while (index < wordStr.length) {
+      final tagStart = wordStr.indexOf('<', index);
+      if (tagStart == -1) {
+        final text = wordStr.substring(index);
+        final nextClass = activeClass();
+        if (buffer.isNotEmpty && bufferClass != nextClass) {
+          flushBuffer();
+        }
+        bufferClass = nextClass;
+        buffer.write(text);
+        break;
+      }
+
+      if (tagStart > index) {
+        final text = wordStr.substring(index, tagStart);
+        final nextClass = activeClass();
+        if (buffer.isNotEmpty && bufferClass != nextClass) {
+          flushBuffer();
+        }
+        bufferClass = nextClass;
+        buffer.write(text);
+      }
+
+      final tagEnd = wordStr.indexOf('>', tagStart + 1);
+      if (tagEnd == -1) {
+        break;
+      }
+
+      final tag = wordStr.substring(tagStart + 1, tagEnd).trim();
+      if (tag.startsWith('/')) {
+        if (classStack.isNotEmpty) classStack.removeLast();
+      } else if (!tag.startsWith('img') && !tag.endsWith('/')) {
+        final className = _extractClass(tag);
+        classStack.add(className);
+      }
+
+      index = tagEnd + 1;
+    }
+
+    flushBuffer();
     return parts;
+  }
+
+  static String _extractClass(String tag) {
+    final match = RegExp(r'''class\s*=\s*["']?([^"'>\s]+)''').firstMatch(tag);
+    if (match != null) {
+      return match.group(1)?.replaceAll("'", "").replaceAll('"', '').trim() ?? '';
+    }
+    return '';
   }
 }

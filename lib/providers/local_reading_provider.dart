@@ -1694,8 +1694,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               'category_id': category.id,
               'surah_id': verse.surahId,
               'verse_id': verse.verseId,
-              if (label != null) 'label': label,
-              if (note != null) 'note': note,
+              'label': ?label,
+              'note': ?note,
               'sort_order': categoryBookmarks.length,
             })
             .select('id')

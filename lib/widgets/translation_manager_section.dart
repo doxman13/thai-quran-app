@@ -123,17 +123,19 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
 
     final downloadedOptions = _downloadedOptions(transManager);
 
-    return Card(
-      color: colorScheme.surfaceContainerLow,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sectionTitle(colorScheme, context.tr('active_translations')),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -142,27 +144,67 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: settings.primaryTranslationId,
+                  initialValue: settings.primaryTranslationId,
+                  dropdownColor: colorScheme.surfaceContainerLow,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: colorScheme.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                      borderSide: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: colorScheme.primary,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   items: availableOptions.map((opt) {
                     return DropdownMenuItem<String>(
                       value: opt.id,
-                      child: Text(opt.displayName(settings.languageCode)),
+                      child: Text(
+                        opt.displayName(settings.languageCode),
+                        style: GoogleFonts.notoSansThai(fontSize: 14),
+                      ),
                     );
                   }).toList(),
+                  selectedItemBuilder: (context) {
+                    return availableOptions.map((opt) {
+                      return Text(
+                        _getLanguageDisplayName(
+                          opt.language,
+                          settings.languageCode,
+                        ),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }).toList();
+                  },
                   onChanged: (val) {
                     if (val != null) {
                       settings.updateTranslationSlot('primary', val);
@@ -175,30 +217,83 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: settings.secondaryTranslationId ?? '',
+                  initialValue: settings.secondaryTranslationId ?? '',
+                  dropdownColor: colorScheme.surfaceContainerLow,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: colorScheme.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                      borderSide: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: colorScheme.primary,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   items: [
-                    const DropdownMenuItem<String>(value: '', child: Text('None / ไม่เลือก')),
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('None / ไม่เลือก'),
+                    ),
                     ...availableOptions.map((opt) {
                       return DropdownMenuItem<String>(
                         value: opt.id,
-                        child: Text(opt.displayName(settings.languageCode)),
+                        child: Text(
+                          opt.displayName(settings.languageCode),
+                          style: GoogleFonts.notoSansThai(fontSize: 14),
+                        ),
                       );
-                    }).toList(),
+                    }),
                   ],
+                  selectedItemBuilder: (context) {
+                    return [
+                      Text(
+                        'None / ไม่เลือก',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 14,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      ...availableOptions.map((opt) {
+                        return Text(
+                          _getLanguageDisplayName(
+                            opt.language,
+                            settings.languageCode,
+                          ),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        );
+                      }),
+                    ];
+                  },
                   onChanged: (val) {
                     if (val == null || val.isEmpty) {
                       settings.updateTranslationSlot('secondary', null);
@@ -209,12 +304,11 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Divider(height: 1, color: colorScheme.outlineVariant),
-            const SizedBox(height: 16),
-            _sectionTitle(colorScheme, context.tr('download_more')),
-            const SizedBox(height: 16),
-            Divider(height: 1, color: colorScheme.outlineVariant),
+            const SizedBox(height: 20),
+            Divider(
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             _sectionTitle(colorScheme, context.tr('download_more')),
             const SizedBox(height: 8),
@@ -541,7 +635,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   }
 
   Map<String, List<_TranslationOption>> _groupedAvailableTranslations() {
-    final sorted = [..._availableTranslations]
+    final sorted = [_builtInThaiV3, ..._availableTranslations]
       ..sort(_compareTranslationOptions);
     final groups = <String, List<_TranslationOption>>{};
     for (final option in sorted) {
@@ -551,6 +645,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   }
 
   int _compareTranslationOptions(_TranslationOption a, _TranslationOption b) {
+    if (a.id == _builtInThaiV3.id && b.id != _builtInThaiV3.id) return -1;
+    if (b.id == _builtInThaiV3.id && a.id != _builtInThaiV3.id) return 1;
+
     final languageCompare = _languageSortOrder(
       a.language,
     ).compareTo(_languageSortOrder(b.language));

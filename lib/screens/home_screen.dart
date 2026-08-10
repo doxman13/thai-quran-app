@@ -1154,7 +1154,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         bottomNavigationBar: NavigationBar(
-          height: 52,
+          height: 64,
           selectedIndex: _navIndex,
           onDestinationSelected: (index) {
             setState(() => _navIndex = index);
@@ -1162,27 +1162,26 @@ class _HomeScreenState extends State<HomeScreen>
           elevation: 0,
           backgroundColor: colorScheme.surface,
           indicatorColor: colorScheme.secondaryContainer.withValues(alpha: 0.5),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home),
+              label: settings.languageCode == 'th' ? 'หน้าแรก' : 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.format_list_bulleted_outlined),
-              selectedIcon: Icon(Icons.format_list_bulleted),
-              label: 'Surahs',
+              icon: const Icon(Icons.format_list_bulleted_outlined),
+              selectedIcon: const Icon(Icons.format_list_bulleted),
+              label: settings.languageCode == 'th' ? 'ซูเราะฮฺ' : 'Surah',
             ),
             NavigationDestination(
-              icon: Icon(Icons.bookmark_outline),
-              selectedIcon: Icon(Icons.bookmark),
-              label: 'Bookmarks',
+              icon: const Icon(Icons.bookmark_outline),
+              selectedIcon: const Icon(Icons.bookmark),
+              label: settings.languageCode == 'th' ? 'บุ๊กมาร์ก' : 'Bookmark',
             ),
             NavigationDestination(
-              icon: Icon(Icons.account_circle_outlined),
-              selectedIcon: Icon(Icons.account_circle),
-              label: 'Profile',
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings),
+              label: settings.languageCode == 'th' ? 'ตั้งค่า' : 'Settings',
             ),
           ],
         ),
@@ -1243,9 +1242,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => SettingsScreen(
-                                          repository: widget.repository,
-                                        ),
+                                        builder: (_) => const ProfileScreen(),
                                       ),
                                     );
                                   },
@@ -1255,7 +1252,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     backgroundColor:
                                         colorScheme.surfaceContainerHighest,
                                     child: Icon(
-                                      Icons.settings,
+                                      Icons.person_outline_rounded,
                                       color: colorScheme.onSurface,
                                       size: 24,
                                     ),
@@ -1351,8 +1348,8 @@ class _HomeScreenState extends State<HomeScreen>
                 setState(() => _navIndex = 0);
               },
             ),
-            // 3: Profile
-            const ProfileScreen(),
+            // 3: Settings
+            SettingsScreen(repository: widget.repository),
           ],
         ),
       ),

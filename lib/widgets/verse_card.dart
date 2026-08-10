@@ -132,6 +132,16 @@ class _VerseCardState extends State<VerseCard> {
   final String _shareStatus = '';
   String? _lastTrackedVerseKey;
 
+  bool _isActiveCard() {
+    if (!mounted) return false;
+    try {
+      final progress = Provider.of<ProgressProvider>(context, listen: false);
+      return widget.index == progress.lastVerseIndex;
+    } catch (_) {
+      return true;
+    }
+  }
+
   bool _isNonThaiPrimary() {
     if (!mounted) return false;
     final settings = Provider.of<SettingsProvider>(context, listen: true);
@@ -154,11 +164,23 @@ class _VerseCardState extends State<VerseCard> {
   }
 
   String? _getTafsir() {
-    return _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
+    final primaryTafsir = _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
+    if (primaryTafsir != null && primaryTafsir.trim().isNotEmpty) {
+      return primaryTafsir;
+    }
+    final fallback = widget.verse.shortTafsir ?? widget.verse.shortTafsirEn;
+    return (fallback != null && fallback.trim().isNotEmpty) ? fallback : null;
   }
 
   String? _getTafsirSource() {
-    return _isNonThaiPrimary() ? widget.verse.shortTafsirSourceEn : widget.verse.shortTafsirSource;
+    final primaryTafsir = _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
+    if (primaryTafsir != null && primaryTafsir.trim().isNotEmpty) {
+      return _isNonThaiPrimary() ? widget.verse.shortTafsirSourceEn : widget.verse.shortTafsirSource;
+    }
+    if (widget.verse.shortTafsir != null && widget.verse.shortTafsir!.trim().isNotEmpty) {
+      return widget.verse.shortTafsirSource;
+    }
+    return widget.verse.shortTafsirSourceEn;
   }
 
   @override
@@ -173,7 +195,9 @@ class _VerseCardState extends State<VerseCard> {
       if (settings.showArabicText) {
         _loadArabic();
       }
-      _bindController();
+      if (_isActiveCard()) {
+        _bindController();
+      }
     });
   }
 
@@ -186,12 +210,14 @@ class _VerseCardState extends State<VerseCard> {
         widget.verse.surahId,
         widget.verse.id,
       );
-      _bindController();
+      if (_isActiveCard()) {
+        _bindController();
+      }
     }
   }
 
   void _bindController() {
-    if (widget.controller != null) {
+    if (widget.controller != null && _isActiveCard()) {
       widget.controller!.toggleTafsir = () {
         if (_getTafsir() != null) {
           setState(() {
@@ -931,11 +957,14 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 14),
-                Divider(color: colorScheme.outlineVariant),
+                const SizedBox(height: 24),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.18),
+                ),
+                const SizedBox(height: 24),
               ],
-
-              const SizedBox(height: 14),
 
               // Translations Container
               if (true) ...[
@@ -1155,20 +1184,16 @@ class _VerseCardState extends State<VerseCard> {
     ThaiTextProtectionProvider thaiTextProtection, {
     required bool isPrimary,
   }) {
-    String label = '';
     String text = '';
     Locale? locale;
 
     if (translationId == 'thai_v3') {
-      label = context.tr('thai_v3');
       text = thaiTextProtection.protect(widget.verse.thaiV3);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'thai_v2') {
-      label = context.tr('thai_v2');
       text = thaiTextProtection.protect(widget.verse.thaiV2);
       locale = const Locale('th', 'TH');
     } else if (translationId == 'english') {
-      label = context.tr('english');
       text = widget.verse.english;
     } else {
       final transManager = Provider.of<TranslationManagerProvider>(context);
@@ -1185,81 +1210,72 @@ class _VerseCardState extends State<VerseCard> {
       text = customText ?? 'Loading translation...';
 
       final language = (tInfo['language_name'] ?? tInfo['language'])?.toString().toLowerCase() ?? '';
-      final author = (tInfo['author_name'] ?? tInfo['author'] ?? tInfo['name'])?.toString() ?? '';
 
       if (language == 'thai' || language == 'th') {
         locale = const Locale('th', 'TH');
         text = thaiTextProtection.protect(text);
-
-        if (translationId == '51') {
-          label = 'ภาษาไทย (ศูนย์กษัตริย์ฟาฮัด)';
-        } else if (translationId == '230') {
-          label = 'ภาษาไทย (สมาคมศิษย์เก่าอาหรับ)';
-        } else {
-          label = 'ภาษาไทย ($author)';
-        }
-      } else {
-        final capitalizedLanguage = language.isNotEmpty
-            ? language[0].toUpperCase() + language.substring(1).toLowerCase()
-            : 'Translation';
-        label = '$capitalizedLanguage\n$author';
       }
     }
 
+    final secondaryTextColor = bodyTextColor.withValues(alpha: 0.72);
+
+    final translationBlock = _buildTranslationBlock(
+      text: text,
+      locale: locale,
+      textStyle: GoogleFonts.notoSansThai(
+        fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
+        height: 1.65,
+        color: isPrimary ? bodyTextColor : secondaryTextColor,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+
+    if (isPrimary) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8.0),
+        child: translationBlock,
+      );
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0),
-      child: _buildTranslationBlock(
-        label: label,
-        text: text,
-        locale: locale,
-        labelFg: isDark ? Colors.blueGrey.shade500 : Colors.blueGrey.shade400,
-        textStyle: GoogleFonts.notoSansThai(
-          fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
-          height: 1.65,
-          color: bodyTextColor,
-          fontWeight: FontWeight.w400,
-        ),
+      padding: const EdgeInsets.only(top: 24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.tr('secondary_translation_label'),
+            style: GoogleFonts.notoSansThai(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+            ),
+          ),
+          const SizedBox(height: 6),
+          translationBlock,
+        ],
       ),
     );
   }
 
   Widget _buildTranslationBlock({
-    required String label,
     required String text,
-    required Color labelFg,
     required TextStyle textStyle,
     Locale? locale,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          locale: locale,
-          softWrap: true,
-          overflow: TextOverflow.visible,
-          text: TextSpan(
-            children: HtmlParser.parseTranslationText(
-              context,
-              text,
-              textStyle,
-              Theme.of(context).primaryColor,
-            ),
-          ),
+    return RichText(
+      locale: locale,
+      softWrap: true,
+      overflow: TextOverflow.visible,
+      text: TextSpan(
+        children: HtmlParser.parseTranslationText(
+          context,
+          text,
+          textStyle,
+          Theme.of(context).primaryColor,
         ),
-        const SizedBox(height: 5),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            label,
-            textAlign: TextAlign.right,
-            style: GoogleFonts.notoSansThai(
-              fontSize: 10,
-              fontWeight: FontWeight.w400,
-              color: labelFg,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

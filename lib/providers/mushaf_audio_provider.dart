@@ -30,15 +30,24 @@ class MushafAudioProvider extends ChangeNotifier {
     _initPlayerStateListener();
   }
 
+  double _volume = 1.0;
+
   // Getters
   bool get isPlaying => _isPlaying;
   bool get isLoading => _isLoading;
+  double get volume => _volume;
   String? get currentVerseKey => _currentVerseKey;
   int? get currentPageNumber => _currentPageNumber;
   int? get mushafId => _mushafId;
   bool get isContinuous => _isContinuous;
   List<MushafVerse> get playlist => _playlist;
   int get playlistIndex => _playlistIndex;
+
+  Future<void> setVolume(double value) async {
+    _volume = value.clamp(0.0, 1.0);
+    await _audioPlayer.setVolume(_volume);
+    notifyListeners();
+  }
 
   void _initPlayerStateListener() {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
@@ -226,9 +235,8 @@ class MushafAudioProvider extends ChangeNotifier {
 
       _currentIndexSubscription?.cancel();
 
-      final playlistSource = ConcatenatingAudioSource(children: sources);
-      await _audioPlayer.setAudioSource(
-        playlistSource,
+      await _audioPlayer.setAudioSources(
+        sources,
         initialIndex: startVerseIndex.clamp(0, sources.length - 1),
       );
 

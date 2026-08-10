@@ -80,7 +80,7 @@ class ThaiTextProtectionProvider extends ChangeNotifier {
     final regex = RegExp(
       r'([\u0E01-\u0E2E][\u0E30-\u0E3A\u0E45-\u0E4E]*|[\u0E40-\u0E44][\u0E01-\u0E2E][\u0E30-\u0E3A\u0E45-\u0E4E]*)',
     );
-    return text.replaceAllMapped(regex, (match) => match.group(1)! + '\u200B');
+    return text.replaceAllMapped(regex, (match) => '${match.group(1)!}\u200B');
   }
 
   Future<void> _loadCachedTerms() async {

@@ -80,7 +80,7 @@ const mushafTypes = [
   ),
 ];
 
-const visibleMushafTypeIds = {2, 11, 19, qcfPackageMushafId};
+const visibleMushafTypeIds = {2, 11};
 
 List<MushafType> get visibleMushafTypes {
   return mushafTypes

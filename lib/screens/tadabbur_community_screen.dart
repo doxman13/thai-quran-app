@@ -15,8 +15,7 @@ import 'reading_screen.dart';
 class TadabburCommunityScreen extends StatefulWidget {
   final QuranRepository repository;
 
-  const TadabburCommunityScreen({Key? key, required this.repository})
-    : super(key: key);
+  const TadabburCommunityScreen({super.key, required this.repository});
 
   @override
   State<TadabburCommunityScreen> createState() =>
@@ -268,8 +267,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 16),
                       itemBuilder: (context, index) {
-                        if (index == 0)
+                        if (index == 0) {
                           return _buildComposeSection(colors, primaryColor);
+                        }
 
                         if (_feed.isEmpty) return _buildEmptyState(colors);
 
@@ -478,17 +478,18 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                                 (id) => DropdownMenuItem(
                                   value: id,
                                   child: Text(
-                                    '${widget.repository.getSurahName(id)}',
+                                    widget.repository.getSurahName(id),
                                   ),
                                 ),
                               )
                               .toList(),
                           onChanged: (val) {
-                            if (val != null)
+                            if (val != null) {
                               setState(() {
                                 _postSurahId = val;
                                 _postVerseId = '1';
                               });
+                            }
                           },
                         ),
                       ),
@@ -758,7 +759,7 @@ class _CommunityNoteCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 16,
-                  backgroundColor: primaryColor.withOpacity(0.15),
+                  backgroundColor: primaryColor.withValues(alpha: 0.15),
                   child: Text(
                     (note.isAnonymous
                             ? 'A'
@@ -825,7 +826,7 @@ class _CommunityNoteCard extends StatelessWidget {
                 color: colorScheme.surfaceContainerLow,
                 border: Border(
                   left: BorderSide(
-                    color: primaryColor.withOpacity(0.5),
+                    color: primaryColor.withValues(alpha: 0.5),
                     width: 4,
                   ),
                 ),

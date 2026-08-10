@@ -12,11 +12,11 @@ class TadabburAccordion extends StatefulWidget {
   final VoidCallback onCancel;
 
   const TadabburAccordion({
-    Key? key,
+    super.key,
     required this.surahId,
     required this.verseId,
     required this.onCancel,
-  }) : super(key: key);
+  });
 
   @override
   State<TadabburAccordion> createState() => _TadabburAccordionState();
@@ -237,7 +237,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: _communityNotes.length,
-      separatorBuilder: (_, __) => Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+      separatorBuilder: (_, _) => Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
       itemBuilder: (context, index) {
         final note = _communityNotes[index];
         final authorName = note.isAnonymous ? 'Anonymous' : (note.userEmail?.split('@').first ?? 'Someone');
@@ -249,7 +249,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
               children: [
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                   child: Text(
                     authorName.substring(0, 1).toUpperCase(),
                     style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),

@@ -63,13 +63,12 @@ class HifzSessionProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   HifzSessionProvider({
     HifzRepository? repository,
-    int surahNumber = 1,
+    this._surahNumber = 1,
     int repeatStart = 1,
     int startVerse = 1,
     int endVerse = 3,
   })  : _repo = repository ?? HifzRepository(),
         _sessionType = HifzSessionType.newVerses,
-        _surahNumber = surahNumber,
         _repeatStart = repeatStart,
         _startVerse = startVerse,
         _endVerse = endVerse,

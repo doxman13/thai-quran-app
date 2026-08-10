@@ -218,7 +218,6 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
       _pageSurah = pageItems.first['surah'];
       _pageStart = pageItems.first['start'];
       _pageEnd = pageItems.last['end'];
-      if (_pageEnd - _pageStart + 1 > 30) _pageEnd = _pageStart + 29;
       _pageRepeatStart = _pageStart;
     }
   }
@@ -420,7 +419,6 @@ class _BySurahTabState extends State<_BySurahTab> {
                     _start = v;
                     if (_repeat > _start) _repeat = _start;
                     if (_end < _start) _end = _start;
-                    if (_end - _start + 1 > 30) _end = _start + 29;
                     if (_end > _totalVerses) _end = _totalVerses;
                   });
                   _notify();
@@ -432,9 +430,7 @@ class _BySurahTabState extends State<_BySurahTab> {
               child: _LabeledDropdown<int>(
                 label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
                 value: _end,
-                items: List.generate(_totalVerses - _start + 1, (i) => _start + i)
-                    .where((v) => v - _start + 1 <= 30)
-                    .toList(),
+                items: List.generate(_totalVerses - _start + 1, (i) => _start + i),
                 itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
@@ -521,10 +517,11 @@ class _ByPageTabState extends State<_ByPageTab> {
       _pageSurah = items.first['surah'];
       _start = items.first['start'];
       _end = items.last['end'];
-      if (_end - _start + 1 > 30) _end = _start + 29;
       _repeat = _start;
     }
   }
+
+  int get _totalVerses => qcf.getVerseCount(_pageSurah);
 
   @override
   Widget build(BuildContext context) {
@@ -560,16 +557,14 @@ class _ByPageTabState extends State<_ByPageTab> {
               child: _LabeledDropdown<int>(
                 label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
                 value: _start,
-                items: List.generate(_end - _start + 10, (i) => _start + i - 5)
-                    .where((v) => v >= 1)
-                    .toList(),
+                items: List.generate(_totalVerses, (i) => i + 1),
                 itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
                     if (_repeat > _start) _repeat = _start;
                     if (_end < _start) _end = _start;
-                    if (_end - _start + 1 > 30) _end = _start + 29;
+                    if (_end > _totalVerses) _end = _totalVerses;
                   });
                   _notify();
                 },
@@ -580,7 +575,7 @@ class _ByPageTabState extends State<_ByPageTab> {
               child: _LabeledDropdown<int>(
                 label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
                 value: _end,
-                items: List.generate(30, (i) => _start + i),
+                items: List.generate(_totalVerses - _start + 1, (i) => _start + i),
                 itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
