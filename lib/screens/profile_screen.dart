@@ -591,7 +591,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final textTheme = Theme.of(context).textTheme;
  
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -612,7 +611,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-        backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
       ),
@@ -1207,15 +1205,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
-            title,
+            title.toUpperCase(),
             style: GoogleFonts.notoSansThai(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: colorScheme.primary,
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1259,9 +1258,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: colorScheme.outline, width: 1),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -1316,8 +1314,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -1359,23 +1357,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Widget? trailing,
   }) {
     final row = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              color: colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: colorScheme.primary, size: 22),
+            child: Icon(icon, color: colorScheme.primary, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1384,14 +1382,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title,
                   style: GoogleFonts.notoSansThai(
                     fontWeight: FontWeight.bold,
+                    fontSize: 14,
                     color: colorScheme.onSurface,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -1403,21 +1402,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 8),
           trailing ??
               Icon(
-                Icons.chevron_right,
+                Icons.chevron_right_rounded,
                 color: onTap == null
                     ? colorScheme.outline
-                    : colorScheme.onSurfaceVariant,
+                    : colorScheme.onSurfaceVariant.withOpacity(0.5),
+                size: 20,
               ),
         ],
       ),
     );
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: row,
         ),
@@ -1429,14 +1429,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required IconData icon,
     required String title,
     required String value,
-    required Color
-    color, // Maintain parameter signature to keep functionality intact
+    required Color color,
     VoidCallback? onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Dynamically derive theme colors based on input color parameters
-    // This allows us to use dynamic theme styles without breaking signatures
     Color activeColor = color;
     if (color == Colors.blue ||
         color == Colors.purple ||
@@ -1452,10 +1449,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final card = Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: activeColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1463,8 +1460,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, color: activeColor, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: activeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: activeColor, size: 18),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
@@ -1479,13 +1484,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             value,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: activeColor,
+              color: colorScheme.onSurface,
             ),
           ),
         ],
@@ -1495,7 +1500,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: card,
       ),

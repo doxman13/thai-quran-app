@@ -175,7 +175,6 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +295,6 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
       ),
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -427,8 +425,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(

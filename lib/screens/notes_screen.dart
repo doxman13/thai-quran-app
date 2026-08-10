@@ -35,9 +35,7 @@ class NotesScreen extends StatelessWidget {
       });
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        backgroundColor: colorScheme.surfaceContainerLow,
         elevation: 0,
         title: Text(
           'Personal Notes & Thoughts',
@@ -198,11 +196,10 @@ class _NoteCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),

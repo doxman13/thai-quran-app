@@ -253,7 +253,6 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
     final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         title: Text(

@@ -216,14 +216,12 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     final isThai = settings.languageCode == 'th';
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           // ── Hero Header ─────────────────────────────────────────────────────
           SliverAppBar(
             expandedHeight: screenHeight * 0.24,
             pinned: true,
-            backgroundColor: colorScheme.surface,
             foregroundColor: colorScheme.onSurface,
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
@@ -410,11 +408,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-        ),
       ),
       child: _loading
           ? const Center(
@@ -466,8 +461,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         decoration: BoxDecoration(
           color: colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
@@ -508,10 +502,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
@@ -553,10 +545,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +592,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                   ? '${(progress * 100).toStringAsFixed(1)}% ของอัลกุรอานทั้งหมดถูกท่องจำแล้ว'
                   : '${(progress * 100).toStringAsFixed(1)}% of full Quran memorized',
               style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: colorScheme.primary,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -663,12 +654,8 @@ class _HifzModeCardState extends State<_HifzModeCard> {
           decoration: BoxDecoration(
             color: _pressed
                 ? widget.accentColor.withValues(alpha: 0.06)
-                : cs.surfaceContainerLow,
+                : cs.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: widget.accentColor.withValues(alpha: _pressed ? 0.5 : 0.25),
-              width: 1.5,
-            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
@@ -278,29 +277,21 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final leadingText = isMushaf
         ? colorScheme.onSecondaryContainer
         : colorScheme.primary;
-    final leadingBorder = isMushaf
-        ? colorScheme.secondary.withValues(alpha: 0.3)
-        : colorScheme.primary.withValues(alpha: 0.2);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: leadingBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: leadingBorder, width: 1),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             readModeLabel,
@@ -342,7 +333,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
+                    color: colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -362,9 +353,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         trailing:
             trailing ??
             Icon(
-              Icons.chevron_right,
+              Icons.chevron_right_rounded,
               size: 20,
-              color: colorScheme.onSurfaceVariant,
+              color: colorScheme.onSurfaceVariant.withOpacity(0.5),
             ),
       ),
     );
@@ -393,12 +384,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         24,
         24,
       ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outline, width: 1),
-        ),
-      ),
+      color: colorScheme.surface,
       child: Row(
         children: [
           if (hasBackAction) ...[
@@ -628,9 +614,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         localReading.bookmarks.map((bookmark) {
           final rawSurahId = int.parse(bookmark.verse.surahId).toString();
           final rawVerseId = bookmark.verse.verseId;
-          final sId = int.tryParse(rawSurahId) ?? 1;
-          final vId = int.tryParse(rawVerseId) ?? 1;
-          final pageNumber = qcf.getPageNumber(sId, vId);
 
           return _UnifiedItem(
             bookmark.createdAt,
@@ -649,56 +632,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   saveToFreeReadOnly: true,
                 );
               },
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    onTap: () => _openMushaf(
-                      null,
-                      2,
-                      pageNumber: pageNumber,
-                      highlightedVerseKey: '$rawSurahId:$rawVerseId',
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.import_contacts,
-                            size: 12,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'มุศหัฟ',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.delete_outline,
-                      color: colorScheme.error,
-                      size: 22,
-                    ),
-                    onPressed: () => localReading.removeBookmark(bookmark.id),
-                  ),
-                ],
+              trailing: IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: colorScheme.error,
+                  size: 22,
+                ),
+                onPressed: () => localReading.removeBookmark(bookmark.id),
               ),
             ),
           );
@@ -1259,7 +1199,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
       body: Column(
         children: [
           _buildHeader(colorScheme, isThai),

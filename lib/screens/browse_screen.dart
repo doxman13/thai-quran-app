@@ -279,7 +279,7 @@ class BrowseScreenState extends State<BrowseScreen> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: widget.colors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,8 +342,15 @@ class BrowseScreenState extends State<BrowseScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Container(
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(100),
+                  color: widget.colors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0C000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -352,9 +359,11 @@ class BrowseScreenState extends State<BrowseScreen> {
                     hintText: context.tr('search_hint'),
                     hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
+                      horizontal: 20,
+                      vertical: 14,
                     ),
                     prefixIcon: Padding(
                       padding: const EdgeInsets.only(left: 16.0, right: 8.0),
@@ -403,17 +412,17 @@ class BrowseScreenState extends State<BrowseScreen> {
                       },
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
                           color: _searchController.text == chip
                               ? colorScheme.primary
-                              : colorScheme.surfaceContainerHighest,
+                              : widget.colors.surface,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           '🔍 $chip',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: _searchController.text == chip
                                 ? colorScheme.onPrimary
@@ -490,6 +499,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ...surahs.map(
                           (surah) => _SimpleLinkRow(
                             colors: widget.colors,
+                            index: surah.id,
                             title: surah.name,
                             subtitle: context.tr(
                               'ayat_count',
@@ -570,7 +580,8 @@ class BrowseScreenState extends State<BrowseScreen> {
                                             visualDensity: VisualDensity.compact,
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             minimumSize: const Size(0, 32),
-                                            side: BorderSide(color: widget.colors.borderSoft),
+                                            side: BorderSide.none,
+                                            backgroundColor: widget.colors.surfaceMuted,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -690,7 +701,8 @@ class BrowseScreenState extends State<BrowseScreen> {
                                             visualDensity: VisualDensity.compact,
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             minimumSize: const Size(0, 32),
-                                            side: BorderSide(color: widget.colors.borderSoft),
+                                            side: BorderSide.none,
+                                            backgroundColor: widget.colors.surfaceMuted,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -736,6 +748,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ...surahs.map(
                           (surah) => _SimpleLinkRow(
                             colors: widget.colors,
+                            index: surah.id,
                             title: surah.name,
                             subtitle: context.tr(
                               'ayat_count',
@@ -750,6 +763,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ...juz.map(
                           (item) => _SimpleLinkRow(
                             colors: widget.colors,
+                            index: '${item.id}',
                             title: '${context.tr('juz')} ${item.id}',
                             subtitle:
                                 '${widget.repository.getSurahName(item.startSurah)}:${item.startAyah}',
@@ -802,14 +816,14 @@ class _PageNumberGrid extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final page = pages[index];
-        return OutlinedButton(
+        return FilledButton(
           onPressed: () => onOpenPage(page),
-          style: OutlinedButton.styleFrom(
+          style: FilledButton.styleFrom(
             backgroundColor: colors.surface,
-            foregroundColor: colors.foreground,
-            side: BorderSide(color: colors.borderSoft),
+            foregroundColor: colors.textStrong,
+            elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
+              borderRadius: BorderRadius.circular(16),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
@@ -817,7 +831,7 @@ class _PageNumberGrid extends StatelessWidget {
             '${context.tr('page')} $page',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
           ),
         );
       },
@@ -835,11 +849,10 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: colors.borderSoft),
       ),
       child: child,
     );
@@ -848,6 +861,7 @@ class _SectionCard extends StatelessWidget {
 
 class _SimpleLinkRow extends StatelessWidget {
   final AppThemeColors colors;
+  final String? index;
   final String title;
   final String subtitle;
   final IconData icon;
@@ -856,6 +870,7 @@ class _SimpleLinkRow extends StatelessWidget {
 
   const _SimpleLinkRow({
     required this.colors,
+    this.index,
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -867,50 +882,80 @@ class _SimpleLinkRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
+      child: Material(
+        color: colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        onTap: onTap,
-        child: _SectionCard(
-          colors: colors,
-          child: Row(
-            children: [
-              Icon(icon, color: colors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        color: colors.textStrong,
-                        fontWeight: FontWeight.w800,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                if (index != null) ...[
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      index!,
+                      style: GoogleFonts.notoSansThai(
+                        color: colors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        color: colors.foreground,
-                        fontSize: 12,
+                  ),
+                  const SizedBox(width: 14),
+                ] else ...[
+                  Icon(icon, color: colors.primary),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.textStrong,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.foreground,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (completed) ...[
+                if (completed) ...[
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.green,
+                    size: 18,
+                  ),
+                ],
                 const SizedBox(width: 8),
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.green,
-                  size: 18,
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colors.foreground.withOpacity(0.5),
+                  size: 20,
                 ),
               ],
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right, color: colors.foreground),
-            ],
+            ),
           ),
         ),
       ),
@@ -933,17 +978,22 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        backgroundColor: selected ? colors.primaryLight : colors.surface,
-        foregroundColor: selected ? colors.primary : colors.foreground,
-        side: BorderSide(color: selected ? colors.primary : colors.borderSoft),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-        ),
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        backgroundColor: selected ? colors.primary : colors.surface,
+        foregroundColor: selected ? colors.textInverse : colors.foreground,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        shape: const StadiumBorder(),
       ),
       onPressed: onTap,
-      child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+      child: Text(
+        label,
+        style: GoogleFonts.notoSansThai(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 }

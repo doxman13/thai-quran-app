@@ -62,7 +62,7 @@ class AppThemeColors {
     return const AppThemeColors(
       background: Color(0xFFF5F4EE),
       surface: Color(0xFFFFFDF9),
-      surfaceMuted: Color(0xFFEEEEEE),
+      surfaceMuted: Color(0xFFEEEEE7),
       borderSoft: Color(0xFFD9DDD4),
       foreground: Color(0xFF3F4F4A),
       textStrong: Color(0xFF123B3C),
@@ -80,8 +80,8 @@ class AppThemeColors {
 }
 
 class AppTheme {
-  /// Standard geometry radius for soft modern M3 containers (16.0px)
-  static const radius = 16.0;
+  /// Standard geometry radius for soft modern M3 containers (20.0px)
+  static const radius = 20.0;
 
   static Future<void> prewarmFonts() async {
     try {
@@ -141,21 +141,87 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: c.surface,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: BorderSide(color: c.borderSoft, width: 1),
+          side: BorderSide.none,
         ),
       ),
 
       appBarTheme: AppBarTheme(
-        backgroundColor: c.surface,
+        backgroundColor: c.background,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: c.textStrong),
         titleTextStyle: GoogleFonts.notoSansThai(
           color: c.textStrong,
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: FontWeight.bold,
         ),
+      ),
+
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: c.surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radius),
+          borderSide: BorderSide.none,
+        ),
+      ),
+
+      chipTheme: ChipThemeData(
+        backgroundColor: c.surface,
+        selectedColor: c.primary,
+        disabledColor: c.surfaceMuted,
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        labelStyle: TextStyle(color: c.textStrong, fontWeight: FontWeight.w500),
+        secondaryLabelStyle: TextStyle(color: c.textInverse, fontWeight: FontWeight.w600),
+      ),
+
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: c.background,
+        elevation: 0,
+        indicatorColor: c.primaryLight,
+        surfaceTintColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: c.primary, size: 24);
+          }
+          return IconThemeData(color: c.foreground, size: 24);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return GoogleFonts.notoSansThai(
+              color: c.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            );
+          }
+          return GoogleFonts.notoSansThai(
+            color: c.foreground,
+            fontWeight: FontWeight.w500,
+            fontSize: 12,
+          );
+        }),
+      ),
+
+      dividerTheme: DividerThemeData(
+        color: isDark ? const Color(0xFF262626) : const Color(0x0F000000),
+        space: 1,
+        thickness: 1,
       ),
     );
   }

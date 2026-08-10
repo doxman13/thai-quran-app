@@ -821,82 +821,67 @@ class _HomeScreenState extends State<HomeScreen>
       icon = Icons.menu_book;
     }
 
-    return AnimatedBuilder(
-      animation: _lastReadGlowController,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(100),
-            gradient: SweepGradient(
-              transform: GradientRotation(
-                _lastReadGlowController.value * math.pi * 2,
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () => _openLastRead(localReading, mushafReading),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: colorScheme.primary, size: 22),
               ),
-              colors: [
-                colorScheme.primary.withValues(alpha: 0.16),
-                colorScheme.secondary.withValues(alpha: 0.78),
-                colorScheme.tertiary.withValues(alpha: 0.78),
-                colorScheme.primary.withValues(alpha: 0.16),
-              ],
-            ),
-          ),
-          child: child,
-        );
-      },
-      child: Material(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(100),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(100),
-          onTap: () => _openLastRead(localReading, mushafReading),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: colorScheme.onPrimaryContainer),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.tr('continue_your_last_read'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.labelLarge?.copyWith(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.tr('continue_your_last_read'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.notoSansThai(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.notoSansThai(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 18,
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: colorScheme.surface,
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 24,
                   color: colorScheme.primary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1133,7 +1118,6 @@ class _HomeScreenState extends State<HomeScreen>
 
     if (!_isInit) {
       return Scaffold(
-        backgroundColor: colorScheme.surface,
         body: SafeArea(
           child: Center(
             child: CircularProgressIndicator(color: colorScheme.primary),
@@ -1152,7 +1136,6 @@ class _HomeScreenState extends State<HomeScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: colorScheme.surface,
         bottomNavigationBar: NavigationBar(
           height: 64,
           selectedIndex: _navIndex,
@@ -1160,7 +1143,6 @@ class _HomeScreenState extends State<HomeScreen>
             setState(() => _navIndex = index);
           },
           elevation: 0,
-          backgroundColor: colorScheme.surface,
           indicatorColor: colorScheme.secondaryContainer.withValues(alpha: 0.5),
           destinations: [
             NavigationDestination(
@@ -1696,11 +1678,11 @@ class _HomeScreenState extends State<HomeScreen>
         margin: EdgeInsets.zero,
         color: cardBackground,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide.none,
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => _onQuickLinkTap(link),
           child: Padding(
             padding: const EdgeInsets.all(8),
@@ -1780,11 +1762,8 @@ class _HomeScreenState extends State<HomeScreen>
         margin: EdgeInsets.zero,
         color: colorScheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: colorScheme.primary.withValues(alpha: 0.2),
-            width: 1.2,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide.none,
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
