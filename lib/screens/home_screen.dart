@@ -857,23 +857,13 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final rainbowColors = isDark
-        ? [
-            const Color(0xFF6366F1), // Indigo
-            const Color(0xFFEC4899), // Pink
-            const Color(0xFFF59E0B), // Amber
-            const Color(0xFF10B981), // Emerald
-            const Color(0xFF3B82F6), // Blue
-            const Color(0xFF6366F1), // Indigo
-          ]
-        : [
-            const Color(0xFF4F46E5), // Indigo
-            const Color(0xFFDB2777), // Pink
-            const Color(0xFFD97706), // Amber
-            const Color(0xFF059669), // Emerald
-            const Color(0xFF2563EB), // Blue
-            const Color(0xFF4F46E5), // Indigo
-          ];
+    final glowColors = [
+      Colors.white.withValues(alpha: 0.15),
+      Colors.white.withValues(alpha: 0.3),
+      Colors.white.withValues(alpha: 0.95),
+      Colors.white.withValues(alpha: 0.3),
+      Colors.white.withValues(alpha: 0.15),
+    ];
 
     final cardBgGradient = LinearGradient(
       begin: Alignment.topLeft,
@@ -891,14 +881,14 @@ class _HomeScreenState extends State<HomeScreen>
       builder: (context, child) {
         final double value = _lastReadGlowController.value;
         return Container(
-          // Outer border container with the moving rainbow gradient
+          // Outer border container with the moving white glow gradient
           padding: const EdgeInsets.all(2), // 2px border width
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             gradient: LinearGradient(
               begin: Alignment(-2.0 + (value * 3.0), -1.0),
               end: Alignment(1.0 + (value * 3.0), 1.0),
-              colors: rainbowColors,
+              colors: glowColors,
             ),
             boxShadow: [
               BoxShadow(
