@@ -465,6 +465,21 @@ class _HomeScreenState extends State<HomeScreen>
     bool saveToFreeReadOnly = false,
     String? shortcutId,
   }) {
+    // Capture the intended goal profile BEFORE opening the reader so it can
+    // be used as a fallback in case switchToFreeReadIfOutside fires during
+    // the session and changes the activeProfile.
+    final localReading = context.read<LocalReadingProvider>();
+    final String? fallbackProfileId;
+    if (saveToFreeReadOnly) {
+      fallbackProfileId = null;
+    } else if (shortcutId != null) {
+      fallbackProfileId = shortcutId;
+    } else {
+      final active = localReading.activeProfile;
+      fallbackProfileId =
+          (active != null && !isFreeReadProfile(active)) ? active.id : null;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -482,6 +497,7 @@ class _HomeScreenState extends State<HomeScreen>
       (result) => _refreshHomeAfterReader(
         readingResult: result,
         saveToFreeReadOnly: saveToFreeReadOnly,
+        fallbackProfileId: fallbackProfileId,
       ),
     );
   }
@@ -526,6 +542,10 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _refreshHomeAfterReader({
     Object? readingResult,
     bool saveToFreeReadOnly = false,
+    // Intended goal profile captured before opening the reader, used as
+    // fallback if the result returns a free-read profile (e.g. because
+    // switchToFreeReadIfOutside fired during surah navigation).
+    String? fallbackProfileId,
   }) async {
     if (readingResult is Map) {
       final surahId = readingResult['surahId']?.toString();
@@ -533,11 +553,26 @@ class _HomeScreenState extends State<HomeScreen>
       if (surahId != null && verseId != null) {
         final localReading = context.read<LocalReadingProvider>();
         final resultProfileId = readingResult['profileId']?.toString();
-        final profile = resultProfileId != null
+
+        LocalReadingProfile? profile = resultProfileId != null
             ? localReading.profileById(resultProfileId)
-            : saveToFreeReadOnly
+            : null;
+
+        // If the result resolved to a free-read (or is missing) but we had
+        // an explicit custom goal, restore it so the entry carries the goal.
+        if ((profile == null || isFreeReadProfile(profile)) &&
+            fallbackProfileId != null &&
+            !saveToFreeReadOnly) {
+          final fallback = localReading.profileById(fallbackProfileId);
+          if (fallback != null && !isFreeReadProfile(fallback)) {
+            profile = fallback;
+          }
+        }
+
+        profile ??= saveToFreeReadOnly
             ? localReading.freeReadProfile
             : localReading.activeProfile;
+
         await localReading.addRecentReading(
           verse: toVerseRef(surahId, verseId),
           profileId: profile?.id,
@@ -821,25 +856,30 @@ class _HomeScreenState extends State<HomeScreen>
       icon = Icons.menu_book;
     }
 
+    final cardBg = colorScheme.primary;
+    final onCardBg = colorScheme.onPrimary;
+
     return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(24),
+      color: cardBg,
+      elevation: 2,
+      shadowColor: colorScheme.primary.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         onTap: () => _openLastRead(localReading, mushafReading),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
+                  color: colorScheme.surface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: colorScheme.primary, size: 22),
+                child: Icon(icon, color: onCardBg, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -852,7 +892,7 @@ class _HomeScreenState extends State<HomeScreen>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.notoSansThai(
-                        color: colorScheme.onSurfaceVariant,
+                        color: onCardBg.withValues(alpha: 0.85),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -863,8 +903,8 @@ class _HomeScreenState extends State<HomeScreen>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.notoSansThai(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.bold,
+                        color: onCardBg,
+                        fontWeight: FontWeight.w800,
                         fontSize: 16,
                       ),
                     ),
@@ -897,7 +937,6 @@ class _HomeScreenState extends State<HomeScreen>
     final surah = int.tryParse(surahId) ?? 1;
     final verse = int.tryParse(verseId) ?? 1;
     final pageNumber = qcf.getPageNumber(surah, verse);
-    final totalVerses = widget.repository.getSurahVerses(surahId).length;
 
     final destination = await showModalBottomSheet<String>(
       context: context,
@@ -1666,7 +1705,6 @@ class _HomeScreenState extends State<HomeScreen>
       colorScheme.primary.withValues(alpha: 0.04),
       colorScheme.surfaceContainerLow,
     );
-    final borderColor = colorScheme.primary.withValues(alpha: 0.2);
     final titleColor = colorScheme.primary;
     final supportingColor = colorScheme.onSurfaceVariant;
 

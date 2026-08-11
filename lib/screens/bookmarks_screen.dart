@@ -47,6 +47,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     String? verseId,
     int? verseIndex,
     bool saveToFreeReadOnly = false,
+    // Preserve the original goal context even if activeProfile changes
+    // during the session (e.g. switchToFreeReadIfOutside fires).
+    String? fallbackProfileId,
   }) async {
     final result = await Navigator.push(
       context,
@@ -67,11 +70,27 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     if (resultSurahId != null && resultVerseId != null) {
       final localReading = context.read<LocalReadingProvider>();
       final resultProfileId = result['profileId']?.toString();
-      final profile = resultProfileId != null
+
+      // Resolve which profile to tag this recent read with.
+      // Prefer the result's profileId, but if it resolves to a free-read
+      // profile (or is missing) and we had an explicit goal, use the fallback.
+      LocalReadingProfile? profile = resultProfileId != null
           ? localReading.profileById(resultProfileId)
-          : saveToFreeReadOnly
+          : null;
+
+      if ((profile == null || isFreeReadProfile(profile)) &&
+          fallbackProfileId != null &&
+          !saveToFreeReadOnly) {
+        final fallback = localReading.profileById(fallbackProfileId);
+        if (fallback != null && !isFreeReadProfile(fallback)) {
+          profile = fallback;
+        }
+      }
+
+      profile ??= saveToFreeReadOnly
           ? localReading.freeReadProfile
           : localReading.activeProfile;
+
       await localReading.addRecentReading(
         verse: toVerseRef(resultSurahId, resultVerseId),
         profileId: profile?.id,
@@ -153,7 +172,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     if (hasProfile) {
       await provider.setActiveProfile(profileId);
       if (!mounted) return;
-      _openReading(surahId: surahId, verseId: verseId, verseIndex: verseIndex);
+      // Pass the original profileId as fallback so the goal is preserved
+      // in the recent-read entry even if the session changes activeProfile.
+      _openReading(
+        surahId: surahId,
+        verseId: verseId,
+        verseIndex: verseIndex,
+        fallbackProfileId: profileId,
+      );
       return;
     }
 
@@ -276,15 +302,33 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
+  String _formatTimestamp(DateTime dt, bool isThai) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) {
+      return isThai ? 'เมื่อสักครู่' : 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return isThai ? '${diff.inMinutes} นาทีที่แล้ว' : '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return isThai ? '${diff.inHours} ชม.ที่แล้ว' : '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return isThai ? '${diff.inDays} วันที่แล้ว' : '${diff.inDays}d ago';
+    } else {
+      return '${dt.day}/${dt.month}/${dt.year}';
+    }
+  }
+
   Widget _buildVerseItem(
     ColorScheme colorScheme, {
     required String title,
     required String subtitle,
+    DateTime? timestamp,
     String? badgeText,
     required String readModeLabel,
     required bool isMushaf,
     required VoidCallback onTap,
     Widget? trailing,
+    bool isThai = true,
   }) {
     final leadingBg = isMushaf
         ? colorScheme.secondaryContainer.withValues(alpha: 0.5)
@@ -333,11 +377,15 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             children: [
               Expanded(
                 child: Text(
-                  subtitle,
+                  timestamp != null
+                      ? '$subtitle • ${_formatTimestamp(timestamp, isThai)}'
+                      : subtitle,
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.onSurfaceVariant,
                     fontSize: 12,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (badgeText != null) ...[
@@ -561,11 +609,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   'number': '${reading.verse.surahId}:${reading.verse.verseId}',
                 },
               ),
+              timestamp: reading.readAt,
               badgeText: (profile != null && !isFreeReadProfile(profile))
                   ? profile.name
                   : null,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
+              isThai: isThai,
               onTap: () => _handleVerseRecentTap(reading, localReading),
             ),
           );
@@ -589,11 +639,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               colorScheme,
               title: 'Mushaf (${context.tr('page')} ${reading.pageNumber})',
               subtitle: surahName,
+              timestamp: reading.updatedAt,
               badgeText: (profile != null && !profile.isFreeRead)
                   ? profile.name
                   : null,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
+              isThai: isThai,
               onTap: () => _handleMushafRecentTap(reading, mushafReading),
             ),
           );
@@ -621,8 +673,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   '${widget.repository.getSurahName(rawSurahId)}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
               subtitle:
                   '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
+              timestamp: bookmark.createdAt,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
+              isThai: isThai,
               onTap: () {
                 _openReading(
                   surahId: rawSurahId,
@@ -657,8 +711,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               colorScheme,
               title: '${context.tr('page')} ${bookmark.pageNumber}',
               subtitle: surahName,
+              timestamp: bookmark.createdAt,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
+              isThai: isThai,
               onTap: () => _openMushaf(
                 null,
                 bookmark.mushafId,
@@ -696,8 +752,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               title:
                   '$formattedSurahName, ${context.tr('ayah_number', args: {'number': verseId})}',
               subtitle: '${context.tr('page')} ${bookmark.pageNumber}',
+              timestamp: bookmark.createdAt,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
+              isThai: isThai,
               onTap: () => _openMushaf(
                 null,
                 bookmark.mushafId,
