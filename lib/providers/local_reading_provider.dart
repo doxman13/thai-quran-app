@@ -1850,10 +1850,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         ? profileId
         : null;
 
-    // Local update: find if there is an existing entry for this user_id and surah_id
+    // Local update: find if there is an existing entry for this user_id, surah_id and profileId
     final existingIndex = _recentReadings.indexWhere(
       (item) =>
-          item.userId == currentUserId && item.verse.surahId == verse.surahId,
+          item.userId == currentUserId &&
+          item.verse.surahId == verse.surahId &&
+          item.profileId == safeProfileId,
     );
 
     final updatedReading = LocalRecentReading(

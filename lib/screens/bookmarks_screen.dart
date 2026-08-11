@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
-import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../data/quran_repository.dart';
@@ -150,7 +149,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final hasProfile =
         profileId != null &&
         profileId.isNotEmpty &&
-        provider.profiles.any((profile) => profile.id == profileId);
+        provider.profileById(profileId) != null;
     if (hasProfile) {
       await provider.setActiveProfile(profileId);
       if (!mounted) return;
@@ -371,7 +370,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             Icon(
               Icons.chevron_right_rounded,
               size: 20,
-              color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
       ),
     );
@@ -531,7 +530,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = Provider.of<ProgressProvider>(context);
     final localReading = Provider.of<LocalReadingProvider>(context);
     final mushafReading = Provider.of<MushafReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
@@ -546,31 +544,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
 
     final unifiedRecent = <_UnifiedItem>[];
 
-    // Current session
-    unifiedRecent.add(
-      _UnifiedItem(
-        DateTime.now(),
-        _buildVerseItem(
-          colorScheme,
-          title: widget.repository.getSurahName(progress.currentSurahId),
-          subtitle: 'อายะฮฺที่: ${progress.lastVerseIndex}',
-          readModeLabel: meaningfulReadLabel,
-          isMushaf: false,
-          onTap: () => _handleVerseRecentTap({
-            'surahId': progress.currentSurahId,
-            'verseIndex': progress.lastVerseIndex,
-          }, localReading),
-        ),
-      ),
-    );
-
     if (localReading.recentReadings.isNotEmpty) {
       unifiedRecent.addAll(
         localReading.recentReadings.map((reading) {
           final profile = reading.profileId != null
-              ? localReading.profiles
-                    .where((p) => p.id == reading.profileId)
-                    .firstOrNull
+              ? localReading.profileById(reading.profileId!)
               : null;
           return _UnifiedItem(
             reading.readAt,
@@ -583,7 +561,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   'number': '${reading.verse.surahId}:${reading.verse.verseId}',
                 },
               ),
-              badgeText: profile?.name,
+              badgeText: (profile != null && !isFreeReadProfile(profile))
+                  ? profile.name
+                  : null,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
               onTap: () => _handleVerseRecentTap(reading, localReading),
@@ -609,7 +589,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               colorScheme,
               title: 'Mushaf (${context.tr('page')} ${reading.pageNumber})',
               subtitle: surahName,
-              badgeText: profile?.name,
+              badgeText: (profile != null && !profile.isFreeRead)
+                  ? profile.name
+                  : null,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
               onTap: () => _handleMushafRecentTap(reading, mushafReading),
