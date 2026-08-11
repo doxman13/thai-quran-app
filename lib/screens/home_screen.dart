@@ -856,75 +856,114 @@ class _HomeScreenState extends State<HomeScreen>
       icon = Icons.menu_book;
     }
 
-    final cardBg = colorScheme.primary;
-    final onCardBg = colorScheme.onPrimary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rainbowColors = isDark
+        ? [
+            const Color(0xFF6366F1), // Indigo
+            const Color(0xFFEC4899), // Pink
+            const Color(0xFFF59E0B), // Amber
+            const Color(0xFF10B981), // Emerald
+            const Color(0xFF3B82F6), // Blue
+            const Color(0xFF6366F1), // Indigo
+          ]
+        : [
+            const Color(0xFF4F46E5), // Indigo
+            const Color(0xFFDB2777), // Pink
+            const Color(0xFFD97706), // Amber
+            const Color(0xFF059669), // Emerald
+            const Color(0xFF2563EB), // Blue
+            const Color(0xFF4F46E5), // Indigo
+          ];
 
-    return Material(
-      color: cardBg,
-      elevation: 2,
-      shadowColor: colorScheme.primary.withValues(alpha: 0.3),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => _openLastRead(localReading, mushafReading),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colorScheme.surface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: onCardBg, size: 24),
+    final onCardBg = Colors.white;
+
+    return AnimatedBuilder(
+      animation: _lastReadGlowController,
+      builder: (context, child) {
+        final double value = _lastReadGlowController.value;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment(-2.0 + (value * 3.0), -1.0),
+              end: Alignment(1.0 + (value * 3.0), 1.0),
+              colors: rainbowColors,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5))
+                    .withValues(alpha: 0.35),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _openLastRead(localReading, mushafReading),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
                   children: [
-                    Text(
-                      context.tr('continue_your_last_read'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.notoSansThai(
-                        color: onCardBg.withValues(alpha: 0.85),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(icon, color: onCardBg, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            context.tr('continue_your_last_read'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              color: onCardBg.withValues(alpha: 0.85),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              color: onCardBg,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.notoSansThai(
-                        color: onCardBg,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        size: 24,
+                        color: isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: colorScheme.surface,
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: 24,
-                  color: colorScheme.primary,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
