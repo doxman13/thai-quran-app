@@ -127,6 +127,8 @@ class AppTheme {
         brightness: isDark ? Brightness.dark : Brightness.light,
         primary: c.primary,
         onPrimary: c.textInverse,
+        primaryContainer: c.primaryLight,
+        onPrimaryContainer: c.primary,
         secondary: c.accent,
         onSecondary: c.textStrong,
         surface: c.surface,

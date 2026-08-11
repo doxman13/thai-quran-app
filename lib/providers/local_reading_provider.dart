@@ -487,6 +487,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? _pendingSyncSurahId;
   String? _pendingSyncVerseId;
   String? _pendingSyncUserId;
+  String? _pendingSyncProfileId;
   bool _isFlushingProfileSync = false;
   final Map<String, LocalReadingProfile> _pendingProfileSyncs = {};
 
@@ -830,6 +831,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                   userId,
                   localR.verse.surahId,
                   localR.verse.verseId,
+                  localR.profileId,
                 );
               } else {
                 // Remote is newer, keep it
@@ -850,6 +852,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                 userId,
                 localR.verse.surahId,
                 localR.verse.verseId,
+                localR.profileId,
               );
             }
           }
@@ -1772,10 +1775,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     String userId,
     String surahId,
     String verseId,
+    String? profileId,
   ) {
     _pendingSyncUserId = userId;
     _pendingSyncSurahId = surahId;
     _pendingSyncVerseId = verseId;
+    _pendingSyncProfileId = profileId;
 
     _recentReadingSyncTimer?.cancel();
     _recentReadingSyncTimer = Timer(const Duration(seconds: 2), () async {
@@ -1787,6 +1792,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     String userId,
     String surahId,
     String verseId,
+    String? profileId,
   ) async {
     try {
       final client = Supabase.instance.client;
@@ -1795,6 +1801,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         'user_id': userId,
         'surah_id': surahId,
         'verse_id': verseId,
+        'profile_id': profileId,
         'read_at': now,
       }, onConflict: 'user_id,surah_id');
     } catch (e) {
@@ -1809,6 +1816,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           'user_id': userId,
           'surah_id': surahId,
           'last_read_verse': verseId,
+          'profile_id': profileId,
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'user_id,surah_id');
       } catch (fallbackError) {
@@ -1824,12 +1832,14 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final userId = _pendingSyncUserId;
     final surahId = _pendingSyncSurahId;
     final verseId = _pendingSyncVerseId;
+    final profileId = _pendingSyncProfileId;
     if (userId == null || surahId == null || verseId == null) return;
 
     _pendingSyncUserId = null;
     _pendingSyncSurahId = null;
     _pendingSyncVerseId = null;
-    await _syncRecentReadingToSupabase(userId, surahId, verseId);
+    _pendingSyncProfileId = null;
+    await _syncRecentReadingToSupabase(userId, surahId, verseId, profileId);
   }
 
   Future<void> addRecentReading({
@@ -1841,9 +1851,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final client = Supabase.instance.client;
     final currentUser = client.auth.currentUser;
     final String currentUserId = currentUser?.id ?? _localUserId;
-    final taggedProfile = profileId == null
-        ? null
-        : _profiles.where((profile) => profile.id == profileId).firstOrNull;
+    final taggedProfile = profileId == null ? null : profileById(profileId);
     final safeProfileId =
         taggedProfile != null &&
             isVerseInsideProfile(taggedProfile, verse.surahId, verse.verseId)
@@ -1881,7 +1889,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     if (currentUser != null) {
-      _debounceRecentReadingSync(currentUser.id, verse.surahId, verse.verseId);
+      _debounceRecentReadingSync(currentUser.id, verse.surahId, verse.verseId, safeProfileId);
     }
   }
 

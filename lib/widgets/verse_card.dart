@@ -808,6 +808,11 @@ class _VerseCardState extends State<VerseCard> {
             verse: verseRef,
             profileId: progressProfile.id,
           );
+        } else {
+          localReading.addRecentReading(
+            verse: verseRef,
+            profileId: null,
+          );
         }
       });
     }
