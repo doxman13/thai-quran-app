@@ -875,15 +875,26 @@ class _HomeScreenState extends State<HomeScreen>
             const Color(0xFF4F46E5), // Indigo
           ];
 
-    final onCardBg = Colors.white;
+    final cardBgGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        colorScheme.primary,
+        colorScheme.secondary,
+      ],
+    );
+
+    final onCardBg = colorScheme.onPrimary;
 
     return AnimatedBuilder(
       animation: _lastReadGlowController,
       builder: (context, child) {
         final double value = _lastReadGlowController.value;
         return Container(
+          // Outer border container with the moving rainbow gradient
+          padding: const EdgeInsets.all(2), // 2px border width
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
             gradient: LinearGradient(
               begin: Alignment(-2.0 + (value * 3.0), -1.0),
               end: Alignment(1.0 + (value * 3.0), 1.0),
@@ -892,72 +903,79 @@ class _HomeScreenState extends State<HomeScreen>
             boxShadow: [
               BoxShadow(
                 color: (isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5))
-                    .withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
+                    .withValues(alpha: 0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
+          child: Container(
+            // Inner container with simple 2-color theme gradient
+            decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              onTap: () => _openLastRead(localReading, mushafReading),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(14),
+              gradient: cardBgGradient,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => _openLastRead(localReading, mushafReading),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: onCardBg.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(icon, color: onCardBg, size: 24),
                       ),
-                      alignment: Alignment.center,
-                      child: Icon(icon, color: onCardBg, size: 24),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            context.tr('continue_your_last_read'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              color: onCardBg.withValues(alpha: 0.85),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              context.tr('continue_your_last_read'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                color: onCardBg.withValues(alpha: 0.85),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            detail,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              color: onCardBg,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
+                            const SizedBox(height: 2),
+                            Text(
+                              detail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                color: onCardBg,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.play_arrow_rounded,
-                        size: 24,
-                        color: isDark ? const Color(0xFF6366F1) : const Color(0xFF4F46E5),
+                      const SizedBox(width: 8),
+                      CircleAvatar(
+                        radius: 20,
+                        backgroundColor: onCardBg,
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          size: 24,
+                          color: colorScheme.primary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
