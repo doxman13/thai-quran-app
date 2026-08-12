@@ -87,6 +87,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         }
       }
 
+      if (profile != null && isShortcutProfile(profile)) {
+        if (resultSurahId != profile.start.surahId) {
+          profile = null;
+        }
+      }
+
       profile ??= saveToFreeReadOnly
           ? localReading.freeReadProfile
           : localReading.activeProfile;
@@ -165,10 +171,15 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final verseIndex = reading is Map ? reading['verseIndex'] : null;
     if (surahId == null || surahId.isEmpty) return;
 
-    final hasProfile =
-        profileId != null &&
-        profileId.isNotEmpty &&
-        provider.profileById(profileId) != null;
+    final profile = (profileId != null && profileId.isNotEmpty)
+        ? provider.profileById(profileId)
+        : null;
+    final isInside = profile != null &&
+        (isShortcutProfile(profile)
+            ? surahId == profile.start.surahId
+            : (profile.target == null ||
+                provider.isVerseInsideProfile(profile, surahId, verseId)));
+    final hasProfile = profile != null && isInside;
     if (hasProfile) {
       await provider.setActiveProfile(profileId);
       if (!mounted) return;
@@ -593,8 +604,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final unifiedRecent = <_UnifiedItem>[];
 
     if (localReading.recentReadings.isNotEmpty) {
+      final seenRecentKeys = <String>{};
+      final deduplicatedRecent = localReading.recentReadings.where((reading) {
+        final key = '${reading.userId}-${reading.verse.surahId}-${reading.profileId}';
+        return seenRecentKeys.add(key);
+      }).toList();
+
       unifiedRecent.addAll(
-        localReading.recentReadings.map((reading) {
+        deduplicatedRecent.map((reading) {
           final profile = reading.profileId != null
               ? localReading.profileById(reading.profileId!)
               : null;
@@ -610,7 +627,16 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                 },
               ),
               timestamp: reading.readAt,
-              badgeText: (profile != null && !isFreeReadProfile(profile))
+              badgeText: (profile != null &&
+                      !isFreeReadProfile(profile) &&
+                      (isShortcutProfile(profile)
+                          ? reading.verse.surahId == profile.start.surahId
+                          : (profile.target == null ||
+                              localReading.isVerseInsideProfile(
+                                profile,
+                                reading.verse.surahId,
+                                reading.verse.verseId,
+                              ))))
                   ? profile.name
                   : null,
               readModeLabel: meaningfulReadLabel,

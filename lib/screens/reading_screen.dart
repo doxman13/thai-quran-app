@@ -1844,13 +1844,27 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                                 'save_progress',
                                               ),
                                               onPressed: () async {
-                                                final progressProfile =
-                                                    _progressProfile(
-                                                      localReading,
-                                                    );
-                                                final currentIndex =
-                                                    progressProv.lastVerseIndex;
-                                                if (progressProfile != null &&
+                                                var progressProfile =
+                                                     _progressProfile(
+                                                       localReading,
+                                                     );
+                                                 final currentIndex =
+                                                     progressProv.lastVerseIndex;
+                                                 if (progressProfile != null &&
+                                                     isShortcutProfile(progressProfile)) {
+                                                   if (currentIndex >= 0 &&
+                                                       currentIndex <
+                                                           verses.length) {
+                                                     final currentVerse =
+                                                         verses[currentIndex];
+                                                     if (currentVerse.surahId !=
+                                                         progressProfile
+                                                             .start.surahId) {
+                                                       progressProfile = null;
+                                                     }
+                                                   }
+                                                 }
+                                                 if (progressProfile != null &&
                                                     currentIndex >= 0 &&
                                                     currentIndex <
                                                         verses.length) {

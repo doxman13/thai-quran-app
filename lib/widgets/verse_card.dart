@@ -793,11 +793,18 @@ class _VerseCardState extends State<VerseCard> {
           context,
           listen: false,
         );
-        final progressProfile = widget.useExplicitProgressProfile
+        var progressProfile = widget.useExplicitProgressProfile
             ? (widget.progressProfileId == null
                   ? null
                   : localReading.profileById(widget.progressProfileId!))
             : localReading.activeProfile;
+
+        if (progressProfile != null && isShortcutProfile(progressProfile)) {
+          if (widget.verse.surahId != progressProfile.start.surahId) {
+            progressProfile = null;
+          }
+        }
+
         if (progressProfile != null) {
           localReading.updateProfileProgress(
             progressProfile.id,

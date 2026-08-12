@@ -569,6 +569,12 @@ class _HomeScreenState extends State<HomeScreen>
           }
         }
 
+        if (profile != null && isShortcutProfile(profile)) {
+          if (surahId != profile.start.surahId) {
+            profile = null;
+          }
+        }
+
         profile ??= saveToFreeReadOnly
             ? localReading.freeReadProfile
             : localReading.activeProfile;

@@ -349,9 +349,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (resultSurahId != null && resultVerseId != null) {
       final localReading = context.read<LocalReadingProvider>();
       final resultProfileId = result['profileId']?.toString();
-      final profile = resultProfileId != null
+      var profile = resultProfileId != null
           ? localReading.profileById(resultProfileId)
           : localReading.activeProfile;
+
+      if (profile != null && isShortcutProfile(profile)) {
+        if (resultSurahId != profile.start.surahId) {
+          profile = null;
+        }
+      }
+
       await localReading.addRecentReading(
         verse: toVerseRef(resultSurahId, resultVerseId),
         profileId: profile?.id,
