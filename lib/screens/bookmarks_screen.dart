@@ -47,6 +47,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     String? verseId,
     int? verseIndex,
     bool saveToFreeReadOnly = false,
+    bool recordRecentRead = true,
     // Preserve the original goal context even if activeProfile changes
     // during the session (e.g. switchToFreeReadIfOutside fires).
     String? fallbackProfileId,
@@ -97,10 +98,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           ? localReading.freeReadProfile
           : localReading.activeProfile;
 
-      await localReading.addRecentReading(
-        verse: toVerseRef(resultSurahId, resultVerseId),
-        profileId: profile?.id,
-      );
+      if (recordRecentRead) {
+        await localReading.addRecentReading(
+          verse: toVerseRef(resultSurahId, resultVerseId),
+          profileId: profile?.id,
+        );
+      }
     }
   }
 
@@ -1425,6 +1428,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           _openReading(
                             surahId: surahId,
                             verseId: verseId,
+                            recordRecentRead: false,
                           );
                         },
                         onEdit: () {
