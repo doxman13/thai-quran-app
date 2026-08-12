@@ -118,8 +118,8 @@ class LocalReadingProfile {
       'lastViewedIndex': lastViewedIndex,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
   }
 
@@ -404,7 +404,7 @@ class LocalBookmark {
       if (label != null) 'label': label,
       if (note != null) 'note': note,
       'sortOrder': sortOrder,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
     };
   }
 
@@ -446,7 +446,7 @@ class LocalRecentReading {
       'surahId': verse.surahId,
       'verseId': verse.verseId,
       if (profileId != null) 'profileId': profileId,
-      'readAt': readAt.toIso8601String(),
+      'readAt': readAt.toUtc().toIso8601String(),
     };
   }
 
@@ -1182,8 +1182,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       'last_viewed_index': p.lastViewedIndex,
       'sort_order': p.sortOrder,
       'is_archived': p.isArchived,
-      'created_at': p.createdAt.toIso8601String(),
-      'updated_at': p.updatedAt.toIso8601String(),
+      'created_at': p.createdAt.toUtc().toIso8601String(),
+      'updated_at': p.updatedAt.toUtc().toIso8601String(),
     };
   }
 
@@ -1214,7 +1214,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           'last_viewed_index': p.lastViewedIndex,
           'sort_order': p.sortOrder,
           'is_archived': p.isArchived,
-          'updated_at': p.updatedAt.toIso8601String(),
+          'updated_at': p.updatedAt.toUtc().toIso8601String(),
         };
 
         if (hasUuid) {
@@ -1317,7 +1317,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (user == null || profile.userId == 'local') return;
 
     try {
-      final archivedAt = DateTime.now().toIso8601String();
+      final archivedAt = DateTime.now().toUtc().toIso8601String();
       final uuidRegExp = RegExp(
         r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
       );
@@ -1509,7 +1509,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Update reading state timestamp on disk
       final timestampSuccess = await prefs.setString(
         'user_reading_state_updated_at',
-        now.toIso8601String(),
+        now.toUtc().toIso8601String(),
       );
       if (!timestampSuccess) {
         throw const StorageException(
@@ -1796,7 +1796,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   ) async {
     try {
       final client = Supabase.instance.client;
-      final now = DateTime.now().toIso8601String();
+      final now = DateTime.now().toUtc().toIso8601String();
       await client.from('recent_readings').upsert({
         'user_id': userId,
         'surah_id': surahId,
@@ -1817,7 +1817,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           'surah_id': surahId,
           'last_read_verse': verseId,
           'profile_id': profileId,
-          'updated_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
         }, onConflict: 'user_id,surah_id');
       } catch (fallbackError) {
         debugPrint('Error syncing recent reading to Supabase: $fallbackError');
@@ -1928,7 +1928,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         'verse_id': int.tryParse(viewedRef.verseId) ?? 1,
         'last_viewed_index': viewedIndex,
         'furthest_unread_index': nextFurthest,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       }, onConflict: 'user_id');
     } catch (e) {
       debugPrint('Error syncing reading state to Supabase: $e');
@@ -2007,7 +2007,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
           await prefs.setString(
             'user_reading_state_updated_at',
-            remoteUpdatedAt.toIso8601String(),
+            remoteUpdatedAt.toUtc().toIso8601String(),
           );
           await _save(immediate: true);
           notifyListeners();
