@@ -78,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           title: Text(
             context.tr('edit_name'),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               fontWeight: FontWeight.w800,
               color: colorScheme.onSurface,
             ),
@@ -1137,7 +1137,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 24),
                       _buildProfileStatsGroup(
-                        title: 'สถิติและบันทึก',
+                        title: settings.languageCode == 'en' ? 'Stats & Notes' : 'สถิติและบันทึก',
                         children: [
                           _buildStatCard(
                             icon: Icons.favorite_rounded,
@@ -1150,8 +1150,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           _buildStatCard(
                             icon: Icons.local_fire_department,
-                            title: 'วันอ่านต่อเนื่อง',
-                            value: '${statsProv.streakCount} วัน',
+                            title: settings.languageCode == 'en' ? 'Reading Streak' : 'วันอ่านต่อเนื่อง',
+                            value: settings.languageCode == 'en'
+                                ? '${statsProv.streakCount} Days'
+                                : '${statsProv.streakCount} วัน',
                             color: colorScheme.primary,
                           ),
                           _buildReportsCountCard(supabaseProv),
@@ -1309,7 +1311,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               fontSize: 12,
               color: colorScheme.onSurfaceVariant,
             ),
@@ -1349,7 +1351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -1537,6 +1539,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatusBadge(String status) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
     Color bgColor;
     Color textColor;
     String label;
@@ -1545,18 +1548,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'reviewed_fixed':
         bgColor = colorScheme.primary.withValues(alpha: 0.15);
         textColor = colorScheme.primary;
-        label = 'แก้ไขแล้ว (Fixed)';
+        label = isThai ? 'แก้ไขแล้ว' : 'Fixed';
         break;
       case 'reviewed_not_needed':
         bgColor = colorScheme.outline.withValues(alpha: 0.15);
         textColor = colorScheme.onSurfaceVariant;
-        label = 'ไม่ต้องแก้ไข (No Action)';
+        label = isThai ? 'ไม่ต้องแก้ไข' : 'No Action';
         break;
       case 'pending_review':
       default:
         bgColor = colorScheme.secondary.withValues(alpha: 0.15);
         textColor = colorScheme.secondary;
-        label = 'รอดำเนินการ (Pending)';
+        label = isThai ? 'รอดำเนินการ' : 'Pending';
         break;
     }
 
@@ -1664,6 +1667,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   separatorBuilder: (context, index) =>
                       Divider(color: colorScheme.outline, thickness: 1),
                   itemBuilder: (context, index) {
+                    final settings = Provider.of<SettingsProvider>(context, listen: false);
                     final report = reports[index];
                     final surahId = report['surah_id']?.toString() ?? '';
                     final ayahNum = report['ayah_number']?.toString() ?? '';
@@ -1712,7 +1716,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        'อายะฮฺ $surahId:$ayahNum',
+                                        settings.languageCode == 'en'
+                                            ? 'Ayah $surahId:$ayahNum'
+                                            : 'อายะฮฺ $surahId:$ayahNum',
                                         style: GoogleFonts.notoSansThai(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
@@ -1742,9 +1748,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 8),
                           Text(
-                            'ข้อความโองการที่รายงาน (Verse text):',
+                            settings.languageCode == 'en'
+                                ? 'Reported Verse Text:'
+                                : 'ข้อความโองการที่รายงาน:',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1762,7 +1769,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'ความคิดเห็นของคุณ (Your comment):',
+                            settings.languageCode == 'en'
+                                ? 'Your Comment:'
+                                : 'ความคิดเห็นของคุณ:',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -1801,7 +1810,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        'บันทึกจากผู้ดูแล (Admin Note):',
+                                        settings.languageCode == 'en'
+                                            ? 'Admin Note:'
+                                            : 'บันทึกจากผู้ดูแล:',
                                         style: GoogleFonts.notoSansThai(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,

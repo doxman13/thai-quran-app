@@ -281,21 +281,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result.updated > 0) {
         await widget.repository?.reloadRemoteContent();
       }
-      if (!mounted) return;
-
+      final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
       final message = result.hasFailures
-          ? 'Updated ${result.updated}/${result.checked}. Failed: ${result.failedKeys.join(', ')}'
+          ? (isThai 
+              ? 'อัปเดตแล้ว ${result.updated}/${result.checked} รายการ ล้มเหลว: ${result.failedKeys.join(', ')}'
+              : 'Updated ${result.updated}/${result.checked}. Failed: ${result.failedKeys.join(', ')}')
           : result.updated > 0
-          ? 'Updated ${result.updated} content pack(s).'
-          : 'All content is already up to date.';
+          ? (isThai
+              ? 'อัปเดตข้อมูลแล้ว ${result.updated} แพ็ก'
+              : 'Updated ${result.updated} content pack(s).')
+          : (isThai
+              ? 'เนื้อหาทั้งหมดเป็นเวอร์ชันล่าสุดแล้ว'
+              : 'All content is already up to date.');
 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (!mounted) return;
+      final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not check content updates.')),
+        SnackBar(
+          content: Text(
+            isThai ? 'ไม่สามารถตรวจสอบการอัปเดตเนื้อหาได้' : 'Could not check content updates.',
+          ),
+        ),
       );
     } finally {
       if (mounted) {

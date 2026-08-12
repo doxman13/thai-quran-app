@@ -373,7 +373,7 @@ class _VerseCardState extends State<VerseCard> {
       if (!mounted) return;
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+        ..showSnackBar(SnackBar(content: Text(context.tr('removed_from_favorites'))));
       return;
     }
 
@@ -384,26 +384,26 @@ class _VerseCardState extends State<VerseCard> {
         final colors = settings.getAppColors();
         return AlertDialog(
           title: Text(
-            'Remove favorite?',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+            ctx.tr('remove_favorite_title'),
+            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
           ),
           content: Text(
-            'This verse has a note. Removing it will delete the saved note too.',
-            style: GoogleFonts.inter(color: colors.foreground),
+            ctx.tr('remove_favorite_with_note'),
+            style: GoogleFonts.notoSansThai(color: colors.foreground),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(
-                'Cancel',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                ctx.tr('cancel'),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
               ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(
-                'Remove',
-                style: GoogleFonts.inter(
+                ctx.tr('remove'),
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.w800,
                   color: Colors.red.shade500,
                 ),
@@ -1071,7 +1071,7 @@ class _VerseCardState extends State<VerseCard> {
                             : thaiTextProtection.protect(_getTafsir()!),
                         locale: _isNonThaiPrimary() ? null : const Locale('th', 'TH'),
                         style: _isNonThaiPrimary()
-                          ? GoogleFonts.inter(
+                          ? GoogleFonts.notoSansThai(
                               fontSize: 15,
                               height: 1.5,
                               color: isDark

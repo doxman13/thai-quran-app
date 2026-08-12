@@ -254,9 +254,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                     ),
                   ),
                   items: [
-                    const DropdownMenuItem<String>(
+                    DropdownMenuItem<String>(
                       value: '',
-                      child: Text('None / ไม่เลือก'),
+                      child: Text(settings.languageCode == 'th' ? 'ไม่เลือก' : 'None'),
                     ),
                     ...availableOptions.map((opt) {
                       return DropdownMenuItem<String>(
@@ -271,7 +271,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                   selectedItemBuilder: (context) {
                     return [
                       Text(
-                        'None / ไม่เลือก',
+                        settings.languageCode == 'th' ? 'ไม่เลือก' : 'None',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 14,
                           color: colorScheme.onSurfaceVariant,
@@ -937,7 +937,7 @@ class _DownloadProgressOverlayState extends State<_DownloadProgressOverlay> with
                           const SizedBox(width: 12),
                           Text(
                             '$percent%',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: colorScheme.primary,
@@ -947,7 +947,7 @@ class _DownloadProgressOverlayState extends State<_DownloadProgressOverlay> with
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Loading in the background...',
+                        settingsLanguage == 'th' ? 'กำลังดำเนินการในพื้นหลัง...' : 'Loading in the background...',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 11,
                           color: colorScheme.onSurfaceVariant,

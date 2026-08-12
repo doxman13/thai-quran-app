@@ -1674,7 +1674,9 @@ class _ReaderTopBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          tooltip: pageBookmarked ? 'Remove page bookmark' : 'Bookmark page',
+          tooltip: pageBookmarked 
+              ? (context.read<SettingsProvider>().languageCode == 'th' ? 'ลบบุ๊กมาร์กหน้านี้' : 'Remove page bookmark') 
+              : (context.read<SettingsProvider>().languageCode == 'th' ? 'บุ๊กมาร์กหน้านี้' : 'Bookmark page'),
           onPressed: onBookmarkPage,
           icon: Icon(
             pageBookmarked
@@ -1685,7 +1687,9 @@ class _ReaderTopBar extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: isAudioPlaying ? 'Pause recitation' : 'Play recitation',
+          tooltip: isAudioPlaying 
+              ? (context.read<SettingsProvider>().languageCode == 'th' ? 'หยุดชั่วคราว' : 'Pause recitation') 
+              : (context.read<SettingsProvider>().languageCode == 'th' ? 'เล่นการอ่าน' : 'Play recitation'),
           onPressed: onPlay,
           icon: isAudioLoading
               ? SizedBox(
@@ -3073,6 +3077,8 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
           surahNumber.toString().contains(_query);
     }).toList();
 
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
+
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.75,
@@ -3081,7 +3087,7 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
       child: Column(
         children: [
           Text(
-            'Select Surah',
+            isThai ? 'เลือกสูเราะฮ์' : 'Select Surah',
             style: GoogleFonts.notoSansThai(
               color: widget.colors.textStrong,
               fontSize: 18,
@@ -3093,7 +3099,7 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
             controller: _searchController,
             onChanged: (val) => setState(() => _query = val),
             decoration: InputDecoration(
-              hintText: 'Search Surah...',
+              hintText: isThai ? 'ค้นหาสูเราะฮ์...' : 'Search Surah...',
               prefixIcon: const Icon(Icons.search),
               filled: true,
               fillColor: widget.colors.surface,

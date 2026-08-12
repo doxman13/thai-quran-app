@@ -249,7 +249,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           const SizedBox(height: 16),
           Text(
             context.tr('no_reflections_yet'),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
@@ -258,7 +258,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           const SizedBox(height: 8),
           Text(
             context.tr('add_reflections_while_reading'),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               fontSize: 13,
               color: colorScheme.onSurfaceVariant,
             ),
@@ -288,7 +288,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             padding: const EdgeInsets.all(16),
             child: Text(
               context.tr('surahs'),
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansThai(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: colorScheme.onSurface,
@@ -334,7 +334,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                             child: Center(
                               child: Text(
                                 surahId,
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   color: isActive
@@ -347,7 +347,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              widget.repository.getSurahName(surahId),
+                              widget.repository.getSurahName(surahId).replaceAll(RegExp(r'^\d+\.\s*'), ''),
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 13,
                                 fontWeight: isActive
@@ -373,7 +373,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                             ),
                             child: Text(
                               '$count',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: isActive
@@ -525,7 +525,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
               return DropdownMenuItem(
                 value: surahId,
                 child: Text(
-                  '${widget.repository.getSurahName(surahId)} (${context.tr('notes_count_short', args: {'count': '$count'})})',
+                  '${widget.repository.getSurahName(surahId).replaceAll(RegExp(r'^\d+\.\s*'), '')} (${context.tr('notes_count_short', args: {'count': '$count'})})',
                   style: GoogleFonts.notoSansThai(
                     fontWeight: FontWeight.w500,
                     color: colorScheme.onSurface,
@@ -630,8 +630,8 @@ class _NoteCardState extends State<_NoteCard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${widget.repository.getSurahName(note.surahId)} ${note.surahId}:${note.verseId}',
-                      style: GoogleFonts.inter(
+                      '${widget.repository.getSurahName(note.surahId).replaceAll(RegExp(r'^\d+\.\s*'), '')} ${note.surahId}:${note.verseId}',
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: colorScheme.primary,
@@ -642,7 +642,7 @@ class _NoteCardState extends State<_NoteCard> {
                 const Spacer(),
                 Text(
                   timeago.format(note.updatedAt),
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 10,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -672,7 +672,7 @@ class _NoteCardState extends State<_NoteCard> {
                         onPressed: () => setState(() => _isEditing = false),
                         child: Text(
                           context.tr('cancel'),
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -687,7 +687,7 @@ class _NoteCardState extends State<_NoteCard> {
                         ),
                         child: Text(
                           context.tr('save'),
-                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -708,7 +708,7 @@ class _NoteCardState extends State<_NoteCard> {
                         )
                       : Text(
                           context.tr('favorited_no_reflection'),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
                             color: colorScheme.onSurfaceVariant,
@@ -753,7 +753,7 @@ class _NoteCardState extends State<_NoteCard> {
                                   note.isPublic
                                       ? context.tr('public')
                                       : context.tr('private'),
-                                  style: GoogleFonts.inter(
+                                  style: GoogleFonts.notoSansThai(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                     color: note.isPublic
@@ -788,20 +788,20 @@ class _NoteCardState extends State<_NoteCard> {
                             builder: (ctx) => AlertDialog(
                               title: Text(
                                 context.tr('remove_from_favorites'),
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.notoSansThai(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               content: Text(
                                 context.tr('unfavorite_confirm'),
-                                style: GoogleFonts.inter(),
+                                style: GoogleFonts.notoSansThai(),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx),
                                   child: Text(
                                     context.tr('cancel'),
-                                    style: GoogleFonts.inter(
+                                    style: GoogleFonts.notoSansThai(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -813,7 +813,7 @@ class _NoteCardState extends State<_NoteCard> {
                                   },
                                   child: Text(
                                     context.tr('unfavorite'),
-                                    style: GoogleFonts.inter(
+                                    style: GoogleFonts.notoSansThai(
                                       color: colorScheme.error,
                                       fontWeight: FontWeight.bold,
                                     ),

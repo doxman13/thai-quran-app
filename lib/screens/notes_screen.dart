@@ -21,6 +21,8 @@ class NotesScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = settings.getPrimaryColor();
 
+    final isThai = settings.languageCode == 'th';
+
     // Convert notes map into a sorted list of entries
     final noteEntries = notesProv.personalNotes.entries.toList()
       ..sort((a, b) {
@@ -38,8 +40,8 @@ class NotesScreen extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         title: Text(
-          'Personal Notes & Thoughts',
-          style: GoogleFonts.inter(
+          isThai ? 'บันทึกและข้อคิดส่วนตัว' : 'Personal Notes & Thoughts',
+          style: GoogleFonts.notoSansThai(
             fontWeight: FontWeight.w800,
             color: colorScheme.onSurface,
           ),
@@ -47,7 +49,7 @@ class NotesScreen extends StatelessWidget {
         foregroundColor: colorScheme.onSurface,
       ),
       body: noteEntries.isEmpty
-          ? _buildEmptyState(colorScheme)
+          ? _buildEmptyState(colorScheme, isThai)
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: noteEntries.length,
@@ -89,20 +91,25 @@ class NotesScreen extends StatelessWidget {
                           side: BorderSide(color: colorScheme.outlineVariant),
                         ),
                         title: Text(
-                          'Delete Note',
-                          style: GoogleFonts.inter(
+                          isThai ? 'ลบบันทึก' : 'Delete Note',
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onSurface,
                           ),
                         ),
                         content: Text(
-                          'Are you sure you want to delete this personal note?',
-                          style: GoogleFonts.inter(color: colorScheme.onSurfaceVariant),
+                          isThai
+                              ? 'คุณแน่ใจหรือไม่ว่าต้องการลบบันทึกส่วนตัวนี้?'
+                              : 'Are you sure you want to delete this personal note?',
+                          style: GoogleFonts.notoSansThai(color: colorScheme.onSurfaceVariant),
                         ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: Text('Cancel', style: GoogleFonts.inter()),
+                            child: Text(
+                              isThai ? 'ยกเลิก' : 'Cancel',
+                              style: GoogleFonts.notoSansThai(),
+                            ),
                           ),
                           FilledButton(
                             style: FilledButton.styleFrom(
@@ -113,7 +120,10 @@ class NotesScreen extends StatelessWidget {
                               notesProv.deleteNote(surahId, verseId);
                               Navigator.pop(ctx);
                             },
-                            child: Text('Delete', style: GoogleFonts.inter()),
+                            child: Text(
+                              isThai ? 'ลบ' : 'Delete',
+                              style: GoogleFonts.notoSansThai(),
+                            ),
                           ),
                         ],
                       ),
@@ -125,7 +135,7 @@ class NotesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(ColorScheme colorScheme) {
+  Widget _buildEmptyState(ColorScheme colorScheme, bool isThai) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -146,8 +156,8 @@ class NotesScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'No personal notes yet.',
-              style: GoogleFonts.inter(
+              isThai ? 'ยังไม่มีบันทึกส่วนตัว' : 'No personal notes yet.',
+              style: GoogleFonts.notoSansThai(
                 fontSize: 18,
                 color: colorScheme.onSurface,
                 fontWeight: FontWeight.w700,
@@ -155,9 +165,11 @@ class NotesScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'You can add notes to any verse while reading the Quran.',
+              isThai
+                  ? 'คุณสามารถเพิ่มบันทึกในอายะฮ์ต่าง ๆ ได้โดยตรงขณะอ่านอัลกุรอาน'
+                  : 'You can add notes to any verse while reading the Quran.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansThai(
                 fontSize: 14,
                 color: colorScheme.onSurfaceVariant,
                 height: 1.5,
@@ -193,6 +205,8 @@ class _NoteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
+
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface,
@@ -222,8 +236,8 @@ class _NoteCard extends StatelessWidget {
                         Icon(Icons.menu_book_rounded, size: 12, color: colorScheme.onPrimaryContainer),
                         const SizedBox(width: 6),
                         Text(
-                          '$surahName $surahId:$verseId',
-                          style: GoogleFonts.inter(
+                          '${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} $surahId:$verseId',
+                          style: GoogleFonts.notoSansThai(
                             fontWeight: FontWeight.w800,
                             fontSize: 12,
                             color: colorScheme.onPrimaryContainer,
@@ -263,7 +277,7 @@ class _NoteCard extends StatelessWidget {
                 ),
                 child: Text(
                   noteContent,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansThai(
                     fontSize: 14,
                     color: colorScheme.onSurface,
                     height: 1.6,
@@ -276,8 +290,8 @@ class _NoteCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Tap to read verse',
-                    style: GoogleFonts.inter(
+                    isThai ? 'แตะเพื่อเปิดอ่านอายะฮ์' : 'Tap to read verse',
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 11,
                       color: colorScheme.primary,
                       fontWeight: FontWeight.w600,

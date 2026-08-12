@@ -3,6 +3,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 
 class HtmlParser {
   static List<TextSpan> parseTranslationText(
@@ -63,6 +65,9 @@ class HtmlParser {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        final isThai = settings.languageCode == 'th';
+
         return FutureBuilder<String>(
           future: _fetchFootnote(footnoteId),
           builder: (ctx, snapshot) {
@@ -71,7 +76,10 @@ class HtmlParser {
               content = const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError || !snapshot.hasData) {
               content = Center(
-                child: Text('Failed to load footnote.', style: GoogleFonts.inter(color: textColor)),
+                child: Text(
+                  isThai ? 'โหลดฟุตโน้ตล้มเหลว' : 'Failed to load footnote.',
+                  style: GoogleFonts.notoSansThai(color: textColor),
+                ),
               );
             } else {
               // The API returns a string which itself might have HTML (like <i>).
@@ -81,7 +89,7 @@ class HtmlParser {
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   cleanText,
-                  style: GoogleFonts.inter(fontSize: 16, height: 1.6, color: textColor),
+                  style: GoogleFonts.notoSansThai(fontSize: 16, height: 1.6, color: textColor),
                 ),
               );
             }
@@ -100,7 +108,10 @@ class HtmlParser {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Footnote', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
+                  Text(
+                    isThai ? 'ฟุตโน้ต' : 'Footnote',
+                    style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold, fontSize: 18, color: textColor),
+                  ),
                   const Divider(),
                   Flexible(child: content),
                 ],

@@ -8,6 +8,7 @@ import '../providers/settings_provider.dart';
 import '../models/tadabbur_note.dart';
 import '../data/tadabbur_repository.dart';
 import '../theme/app_theme.dart';
+import '../shared/localization.dart';
 
 class TadabburPanel extends StatefulWidget {
   final String surahId;
@@ -128,6 +129,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
     final settings = context.watch<SettingsProvider>();
     final colors = settings.getAppColors();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isThai = settings.languageCode == 'th';
 
     return Center(
       child: ConstrainedBox(
@@ -168,8 +170,10 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
-                      style: GoogleFonts.inter(
+                      isThai
+                          ? 'รายการโปรดและข้อคิด — อายะฮ์ ${widget.surahId}:${widget.verseId}'
+                          : 'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                         color: colors.textStrong,
@@ -186,8 +190,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           color: colors.primary,
                         ),
                         label: Text(
-                          _isEditing ? 'Cancel' : 'Edit',
-                          style: GoogleFonts.inter(
+                          _isEditing ? (isThai ? 'ยกเลิก' : 'Cancel') : (isThai ? 'แก้ไข' : 'Edit'),
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: colors.primary,
@@ -235,6 +239,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
   Widget _buildSavedCard(AppThemeColors colors, bool isDark) {
     final hasNoteText = _savedNote!.noteText.isNotEmpty;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -253,7 +259,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
             child: hasNoteText
                 ? Text(
                     _savedNote!.noteText,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       fontSize: 14,
                       height: 1.5,
                       color: colors.textStrong,
@@ -269,8 +275,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Favorited this verse (no reflection text added)',
-                          style: GoogleFonts.inter(
+                          context.tr('favorited_no_reflection'),
+                          style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
                             color: colors.textStrong.withValues(alpha: 0.6),
@@ -289,7 +295,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
               ],
               Text(
                 timeago.format(_savedNote!.updatedAt),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontSize: 11,
                   color: colors.foreground.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w500,
@@ -333,8 +339,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     },
                     icon: const Icon(Icons.lock_outline_rounded, size: 14),
                     label: Text(
-                      'Make Private',
-                      style: GoogleFonts.inter(
+                      isThai ? 'ทำให้เป็นส่วนตัว' : 'Make Private',
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -380,8 +386,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     },
                     icon: const Icon(Icons.public_rounded, size: 14),
                     label: Text(
-                      'Make Public',
-                      style: GoogleFonts.inter(
+                      isThai ? 'ทำให้เป็นสาธารณะ' : 'Make Public',
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -398,25 +404,25 @@ class _TadabburPanelState extends State<TadabburPanel> {
                   size: 20,
                   color: Colors.red.shade400,
                 ),
-                tooltip: 'Unfavorite',
+                tooltip: context.tr('unfavorite'),
                 onPressed: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: Text(
-                        'Remove from Favorites',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w900),
+                        context.tr('remove_from_favorites'),
+                        style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
                       ),
                       content: Text(
-                        'Are you sure you want to unfavorite this verse?',
-                        style: GoogleFonts.inter(),
+                        context.tr('unfavorite_confirm'),
+                        style: GoogleFonts.notoSansThai(),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
                           child: Text(
-                            'Cancel',
-                            style: GoogleFonts.inter(
+                            context.tr('cancel'),
+                            style: GoogleFonts.notoSansThai(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -424,8 +430,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           child: Text(
-                            'Unfavorite',
-                            style: GoogleFonts.inter(
+                            context.tr('unfavorite'),
+                            style: GoogleFonts.notoSansThai(
                               fontWeight: FontWeight.w800,
                               color: Colors.red,
                             ),
@@ -446,6 +452,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
   Widget _buildPrivacyChip(AppThemeColors colors) {
     final isPublic = _savedNote?.isPublic ?? _isPublic;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -469,8 +476,10 @@ class _TadabburPanelState extends State<TadabburPanel> {
           ),
           const SizedBox(width: 4),
           Text(
-            isPublic ? 'Public' : 'Private',
-            style: GoogleFonts.inter(
+            isPublic
+                ? (settings.languageCode == 'th' ? 'สาธารณะ' : 'Public')
+                : (settings.languageCode == 'th' ? 'ส่วนตัว' : 'Private'),
+            style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               color: isPublic ? Colors.green : colors.primary,
@@ -483,11 +492,13 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
   Widget _buildForm(AppThemeColors colors, bool isDark) {
     final isTextEmpty = _controller.text.trim().isEmpty;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
     final buttonLabel = _saveSuccess
-        ? 'Saved successfully'
+        ? (isThai ? 'บันทึกสำเร็จแล้ว' : 'Saved successfully')
         : isTextEmpty
-        ? 'Save as Favorite'
-        : 'Save Favorite & Note';
+        ? (isThai ? 'บันทึกเป็นรายการโปรด' : 'Save as Favorite')
+        : (isThai ? 'บันทึกรายการโปรดและโน้ต' : 'Save Favorite & Note');
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -504,8 +515,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
               ),
               const SizedBox(width: 6),
               Text(
-                'Reflection Note (Optional)',
-                style: GoogleFonts.inter(
+                isThai ? 'บันทึกใคร่ครวญ (ไม่บังคับ)' : 'Reflection Note (Optional)',
+                style: GoogleFonts.notoSansThai(
                   color: colors.textStrong,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -520,7 +531,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
             maxLines: 10,
             style: GoogleFonts.notoSansThai(fontSize: 15, color: colors.textStrong),
             decoration: InputDecoration(
-              hintText: 'Write your reflection here (optional)...',
+              hintText: isThai ? 'เขียนข้อคิดหรือใคร่ครวญที่นี่ (ไม่บังคับ)...' : 'Write your reflection here (optional)...',
               hintStyle: GoogleFonts.notoSansThai(
                 fontSize: 14,
                 color: colors.foreground.withValues(alpha: 0.4),
@@ -556,8 +567,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Visibility',
-                  style: GoogleFonts.inter(
+                  isThai ? 'การมองเห็น' : 'Visibility',
+                  style: GoogleFonts.notoSansThai(
                     color: colors.textStrong,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -604,8 +615,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Private',
-                              style: GoogleFonts.inter(
+                              isThai ? 'ส่วนตัว' : 'Private',
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 12,
                                 fontWeight: !_isPublic
                                     ? FontWeight.bold
@@ -649,8 +660,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Public',
-                              style: GoogleFonts.inter(
+                              isThai ? 'สาธารณะ' : 'Public',
+                              style: GoogleFonts.notoSansThai(
                                 fontSize: 12,
                                 fontWeight: _isPublic
                                     ? FontWeight.bold
@@ -710,7 +721,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     ),
               label: Text(
                 buttonLabel,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),

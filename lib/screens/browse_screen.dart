@@ -500,7 +500,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                           (surah) => _SimpleLinkRow(
                             colors: widget.colors,
                             index: surah.id,
-                            title: surah.name,
+                            title: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
                             subtitle: context.tr(
                               'ayat_count',
                               args: {'count': '${surah.count}'},
@@ -651,7 +651,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId)} (${item.verseKey})',
+                                            context.read<SettingsProvider>().languageCode == 'th'
+                                                ? 'ซูเราะฮ์ ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})'
+                                                : 'Surah ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -749,7 +751,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                           (surah) => _SimpleLinkRow(
                             colors: widget.colors,
                             index: surah.id,
-                            title: surah.name,
+                            title: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
                             subtitle: context.tr(
                               'ayat_count',
                               args: {'count': '${surah.count}'},
@@ -766,7 +768,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                             index: '${item.id}',
                             title: '${context.tr('juz')} ${item.id}',
                             subtitle:
-                                '${widget.repository.getSurahName(item.startSurah)}:${item.startAyah}',
+                                '${widget.repository.getSurahName(item.startSurah).replaceFirst(RegExp(r'^\d+\.\s*'), '')}:${item.startAyah}',
                             icon: Icons.view_week_outlined,
                             onTap: () =>
                                 widget.onOpen(item.startSurah, item.startAyah),

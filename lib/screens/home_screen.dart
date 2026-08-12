@@ -1667,10 +1667,14 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
         builder: (ctx) {
-          final colors = ctx.read<SettingsProvider>().getAppColors();
+          final settings = ctx.read<SettingsProvider>();
+          final colors = settings.getAppColors();
+          final isThai = settings.languageCode == 'th';
           final displayTitle = link.label.isNotEmpty 
               ? link.label 
-              : 'Surah ${widget.repository.getSurahName(link.surahNumber.toString())}';
+              : (isThai
+                  ? 'สูเราะฮ์ ${widget.repository.getSurahName(link.surahNumber.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), '')}'
+                  : 'Surah ${widget.repository.getSurahName(link.surahNumber.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), '')}');
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             child: Column(
@@ -1687,7 +1691,9 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
+                  isThai
+                      ? 'คุณกำลังอ่านค้างอยู่ที่อายะฮ์ $targetVerseId คุณต้องการอ่านต่อหรือเริ่มต้นใหม่?'
+                      : 'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
                   style: GoogleFonts.notoSansThai(color: colors.foreground),
                 ),
                 const SizedBox(height: 20),
@@ -1701,7 +1707,12 @@ class _HomeScreenState extends State<HomeScreen>
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text('Continue reading (Verse $targetVerseId)'),
+                  child: Text(
+                    isThai
+                        ? 'อ่านต่อ (อายะฮ์ $targetVerseId)'
+                        : 'Continue reading (Verse $targetVerseId)',
+                    style: GoogleFonts.notoSansThai(),
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextButton(
@@ -1710,7 +1721,7 @@ class _HomeScreenState extends State<HomeScreen>
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: Text(
-                    'Start from Verse 1',
+                    isThai ? 'เริ่มต้นใหม่จากอายะฮ์ 1' : 'Start from Verse 1',
                     style: GoogleFonts.notoSansThai(
                       color: Colors.redAccent,
                       fontWeight: FontWeight.bold,
@@ -4173,13 +4184,15 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
             title: Text(
-              surah.name,
+              surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
               style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             subtitle: Text(
-              '${surah.count} ayat',
+              Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th'
+                  ? '${surah.count} อายะฮ์'
+                  : '${surah.count} verses',
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             trailing: Icon(

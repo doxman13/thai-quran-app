@@ -355,7 +355,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
       context,
       listen: false,
     ).protect(themeText);
-    final ayahLabel = isNonThai ? 'Ayah' : 'อายะฮฺ';
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final ayahLabel = settings.languageCode == 'th' ? 'อายะฮฺ' : 'Ayah';
     return '$protectedTheme ($ayahLabel ${section.verseRange})';
   }
 
@@ -543,9 +544,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
       return;
     }
 
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThaiLang = settings.languageCode == 'th';
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Surah $surahId: $surahName - $ayahCount ayat'),
+        content: Text(
+          isThaiLang
+              ? 'สูเราะฮ์ $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount อายะฮ์'
+              : 'Surah $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount verses',
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -824,6 +832,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   String _ayahLeftLabel(int count) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.languageCode == 'th') {
+      return 'เหลืออีก $count อายะฮ์';
+    }
     return count == 1 ? '1 ayah left' : '$count ayahs left';
   }
 
@@ -969,7 +981,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   ),
                                 ),
                                 items: [
-                                  const DropdownMenuItem<String>(value: '', child: Text('None / ไม่เลือก')),
+                                  DropdownMenuItem<String>(
+                                    value: '',
+                                    child: Text(settings.languageCode == 'th' ? 'ไม่เลือก' : 'None'),
+                                  ),
                                   ..._availableTranslationOptions(transManager).map((opt) {
                                     return DropdownMenuItem<String>(
                                       value: opt.id,
@@ -1202,7 +1217,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   title,
                   locale: isNonThai ? null : const Locale('th', 'TH'),
                   style: isNonThai 
-                    ? GoogleFonts.inter(
+                    ? GoogleFonts.notoSansThai(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: colors.primary,
@@ -1221,7 +1236,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             objective.text,
             locale: isNonThai ? null : const Locale('th', 'TH'),
             style: isNonThai
-              ? GoogleFonts.inter(
+              ? GoogleFonts.notoSansThai(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   height: 1.45,
@@ -1239,7 +1254,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             '$sourceLabel${objective.source}',
             locale: isNonThai ? null : const Locale('th', 'TH'),
             style: isNonThai
-              ? GoogleFonts.inter(
+              ? GoogleFonts.notoSansThai(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: colors.foreground.withValues(alpha: 0.72),
@@ -1292,6 +1307,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     ProgressProvider progressProv,
     LocalReadingProfile? progressProfile,
   ) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     final hasGoal = _isBoundedCreatedProfile(progressProfile);
 
     if (hasGoal) {
@@ -1340,7 +1356,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     profile.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
@@ -1351,7 +1367,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     '${profile.start.verseKey}-${profile.target!.verseKey} • ${_ayahLeftLabel(remaining)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansThai(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                       fontSize: 10,
@@ -1363,7 +1379,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
             const SizedBox(width: 12),
             Text(
               '$progressPercent%',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansThai(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w900,
                 fontSize: 20, // covers two lines in height
@@ -1396,7 +1412,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   color: colors.primary,
                   size: 18,
                 ),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colors.textStrong,
                   fontWeight: FontWeight.w900,
                   fontSize: 15,
@@ -1419,7 +1435,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           ),
           Text(
             ' :',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansThai(
               color: colors.foreground.withValues(alpha: 0.5),
               fontWeight: FontWeight.w800,
               fontSize: 15,
@@ -1439,17 +1455,17 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   color: colors.primary,
                   size: 18,
                 ),
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansThai(
                   color: colors.primary,
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                 ),
-                hint: Text('Ayah', style: GoogleFonts.inter(fontSize: 15)),
+                hint: Text(settings.languageCode == 'th' ? 'อายะฮ์' : 'Ayah', style: GoogleFonts.notoSansThai(fontSize: 15)),
                 items: List.generate(
                   verses.length,
                   (index) => DropdownMenuItem(
                     value: index,
-                    child: Text('อายะฮฺ ${verses[index].id}'),
+                    child: Text('${verses[index].id}'),
                   ),
                 ),
                 onChanged: (index) {
@@ -2159,12 +2175,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
     return AnimatedBuilder(
       animation: _verseCardController,
       builder: (context, _) {
+        final isThaiLang = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildMenuActionIcon(
               context: context,
-              tooltip: 'Short tafsir',
+              tooltip: isThaiLang ? 'คำอธิบายอย่างย่อ' : 'Short tafsir',
               icon: Icons.menu_book_outlined,
               active: _verseCardController.showTafsirBox,
               onPressed: _verseCardController.hasTafsir
@@ -2174,21 +2191,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
             _buildCommunityNotesMenuAction(context, _verseCardController),
             _buildMenuActionIcon(
               context: context,
-              tooltip: 'Copy verse text',
+              tooltip: isThaiLang ? 'คัดลอกข้อความอายะฮ์' : 'Copy verse text',
               icon: Icons.content_copy_rounded,
               active: false,
               onPressed: _verseCardController.copyText,
             ),
             _buildMenuActionIcon(
               context: context,
-              tooltip: 'Share verse image',
+              tooltip: isThaiLang ? 'แชร์รูปภาพอายะฮ์' : 'Share verse image',
               icon: Icons.ios_share_rounded,
               active: false,
               onPressed: _verseCardController.shareImage,
             ),
             _buildMenuActionIcon(
               context: context,
-              tooltip: 'Report error',
+              tooltip: isThaiLang ? 'รายงานข้อผิดพลาด' : 'Report error',
               icon: Icons.report_problem_outlined,
               active: _verseCardController.showAuditBox,
               onPressed: _verseCardController.toggleAudit,
@@ -2196,8 +2213,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
             _buildMenuActionIcon(
               context: context,
               tooltip: _verseCardController.isAudioPlaying
-                  ? 'Stop ayah audio'
-                  : 'Play ayah audio',
+                  ? (isThaiLang ? 'หยุดเล่นเสียงอายะฮ์' : 'Stop ayah audio')
+                  : (isThaiLang ? 'เล่นเสียงอายะฮ์' : 'Play ayah audio'),
               icon: _verseCardController.isAudioLoading
                   ? Icons.hourglass_empty_rounded
                   : _verseCardController.isAudioPlaying
@@ -2218,10 +2235,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
     BuildContext context,
     VerseCardController controller,
   ) {
+    final isThaiLang = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
     if (controller.communityNotesFuture == null) {
       return _buildMenuActionIcon(
         context: context,
-        tooltip: 'No community notes',
+        tooltip: isThaiLang ? 'ไม่มีบันทึกจากชุมชน' : 'No community notes',
         icon: Icons.forum_outlined,
         onPressed: null,
       );
@@ -2237,10 +2255,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
         return _buildMenuActionIcon(
           context: context,
           tooltip: isLoading
-              ? 'Loading notes...'
+              ? (isThaiLang ? 'กำลังโหลดบันทึก...' : 'Loading notes...')
               : (hasNotes
-                    ? 'View community notes'
-                    : 'No community notes for this ayah'),
+                    ? (isThaiLang ? 'ดูบันทึกจากชุมชน' : 'View community notes')
+                    : (isThaiLang ? 'ไม่มีบันทึกจากชุมชนสำหรับอายะฮ์นี้' : 'No community notes for this ayah')),
           icon: isLoading
               ? Icons.hourglass_empty_rounded
               : Icons.forum_outlined,
@@ -2417,6 +2435,8 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
       colorScheme.secondaryContainer,
     ];
 
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
+
     return Dialog(
       elevation: 0,
       backgroundColor: colorScheme.surface,
@@ -2459,7 +2479,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Surah completed',
+                    isThai ? 'อ่านสูเราะฮ์จบแล้ว' : 'Surah completed',
                     textAlign: TextAlign.center,
                     style: textTheme.headlineSmall?.copyWith(
                       color: colorScheme.onSurface,
@@ -2468,7 +2488,9 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Congratulations, you completed Surah ${widget.completedSurahId}: ${widget.completedSurahName}.',
+                    isThai
+                        ? 'ขอแสดงความยินดี คุณอ่านสูเราะฮ์ ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} จบแล้ว'
+                        : 'Congratulations, you completed Surah ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
@@ -2490,7 +2512,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                     child: Column(
                       children: [
                         Text(
-                          'Now reading',
+                          isThai ? 'กำลังอ่าน' : 'Now reading',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
@@ -2498,7 +2520,9 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Surah ${widget.nextSurahId}: ${widget.nextSurahName}',
+                          isThai
+                              ? 'สูเราะฮ์ ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}'
+                              : 'Surah ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}',
                           textAlign: TextAlign.center,
                           style: textTheme.titleMedium?.copyWith(
                             color: colorScheme.onSurface,
@@ -2507,7 +2531,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${widget.nextAyahCount} ayat',
+                          isThai ? '${widget.nextAyahCount} อายะฮ์' : '${widget.nextAyahCount} verses',
                           style: textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -2526,7 +2550,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: const Text('Continue'),
+                      child: Text(isThai ? 'อ่านต่อ' : 'Continue'),
                     ),
                   ),
                 ],

@@ -602,7 +602,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             reading.readAt,
             _buildVerseItem(
               colorScheme,
-              title: widget.repository.getSurahName(reading.verse.surahId),
+               title: widget.repository.getSurahName(reading.verse.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
               subtitle: context.tr(
                 'ayah_number',
                 args: {
@@ -670,7 +670,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             _buildVerseItem(
               colorScheme,
               title:
-                  '${widget.repository.getSurahName(rawSurahId)}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
+                  '${widget.repository.getSurahName(rawSurahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
               subtitle:
                   '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
               timestamp: bookmark.createdAt,
@@ -750,7 +750,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             _buildVerseItem(
               colorScheme,
               title:
-                  '$formattedSurahName, ${context.tr('ayah_number', args: {'number': verseId})}',
+                  '${formattedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}, ${context.tr('ayah_number', args: {'number': verseId})}',
               subtitle: '${context.tr('page')} ${bookmark.pageNumber}',
               timestamp: bookmark.createdAt,
               readModeLabel: mushafReadLabel,
@@ -1129,7 +1129,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '$surahName $surahId:$verseId',
+                            '${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} $surahId:$verseId',
                             style: GoogleFonts.notoSansThai(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
