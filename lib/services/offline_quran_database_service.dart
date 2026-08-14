@@ -146,6 +146,18 @@ class OfflineQuranDatabaseService {
     ''', [topicId]);
   }
 
+  /// Get all verses containing words with a specific root ('ر ح م', 'س م و')
+  static Future<List<Map<String, dynamic>>> getVersesByRoot(String rootArabic) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT DISTINCT v.* 
+      FROM words w
+      JOIN verses v ON w.verse_key = v.verse_key
+      WHERE w.root_arabic = ?
+      ORDER BY v.id ASC
+    ''', [rootArabic]);
+  }
+
   /// Get Tajweed text for a specific verse
   static Future<String?> getTajweedText(String verseKey) async {
     final db = await database;

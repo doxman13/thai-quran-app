@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import '../services/offline_quran_database_service.dart';
+import '../screens/root_verses_screen.dart';
 
 class WordByWordStrip extends StatefulWidget {
   final String verseKey;
@@ -74,6 +75,228 @@ class _WordByWordStripState extends State<WordByWordStrip> {
     }
   }
 
+  void _showWordDetailSheet(BuildContext context, Map<String, dynamic> word) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final textUthmani = word['text_uthmani'] as String? ?? '';
+    final translation = word['translation'] as String? ?? '';
+    final transliteration = word['transliteration'] as String? ?? '';
+    final rootArabic = word['root_arabic'] as String?;
+    final rootOccurrences = word['root_occurrences'] as int? ?? 0;
+    final partOfSpeech = word['part_of_speech'] as String?;
+    final lemmaArabic = word['lemma_arabic'] as String?;
+    final audioUrl = word['audio_url'] as String?;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header indicator
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Word in Large Arabic Font with Audio Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton.filledTonal(
+                    icon: const Icon(Icons.volume_up_rounded),
+                    onPressed: () {
+                      _playWordAudio(audioUrl, -1);
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      textUthmani,
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontFamily: 'Tajweed',
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Transliteration & Meaning
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (transliteration.isNotEmpty) ...[
+                      Text(
+                        transliteration,
+                        style: GoogleFonts.notoSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(
+                      translation.isNotEmpty ? translation : '-',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Morphology & Root Word Section
+              if (rootArabic != null || partOfSpeech != null) ...[
+                Text(
+                  'ไวยากรณ์และรากศัพท์ (Morphology & Root)',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      if (rootArabic != null) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'รากศัพท์คำ (جذر)',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                rootArabic,
+                                style: const TextStyle(
+                                  fontFamily: 'Tajweed',
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                      ],
+                      if (partOfSpeech != null) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'หน้าที่ของคำ (POS)',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              partOfSpeech,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+
+              // Button to view all occurrences by root
+              if (rootArabic != null && rootOccurrences > 0) ...[
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RootVersesScreen(
+                          rootArabic: rootArabic,
+                          occurrences: rootOccurrences,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.saved_search_rounded, size: 18),
+                  label: Text(
+                    'ดูทั้ง $rootOccurrences โองการที่มีรากศัพท์นี้ ($rootArabic)',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -96,7 +319,6 @@ class _WordByWordStripState extends State<WordByWordStrip> {
       return const SizedBox.shrink();
     }
 
-    // Filter out verse end symbols from word list for clean carousel
     final wordList = _words!.where((w) => w['char_type'] != 'end').toList();
 
     return SizedBox(
@@ -123,6 +345,9 @@ class _WordByWordStripState extends State<WordByWordStrip> {
               onTap: () {
                 widget.onWordTap?.call(index);
                 _playWordAudio(audioUrl, index);
+              },
+              onLongPress: () {
+                _showWordDetailSheet(context, word);
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
