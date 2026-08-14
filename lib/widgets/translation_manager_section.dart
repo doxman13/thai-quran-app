@@ -22,9 +22,27 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
     id: 'thai_v3',
     apiId: null,
     name: 'Society of Institutes and Universities (Language revised edition)',
-    nameTh: 'Society of Institutes and Universities (ฉบับปรับปรุงภาษา)',
+    nameTh: 'สมาคมสถาบันอุดมศึกษา (ฉบับปรับปรุงภาษา - ออฟไลน์)',
     author: 'Society of Institutes and Universities',
     language: 'thai',
+  );
+
+  static const _builtInEnUsmani = _TranslationOption(
+    id: 'en_usmani',
+    apiId: 84,
+    name: 'Mufti Taqi Usmani (Offline)',
+    nameTh: 'มุฟตี ตะกี อุษมานี (อังกฤษ - ออฟไลน์)',
+    author: 'Mufti Taqi Usmani',
+    language: 'english',
+  );
+
+  static const _builtInMsBasmeih = _TranslationOption(
+    id: 'ms_basmeih',
+    apiId: 39,
+    name: 'Abdullah Muhammad Basmeih (Offline)',
+    nameTh: 'อับดุลลอฮ์ มูฮัมหมัด บาสเมียะฮ์ (มลายู - ออฟไลน์)',
+    author: 'Abdullah Muhammad Basmeih',
+    language: 'malay',
   );
 
   static const List<_TranslationOption> _availableTranslations = [
@@ -618,8 +636,11 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   List<_TranslationOption> _allAvailableOptions(TranslationManagerProvider transManager) {
     final downloaded = _downloadedOptions(transManager);
 
-    final builtIns = <_TranslationOption>[];
-    builtIns.add(_builtInThaiV3);
+    final builtIns = <_TranslationOption>[
+      _builtInThaiV3,
+      _builtInEnUsmani,
+      _builtInMsBasmeih,
+    ];
 
     final all = <String, _TranslationOption>{};
     for (final opt in builtIns) {
@@ -635,8 +656,12 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   }
 
   Map<String, List<_TranslationOption>> _groupedAvailableTranslations() {
-    final sorted = [_builtInThaiV3, ..._availableTranslations]
-      ..sort(_compareTranslationOptions);
+    final sorted = [
+      _builtInThaiV3,
+      _builtInEnUsmani,
+      _builtInMsBasmeih,
+      ..._availableTranslations,
+    ]..sort(_compareTranslationOptions);
     final groups = <String, List<_TranslationOption>>{};
     for (final option in sorted) {
       groups.putIfAbsent(option.language, () => []).add(option);

@@ -380,21 +380,23 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final transManager = context.read<TranslationManagerProvider>();
     String translation = 'Translation not found.';
 
-    if (verse != null) {
-      if (settings.primaryTranslationId == 'english') {
-        translation = verse.english;
-      } else if (settings.primaryTranslationId == 'thai_v2') {
-        translation = verse.thaiV2;
-      } else if (settings.primaryTranslationId == 'thai_v3') {
-        translation = verse.thaiV3;
+    if (settings.primaryTranslationId == 'english' || settings.primaryTranslationId == 'en_usmani') {
+      final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'en');
+      translation = dbTrans ?? verse?.english ?? 'Translation not found.';
+    } else if (settings.primaryTranslationId == 'malay' || settings.primaryTranslationId == 'ms_basmeih') {
+      final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'ms');
+      translation = dbTrans ?? 'Translation not found.';
+    } else if (settings.primaryTranslationId == 'thai_v3' || settings.primaryTranslationId == 'thai_v2') {
+      final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'th');
+      translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
+    } else {
+      final idInt = int.tryParse(settings.primaryTranslationId) ?? -1;
+      final customTrans = transManager.getVerseTranslation(idInt, verseKey);
+      if (customTrans != null) {
+        translation = customTrans;
       } else {
-        final idInt = int.tryParse(settings.primaryTranslationId) ?? -1;
-        final customTrans = transManager.getVerseTranslation(idInt, verseKey);
-        if (customTrans != null) {
-          translation = customTrans;
-        } else {
-          translation = verse.thaiV3; // Fallback
-        }
+        final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'th');
+        translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
       }
     }
     final isBookmarked = context
@@ -1535,7 +1537,9 @@ class _MushafReaderSettingsSheetState
             builder: (context) {
               final transManager = Provider.of<TranslationManagerProvider>(context);
               final translationOptions = <Map<String, String>>[
-                {'id': 'thai_v3', 'name': 'ภาษาไทย (ฉบับสมาคมฯ)'},
+                {'id': 'thai_v3', 'name': 'ภาษาไทย (Thai - ฉบับสมาคมฯ)'},
+                {'id': 'en_usmani', 'name': 'English (Mufti Taqi Usmani)'},
+                {'id': 'ms_basmeih', 'name': 'Bahasa Melayu (Basmeih)'},
               ];
               for (final item in transManager.downloadedTranslations) {
                 final id = item['id'].toString();
