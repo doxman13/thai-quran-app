@@ -87,6 +87,8 @@ class QuranFoundationException implements Exception {
 
 class QuranFoundationRepository {
   static const _cachePrefix = 'quran_foundation_cache_v5';
+  static final Map<String, MushafPage> _inMemoryPageCache = {};
+  static final Map<String, Future<MushafPage>> _inFlightPageFutures = {};
   final http.Client _client;
 
   QuranFoundationRepository({http.Client? client})
@@ -170,6 +172,50 @@ class QuranFoundationRepository {
   }
 
   Future<MushafPage> fetchPage({
+    required int mushafId,
+    required int pageNumber,
+  }) async {
+    final key = '$mushafId:$pageNumber';
+    if (_inMemoryPageCache.containsKey(key)) {
+      _preloadAdjacentPages(mushafId, pageNumber);
+      return _inMemoryPageCache[key]!;
+    }
+    if (_inFlightPageFutures.containsKey(key)) {
+      return await _inFlightPageFutures[key]!;
+    }
+
+    final future = _fetchPageInternal(mushafId: mushafId, pageNumber: pageNumber);
+    _inFlightPageFutures[key] = future;
+    try {
+      final page = await future;
+      _inMemoryPageCache[key] = page;
+      _preloadAdjacentPages(mushafId, pageNumber);
+      return page;
+    } finally {
+      _inFlightPageFutures.remove(key);
+    }
+  }
+
+  void _preloadAdjacentPages(int mushafId, int currentPage) {
+    final resolvedMushafId = _contentMushafId(mushafId);
+    final pageCount = mushafTypeById(resolvedMushafId).pageCount;
+    // Pre-cache previous and next 2 pages in memory
+    for (final p in [currentPage - 1, currentPage + 1, currentPage + 2]) {
+      if (p >= 1 && p <= pageCount) {
+        final key = '$mushafId:$p';
+        if (!_inMemoryPageCache.containsKey(key) && !_inFlightPageFutures.containsKey(key)) {
+          fetchPage(mushafId: mushafId, pageNumber: p).catchError((_) => MushafPage(
+            mushafId: mushafId,
+            pageNumber: p,
+            verses: [],
+            lines: [],
+          ));
+        }
+      }
+    }
+  }
+
+  Future<MushafPage> _fetchPageInternal({
     required int mushafId,
     required int pageNumber,
   }) async {

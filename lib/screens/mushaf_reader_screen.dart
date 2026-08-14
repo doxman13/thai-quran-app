@@ -813,38 +813,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     textDirection: TextDirection.rtl,
                                     child: GestureDetector(
                                       behavior: HitTestBehavior.translucent,
-                                      onHorizontalDragEnd: (details) {
-                                        final velocity =
-                                            details.primaryVelocity;
-                                        if (velocity != null) {
-                                          // Swiped Right (velocity > 0) -> Next Page in RTL
-                                          if (velocity > 200) {
-                                            if (_pageNumber <
-                                                profile.targetPage) {
-                                              _goToPage(_pageNumber + 1);
-                                              if (_isMenuVisible) {
-                                                setState(() {
-                                                  _isMenuVisible = false;
-                                                });
-                                                _cancelAutoHideTimer();
-                                              }
-                                            }
-                                          }
-                                          // Swiped Left (velocity < 0) -> Previous Page in RTL
-                                          else if (velocity < -200) {
-                                            if (_pageNumber >
-                                                profile.startPage) {
-                                              _goToPage(_pageNumber - 1);
-                                              if (_isMenuVisible) {
-                                                setState(() {
-                                                  _isMenuVisible = false;
-                                                });
-                                                _cancelAutoHideTimer();
-                                              }
-                                            }
-                                          }
-                                        }
-                                      },
                                       onVerticalDragEnd: (details) {
                                         final velocity =
                                             details.primaryVelocity;
@@ -862,14 +830,20 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                       },
                                       child: PageView.builder(
                                         controller: _pageController,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
+                                        physics: const BouncingScrollPhysics(
+                                          parent: AlwaysScrollableScrollPhysics(),
+                                        ),
                                         itemCount: pageCount,
-                                        onPageChanged: (index) =>
-                                            _handlePageChanged(
-                                              profile,
-                                              _indexToPage(profile, index),
-                                            ),
+                                        onPageChanged: (index) {
+                                          final page = _indexToPage(profile, index);
+                                          _handlePageChanged(profile, page);
+                                          if (_isMenuVisible) {
+                                            setState(() {
+                                              _isMenuVisible = false;
+                                            });
+                                            _cancelAutoHideTimer();
+                                          }
+                                        },
                                         itemBuilder: (context, index) {
                                           final page = _indexToPage(
                                             profile,
@@ -2233,46 +2207,48 @@ class _QcfPackagePageView extends StatelessWidget {
             );
 
         final qcfFontSize = (paddedWidth / 20.2).clamp(16.0, 21.0);
-        return ColoredBox(
-          color: _mushafPageColor(context),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              topPadding,
-              horizontalPadding,
-              bottomPadding,
-            ),
-            child: MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(size: Size(paddedWidth, paddedHeight)),
-              child: QcfPage(
-                pageNumber: pageNumber,
-                fontSize: qcfFontSize,
-                sp: 0.93,
-                h: 0.94,
-                theme: QcfThemeData(
-                  pageBackgroundColor: _mushafPageColor(context),
-                  verseTextColor: textColor,
-                  verseNumberColor: colors.primary,
-                  basmalaColor: textColor,
-                  headerTextColor: textColor,
-                  headerBackgroundColor: Colors.transparent,
-                  customHeaderBuilder: (surahNumber) => QcfSurahHeader(
-                    surahNumber: surahNumber,
-                    colors: colors,
-                    showBismillahText: true,
+        return RepaintBoundary(
+          child: ColoredBox(
+            color: _mushafPageColor(context),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                topPadding,
+                horizontalPadding,
+                bottomPadding,
+              ),
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(size: Size(paddedWidth, paddedHeight)),
+                child: QcfPage(
+                  pageNumber: pageNumber,
+                  fontSize: qcfFontSize,
+                  sp: 0.93,
+                  h: 0.94,
+                  theme: QcfThemeData(
+                    pageBackgroundColor: _mushafPageColor(context),
+                    verseTextColor: textColor,
+                    verseNumberColor: colors.primary,
+                    basmalaColor: textColor,
+                    headerTextColor: textColor,
+                    headerBackgroundColor: Colors.transparent,
+                    customHeaderBuilder: (surahNumber) => QcfSurahHeader(
+                      surahNumber: surahNumber,
+                      colors: colors,
+                      showBismillahText: true,
+                    ),
                   ),
+                  verseBackgroundColor: (surah, verse) {
+                    return highlightedVerseKey == '$surah:$verse'
+                        ? colors.primaryLight.withValues(alpha: 0.75)
+                        : null;
+                  },
+                  onLongPressDown:
+                      (surah, verse, LongPressStartDetails details) =>
+                          onVerseLongPressStart(surah, verse),
+                  onLongPress: onVerseLongPress,
                 ),
-                verseBackgroundColor: (surah, verse) {
-                  return highlightedVerseKey == '$surah:$verse'
-                      ? colors.primaryLight.withValues(alpha: 0.75)
-                      : null;
-                },
-                onLongPressDown:
-                    (surah, verse, LongPressStartDetails details) =>
-                        onVerseLongPressStart(surah, verse),
-                onLongPress: onVerseLongPress,
               ),
             ),
           ),
@@ -2457,20 +2433,22 @@ class MushafPageView extends StatelessWidget {
           double.infinity,
         );
 
-        return Padding(
-          padding: EdgeInsets.only(
-            left: layout.horizontalPadding,
-            right: layout.horizontalPadding,
-            top: 4 + topPadding,
-            bottom: 4,
-          ),
-          child: SizedBox(
-            width: availableWidth,
-            height: availableHeight,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              child: content,
+        return RepaintBoundary(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: layout.horizontalPadding,
+              right: layout.horizontalPadding,
+              top: 4 + topPadding,
+              bottom: 4,
+            ),
+            child: SizedBox(
+              width: availableWidth,
+              height: availableHeight,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                child: content,
+              ),
             ),
           ),
         );
