@@ -17,7 +17,19 @@ class TajweedService {
   }
 
   static String? getVerse(int surah, int ayah) {
-    return _data?['$surah:$ayah']?['text'];
+    final text = _data?['$surah:$ayah']?['text'] as String?;
+    if (text == null) return null;
+    return _normalizeTajweedMadd(text);
+  }
+
+  static String _normalizeTajweedMadd(String text) {
+    if (!text.contains('لۡأَ')) return text;
+    return text
+        .replaceAll('لۡأَخِر', 'لۡـَٰٔخِر')
+        .replaceAll('لۡأَيَ', 'لۡـَٰٔيَ')
+        .replaceAll('لۡأَزِف', 'لۡـَٰٔزِف')
+        .replaceAll('لۡأَصَال', 'لۡـَٰٔصَال')
+        .replaceAll('لۡأَنَ', 'لۡـَٰٔنَ');
   }
 
   static MushafPage augmentMushafPage(MushafPage page) {
