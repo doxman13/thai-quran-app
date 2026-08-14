@@ -28,6 +28,16 @@ class TajweedService {
 
   static String _normalizeTajweedText(String text) {
     var result = text;
+    if (result.contains('</rule>')) {
+      result = result.replaceAllMapped(
+        RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([ٓۦۥٰۣۡۢۤ])'),
+        (m) => '${m[1]}${m[2]}</rule>',
+      );
+      result = result.replaceAllMapped(
+        RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([ٓۦۥٰۣۡۢۤ])'),
+        (m) => '${m[1]}${m[2]}</rule>',
+      );
+    }
     if (result.contains('لۡأَ') || result.contains('لْأَ')) {
       result = result
           .replaceAll('لۡأَخِر', 'لۡـَٰٔخِر')
@@ -44,7 +54,7 @@ class TajweedService {
     if (result.contains('ـ<rule') || result.contains('ـ\u0640\u0654')) {
       result = result
           .replaceAllMapped(
-            RegExp(r'ـ<rule class=([^>]+)>ـ?ٔ([ًۭٗ]ا?)</rule>'),
+            RegExp(r'ـ<rule class=([^>]+)>[ـ\s]*[ٔء]([ًۭٗ][^\s<]*)</rule>'),
             (m) => 'ـٔ<rule class=${m[1]}>ـ${m[2]}</rule>',
           )
           .replaceAll('ـ\u0640\u0654', 'ـ\u0654');
