@@ -15,8 +15,6 @@ import '../providers/local_reading_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
 import '../models/verse.dart';
-import '../models/tadabbur_note.dart';
-import '../services/remote_content_service.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
@@ -312,11 +310,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
   int? _parseFlexibleInt(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '');
-  }
-
-  int? _parseThemeStartVerse(String verseRange) {
-    final match = RegExp(r'\d+').firstMatch(verseRange);
-    return match == null ? null : int.tryParse(match.group(0)!);
   }
 
   _ThaiThemeSection? _getActiveTheme(int verseNumber) {
@@ -1436,7 +1429,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 height: 1.4,
-                color: colors.textMuted,
+                color: colors.foreground,
               ),
             ),
           ],
