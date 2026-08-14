@@ -35,15 +35,25 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
   }
 
   Future<void> _loadData() async {
-    final current = await OfflineQuranDatabaseService.getVerse(widget.verseKey);
-    final similar = await OfflineQuranDatabaseService.getMutashabihat(widget.verseKey);
+    try {
+      final current = await OfflineQuranDatabaseService.getVerse(widget.verseKey);
+      final similar = await OfflineQuranDatabaseService.getMutashabihat(widget.verseKey);
 
-    if (mounted) {
-      setState(() {
-        _currentVerse = current;
-        _mutashabihat = similar;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _currentVerse = current;
+          _mutashabihat = similar;
+          _isLoading = false;
+        });
+      }
+    } catch (e, stack) {
+      debugPrint("Error loading mutashabihat: $e\n$stack");
+      if (mounted) {
+        setState(() {
+          _mutashabihat = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 

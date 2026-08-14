@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 class OfflineQuranDatabaseService {
   static Database? _database;
   static const String _dbName = 'quran_offline.db';
+  static const int _targetDbVersion = 5;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -18,11 +19,31 @@ class OfflineQuranDatabaseService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, _dbName);
 
-    // Check if database exists in app directory
+    bool shouldCopy = false;
     final exists = await databaseExists(path);
 
     if (!exists) {
-      debugPrint("Creating a new copy from asset: $_dbName");
+      shouldCopy = true;
+    } else {
+      // Check existing database version
+      try {
+        final existingDb = await openDatabase(path, readOnly: true);
+        final versionRes = await existingDb.rawQuery('PRAGMA user_version;');
+        final version = Sqflite.firstIntValue(versionRes) ?? 0;
+        await existingDb.close();
+
+        if (version < _targetDbVersion) {
+          debugPrint("Updating quran_offline.db to version $_targetDbVersion (current: $version)");
+          shouldCopy = true;
+        }
+      } catch (e) {
+        debugPrint("Error checking db version, forcing copy: $e");
+        shouldCopy = true;
+      }
+    }
+
+    if (shouldCopy) {
+      debugPrint("Creating a fresh copy from asset: $_dbName");
       try {
         await Directory(dirname(path)).create(recursive: true);
       } catch (_) {}
