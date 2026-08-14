@@ -29,6 +29,13 @@ class TajweedService {
   static String _normalizeTajweedText(String text) {
     var result = text;
     if (result.contains('</rule>')) {
+      final shiftPattern = RegExp(r'([^\s<>\u064B-\u065F\u0670\u06D6-\u06ED])<rule class=([^>]+)>([\u064B-\u0652])([^<]*)</rule>');
+      while (shiftPattern.hasMatch(result)) {
+        result = result.replaceAllMapped(
+          shiftPattern,
+          (m) => '${m[1]}${m[3]}<rule class=${m[2]}>${m[4]}</rule>',
+        );
+      }
       final markPattern = RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([\u064B-\u065F\u0670\u06D6-\u06ED]+)');
       while (markPattern.hasMatch(result)) {
         result = result.replaceAllMapped(
