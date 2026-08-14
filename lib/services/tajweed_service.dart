@@ -29,14 +29,13 @@ class TajweedService {
   static String _normalizeTajweedText(String text) {
     var result = text;
     if (result.contains('</rule>')) {
-      result = result.replaceAllMapped(
-        RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([ٓۦۥٰۣۡۢۤ])'),
-        (m) => '${m[1]}${m[2]}</rule>',
-      );
-      result = result.replaceAllMapped(
-        RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([ٓۦۥٰۣۡۢۤ])'),
-        (m) => '${m[1]}${m[2]}</rule>',
-      );
+      final markPattern = RegExp(r'(<rule class=[^>]+>[^<]+)</rule>([\u064B-\u065F\u0670\u06D6-\u06ED]+)');
+      while (markPattern.hasMatch(result)) {
+        result = result.replaceAllMapped(
+          markPattern,
+          (m) => '${m[1]}${m[2]}</rule>',
+        );
+      }
     }
     if (result.contains('لۡأَ') ||
         result.contains('لْأَ') ||
