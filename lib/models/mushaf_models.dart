@@ -78,9 +78,15 @@ const mushafTypes = [
     pageCount: 604,
     description: 'Medina Mushaf printed in 1421H (Offline)',
   ),
+  MushafType(
+    id: 21,
+    name: 'Tajweed (QUL)',
+    pageCount: 604,
+    description: 'Tarteel QUL Color-coded Tajweed layout (Trial)',
+  ),
 ];
 
-const visibleMushafTypeIds = {2, 11};
+const visibleMushafTypeIds = {2, 11, 21};
 
 List<MushafType> get visibleMushafTypes {
   return mushafTypes

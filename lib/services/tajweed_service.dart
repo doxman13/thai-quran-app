@@ -4,20 +4,24 @@ import 'package:flutter/material.dart';
 import '../models/mushaf_models.dart';
 
 class TajweedService {
-  static Map<String, dynamic>? _data;
+  static final Map<int, Map<String, dynamic>> _dataByMushaf = {};
   
-  static Future<void> load() async {
-    if (_data != null) return;
+  static Future<void> load({int mushafId = 11}) async {
+    if (_dataByMushaf.containsKey(mushafId)) return;
     try {
-      final jsonString = await rootBundle.loadString('assets/Tajweed/qpc-hafs-tajweed.json');
-      _data = jsonDecode(jsonString);
+      final assetPath = mushafId == 21
+          ? 'assets/Tajweed/qul-hafs-tajweed.json'
+          : 'assets/Tajweed/qpc-hafs-tajweed.json';
+      final jsonString = await rootBundle.loadString(assetPath);
+      _dataByMushaf[mushafId] = jsonDecode(jsonString);
     } catch (e) {
-      debugPrint("Error loading Tajweed JSON: $e");
+      debugPrint("Error loading Tajweed JSON for mushaf $mushafId: $e");
     }
   }
 
-  static String? getVerse(int surah, int ayah) {
-    final text = _data?['$surah:$ayah']?['text'] as String?;
+  static String? getVerse(int surah, int ayah, {int mushafId = 11}) {
+    final data = _dataByMushaf[mushafId] ?? _dataByMushaf[11];
+    final text = data?['$surah:$ayah']?['text'] as String?;
     if (text == null) return null;
     return _normalizeTajweedMadd(text);
   }
@@ -32,15 +36,16 @@ class TajweedService {
         .replaceAll('لۡأَنَ', 'لۡـَٰٔنَ');
   }
 
-  static MushafPage augmentMushafPage(MushafPage page) {
-    if (_data == null) return page;
+  static MushafPage augmentMushafPage(MushafPage page, {int targetMushafId = 11}) {
+    final data = _dataByMushaf[targetMushafId] ?? _dataByMushaf[11];
+    if (data == null) return page;
 
     final newLines = <List<MushafWord>>[];
     final newVerses = <MushafVerse>[];
     final verseWordsMap = <String, List<MushafWord>>{};
 
     for (final verse in page.verses) {
-      final tajText = getVerse(int.parse(verse.surahId), int.parse(verse.verseId));
+      final tajText = getVerse(int.parse(verse.surahId), int.parse(verse.verseId), mushafId: targetMushafId);
       if (tajText == null) {
         verseWordsMap[verse.verseKey] = verse.words;
         continue;
@@ -91,7 +96,7 @@ class TajweedService {
     }
 
     return MushafPage(
-      mushafId: 11, // Fake mushafId 11 to trigger Tajweed rendering in MushafLine
+      mushafId: targetMushafId, // Trigger Tajweed rendering in MushafLine
       pageNumber: page.pageNumber,
       verses: newVerses,
       lines: newLines,
