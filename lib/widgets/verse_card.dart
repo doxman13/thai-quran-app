@@ -27,6 +27,7 @@ import '../providers/mushaf_audio_provider.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
+import 'word_by_word_strip.dart';
 
 class VerseCardController extends ChangeNotifier {
   VoidCallback? toggleTafsir;
@@ -969,13 +970,18 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                WordByWordStrip(
+                  verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+                  isDarkMode: isDark,
+                ),
+                const SizedBox(height: 16),
                 Divider(
                   height: 1,
                   thickness: 1,
                   color: colorScheme.outlineVariant.withValues(alpha: 0.18),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
               ],
 
               // Translations Container

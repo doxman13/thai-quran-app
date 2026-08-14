@@ -58,6 +58,17 @@ class OfflineQuranDatabaseService {
     );
   }
 
+  /// Get all word-by-word records for a specific verse ('1:1', '18:74')
+  static Future<List<Map<String, dynamic>>> getVerseWords(String verseKey) async {
+    final db = await database;
+    return await db.query(
+      'words',
+      where: 'verse_key = ?',
+      whereArgs: [verseKey],
+      orderBy: 'position ASC',
+    );
+  }
+
   /// Get a single verse by verseKey ('1:1', '18:74')
   static Future<Map<String, dynamic>?> getVerse(String verseKey) async {
     final db = await database;

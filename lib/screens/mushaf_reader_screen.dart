@@ -27,6 +27,7 @@ import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'settings_screen.dart';
 import '../widgets/tadabbur_panel.dart';
+import '../widgets/word_by_word_strip.dart';
 
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -2990,13 +2991,13 @@ class _TranslationPanel extends StatelessWidget {
     return Material(
       color: colors.surface,
       elevation: 16,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        constraints: const BoxConstraints(maxHeight: 210),
+        constraints: const BoxConstraints(maxHeight: 290),
         padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
         decoration: BoxDecoration(
           border: Border.all(color: colors.borderSoft),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3057,6 +3058,12 @@ class _TranslationPanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            WordByWordStrip(
+              verseKey: verseKey,
+              isDarkMode: Theme.of(context).brightness == Brightness.dark,
+            ),
+            const SizedBox(height: 8),
             Flexible(
               child: SingleChildScrollView(
                 child: RichText(
