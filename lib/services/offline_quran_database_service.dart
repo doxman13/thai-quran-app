@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 class OfflineQuranDatabaseService {
   static Database? _database;
   static const String _dbName = 'quran_offline.db';
-  static const int _targetDbVersion = 8;
+  static const int _targetDbVersion = 9;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -104,21 +104,50 @@ class OfflineQuranDatabaseService {
 
   /// Get translation for a specific verse and language ('th', 'en', 'ms')
   static Future<String?> getTranslation(String verseKey, {String lang = 'th'}) async {
-    final db = await database;
-    final column = switch (lang.toLowerCase()) {
-      'en' => 'translation_en',
-      'ms' => 'translation_ms',
-      _ => 'translation_th',
-    };
-    final results = await db.query(
-      'verses',
-      columns: [column],
-      where: 'verse_key = ?',
-      whereArgs: [verseKey],
-      limit: 1,
-    );
-    if (results.isEmpty) return null;
-    return results.first[column] as String?;
+    try {
+      final db = await database;
+      final column = switch (lang.toLowerCase()) {
+        'en' => 'translation_en',
+        'ms' => 'translation_ms',
+        _ => 'translation_th',
+      };
+      final results = await db.query(
+        'verses',
+        columns: [column],
+        where: 'verse_key = ?',
+        whereArgs: [verseKey],
+        limit: 1,
+      );
+      if (results.isEmpty) return null;
+      return results.first[column] as String?;
+    } catch (e) {
+      debugPrint("Error getting translation for $verseKey: $e");
+      return null;
+    }
+  }
+
+  /// Get all translations for a language ('th', 'en', 'ms')
+  static Future<Map<String, String>> getAllTranslations({String lang = 'th'}) async {
+    try {
+      final db = await database;
+      final column = switch (lang.toLowerCase()) {
+        'en' => 'translation_en',
+        'ms' => 'translation_ms',
+        _ => 'translation_th',
+      };
+      final results = await db.query(
+        'verses',
+        columns: ['verse_key', column],
+      );
+      return {
+        for (final row in results)
+          if (row['verse_key'] != null && row[column] != null)
+            row['verse_key'] as String: row[column] as String,
+      };
+    } catch (e) {
+      debugPrint("Error fetching all translations for lang $lang: $e");
+      return {};
+    }
   }
 
   /// Get Tafsir for a specific verse
@@ -190,8 +219,32 @@ class OfflineQuranDatabaseService {
       FROM words w
       JOIN verses v ON w.verse_key = v.verse_key
       WHERE w.root_arabic = ?
-      ORDER BY v.id ASC
+      ORDER BY v.surah_id ASC, v.verse_id ASC
     ''', [rootArabic]);
+  }
+
+  static Set<String>? _mutashabihatVerseKeySet;
+
+  /// Preload / get all verse keys that have Mutashabihat
+  static Future<Set<String>> getMutashabihatVerseKeys() async {
+    if (_mutashabihatVerseKeySet != null) return _mutashabihatVerseKeySet!;
+    try {
+      final db = await database;
+      final results = await db.rawQuery('SELECT DISTINCT verse_key FROM mutashabihat');
+      _mutashabihatVerseKeySet = {
+        for (final row in results)
+          if (row['verse_key'] != null) row['verse_key'] as String,
+      };
+      return _mutashabihatVerseKeySet!;
+    } catch (e) {
+      debugPrint("Error loading mutashabihat keys: $e");
+      return {};
+    }
+  }
+
+  /// Synchronous check if a verse key has Mutashabihat
+  static bool hasMutashabihatSync(String verseKey) {
+    return _mutashabihatVerseKeySet?.contains(verseKey) ?? false;
   }
 
   /// Get all similar verses (Mutashabihat) for a specific verseKey ('2:48', etc.)

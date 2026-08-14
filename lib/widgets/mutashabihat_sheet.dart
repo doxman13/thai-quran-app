@@ -88,7 +88,7 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
 
           // Title
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(20, 6, 16, 14),
             child: Row(
               children: [
                 Container(
@@ -116,6 +116,7 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                           color: colorScheme.onSurface,
                         ),
                       ),
+                      const SizedBox(height: 3),
                       Text(
                         'ช่วยในการจำและเปรียบเทียบโองการที่คล้ายกัน',
                         style: GoogleFonts.notoSansThai(
@@ -145,11 +146,36 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                 ? const Center(child: CircularProgressIndicator())
                 : _mutashabihat == null || _mutashabihat!.isEmpty
                     ? Center(
-                        child: Text(
-                          'ไม่พบโองการที่คล้ายคลึงกันสำหรับ ${widget.verseKey}',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 15,
-                            color: colorScheme.onSurfaceVariant,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.sync_disabled_rounded,
+                                size: 48,
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'ไม่พบโองการที่คล้ายคลึงกัน (มุตะชาบิฮาต)',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'โองการนี้ (${widget.verseKey}) ไม่มีโองการที่มีสำนวนตรงกันหรือคล้ายคลึงกันโดยตรงในชุดข้อมูลมุตะชาบิฮาตสำหรับท่องจำ\n\n(โองการที่มีคู่เหมือนมุตะชาบิฮาตมีประมาณ 1,550 โองการในอัลกุรอาน เช่น 2:48, 2:58, 2:113, 7:105)',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       )

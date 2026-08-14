@@ -145,21 +145,21 @@ class BrowseScreenState extends State<BrowseScreen> {
     final pageNumber = qcf.getPageNumber(sId, vId);
 
     final mushafProvider = context.read<MushafReadingProvider>();
-    mushafProvider.openUnifiedFreeRead().then((profile) {
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MushafReaderScreen(
-            quranRepository: widget.repository,
-            foundationRepository: _foundationRepo,
-            profileId: profile.id,
-            initialPage: pageNumber,
-            initialHighlightVerseKey: '$sId:$vId',
-          ),
+    final profile = mushafProvider.freeReadProfileForMushaf(1);
+    unawaited(mushafProvider.openUnifiedFreeRead());
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.repository,
+          foundationRepository: _foundationRepo,
+          profileId: profile.id,
+          initialPage: pageNumber,
+          initialHighlightVerseKey: '$sId:$vId',
         ),
-      );
-    });
+      ),
+    );
   }
 
   void _setMode(String mode) {

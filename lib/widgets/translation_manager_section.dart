@@ -29,7 +29,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
 
   static const _builtInEnUsmani = _TranslationOption(
     id: 'en_usmani',
-    apiId: 84,
+    apiId: null,
     name: 'Mufti Taqi Usmani (Offline)',
     nameTh: 'มุฟตี ตะกี อุษมานี (อังกฤษ - ออฟไลน์)',
     author: 'Mufti Taqi Usmani',
@@ -38,7 +38,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
 
   static const _builtInMsBasmeih = _TranslationOption(
     id: 'ms_basmeih',
-    apiId: 39,
+    apiId: null,
     name: 'Abdullah Muhammad Basmeih (Offline)',
     nameTh: 'อับดุลลอฮ์ มูฮัมหมัด บาสเมียะฮ์ (มลายู - ออฟไลน์)',
     author: 'Abdullah Muhammad Basmeih',
@@ -75,20 +75,6 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
       name: 'Saheeh International',
       author: 'Saheeh International',
       language: 'english',
-    ),
-    _TranslationOption(
-      id: '84',
-      apiId: 84,
-      name: 'T. Usmani',
-      author: 'Mufti Taqi Usmani',
-      language: 'english',
-    ),
-    _TranslationOption(
-      id: '39',
-      apiId: 39,
-      name: 'Abdullah Muhammad Basmeih',
-      author: 'Abdullah Muhammad Basmeih',
-      language: 'malay',
     ),
   ];
 
@@ -210,10 +196,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                   selectedItemBuilder: (context) {
                     return availableOptions.map((opt) {
                       return Text(
-                        _getLanguageDisplayName(
-                          opt.language,
-                          settings.languageCode,
-                        ),
+                        opt.displayName(settings.languageCode),
                         style: GoogleFonts.notoSansThai(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -298,10 +281,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                       ),
                       ...availableOptions.map((opt) {
                         return Text(
-                          _getLanguageDisplayName(
-                            opt.language,
-                            settings.languageCode,
-                          ),
+                          opt.displayName(settings.languageCode),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -657,9 +637,6 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
 
   Map<String, List<_TranslationOption>> _groupedAvailableTranslations() {
     final sorted = [
-      _builtInThaiV3,
-      _builtInEnUsmani,
-      _builtInMsBasmeih,
       ..._availableTranslations,
     ]..sort(_compareTranslationOptions);
     final groups = <String, List<_TranslationOption>>{};

@@ -28,12 +28,23 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
   }
 
   Future<void> _loadVerses() async {
-    final verses = await OfflineQuranDatabaseService.getVersesByRoot(widget.rootArabic);
-    if (mounted) {
-      setState(() {
-        _verses = verses;
-        _isLoading = false;
-      });
+    setState(() => _isLoading = true);
+    try {
+      final verses = await OfflineQuranDatabaseService.getVersesByRoot(widget.rootArabic);
+      if (mounted) {
+        setState(() {
+          _verses = verses;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading verses by root ${widget.rootArabic}: $e");
+      if (mounted) {
+        setState(() {
+          _verses = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -45,36 +56,43 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'รากศัพท์คำ (جذر): ',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+        toolbarHeight: 68,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'รากศัพท์คำ (جذر): ',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                Text(
-                  widget.rootArabic,
-                  style: const TextStyle(
-                    fontFamily: 'Tajweed',
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  Text(
+                    widget.rootArabic,
+                    style: const TextStyle(
+                      fontFamily: 'Tajweed',
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            Text(
-              'พบ ${widget.occurrences} ครั้งในอัลกุรอาน',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                'พบ ${widget.occurrences} ครั้งในอัลกุรอาน',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
         backgroundColor: colorScheme.surface,
         scrolledUnderElevation: 0,
@@ -83,7 +101,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
           preferredSize: const Size.fromHeight(1),
           child: Divider(
             height: 1,
-            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.15),
           ),
         ),
       ),
@@ -113,13 +131,9 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                     return Container(
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-                          width: 1,
-                        ),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -141,13 +155,33 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                                   ),
                                 ),
                               ),
-                              Text(
-                                '${index + 1} / ${_verses!.length}',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 12,
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.translate_rounded, size: 18),
+                                    tooltip: 'แปลคำต่อคำ (Word by Word)',
+                                    color: colorScheme.primary,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      WordByWordSheet.show(
+                                        context,
+                                        verseKey: verseKey,
+                                        verseTextUthmani: textUthmani,
+                                        translationText: translationTh,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${index + 1} / ${_verses!.length}',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -164,7 +198,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          WordByWordStrip(
+                          WordByWordView(
                             verseKey: verseKey,
                             isDarkMode: theme.brightness == Brightness.dark,
                           ),

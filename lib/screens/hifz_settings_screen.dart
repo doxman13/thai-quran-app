@@ -620,7 +620,9 @@ class _TranslationSettingCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     final translationOptions = <Map<String, String>>[
-      {'id': 'thai_v3', 'name': 'ภาษาไทย (ฉบับสมาคมฯ)'},
+      {'id': 'thai_v3', 'name': 'ภาษาไทย (ฉบับสมาคมฯ - ออฟไลน์)'},
+      {'id': 'en_usmani', 'name': 'English (Mufti Taqi Usmani - Offline)'},
+      {'id': 'ms_basmeih', 'name': 'Bahasa Melayu (Basmeih - Offline)'},
     ];
     for (final item in transManager.downloadedTranslations) {
       final id = item['id'].toString();

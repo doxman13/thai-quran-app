@@ -171,6 +171,19 @@ class QuranFoundationRepository {
     return mushafId;
   }
 
+  MushafPage? getCachedPage({
+    required int mushafId,
+    required int pageNumber,
+  }) {
+    final key = '$mushafId:$pageNumber';
+    final page = _inMemoryPageCache[key];
+    if (page != null) {
+      _preloadAdjacentPages(mushafId, pageNumber);
+      return page;
+    }
+    return null;
+  }
+
   Future<MushafPage> fetchPage({
     required int mushafId,
     required int pageNumber,
@@ -199,17 +212,21 @@ class QuranFoundationRepository {
   void _preloadAdjacentPages(int mushafId, int currentPage) {
     final resolvedMushafId = _contentMushafId(mushafId);
     final pageCount = mushafTypeById(resolvedMushafId).pageCount;
-    // Pre-cache previous and next 2 pages in memory
-    for (final p in [currentPage - 1, currentPage + 1, currentPage + 2]) {
+    // Pre-cache +/- 4 pages around current page for buttery smooth offline swiping
+    for (final offset in [-3, -2, -1, 1, 2, 3, 4]) {
+      final p = currentPage + offset;
       if (p >= 1 && p <= pageCount) {
         final key = '$mushafId:$p';
         if (!_inMemoryPageCache.containsKey(key) && !_inFlightPageFutures.containsKey(key)) {
-          fetchPage(mushafId: mushafId, pageNumber: p).catchError((_) => MushafPage(
-            mushafId: mushafId,
-            pageNumber: p,
-            verses: [],
-            lines: [],
-          ));
+          fetchPage(mushafId: mushafId, pageNumber: p).catchError((e) {
+            debugPrint("Preload error for page $p: $e");
+            return MushafPage(
+              mushafId: mushafId,
+              pageNumber: p,
+              verses: [],
+              lines: [],
+            );
+          });
         }
       }
     }
@@ -352,6 +369,11 @@ class QuranFoundationRepository {
     required int pageNumber,
   }) async {
     if (mushafId == qcfPackageMushafId) return;
+    if (mushafId == 11 || mushafId == 21) {
+      final endFont = 'qcf_v1_p$pageNumber';
+      await DynamicFontLoader.loadFont(fontFamily: endFont, url: '');
+      return;
+    }
     final fontFamily = getFontFamily(mushafId, pageNumber);
     final fontUrl = getFontUrl(mushafId, pageNumber);
     if (fontUrl == null) return;

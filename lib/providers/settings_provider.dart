@@ -368,7 +368,11 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   bool _isBundledTranslationId(String id) {
-    return id == 'thai_v3' || id == 'thai_v2' || id == 'english';
+    return id == 'thai_v3' ||
+        id == 'thai_v2' ||
+        id == 'english' ||
+        id == 'en_usmani' ||
+        id == 'ms_basmeih';
   }
 
   Future<bool> _isTranslationAvailableOnDevice(String? id) async {
@@ -413,7 +417,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _syncGlobalState() {
-    QuranRepository.globalIsThaiName = _languageCode == 'th' || _primaryTranslationId.startsWith('thai');
+    QuranRepository.globalIsThaiName = _languageCode == 'th';
   }
 
   Future<void> _markSettingsChanged(SharedPreferences prefs) async {

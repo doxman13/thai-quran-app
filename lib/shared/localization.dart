@@ -218,6 +218,7 @@ const Map<String, Map<String, String>> _localizedValues = {
     'create': 'สร้าง',
     'end_must_be_after_start': 'ตำแหน่งสิ้นสุดต้องอยู่หลังตำแหน่งเริ่มต้น',
     'edit_name': 'แก้ไขชื่อ',
+    'menu': 'เมนู',
     'name': 'ชื่อ',
     'please_enter_name': 'กรุณากรอกชื่อ',
     'name_updated_successfully': 'อัปเดตชื่อสำเร็จ',
@@ -368,6 +369,7 @@ const Map<String, Map<String, String>> _localizedValues = {
     'save': 'Save',
     'saving': 'Saving...',
     'cancel': 'Cancel',
+    'menu': 'Menu',
     'search_hint': 'Search Surah, Juz, Page, Meaning...',
     'no_results': 'No results found',
     'juz': 'Juz',
@@ -500,8 +502,16 @@ const Map<String, Map<String, String>> _localizedValues = {
 
 extension LocalizationExtension on BuildContext {
   String tr(String key, {Map<String, String>? args}) {
-    final settings = Provider.of<SettingsProvider>(this, listen: false);
-    final lang = settings.languageCode;
+    String lang = 'th';
+    try {
+      final settings = Provider.of<SettingsProvider>(this, listen: true);
+      lang = settings.languageCode;
+    } catch (_) {
+      try {
+        final settings = Provider.of<SettingsProvider>(this, listen: false);
+        lang = settings.languageCode;
+      } catch (_) {}
+    }
     var value =
         _localizedValues[lang]?[key] ?? _localizedValues['en']?[key] ?? key;
     if (args != null) {

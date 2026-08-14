@@ -7,6 +7,7 @@ import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../models/mushaf_models.dart';
 import '../theme/app_theme.dart';
+import '../shared/localization.dart';
 import 'mushaf_reader_screen.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
@@ -27,6 +28,8 @@ import 'hifz_settings_screen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/tajweed_service.dart';
+import '../widgets/mutashabihat_sheet.dart';
+import '../services/offline_quran_database_service.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -851,12 +854,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     } else if (primaryId == 'thai_v3') {
       return verse.thaiV3;
     } else {
-      final idInt = int.tryParse(primaryId) ?? -1;
       try {
         final transManager =
             Provider.of<TranslationManagerProvider>(context, listen: false);
         final customTrans = transManager.getVerseTranslation(
-            idInt, '$surahNumber:$verseNumber');
+            primaryId, '$surahNumber:$verseNumber');
         if (customTrans != null && customTrans.isNotEmpty) {
           return customTrans;
         }
@@ -1248,6 +1250,64 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       ),
                     ),
 
+                  // Floating pull-down handle ("ติ่ง") when top chrome is collapsed
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Center(
+                        child: AnimatedOpacity(
+                          opacity: !_chromeVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 250),
+                          child: IgnorePointer(
+                            ignoring: _chromeVisible,
+                            child: GestureDetector(
+                              onTap: _toggleChrome,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 16,
+                                      color: colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      context.tr('menu'),
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 ],
               ),
@@ -2488,13 +2548,54 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        verseKey,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary.withValues(alpha: 0.8),
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            verseKey,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.primary.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          if (OfflineQuranDatabaseService.hasMutashabihatSync(verseKey)) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => MutashabihatSheet.show(context, verseKey),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: colorScheme.primary.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.sync_alt_rounded,
+                                      size: 13,
+                                      color: colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'โองการคล้ายกัน',
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       PopupMenuButton<String>(
                         icon: Icon(
@@ -2557,6 +2658,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                 ),
                               );
                             }
+                          } else if (val == 'mutashabihat') {
+                            MutashabihatSheet.show(context, verseKey);
                           }
                         },
                         itemBuilder: (_) => [
@@ -2616,6 +2719,21 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ],
                             ),
                           ),
+                          if (OfflineQuranDatabaseService.hasMutashabihatSync(verseKey))
+                            PopupMenuItem(
+                              value: 'mutashabihat',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.sync_alt_rounded,
+                                    size: 20,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text('โองการที่คล้ายคลึงกัน (Similar Ayat)'),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ],

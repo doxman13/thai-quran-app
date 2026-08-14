@@ -82,6 +82,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   late final VerseCardController _verseCardController;
   bool _isProgrammaticPageMove = false;
   Timer? _menuAutoHideTimer;
+  DateTime? _lastSurahSwitchTime;
 
   void _startAutoHideTimer() {
     _menuAutoHideTimer?.cancel();
@@ -290,8 +291,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   bool _isNonThaiPrimary(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context, listen: true);
+    if (settings.languageCode == 'en' || settings.languageCode == 'ms') return true;
     final primaryId = settings.primaryTranslationId;
     if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
+    if (primaryId == 'en_usmani' || primaryId == 'english' || primaryId == 'ms_basmeih') return true;
     
     final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
     final customId = int.tryParse(primaryId);
@@ -300,7 +303,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         (t) => t['id'] == customId,
         orElse: () => <String, dynamic>{},
       );
-      final lang = translation['language']?.toString().toLowerCase();
+      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
       if (lang == 'th' || lang == 'thai') {
         return false;
       }
@@ -620,6 +623,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   void _handleVersePageChanged(int index, ProgressProvider provider) {
     _verseCardController.stopAudio?.call();
+    if (_isMenuVisible) {
+      setState(() {
+        _isMenuVisible = false;
+      });
+      _cancelAutoHideTimer();
+    }
     if (index == verses.length) {
       _verseCardController.updateState(
         isAudioPlaying: false,
@@ -646,11 +655,39 @@ class _ReadingScreenState extends State<ReadingScreen> {
       _versePageController
           .animateToPage(
             targetIndex,
-            duration: const Duration(milliseconds: 450),
+            duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOutCubic,
           )
           .whenComplete(() => _isProgrammaticPageMove = false);
     }
+  }
+
+  bool _handlePageViewScrollNotification(
+    ScrollNotification notification,
+    ProgressProvider provider,
+  ) {
+    if (notification is OverscrollNotification) {
+      final now = DateTime.now();
+      if (_lastSurahSwitchTime != null &&
+          now.difference(_lastSurahSwitchTime!) < const Duration(milliseconds: 900)) {
+        return false;
+      }
+
+      if (notification.overscroll < -30) {
+        if (provider.lastVerseIndex == 0 && _adjacentVisibleSurahId(-1) != null) {
+          _lastSurahSwitchTime = now;
+          _goToAdjacentSurah(-1);
+          return true;
+        }
+      } else if (notification.overscroll > 30) {
+        if (provider.lastVerseIndex >= verses.length - 1 && _adjacentVisibleSurahId(1) != null) {
+          _lastSurahSwitchTime = now;
+          _goToAdjacentSurah(1);
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   bool _handleVerseEdgeScroll(ScrollNotification notification, int index) {
@@ -914,65 +951,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       const SizedBox(height: 8),
 
                       // Word-by-Word Toggle
-                      SwitchListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        title: Text(
-                          'แปลคำต่อคำ (Word by Word)',
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'แสดงความหมายทีละคำพร้อมแตะฟังเสียงอ่าน',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 12,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        value: settings.showWordByWord,
-                        activeThumbColor: colorScheme.primary,
-                        onChanged: (val) => settings.toggleShowWordByWord(val),
-                      ),
-                      if (settings.showWordByWord) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          child: Wrap(
-                            spacing: 8,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                'ภาษา:',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              ChoiceChip(
-                                label: const Text('ไทย 🇹🇭'),
-                                selected: settings.wordByWordLanguage == 'th',
-                                onSelected: (_) => settings.setWordByWordLanguage('th'),
-                              ),
-                              ChoiceChip(
-                                label: const Text('English 🇬🇧'),
-                                selected: settings.wordByWordLanguage == 'en',
-                                onSelected: (_) => settings.setWordByWordLanguage('en'),
-                              ),
-                              ChoiceChip(
-                                label: const Text('Melayu 🇲🇾'),
-                                selected: settings.wordByWordLanguage == 'ms',
-                                onSelected: (_) => settings.setWordByWordLanguage('ms'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
 
 
 
@@ -1190,13 +1168,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final downloaded = transManager.downloadedTranslations;
 
     final builtIns = <_TranslationOption>[
-      _TranslationOption(
+      const _TranslationOption(
         id: 'thai_v3',
         apiId: null,
-        name: 'ภาษาไทย',
-        nameTh: 'ภาษาไทย',
+        name: 'Society of Institutes and Universities (Language revised edition)',
+        nameTh: 'สมาคมสถาบันอุดมศึกษา (ฉบับปรับปรุงภาษา - ออฟไลน์)',
         author: 'Society of Institutes and Universities',
         language: 'thai',
+      ),
+      const _TranslationOption(
+        id: 'en_usmani',
+        apiId: null,
+        name: 'Mufti Taqi Usmani (Offline)',
+        nameTh: 'มุฟตี ตะกี อุษมานี (อังกฤษ - ออฟไลน์)',
+        author: 'Mufti Taqi Usmani',
+        language: 'english',
+      ),
+      const _TranslationOption(
+        id: 'ms_basmeih',
+        apiId: null,
+        name: 'Abdullah Muhammad Basmeih (Offline)',
+        nameTh: 'อับดุลลอฮ์ มูฮัมหมัด บาสเมียะฮ์ (มลายู - ออฟไลน์)',
+        author: 'Abdullah Muhammad Basmeih',
+        language: 'malay',
       ),
     ];
 
@@ -1343,6 +1337,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
+  void _showThemeDetailSheet({
+    required _ThaiThemeSection section,
+    required String surahId,
+    required String surahName,
+  }) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final initialLang = settings.wordByWordLanguage == 'ms'
+        ? 'ms'
+        : (_isNonThaiPrimary(context) ? 'en' : 'th');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ThemeDetailSheet(
+        section: section,
+        surahId: surahId,
+        surahName: surahName,
+        initialLanguage: initialLang,
+      ),
+    );
+  }
+
   Widget _buildThemeHeader(
     SettingsProvider settings,
     bool isDark,
@@ -1353,18 +1370,20 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final isNonThai = _isNonThaiPrimary(context);
 
     String titleText = '';
-    String? descText;
 
     if (section != null) {
       if (settings.wordByWordLanguage == 'ms') {
-        titleText = section.titleMs ?? section.titleTh;
-        descText = section.descriptionMs;
+        titleText = (section.descriptionMs != null && section.descriptionMs!.isNotEmpty)
+            ? section.descriptionMs!
+            : (section.titleMs ?? section.titleTh);
       } else if (isNonThai) {
-        titleText = section.titleEn ?? section.titleTh;
-        descText = section.descriptionEn;
+        titleText = (section.descriptionEn != null && section.descriptionEn!.isNotEmpty)
+            ? section.descriptionEn!
+            : (section.titleEn ?? section.titleTh);
       } else {
-        titleText = section.titleTh;
-        descText = section.descriptionTh;
+        titleText = (section.descriptionTh != null && section.descriptionTh!.isNotEmpty)
+            ? section.descriptionTh!
+            : section.titleTh;
       }
     } else {
       titleText = getHeaderTitle(context, verseNumber);
@@ -1374,22 +1393,35 @@ class _ReadingScreenState extends State<ReadingScreen> {
         ? 'อายะฮฺ'
         : (settings.wordByWordLanguage == 'ms' ? 'Ayat' : 'Ayah');
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
-          colors.background,
-        ),
+    final surahName = widget.repository.getSurahName(
+      _currentSurah,
+      isThai: !_isNonThaiPrimary(context),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        onTap: section != null
+            ? () => _showThemeDetailSheet(
+                  section: section,
+                  surahId: _currentSurah,
+                  surahName: surahName,
+                )
+            : null,
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+              colors.background,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.borderSoft),
+          ),
+          child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1406,35 +1438,30 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   titleText,
                   locale: const Locale('th', 'TH'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.notoSansThai(
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
                     color: colors.textStrong,
                   ),
                 ),
               ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: colors.primary.withValues(alpha: 0.8),
+              ),
             ],
           ),
-          if (descText != null && descText.isNotEmpty && descText != titleText) ...[
-            const SizedBox(height: 6),
-            Text(
-              descText,
-              locale: const Locale('th', 'TH'),
-              style: GoogleFonts.notoSansThai(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-                color: colors.foreground,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -1672,62 +1699,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 }
                               });
                             },
-                            onHorizontalDragEnd: (details) {
-                              final velocity = details.primaryVelocity;
-                              if (velocity != null) {
-                                final currentIndex = provider.lastVerseIndex;
-                                final totalCount = verses.length;
-                                final hasPrev = currentIndex > 0;
-                                final hasNext = currentIndex < totalCount - 1;
-                                final hasPrevSurah =
-                                    !hasPrev &&
-                                    _adjacentVisibleSurahId(-1) != null;
-                                final hasNextSurah =
-                                    !hasNext &&
-                                    _adjacentVisibleSurahId(1) != null;
-
-                                // Swiped left (velocity < 0) -> Next Ayah / Surah
-                                if (velocity < -200) {
-                                  if (hasNext) {
-                                    _goToVerseIndex(currentIndex + 1);
-                                    if (_isMenuVisible) {
-                                      setState(() {
-                                        _isMenuVisible = false;
-                                      });
-                                      _cancelAutoHideTimer();
-                                    }
-                                  } else if (hasNextSurah) {
-                                    _goToAdjacentSurah(1);
-                                    if (_isMenuVisible) {
-                                      setState(() {
-                                        _isMenuVisible = false;
-                                      });
-                                      _cancelAutoHideTimer();
-                                    }
-                                  }
-                                }
-                                // Swiped right (velocity > 0) -> Previous Ayah / Surah
-                                else if (velocity > 200) {
-                                  if (hasPrev) {
-                                    _goToVerseIndex(currentIndex - 1);
-                                    if (_isMenuVisible) {
-                                      setState(() {
-                                        _isMenuVisible = false;
-                                      });
-                                      _cancelAutoHideTimer();
-                                    }
-                                  } else if (hasPrevSurah) {
-                                    _goToAdjacentSurah(-1);
-                                    if (_isMenuVisible) {
-                                      setState(() {
-                                        _isMenuVisible = false;
-                                      });
-                                      _cancelAutoHideTimer();
-                                    }
-                                  }
-                                }
-                              }
-                            },
                             child: AnimatedPadding(
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
@@ -1788,25 +1759,32 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     },
                                   ),
                                   Expanded(
-                                    child: PageView.builder(
-                                      controller: _versePageController,
-                                      scrollDirection: Axis.horizontal,
-                                      reverse: false,
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      itemCount: verses.length + 1,
-                                      onPageChanged: (index) =>
-                                          _handleVersePageChanged(
-                                            index,
+                                    child: NotificationListener<ScrollNotification>(
+                                      onNotification: (notification) =>
+                                          _handlePageViewScrollNotification(
+                                            notification,
                                             provider,
                                           ),
-                                      itemBuilder: (context, index) =>
-                                          _buildFocusedVersePage(
-                                            index: index,
-                                            provider: provider,
-                                            settings: settings,
-                                            isDark: isDark,
-                                          ),
+                                      child: PageView.builder(
+                                        controller: _versePageController,
+                                        scrollDirection: Axis.horizontal,
+                                        reverse: false,
+                                        physics:
+                                            const PageScrollPhysics(parent: BouncingScrollPhysics()),
+                                        itemCount: verses.length + 1,
+                                        onPageChanged: (index) =>
+                                            _handleVersePageChanged(
+                                              index,
+                                              provider,
+                                            ),
+                                        itemBuilder: (context, index) =>
+                                            _buildFocusedVersePage(
+                                              index: index,
+                                              provider: provider,
+                                              settings: settings,
+                                              isDark: isDark,
+                                            ),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2340,6 +2318,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   ? _verseCardController.toggleTafsir
                   : null,
             ),
+            _buildMenuActionIcon(
+              context: context,
+              tooltip: isThaiLang ? 'แปลคำต่อคำ' : 'Word by word',
+              icon: Icons.translate_rounded,
+              active: false,
+              onPressed: _verseCardController.showWordByWord,
+            ),
             _buildCommunityNotesMenuAction(context, _verseCardController),
             _buildMenuActionIcon(
               context: context,
@@ -2783,4 +2768,209 @@ class _SurahObjective {
   final String source;
 
   const _SurahObjective({required this.text, required this.source});
+}
+
+class _ThemeDetailSheet extends StatefulWidget {
+  final _ThaiThemeSection section;
+  final String surahId;
+  final String surahName;
+  final String initialLanguage;
+
+  const _ThemeDetailSheet({
+    required this.section,
+    required this.surahId,
+    required this.surahName,
+    required this.initialLanguage,
+  });
+
+  @override
+  State<_ThemeDetailSheet> createState() => _ThemeDetailSheetState();
+}
+
+class _ThemeDetailSheetState extends State<_ThemeDetailSheet> {
+  late String _selectedLanguage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLanguage = widget.initialLanguage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    String title;
+    String? description;
+
+    if (_selectedLanguage == 'ms') {
+      title = widget.section.titleMs ?? widget.section.titleTh;
+      description = widget.section.descriptionMs ?? widget.section.descriptionTh;
+    } else if (_selectedLanguage == 'en') {
+      title = widget.section.titleEn ?? widget.section.titleTh;
+      description = widget.section.descriptionEn ?? widget.section.descriptionTh;
+    } else {
+      title = widget.section.titleTh;
+      description = widget.section.descriptionTh;
+    }
+
+    final hasMultiLang = (widget.section.titleEn != null && widget.section.titleEn!.isNotEmpty) ||
+        (widget.section.titleMs != null && widget.section.titleMs!.isNotEmpty);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Drag Handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // 2. Header (Surah Name + Ayah Range Badge + Language Chips + Close Button)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${widget.surahName} (${widget.section.verseRange})',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (hasMultiLang) ...[
+                      _buildLangChip('th', '🇹🇭 TH'),
+                      const SizedBox(width: 4),
+                      _buildLangChip('en', '🇬🇧 EN'),
+                      const SizedBox(width: 4),
+                      _buildLangChip('ms', '🇲🇾 MS'),
+                      const SizedBox(width: 8),
+                    ],
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 3. Theme Title & Full Description Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        locale: const Locale('th', 'TH'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      if (description != null &&
+                          description.isNotEmpty &&
+                          description != title) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Text(
+                            description,
+                            locale: const Locale('th', 'TH'),
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 1.65,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLangChip(String code, String label) {
+    final isSelected = _selectedLanguage == code;
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedLanguage = code;
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primary
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.notoSansThai(
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
 }

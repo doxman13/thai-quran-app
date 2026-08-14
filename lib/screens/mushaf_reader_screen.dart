@@ -28,8 +28,6 @@ import '../utils/html_parser.dart';
 import 'settings_screen.dart';
 import '../services/offline_quran_database_service.dart';
 import '../widgets/tadabbur_panel.dart';
-import '../widgets/word_by_word_strip.dart';
-import '../widgets/mutashabihat_sheet.dart';
 
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -147,6 +145,11 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         if (settings.keepAwake) {
           WakelockPlus.enable();
         }
+        final displayMushafId = context.read<MushafReadingProvider>().displayMushafId;
+        widget.foundationRepository.fetchPage(
+          mushafId: displayMushafId,
+          pageNumber: _pageNumber,
+        );
         final currentProfile = _getProfile();
         if (currentProfile != null) {
           if (widget.shortcutId != null) {
@@ -393,8 +396,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'th');
       translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
     } else {
-      final idInt = int.tryParse(settings.primaryTranslationId) ?? -1;
-      final customTrans = transManager.getVerseTranslation(idInt, verseKey);
+      final customTrans = transManager.getVerseTranslation(settings.primaryTranslationId, verseKey);
       if (customTrans != null) {
         translation = customTrans;
       } else {
@@ -402,6 +404,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
       }
     }
+    if (!mounted) return;
     final isBookmarked = context
         .read<MushafReadingProvider>()
         .isVerseBookmarked(profile.mushafId, pageNumber, verseKey);
@@ -1125,6 +1128,67 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                   ),
                 ),
               ),
+              // 2.1 Floating Top Pull-Down Menu Handle ("ติ่ง") when menu is hidden
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Center(
+                    child: AnimatedOpacity(
+                      opacity: !_isMenuVisible && _translationText == null ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 250),
+                      child: IgnorePointer(
+                        ignoring: _isMenuVisible || _translationText != null,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isMenuVisible = true;
+                            });
+                            _startAutoHideTimer();
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 16,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  context.tr('menu'),
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               // 3. Animated Bottom Bar Custom Container
               Positioned(
                 bottom: 0,
@@ -1579,38 +1643,6 @@ class _MushafReaderSettingsSheetState
                 ),
               );
             },
-          ),
-          const SizedBox(height: 16),
-
-          // Word-by-Word Language Selection
-          Text(
-            'ภาษาแปลคำต่อคำ (Word-by-Word Language)',
-            style: GoogleFonts.notoSansThai(
-              color: colors.textStrong,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(
-                label: const Text('ไทย 🇹🇭'),
-                selected: settings.wordByWordLanguage == 'th',
-                onSelected: (_) => settings.setWordByWordLanguage('th'),
-              ),
-              ChoiceChip(
-                label: const Text('English 🇬🇧'),
-                selected: settings.wordByWordLanguage == 'en',
-                onSelected: (_) => settings.setWordByWordLanguage('en'),
-              ),
-              ChoiceChip(
-                label: const Text('Melayu 🇲🇾'),
-                selected: settings.wordByWordLanguage == 'ms',
-                onSelected: (_) => settings.setWordByWordLanguage('ms'),
-              ),
-            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -2286,12 +2318,13 @@ class _MushafRemotePageView extends StatefulWidget {
 }
 
 class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
-  late Future<MushafPage> _future;
+  MushafPage? _cachedPage;
+  Future<MushafPage>? _future;
 
   @override
   void initState() {
     super.initState();
-    _initFuture();
+    _load();
   }
 
   @override
@@ -2299,45 +2332,34 @@ class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mushafId != widget.mushafId ||
         oldWidget.pageNumber != widget.pageNumber) {
-      _initFuture();
+      _load();
     }
   }
 
-  void _initFuture() {
-    _future = widget.repository.fetchPage(
+  void _load() {
+    final cached = widget.repository.getCachedPage(
       mushafId: widget.mushafId,
       pageNumber: widget.pageNumber,
     );
+    if (cached != null && cached.lines.isNotEmpty) {
+      _cachedPage = cached;
+      _future = null;
+    } else {
+      _cachedPage = null;
+      _future = widget.repository.fetchPage(
+        mushafId: widget.mushafId,
+        pageNumber: widget.pageNumber,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<MushafPage>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Center(
-            child: CircularProgressIndicator(color: widget.colors.primary),
-          );
-        }
-        if (snapshot.hasError) {
-          return _MushafError(
-            colors: widget.colors,
-            message: snapshot.error.toString(),
-            onRetry: () {},
-          );
-        }
-        final page = snapshot.data;
-        if (page == null || page.lines.isEmpty) {
-          return _MushafError(
-            colors: widget.colors,
-            message: 'No words found for this Mushaf page.',
-            onRetry: () {},
-          );
-        }
-        return MushafPageView(
+    if (_cachedPage != null && _cachedPage!.lines.isNotEmpty) {
+      return RepaintBoundary(
+        child: MushafPageView(
           colors: widget.colors,
-          page: page,
+          page: _cachedPage!,
           fontFamily: widget.repository.getFontFamily(
             widget.mushafId,
             widget.pageNumber,
@@ -2348,6 +2370,77 @@ class _MushafRemotePageViewState extends State<_MushafRemotePageView> {
           onVerseTap: widget.onVerseTap,
           onVerseLongPressStart: widget.onVerseLongPressStart,
           onVerseLongPress: widget.onVerseLongPress,
+        ),
+      );
+    }
+
+    return FutureBuilder<MushafPage>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          final page = snapshot.data!;
+          if (page.lines.isNotEmpty) {
+            return RepaintBoundary(
+              child: MushafPageView(
+                colors: widget.colors,
+                page: page,
+                fontFamily: widget.repository.getFontFamily(
+                  widget.mushafId,
+                  widget.pageNumber,
+                ),
+                mushafId: widget.mushafId,
+                highlightedVerseKey: widget.highlightedVerseKey,
+                highlightedVerseKeys: widget.highlightedVerseKeys,
+                onVerseTap: widget.onVerseTap,
+                onVerseLongPressStart: widget.onVerseLongPressStart,
+                onVerseLongPress: widget.onVerseLongPress,
+              ),
+            );
+          }
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: widget.colors.primary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  context.tr('page') != 'page'
+                      ? '${context.tr('loading')} ${context.tr('page')} ${widget.pageNumber}...'
+                      : 'กำลังเปิดหน้ามุศหัฟ ${widget.pageNumber}...',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return _MushafError(
+            colors: widget.colors,
+            message: snapshot.error.toString(),
+            onRetry: () {
+              setState(() {
+                _load();
+              });
+            },
+          );
+        }
+        return _MushafError(
+          colors: widget.colors,
+          message: 'No words found for this Mushaf page.',
+          onRetry: () {},
         );
       },
     );
@@ -3054,14 +3147,6 @@ class _TranslationPanel extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'โองการที่คล้ายคลึงกัน (Similar Ayat)',
-                  onPressed: () => MutashabihatSheet.show(context, verseKey),
-                  icon: Icon(
-                    Icons.sync_alt_rounded,
-                    color: colors.primary,
-                  ),
-                ),
-                IconButton(
                   tooltip: favorited ? 'Remove favorite' : 'Favorite verse',
                   onPressed: onFavorite,
                   icon: Icon(
@@ -3077,11 +3162,6 @@ class _TranslationPanel extends StatelessWidget {
                   icon: const Icon(Icons.close),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            WordByWordStrip(
-              verseKey: verseKey,
-              isDarkMode: Theme.of(context).brightness == Brightness.dark,
             ),
             const SizedBox(height: 8),
             Flexible(
@@ -3970,9 +4050,15 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
     } else if (primaryId == 'english' || primaryId == 'en_sahih') {
       rawTranslation = widget.verse.english;
     } else {
-      rawTranslation = widget.verse.thaiV3.isNotEmpty
-          ? widget.verse.thaiV3
-          : widget.verse.thaiV2;
+      final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+      final customTrans = transManager.getVerseTranslation(primaryId, widget.verse.verseKey);
+      if (customTrans != null && customTrans.isNotEmpty) {
+        rawTranslation = customTrans;
+      } else {
+        rawTranslation = widget.verse.thaiV3.isNotEmpty
+            ? widget.verse.thaiV3
+            : widget.verse.thaiV2;
+      }
     }
 
     final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);

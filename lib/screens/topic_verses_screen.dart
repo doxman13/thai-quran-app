@@ -48,7 +48,6 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -139,13 +138,33 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                                   ),
                                 ),
                               ),
-                              Text(
-                                '${index + 1} / ${_verses!.length}',
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 12,
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.translate_rounded, size: 18),
+                                    tooltip: 'แปลคำต่อคำ (Word by Word)',
+                                    color: colorScheme.primary,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () {
+                                      WordByWordSheet.show(
+                                        context,
+                                        verseKey: verseKey,
+                                        verseTextUthmani: textUthmani,
+                                        translationText: translationTh,
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${index + 1} / ${_verses!.length}',
+                                    style: GoogleFonts.notoSans(
+                                      fontSize: 12,
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -163,8 +182,8 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Word by word strip
-                          WordByWordStrip(
+                          // Word by word view
+                          WordByWordView(
                             verseKey: verseKey,
                             isDarkMode: theme.brightness == Brightness.dark,
                           ),

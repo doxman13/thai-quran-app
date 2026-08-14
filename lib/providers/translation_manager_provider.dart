@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../data/translation_database.dart';
+import '../services/offline_quran_database_service.dart';
 
 class TranslationManagerProvider extends ChangeNotifier {
   final TranslationDatabase _db = TranslationDatabase.instance;
   
   List<Map<String, dynamic>> _downloadedTranslations = [];
-  final Map<int, Map<String, String>> _activeTranslationsCache = {};
-  final Set<int> _loadingIds = {}; // Track currently loading IDs
+  final Map<dynamic, Map<String, String>> _activeTranslationsCache = {};
+  final Set<dynamic> _loadingIds = {}; // Track currently loading IDs
   final Map<int, double> _downloadProgress = {};
 
   List<Map<String, dynamic>> get downloadedTranslations => _downloadedTranslations;
-  Set<int> get loadingIds => _loadingIds;
+  Set<dynamic> get loadingIds => _loadingIds;
   Map<int, double> get downloadProgress => _downloadProgress;
 
   TranslationManagerProvider() {
@@ -85,15 +86,36 @@ class TranslationManagerProvider extends ChangeNotifier {
   }
 
   /// Load a translation into memory cache if not already loaded.
-  Future<void> loadTranslationIntoCache(int id) async {
+  Future<void> loadTranslationIntoCache(dynamic id) async {
+    if (id == null) return;
     if (_activeTranslationsCache.containsKey(id)) return;
     if (_loadingIds.contains(id)) return; // Prevent duplicate concurrent loads!
     
     _loadingIds.add(id);
     try {
-      final verses = await _db.getAllVersesForTranslation(id);
+      Map<String, String> verses = {};
+      final idStr = id.toString().trim();
+
+      if (idStr == 'en_usmani' || idStr == 'english') {
+        verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'en');
+      } else if (idStr == 'ms_basmeih' || idStr == 'malay') {
+        verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'ms');
+      } else if (idStr == 'thai_v3') {
+        verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'th');
+      } else {
+        final idInt = int.tryParse(idStr);
+        if (idInt != null) {
+          verses = await _db.getAllVersesForTranslation(idInt);
+        }
+      }
+
       if (verses.isNotEmpty) {
         _activeTranslationsCache[id] = verses;
+        if (id is int) {
+          _activeTranslationsCache[id.toString()] = verses;
+        } else if (id is String && int.tryParse(id) != null) {
+          _activeTranslationsCache[int.parse(id)] = verses;
+        }
         notifyListeners();
       }
     } catch (e) {
@@ -104,14 +126,20 @@ class TranslationManagerProvider extends ChangeNotifier {
   }
 
   /// Remove from memory cache if no longer needed.
-  void removeTranslationFromCache(int id) {
+  void removeTranslationFromCache(dynamic id) {
+    if (id == null) return;
     _activeTranslationsCache.remove(id);
+    _activeTranslationsCache.remove(id.toString());
+    if (id is String && int.tryParse(id) != null) {
+      _activeTranslationsCache.remove(int.parse(id));
+    }
     _loadingIds.remove(id);
   }
 
   /// Get the translation text synchronously from memory.
   /// If it is not in the cache, it schedules a lazy load and returns null.
-  String? getVerseTranslation(int id, String verseKey) {
+  String? getVerseTranslation(dynamic id, String verseKey) {
+    if (id == null) return null;
     if (!_activeTranslationsCache.containsKey(id)) {
       loadTranslationIntoCache(id);
       return null;
@@ -121,8 +149,7 @@ class TranslationManagerProvider extends ChangeNotifier {
 
   Future<void> deleteTranslation(int id) async {
     await _db.removeTranslation(id);
-    _activeTranslationsCache.remove(id);
-    _loadingIds.remove(id);
+    removeTranslationFromCache(id);
     await refreshDownloadedList();
   }
 }

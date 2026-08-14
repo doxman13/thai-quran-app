@@ -23,6 +23,7 @@ import 'data/quran_repository.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/background_download_service.dart';
+import 'services/offline_quran_database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +55,7 @@ Future<void> _initializeAppServices() async {
 
   await _initializeAudioBackground();
   await initializeDownloadService();
+  unawaited(OfflineQuranDatabaseService.getMutashabihatVerseKeys());
 }
 
 Future<void> _initializeAudioBackground() async {

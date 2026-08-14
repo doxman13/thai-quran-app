@@ -508,7 +508,8 @@ class _HomeScreenState extends State<HomeScreen>
     String? highlightedVerseKey,
   }) async {
     final mushafProvider = context.read<MushafReadingProvider>();
-    final profile = await mushafProvider.openUnifiedFreeRead();
+    final profile = mushafProvider.freeReadProfileForMushaf(1);
+    unawaited(mushafProvider.openUnifiedFreeRead());
     if (!mounted) return;
     Navigator.push(
       context,
@@ -1516,7 +1517,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHifzBanner(ColorScheme colorScheme, TextTheme textTheme) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final settings = context.watch<SettingsProvider>();
     final isThai = settings.languageCode == 'th';
 
     return GestureDetector(

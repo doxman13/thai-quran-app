@@ -29,6 +29,7 @@ import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 import 'word_by_word_strip.dart';
 import 'mutashabihat_sheet.dart';
+import '../services/offline_quran_database_service.dart';
 
 class VerseCardController extends ChangeNotifier {
   VoidCallback? toggleTafsir;
@@ -38,6 +39,7 @@ class VerseCardController extends ChangeNotifier {
   VoidCallback? copyText;
   VoidCallback? shareImage;
   VoidCallback? showCommunityNotes;
+  VoidCallback? showWordByWord;
 
   bool isAudioPlaying = false;
   bool isAudioLoading = false;
@@ -147,8 +149,10 @@ class _VerseCardState extends State<VerseCard> {
   bool _isNonThaiPrimary() {
     if (!mounted) return false;
     final settings = Provider.of<SettingsProvider>(context, listen: true);
+    if (settings.languageCode == 'en' || settings.languageCode == 'ms') return true;
     final primaryId = settings.primaryTranslationId;
     if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
+    if (primaryId == 'en_usmani' || primaryId == 'english' || primaryId == 'ms_basmeih') return true;
     
     final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
     final customId = int.tryParse(primaryId);
@@ -157,7 +161,7 @@ class _VerseCardState extends State<VerseCard> {
         (t) => t['id'] == customId,
         orElse: () => <String, dynamic>{},
       );
-      final lang = translation['language']?.toString().toLowerCase();
+      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
       if (lang == 'th' || lang == 'thai') {
         return false;
       }
@@ -271,6 +275,20 @@ class _VerseCardState extends State<VerseCard> {
             _showCommunityNotesModal(notes);
           }
         });
+      };
+      widget.controller!.showWordByWord = () {
+        WordByWordSheet.show(
+          context,
+          verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+          verseTextUthmani: widget.verse.arabic.split(' | ').join(' '),
+          translationText: _isNonThaiPrimary()
+              ? widget.verse.english
+              : (widget.verse.thaiV3.isNotEmpty
+                  ? widget.verse.thaiV3
+                  : (widget.verse.thaiV2.isNotEmpty
+                      ? widget.verse.thaiV2
+                      : widget.verse.english)),
+        );
       };
 
       _updateControllerState();
@@ -935,19 +953,43 @@ class _VerseCardState extends State<VerseCard> {
                           );
                         },
                       ),
-                      const SizedBox(width: 4),
                       _buildActionIcon(
-                        tooltip: 'โองการที่คล้ายคลึงกัน (Similar Ayat)',
-                        icon: Icons.sync_alt_rounded,
+                        tooltip: _isNonThaiPrimary() ? 'Word by Word' : 'แปลคำต่อคำ (Word by Word)',
+                        icon: Icons.translate_rounded,
                         active: false,
                         color: colorScheme.primary,
                         onPressed: () {
-                          MutashabihatSheet.show(
+                          WordByWordSheet.show(
                             context,
-                            '${widget.verse.surahId}:${widget.verse.id}',
+                            verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+                            verseTextUthmani: widget.verse.arabic.split(' | ').join(' '),
+                            translationText: _isNonThaiPrimary()
+                                ? widget.verse.english
+                                : (widget.verse.thaiV3.isNotEmpty
+                                    ? widget.verse.thaiV3
+                                    : (widget.verse.thaiV2.isNotEmpty
+                                        ? widget.verse.thaiV2
+                                        : widget.verse.english)),
                           );
                         },
                       ),
+                      if (OfflineQuranDatabaseService.hasMutashabihatSync('${widget.verse.surahId}:${widget.verse.id}')) ...[
+                        const SizedBox(width: 4),
+                        _buildActionIcon(
+                          tooltip: _isNonThaiPrimary()
+                              ? 'Similar Verses (Mutashabihat)'
+                              : 'โองการที่คล้ายคลึงกัน (มุตะชาบิฮาต)',
+                          icon: Icons.sync_alt_rounded,
+                          active: true,
+                          color: colorScheme.primary,
+                          onPressed: () {
+                            MutashabihatSheet.show(
+                              context,
+                              '${widget.verse.surahId}:${widget.verse.id}',
+                            );
+                          },
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -984,13 +1026,7 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   ),
-                if (settings.showWordByWord) ...[
-                  const SizedBox(height: 12),
-                  WordByWordStrip(
-                    verseKey: '${widget.verse.surahId}:${widget.verse.id}',
-                    isDarkMode: isDark,
-                  ),
-                ],
+
                 const SizedBox(height: 16),
                 Divider(
                   height: 1,
@@ -1231,19 +1267,29 @@ class _VerseCardState extends State<VerseCard> {
       text = widget.verse.english;
     } else {
       final transManager = Provider.of<TranslationManagerProvider>(context);
-      final idInt = int.tryParse(translationId) ?? -1;
-      final tInfo = transManager.downloadedTranslations.firstWhere(
-        (t) => t['id'] == idInt,
-        orElse: () => <String, dynamic>{},
-      );
+      final idInt = int.tryParse(translationId);
+      final tInfo = idInt != null
+          ? transManager.downloadedTranslations.firstWhere(
+              (t) => t['id'] == idInt,
+              orElse: () => <String, dynamic>{},
+            )
+          : <String, dynamic>{};
 
       final customText = transManager.getVerseTranslation(
-        idInt,
+        idInt ?? translationId,
         widget.verse.verseKey,
       );
       text = customText ?? 'Loading translation...';
 
-      final language = (tInfo['language_name'] ?? tInfo['language'])?.toString().toLowerCase() ?? '';
+      final language = (tInfo['language_name'] ??
+              tInfo['language'] ??
+              (translationId.startsWith('en')
+                  ? 'english'
+                  : translationId.startsWith('ms')
+                      ? 'malay'
+                      : ''))
+          .toString()
+          .toLowerCase();
 
       if (language == 'thai' || language == 'th') {
         locale = const Locale('th', 'TH');
