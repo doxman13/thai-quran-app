@@ -107,7 +107,7 @@ class _WordByWordStripState extends State<WordByWordStrip> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         itemCount: wordList.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final word = wordList[index];
           final textUthmani = word['text_uthmani'] as String? ?? '';
