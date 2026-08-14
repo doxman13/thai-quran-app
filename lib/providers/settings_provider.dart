@@ -62,6 +62,7 @@ class SettingsProvider extends ChangeNotifier {
   double get translationFontSize => _translationFontSize;
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
+  HifzInputMode get hifzInputMode => _hifzInputMode;
   // Word by word display setting
   bool _showWordByWord = false;
   bool get showWordByWord => _showWordByWord;
