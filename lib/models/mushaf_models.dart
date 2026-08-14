@@ -86,7 +86,7 @@ const mushafTypes = [
   ),
 ];
 
-const visibleMushafTypeIds = {2, 11, 21};
+const visibleMushafTypeIds = {2, 21};
 
 List<MushafType> get visibleMushafTypes {
   return mushafTypes
