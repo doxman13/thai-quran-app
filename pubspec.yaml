@@ -60,7 +60,7 @@ flutter:
     - assets/logo-eng.svg
     - assets/quran-app-LOGO-th.svg
     - assets/quran-app-LOGO-eng.svg
-    - assets/reconciled_thai_quran_themes.json
+    - assets/qul_ayah_themes.json
     - assets/surah_summary_th_exact.json
     - assets/surah_summary_en_exact.json
     - assets/tafsir_eng_mokhtasar.json

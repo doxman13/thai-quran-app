@@ -192,10 +192,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   Future<void> _loadThemeSections() async {
     try {
-      final jsonString = await RemoteContentService.instance.loadString(
-        contentKey: RemoteContentKey.quranThemes,
-        bundledAssetPath: 'assets/reconciled_thai_quran_themes.json',
-      );
+      final jsonString = await rootBundle.loadString('assets/qul_ayah_themes.json');
       final decoded = jsonDecode(jsonString);
       if (decoded is! List) return;
 
@@ -204,27 +201,39 @@ class _ReadingScreenState extends State<ReadingScreen> {
         if (item is! Map<String, dynamic>) continue;
 
         final surah = _parseFlexibleInt(item['surah']);
-        final verseRange = item['verse_range']?.toString().trim();
-        final themeTh = item['theme_th']?.toString().trim();
-        final themeEn = item['theme_en']?.toString().trim();
+        final ayahFrom = _parseFlexibleInt(item['ayah_from']);
+        final ayahTo = _parseFlexibleInt(item['ayah_to']);
+        final titleTh = item['title_th']?.toString().trim();
+        final titleEn = item['title_en']?.toString().trim();
+        final titleMs = item['title_ms']?.toString().trim();
+        final descTh = item['theme_th']?.toString().trim();
+        final descEn = item['theme_en']?.toString().trim();
+        final descMs = item['theme_ms']?.toString().trim();
+
         if (surah == null ||
-            verseRange == null ||
-            verseRange.isEmpty ||
-            themeTh == null ||
-            themeTh.isEmpty) {
+            ayahFrom == null ||
+            ayahTo == null ||
+            titleTh == null ||
+            titleTh.isEmpty) {
           continue;
         }
 
-        final startVerse = _parseThemeStartVerse(verseRange);
-        if (startVerse == null) continue;
-
-        sectionsBySurah.putIfAbsent(surah, () => {})[startVerse] =
-            _ThaiThemeSection(themeTh: themeTh, themeEn: themeEn, verseRange: verseRange);
+        final verseRange = '$ayahFrom-$ayahTo';
+        sectionsBySurah.putIfAbsent(surah, () => {})[ayahFrom] =
+            _ThaiThemeSection(
+              titleTh: titleTh,
+              titleEn: titleEn,
+              titleMs: titleMs,
+              descriptionTh: descTh,
+              descriptionEn: descEn,
+              descriptionMs: descMs,
+              verseRange: verseRange,
+            );
       }
 
       _themeSectionsBySurah = sectionsBySurah;
     } catch (error) {
-      debugPrint('Unable to load Thai Quran theme sections: $error');
+      debugPrint('Unable to load QUL Quran theme sections: $error');
     }
   }
 
@@ -347,16 +356,25 @@ class _ReadingScreenState extends State<ReadingScreen> {
   String getHeaderTitle(BuildContext context, int verseNumber) {
     final section = _getActiveTheme(verseNumber);
     if (section == null) return '';
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     final isNonThai = _isNonThaiPrimary(context);
-    final themeText = (isNonThai && section.themeEn != null && section.themeEn!.isNotEmpty) 
-        ? section.themeEn! 
-        : section.themeTh;
+
+    String themeText;
+    if (settings.wordByWordLanguage == 'ms' && section.titleMs != null && section.titleMs!.isNotEmpty) {
+      themeText = section.titleMs!;
+    } else if (isNonThai && section.titleEn != null && section.titleEn!.isNotEmpty) {
+      themeText = section.titleEn!;
+    } else {
+      themeText = section.titleTh;
+    }
+
     final protectedTheme = Provider.of<ThaiTextProtectionProvider>(
       context,
       listen: false,
     ).protect(themeText);
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final ayahLabel = settings.languageCode == 'th' ? 'อายะฮฺ' : 'Ayah';
+    final ayahLabel = settings.languageCode == 'th'
+        ? 'อายะฮฺ'
+        : (settings.wordByWordLanguage == 'ms' ? 'Ayat' : 'Ayah');
     return '$protectedTheme ($ayahLabel ${section.verseRange})';
   }
 
@@ -1337,6 +1355,31 @@ class _ReadingScreenState extends State<ReadingScreen> {
     int verseNumber,
   ) {
     final colors = settings.getAppColors();
+    final section = _getActiveTheme(verseNumber);
+    final isNonThai = _isNonThaiPrimary(context);
+
+    String titleText = '';
+    String? descText;
+
+    if (section != null) {
+      if (settings.wordByWordLanguage == 'ms') {
+        titleText = section.titleMs ?? section.titleTh;
+        descText = section.descriptionMs;
+      } else if (isNonThai) {
+        titleText = section.titleEn ?? section.titleTh;
+        descText = section.descriptionEn;
+      } else {
+        titleText = section.titleTh;
+        descText = section.descriptionTh;
+      }
+    } else {
+      titleText = getHeaderTitle(context, verseNumber);
+    }
+
+    final ayahLabel = settings.languageCode == 'th'
+        ? 'อายะฮฺ'
+        : (settings.wordByWordLanguage == 'ms' ? 'Ayat' : 'Ayah');
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
@@ -1349,15 +1392,55 @@ class _ReadingScreenState extends State<ReadingScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colors.borderSoft),
       ),
-      child: Text(
-        getHeaderTitle(context, verseNumber),
-        locale: const Locale('th', 'TH'),
-        style: GoogleFonts.notoSansThai(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          height: 1.45,
-          color: colors.textStrong,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  section != null ? '$ayahLabel ${section.verseRange}' : '',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  titleText,
+                  locale: const Locale('th', 'TH'),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                    color: colors.textStrong,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (descText != null && descText.isNotEmpty && descText != titleText) ...[
+            const SizedBox(height: 6),
+            Text(
+              descText,
+              locale: const Locale('th', 'TH'),
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 1.4,
+                color: colors.textMuted,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -2679,11 +2762,26 @@ class _RibbonFallPainter extends CustomPainter {
 }
 
 class _ThaiThemeSection {
-  final String themeTh;
-  final String? themeEn;
+  final String titleTh;
+  final String? titleEn;
+  final String? titleMs;
+  final String? descriptionTh;
+  final String? descriptionEn;
+  final String? descriptionMs;
   final String verseRange;
 
-  const _ThaiThemeSection({required this.themeTh, this.themeEn, required this.verseRange});
+  const _ThaiThemeSection({
+    required this.titleTh,
+    this.titleEn,
+    this.titleMs,
+    this.descriptionTh,
+    this.descriptionEn,
+    this.descriptionMs,
+    required this.verseRange,
+  });
+
+  String get themeTh => titleTh;
+  String? get themeEn => titleEn;
 }
 
 class _SurahObjective {
