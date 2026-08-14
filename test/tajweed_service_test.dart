@@ -124,7 +124,12 @@ void main() {
 
     final v16_122 = jsonMap['16:122'];
     expect(v16_122 != null, true);
-    final text = v16_122['text'] as String;
-    expect(text.contains('لۡـَٔاخِرَةِ') || text.contains('لۡـَٰٔخِرَةِ'), true);
+    final text16 = v16_122['text'] as String;
+    expect(text16.contains('لۡـَٔاخِرَةِ') || text16.contains('لۡـَٰٔخِرَةِ'), true);
+
+    final v18_74 = jsonMap['18:74'];
+    expect(v18_74 != null, true);
+    final text18 = v18_74['text'] as String;
+    expect(text18.contains('شَيۡـٔ<rule') || text18.contains('شَيۡـًٔا'), true);
   });
 }

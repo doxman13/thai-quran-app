@@ -23,17 +23,33 @@ class TajweedService {
     final data = _dataByMushaf[mushafId] ?? _dataByMushaf[11];
     final text = data?['$surah:$ayah']?['text'] as String?;
     if (text == null) return null;
-    return _normalizeTajweedMadd(text);
+    return _normalizeTajweedText(text);
   }
 
-  static String _normalizeTajweedMadd(String text) {
-    if (!text.contains('لۡأَ')) return text;
-    return text
-        .replaceAll('لۡأَخِر', 'لۡـَٰٔخِر')
-        .replaceAll('لۡأَيَ', 'لۡـَٰٔيَ')
-        .replaceAll('لۡأَزِف', 'لۡـَٰٔزِف')
-        .replaceAll('لۡأَصَال', 'لۡـَٰٔصَال')
-        .replaceAll('لۡأَنَ', 'لۡـَٰٔنَ');
+  static String _normalizeTajweedText(String text) {
+    var result = text;
+    if (result.contains('لۡأَ') || result.contains('لْأَ')) {
+      result = result
+          .replaceAll('لۡأَخِر', 'لۡـَٰٔخِر')
+          .replaceAll('لْأَخِر', 'لْـَٰٔخِر')
+          .replaceAll('لۡأَيَ', 'لۡـَٰٔيَ')
+          .replaceAll('لْأَيَ', 'لْـَٰٔيَ')
+          .replaceAll('لۡأَزِف', 'لۡـَٰٔزِف')
+          .replaceAll('لْأَزِف', 'لْـَٰٔزِف')
+          .replaceAll('لۡأَصَال', 'لۡـَٰٔصَال')
+          .replaceAll('لْأَصَال', 'لْـَٰٔصَال')
+          .replaceAll('لۡأَنَ', 'لۡـَٰٔنَ')
+          .replaceAll('لْأَنَ', 'لْـَٰٔنَ');
+    }
+    if (result.contains('ـ<rule') || result.contains('ـ\u0640\u0654')) {
+      result = result
+          .replaceAllMapped(
+            RegExp(r'ـ<rule class=([^>]+)>ـ?ٔ([ًۭٗ]ا?)</rule>'),
+            (m) => 'ـٔ<rule class=${m[1]}>ـ${m[2]}</rule>',
+          )
+          .replaceAll('ـ\u0640\u0654', 'ـ\u0654');
+    }
+    return result;
   }
 
   static MushafPage augmentMushafPage(MushafPage page, {int targetMushafId = 11}) {
