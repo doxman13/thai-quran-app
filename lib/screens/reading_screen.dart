@@ -15,6 +15,7 @@ import '../providers/local_reading_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
 import '../models/verse.dart';
+import '../models/tadabbur_note.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
