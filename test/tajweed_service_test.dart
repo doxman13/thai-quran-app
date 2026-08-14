@@ -115,4 +115,16 @@ void main() {
     expect(parts[1].text, 'لۡـَٰٔخِرَةِ');
     expect(parts[1].className, '');
   });
+
+  test('Test qul-hafs-tajweed.json file contains all 6236 verses', () {
+    final file = File('assets/Tajweed/qul-hafs-tajweed.json');
+    expect(file.existsSync(), true);
+    final jsonMap = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    expect(jsonMap.length, 6236);
+
+    final v16_122 = jsonMap['16:122'];
+    expect(v16_122 != null, true);
+    final text = v16_122['text'] as String;
+    expect(text.contains('لۡـَٔاخِرَةِ') || text.contains('لۡـَٰٔخِرَةِ'), true);
+  });
 }
