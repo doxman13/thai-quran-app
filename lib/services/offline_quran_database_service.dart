@@ -146,6 +146,21 @@ class OfflineQuranDatabaseService {
     ''', [topicId]);
   }
 
+  /// Search topics by Thai title, English title, or category name
+  static Future<List<Map<String, dynamic>>> searchTopics(String query) async {
+    final db = await database;
+    final q = '%${query.trim().toLowerCase()}%';
+    return await db.rawQuery('''
+      SELECT t.*, c.title_th as category_title_th, c.icon_name as category_icon
+      FROM topics t
+      JOIN topic_categories c ON t.category_id = c.id
+      WHERE LOWER(t.title_th) LIKE ? 
+         OR LOWER(t.title_en) LIKE ? 
+         OR LOWER(c.title_th) LIKE ?
+      ORDER BY t.verses_count DESC
+    ''', [q, q, q]);
+  }
+
   /// Get all verses containing words with a specific root ('ر ح م', 'س م و')
   static Future<List<Map<String, dynamic>>> getVersesByRoot(String rootArabic) async {
     final db = await database;

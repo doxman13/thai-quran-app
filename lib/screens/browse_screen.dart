@@ -12,6 +12,8 @@ import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/topics_tab_view.dart';
+import '../services/offline_quran_database_service.dart';
+import 'topic_verses_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'settings_screen.dart';
 
@@ -85,6 +87,7 @@ class BrowseScreenState extends State<BrowseScreen> {
   final QuranFoundationRepository _foundationRepo = QuranFoundationRepository();
   QuranSearchResult? _apiSearchResult;
   bool _isApiSearching = false;
+  List<Map<String, dynamic>> _topicSearchResults = [];
   Timer? _debounceTimer;
 
   @override
@@ -97,8 +100,23 @@ class BrowseScreenState extends State<BrowseScreen> {
   void _onSearchQueryChanged(String query) {
     setState(() {});
 
+    final trimmed = query.trim();
+    if (trimmed.isNotEmpty) {
+      OfflineQuranDatabaseService.searchTopics(trimmed).then((topics) {
+        if (mounted && _searchController.text.trim() == trimmed) {
+          setState(() {
+            _topicSearchResults = topics;
+          });
+        }
+      });
+    } else {
+      setState(() {
+        _topicSearchResults = [];
+      });
+    }
+
     _debounceTimer?.cancel();
-    if (query.trim().length < 2) {
+    if (trimmed.length < 2) {
       setState(() {
         _apiSearchResult = null;
         _isApiSearching = false;
@@ -111,8 +129,8 @@ class BrowseScreenState extends State<BrowseScreen> {
     });
 
     _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-      final res = await _foundationRepo.searchQuran(query: query.trim());
-      if (mounted && _searchController.text.trim() == query.trim()) {
+      final res = await _foundationRepo.searchQuran(query: trimmed);
+      if (mounted && _searchController.text.trim() == trimmed) {
         setState(() {
           _apiSearchResult = res;
           _isApiSearching = false;
@@ -527,6 +545,111 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
+                      // Topic matches
+                      if (_topicSearchResults.isNotEmpty) ...[
+                        Text(
+                          'หัวข้ออัลกุรอาน (${_topicSearchResults.length})',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ..._topicSearchResults.map((t) {
+                          final topicId = t['id'] as int;
+                          final titleTh = t['title_th'] as String? ?? '';
+                          final titleEn = t['title_en'] as String? ?? '';
+                          final catTitle = t['category_title_th'] as String? ?? '';
+                          final versesCount = t['verses_count'] as int? ?? 0;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(AppTheme.radius),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => TopicVersesScreen(
+                                        topicId: topicId,
+                                        topicTitleTh: titleTh,
+                                        topicTitleEn: titleEn,
+                                        versesCount: versesCount,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: _SectionCard(
+                                  colors: widget.colors,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.primary.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Icon(
+                                          Icons.topic_rounded,
+                                          color: colorScheme.primary,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              titleTh,
+                                              style: GoogleFonts.notoSansThai(
+                                                fontSize: 14.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: colorScheme.onSurface,
+                                              ),
+                                            ),
+                                            Text(
+                                              '$titleEn • $catTitle',
+                                              style: GoogleFonts.notoSans(
+                                                fontSize: 12,
+                                                color: colorScheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.secondaryContainer.withValues(alpha: 0.7),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '$versesCount อายะฮ์',
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.onSecondaryContainer,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 16),
+                      ],
                       // Verse / translation matches
                       if (verseMatches.isNotEmpty) ...[
                         Text(
@@ -745,7 +868,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (surahs.isEmpty && verseMatches.isEmpty && (_apiSearchResult == null || _apiSearchResult!.items.isEmpty) && !_isApiSearching)
+                      if (surahs.isEmpty && _topicSearchResults.isEmpty && verseMatches.isEmpty && (_apiSearchResult == null || _apiSearchResult!.items.isEmpty) && !_isApiSearching)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 48),
                           child: Center(
