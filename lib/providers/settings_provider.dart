@@ -66,6 +66,8 @@ class SettingsProvider extends ChangeNotifier {
   // Word by word display setting
   bool _showWordByWord = false;
   bool get showWordByWord => _showWordByWord;
+  String _wordByWordLanguage = 'th'; // 'th', 'en', 'ms'
+  String get wordByWordLanguage => _wordByWordLanguage;
 
   // New dual-slot getters
   String get primaryTranslationId => _primaryTranslationId;
@@ -276,6 +278,7 @@ class SettingsProvider extends ChangeNotifier {
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _keepAwake = prefs.getBool('keepAwake') ?? true;
     _showWordByWord = prefs.getBool('showWordByWord') ?? false;
+    _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
@@ -444,6 +447,15 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showWordByWord', value);
+    await _markSettingsChanged(prefs);
+  }
+
+  void setWordByWordLanguage(String lang) async {
+    if (_wordByWordLanguage == lang) return;
+    _wordByWordLanguage = lang;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('wordByWordLanguage', lang);
     await _markSettingsChanged(prefs);
   }
 

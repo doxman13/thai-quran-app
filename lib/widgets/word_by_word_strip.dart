@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
 import '../services/offline_quran_database_service.dart';
 import '../screens/root_verses_screen.dart';
+import '../providers/settings_provider.dart';
 
 class WordByWordStrip extends StatefulWidget {
   final String verseKey;
@@ -80,12 +82,13 @@ class _WordByWordStripState extends State<WordByWordStrip> {
     final colorScheme = theme.colorScheme;
 
     final textUthmani = word['text_uthmani'] as String? ?? '';
-    final translation = word['translation'] as String? ?? '';
+    final translationTh = word['translation_th'] as String? ?? '';
+    final translationEn = word['translation_en'] as String? ?? word['translation'] as String? ?? '';
+    final translationMs = word['translation_ms'] as String? ?? '';
     final transliteration = word['transliteration'] as String? ?? '';
     final rootArabic = word['root_arabic'] as String?;
     final rootOccurrences = word['root_occurrences'] as int? ?? 0;
     final partOfSpeech = word['part_of_speech'] as String?;
-    final lemmaArabic = word['lemma_arabic'] as String?;
     final audioUrl = word['audio_url'] as String?;
 
     showModalBottomSheet(
@@ -142,7 +145,7 @@ class _WordByWordStripState extends State<WordByWordStrip> {
               ),
               const SizedBox(height: 8),
 
-              // Transliteration & Meaning
+              // Transliteration & Multilingual Meaning Box
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -156,24 +159,76 @@ class _WordByWordStripState extends State<WordByWordStrip> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (transliteration.isNotEmpty) ...[
-                      Text(
-                        transliteration,
-                        style: GoogleFonts.notoSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.primary,
-                        ),
+                      Row(
+                        children: [
+                          Icon(Icons.record_voice_over_outlined, size: 14, color: colorScheme.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            transliteration,
+                            style: GoogleFonts.notoSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    if (translationTh.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('🇹🇭 ', style: const TextStyle(fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              translationTh,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                     ],
-                    Text(
-                      translation.isNotEmpty ? translation : '-',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.onSurface,
+                    if (translationEn.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('🇬🇧 ', style: const TextStyle(fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              translationEn,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 13,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (translationMs.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('🇲🇾 ', style: const TextStyle(fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              translationMs,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 13,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -301,6 +356,9 @@ class _WordByWordStripState extends State<WordByWordStrip> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final wbwLang = context.select<SettingsProvider, String>(
+      (settings) => settings.wordByWordLanguage,
+    );
 
     if (_isLoading) {
       return const SizedBox(
@@ -333,7 +391,23 @@ class _WordByWordStripState extends State<WordByWordStrip> {
         itemBuilder: (context, index) {
           final word = wordList[index];
           final textUthmani = word['text_uthmani'] as String? ?? '';
-          final translation = word['translation'] as String? ?? '';
+          
+          String translation;
+          if (wbwLang == 'ms') {
+            translation = (word['translation_ms'] as String?) ?? '';
+          } else if (wbwLang == 'en') {
+            translation = (word['translation_en'] as String?) ?? (word['translation'] as String?) ?? '';
+          } else {
+            translation = (word['translation_th'] as String?) ?? '';
+          }
+
+          if (translation.isEmpty) {
+            translation = (word['translation_th'] as String?) ??
+                (word['translation_en'] as String?) ??
+                (word['translation'] as String?) ??
+                (word['transliteration'] as String?) ?? '';
+          }
+
           final transliteration = word['transliteration'] as String? ?? '';
           final audioUrl = word['audio_url'] as String?;
           final isPlaying = _activeWordIndex == index;
@@ -380,7 +454,7 @@ class _WordByWordStripState extends State<WordByWordStrip> {
                     const SizedBox(height: 4),
                     Text(
                       translation.isNotEmpty ? translation : transliteration,
-                      style: GoogleFonts.notoSans(
+                      style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onSurfaceVariant,

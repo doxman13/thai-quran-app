@@ -1606,7 +1606,39 @@ class _MushafReaderSettingsSheetState
               );
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+
+          // Word-by-Word Language Selection
+          Text(
+            'ภาษาแปลคำต่อคำ (Word-by-Word Language)',
+            style: GoogleFonts.notoSansThai(
+              color: colors.textStrong,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('ไทย 🇹🇭'),
+                selected: settings.wordByWordLanguage == 'th',
+                onSelected: (_) => settings.setWordByWordLanguage('th'),
+              ),
+              ChoiceChip(
+                label: const Text('English 🇬🇧'),
+                selected: settings.wordByWordLanguage == 'en',
+                onSelected: (_) => settings.setWordByWordLanguage('en'),
+              ),
+              ChoiceChip(
+                label: const Text('Melayu 🇲🇾'),
+                selected: settings.wordByWordLanguage == 'ms',
+                onSelected: (_) => settings.setWordByWordLanguage('ms'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Text(
             context.tr(
               'current_view',

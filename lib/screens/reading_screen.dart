@@ -926,7 +926,41 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         activeThumbColor: colorScheme.primary,
                         onChanged: (val) => settings.toggleShowWordByWord(val),
                       ),
-                      const SizedBox(height: 8),
+                      if (settings.showWordByWord) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                'ภาษา:',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              ChoiceChip(
+                                label: const Text('ไทย 🇹🇭'),
+                                selected: settings.wordByWordLanguage == 'th',
+                                onSelected: (_) => settings.setWordByWordLanguage('th'),
+                              ),
+                              ChoiceChip(
+                                label: const Text('English 🇬🇧'),
+                                selected: settings.wordByWordLanguage == 'en',
+                                onSelected: (_) => settings.setWordByWordLanguage('en'),
+                              ),
+                              ChoiceChip(
+                                label: const Text('Melayu 🇲🇾'),
+                                selected: settings.wordByWordLanguage == 'ms',
+                                onSelected: (_) => settings.setWordByWordLanguage('ms'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
 
 
 
