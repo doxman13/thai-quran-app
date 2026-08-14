@@ -2247,12 +2247,12 @@ class MushafLayoutProfile {
         horizontalPadding: 14,
         wordPadding: 0,
       ),
-      11 => const MushafLayoutProfile(
-        pageWidth: 412, 
-        lineWidth: 412,
-        lineHeight: 1.25, // Significantly reduced to shrink highlight box
-        lineVerticalPadding: 11.0, // Increased to maintain the line gap
-        horizontalPadding: 14, // Good side margins
+      11 || 21 => const MushafLayoutProfile(
+        pageWidth: 416,
+        lineWidth: 416,
+        lineHeight: 1.25, // Compact highlight box
+        lineVerticalPadding: 11.5, // Increased line spacing for clear diacritic separation
+        horizontalPadding: 10, // Edge-to-edge layout utilization
         wordPadding: 0,
       ),
       19 => const MushafLayoutProfile(
@@ -2465,7 +2465,7 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 || 21 => pageNumber <= 2 ? 34.0 : 25.5,
+      11 || 21 => pageNumber <= 2 ? 34.0 : 25.8,
       19 => 25.2,
       _ => 22.5,
     };
