@@ -1455,6 +1455,68 @@ class _MushafReaderSettingsSheetState
               ),
             ),
           ),
+          if (_mushafId == 21 || _mushafId == 11) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  builder: (ctx) => _TajweedColorGuideSheet(colors: colors),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.palette_outlined, color: colors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'คู่มือสัญลักษณ์สีกฎตัจวีด',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: colors.textStrong,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'ดูความหมายของสัญลักษณ์สีตัจวีดทั้งหมด',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              color: colors.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: colors.foreground, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // Translation Selection Label
@@ -1557,6 +1619,194 @@ class _MushafReaderSettingsSheetState
       ),
     );
   }
+}
+
+class _TajweedColorGuideSheet extends StatelessWidget {
+  final AppThemeColors colors;
+
+  const _TajweedColorGuideSheet({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final rules = [
+      _TajweedRuleItem(
+        titleTh: 'การหน่วงเสียง (2 ฮารอกาต)',
+        titleAr: 'غُنّة • إخفاء • إدغام بغنة',
+        descTh: 'หน่วงเสียง 2 ฮารอกาต ที่ นูน/มีม มีชัดดะฮ์, ซ่อนเสียงนูนตาย/ตันวีน หรือกล้ำเสียงเข้ากับ ย น ม ว',
+        color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D),
+      ),
+      _TajweedRuleItem(
+        titleTh: 'การแปลงเสียง (อิกลาบ)',
+        titleAr: 'إقلاب',
+        descTh: 'เปลี่ยนเสียงนูนตายหรือตันวีน เป็นเสียง มีม พร้อมหน่วงเสียง เมื่อพบตัว บาอ์ (ب)',
+        color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+      ),
+      _TajweedRuleItem(
+        titleTh: 'เสียงสะท้อน (ก็อลเกาะละฮ์)',
+        titleAr: 'قلقلة',
+        descTh: 'ทำเสียงสะท้อนเมื่ออักษร กุฏบุญัด (ق ط ب ج د) มีเครื่องหมายสุกูน (สะท้อนเบา/ปานกลาง/หนัก)',
+        color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
+      ),
+      _TajweedRuleItem(
+        titleTh: 'การยืดเสียงยาว 4–5 ฮารอกาต',
+        titleAr: 'مد واجب متصل • مد جائز منفصل',
+        descTh: 'ยืดเสียงยาว 4 หรือ 5 ฮารอกาต เมื่อมีอักษรมัดพบกับฮัมซะฮ์ในคำเดียวกันหรือคำถัดไป',
+        color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+      ),
+      _TajweedRuleItem(
+        titleTh: 'การยืดเสียงยาวพิเศษ 6 ฮารอกาต',
+        titleAr: 'مد لازم',
+        descTh: 'ยืดเสียงยาวเต็มที่ 6 ฮารอกาต เมื่อมีอักษรมัดตามด้วยสุกูนเดิมหรือชัดดะฮ์',
+        color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
+      ),
+      _TajweedRuleItem(
+        titleTh: 'อักษรที่ไม่อ่านออกเสียง',
+        titleAr: 'همزة وصل • لام شمسية • حروف لا تنطق',
+        descTh: 'ฮัมซะฮ์เชื่อม, ลามชัมซียะฮ์ หรืออักษรที่ไม่ต้องออกเสียงเมื่ออ่านติดต่อกัน',
+        color: const Color(0xFF94A3B8),
+      ),
+    ];
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        8,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 28,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'คู่มือสัญลักษณ์สีกฎตัจวีด',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.textStrong,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'Tajweed Color Rules Guide',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.foreground,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: rules.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final r = rules[index];
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.borderSoft),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        margin: const EdgeInsets.only(top: 4),
+                        decoration: BoxDecoration(
+                          color: r.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    r.titleTh,
+                                    style: GoogleFonts.notoSansThai(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      color: colors.textStrong,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  r.titleAr,
+                                  textDirection: TextDirection.rtl,
+                                  style: TextStyle(
+                                    fontFamily: 'Tajweed',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              r.descTh,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                color: colors.foreground,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TajweedRuleItem {
+  final String titleTh;
+  final String titleAr;
+  final String descTh;
+  final Color color;
+
+  const _TajweedRuleItem({
+    required this.titleTh,
+    required this.titleAr,
+    required this.descTh,
+    required this.color,
+  });
 }
 
 String getSurahNameForPage(int pageNumber, QuranRepository quranRepository) {
@@ -2650,29 +2900,31 @@ class MushafLine extends StatelessWidget {
     switch (className.toLowerCase()) {
       case 'ghunnah':
       case 'ikhfa':
-      case 'ikhafa': // From api.quran.com
+      case 'ikhafa':
       case 'ikhfa_shafawi':
-      case 'ikhafa_shafawi': // From api.quran.com
+      case 'ikhafa_shafawi':
       case 'idgham_ghunnah':
-      case 'idgham_wo_ghunnah': // From api.quran.com
-      case 'idgham_shafawi': // From api.quran.com
+      case 'idgham_shafawi':
       case 'idgham_muthamaasilayn':
-      case 'iqlab':
         return isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D);
+      case 'iqlab':
+        return isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
       case 'qalqalah':
-      case 'qalaqah': // From api.quran.com
-        return isDark ? const Color(0xFF60A5FA) : const Color(0xFF1D4ED8);
+      case 'qalaqah':
+        return isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
       case 'madda_normal':
       case 'madda_permissible':
-      case 'madda_necessary':
       case 'madda_obligatory':
-      case 'madda_obligatory_monfasel': // From api.quran.com
-      case 'madda_obligatory_mottasel': // From api.quran.com
+      case 'madda_obligatory_monfasel':
+      case 'madda_obligatory_mottasel':
         return isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+      case 'madda_necessary':
+        return isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B);
       case 'ham_wasl':
       case 'laam_shamsiyah':
       case 'silent':
-      case 'slnt': // From api.quran.com
+      case 'slnt':
+      case 'idgham_wo_ghunnah':
         return const Color(0xFF94A3B8);
       default:
         return null;
