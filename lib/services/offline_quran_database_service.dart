@@ -114,6 +114,38 @@ class OfflineQuranDatabaseService {
     return results.first['tafsir_th'] as String?;
   }
 
+  /// Get all topic categories
+  static Future<List<Map<String, dynamic>>> getTopicCategories() async {
+    final db = await database;
+    return await db.query(
+      'topic_categories',
+      orderBy: 'sort_order ASC',
+    );
+  }
+
+  /// Get topics for a specific category
+  static Future<List<Map<String, dynamic>>> getTopicsForCategory(int categoryId) async {
+    final db = await database;
+    return await db.query(
+      'topics',
+      where: 'category_id = ?',
+      whereArgs: [categoryId],
+      orderBy: 'id ASC',
+    );
+  }
+
+  /// Get all verses for a topic along with their Arabic text and Thai translation
+  static Future<List<Map<String, dynamic>>> getVersesForTopic(int topicId) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT v.*, tv.sort_order 
+      FROM topic_verses tv
+      JOIN verses v ON tv.verse_key = v.verse_key
+      WHERE tv.topic_id = ?
+      ORDER BY tv.sort_order ASC
+    ''', [topicId]);
+  }
+
   /// Get Tajweed text for a specific verse
   static Future<String?> getTajweedText(String verseKey) async {
     final db = await database;

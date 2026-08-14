@@ -11,6 +11,7 @@ import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
+import '../widgets/topics_tab_view.dart';
 import 'mushaf_reader_screen.dart';
 import 'settings_screen.dart';
 
@@ -441,7 +442,7 @@ class BrowseScreenState extends State<BrowseScreen> {
             // ── Mode tabs (only when not searching) ─────────────────────────
             if (!isSearching)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
                     Expanded(
@@ -452,7 +453,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         onTap: () => _setMode('surah'),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: _TabButton(
                         label: context.tr('juz'),
@@ -461,7 +462,16 @@ class BrowseScreenState extends State<BrowseScreen> {
                         onTap: () => _setMode('juz'),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _TabButton(
+                        label: 'หัวข้อ',
+                        selected: _mode == 'topic',
+                        colors: widget.colors,
+                        onTap: () => _setMode('topic'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: _TabButton(
                         label: context.tr('page'),
@@ -477,14 +487,19 @@ class BrowseScreenState extends State<BrowseScreen> {
             const SizedBox(height: 12),
 
             // ── Content List ────────────────────────────────────────────────
-            Expanded(
-              child: ClipRect(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 0,
-                  ),
-                  children: [
+            if (!isSearching && _mode == 'topic')
+              const Expanded(
+                child: TopicsTabView(),
+              )
+            else
+              Expanded(
+                child: ClipRect(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 0,
+                    ),
+                    children: [
                     if (isSearching) ...[
                       // Surah matches
                       if (surahs.isNotEmpty) ...[
