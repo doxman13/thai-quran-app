@@ -970,11 +970,13 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                WordByWordStrip(
-                  verseKey: '${widget.verse.surahId}:${widget.verse.id}',
-                  isDarkMode: isDark,
-                ),
+                if (settings.showWordByWord) ...[
+                  const SizedBox(height: 12),
+                  WordByWordStrip(
+                    verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+                    isDarkMode: isDark,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Divider(
                   height: 1,

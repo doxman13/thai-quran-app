@@ -62,7 +62,9 @@ class SettingsProvider extends ChangeNotifier {
   double get translationFontSize => _translationFontSize;
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
-  HifzInputMode get hifzInputMode => _hifzInputMode;
+  // Word by word display setting
+  bool _showWordByWord = false;
+  bool get showWordByWord => _showWordByWord;
 
   // New dual-slot getters
   String get primaryTranslationId => _primaryTranslationId;
@@ -272,6 +274,7 @@ class SettingsProvider extends ChangeNotifier {
     _languageCode = prefs.getString('languageCode') ?? 'th';
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _keepAwake = prefs.getBool('keepAwake') ?? true;
+    _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
@@ -433,6 +436,14 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setBool('keepAwake', value);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
+  }
+
+  void toggleShowWordByWord(bool value) async {
+    _showWordByWord = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showWordByWord', value);
+    await _markSettingsChanged(prefs);
   }
 
   void toggleAlwaysShowArabic(bool value) async {

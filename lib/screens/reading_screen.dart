@@ -899,7 +899,34 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         activeThumbColor: colorScheme.primary,
                         onChanged: (val) => settings.toggleDarkMode(val),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
+
+                      // Word-by-Word Toggle
+                      SwitchListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+                        title: Text(
+                          'แปลคำต่อคำ (Word by Word)',
+                          style: GoogleFonts.notoSansThai(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'แสดงความหมายทีละคำพร้อมแตะฟังเสียงอ่าน',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        value: settings.showWordByWord,
+                        activeThumbColor: colorScheme.primary,
+                        onChanged: (val) => settings.toggleShowWordByWord(val),
+                      ),
+                      const SizedBox(height: 8),
 
 
 
