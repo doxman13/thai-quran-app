@@ -26,6 +26,7 @@ import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'settings_screen.dart';
+import '../services/offline_quran_database_service.dart';
 import '../widgets/tadabbur_panel.dart';
 import '../widgets/word_by_word_strip.dart';
 
