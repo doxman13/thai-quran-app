@@ -7,13 +7,18 @@ class TopicVersesScreen extends StatefulWidget {
   final int topicId;
   final String titleTh;
   final String titleEn;
+  final int? versesCount;
 
   const TopicVersesScreen({
     super.key,
     required this.topicId,
-    required this.titleTh,
-    required this.titleEn,
-  });
+    String? titleTh,
+    String? topicTitleTh,
+    String? titleEn,
+    String? topicTitleEn,
+    this.versesCount,
+  })  : titleTh = titleTh ?? topicTitleTh ?? '',
+        titleEn = titleEn ?? topicTitleEn ?? '';
 
   @override
   State<TopicVersesScreen> createState() => _TopicVersesScreenState();

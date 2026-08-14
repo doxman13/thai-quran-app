@@ -215,6 +215,29 @@ class OfflineQuranDatabaseService {
     return (results.first['count'] as int?) ?? 0;
   }
 
+  /// Get QUL Ayah Themes for a specific Surah
+  static Future<List<Map<String, dynamic>>> getQulThemesForSurah(int surah) async {
+    final db = await database;
+    return await db.query(
+      'qul_ayah_themes',
+      where: 'surah = ?',
+      whereArgs: [surah],
+      orderBy: 'ayah_from ASC',
+    );
+  }
+
+  /// Get QUL Ayah Theme for a specific verse
+  static Future<Map<String, dynamic>?> getQulThemeForVerse(int surah, int ayah) async {
+    final db = await database;
+    final results = await db.query(
+      'qul_ayah_themes',
+      where: 'surah = ? AND ayah_from <= ? AND ayah_to >= ?',
+      whereArgs: [surah, ayah, ayah],
+      limit: 1,
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
   /// Get Tajweed text for a specific verse
   static Future<String?> getTajweedText(String verseKey) async {
     final db = await database;
