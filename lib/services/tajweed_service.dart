@@ -38,8 +38,13 @@ class TajweedService {
         (m) => '${m[1]}${m[2]}</rule>',
       );
     }
-    if (result.contains('لۡأَ') || result.contains('لْأَ')) {
+    if (result.contains('لۡأَ') ||
+        result.contains('لْأَ') ||
+        result.contains('لِأَدَمَ') ||
+        result.contains('لِأَيَ')) {
       result = result
+          .replaceAll('لِأَدَمَ', 'لِـَٔادَمَ')
+          .replaceAll('لِأَيَ', 'لِـَٔايَ')
           .replaceAll('لۡأَخِر', 'لۡـَٰٔخِر')
           .replaceAll('لْأَخِر', 'لْـَٰٔخِر')
           .replaceAll('لۡأَيَ', 'لۡـَٰٔيَ')
