@@ -28,6 +28,7 @@ import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 import 'word_by_word_strip.dart';
+import 'mutashabihat_sheet.dart';
 
 class VerseCardController extends ChangeNotifier {
   VoidCallback? toggleTafsir;
@@ -931,6 +932,19 @@ class _VerseCardState extends State<VerseCard> {
                           await localReading.toggleBookmark(
                             verseRef.surahId,
                             verseRef.verseId,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      _buildActionIcon(
+                        tooltip: 'โองการที่คล้ายคลึงกัน (Similar Ayat)',
+                        icon: Icons.sync_alt_rounded,
+                        active: false,
+                        color: colorScheme.primary,
+                        onPressed: () {
+                          MutashabihatSheet.show(
+                            context,
+                            '${widget.verse.surahId}:${widget.verse.id}',
                           );
                         },
                       ),

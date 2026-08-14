@@ -29,6 +29,7 @@ import 'settings_screen.dart';
 import '../services/offline_quran_database_service.dart';
 import '../widgets/tadabbur_panel.dart';
 import '../widgets/word_by_word_strip.dart';
+import '../widgets/mutashabihat_sheet.dart';
 
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -3039,6 +3040,14 @@ class _TranslationPanel extends StatelessWidget {
                   onPressed: onBookmark,
                   icon: Icon(
                     bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: colors.primary,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'โองการที่คล้ายคลึงกัน (Similar Ayat)',
+                  onPressed: () => MutashabihatSheet.show(context, verseKey),
+                  icon: Icon(
+                    Icons.sync_alt_rounded,
                     color: colors.primary,
                   ),
                 ),

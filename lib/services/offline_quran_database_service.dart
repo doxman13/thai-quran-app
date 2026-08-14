@@ -158,6 +158,27 @@ class OfflineQuranDatabaseService {
     ''', [rootArabic]);
   }
 
+  /// Get all similar verses (Mutashabihat) for a specific verseKey ('2:48', etc.)
+  static Future<List<Map<String, dynamic>>> getMutashabihat(String verseKey) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT v.*, m.context_type 
+      FROM mutashabihat m
+      JOIN verses v ON m.matched_verse_key = v.verse_key
+      WHERE m.verse_key = ?
+      ORDER BY v.surah_id ASC, v.verse_id ASC
+    ''', [verseKey]);
+  }
+
+  /// Check if a verse has any Mutashabihat
+  static Future<int> getMutashabihatCount(String verseKey) async {
+    final db = await database;
+    final results = await db.rawQuery('''
+      SELECT COUNT(*) as count FROM mutashabihat WHERE verse_key = ?
+    ''', [verseKey]);
+    return (results.first['count'] as int?) ?? 0;
+  }
+
   /// Get Tajweed text for a specific verse
   static Future<String?> getTajweedText(String verseKey) async {
     final db = await database;
