@@ -30,6 +30,7 @@ import '../providers/translation_manager_provider.dart';
 import '../services/tajweed_service.dart';
 import '../widgets/mutashabihat_sheet.dart';
 import '../services/offline_quran_database_service.dart';
+import '../shared/quran_translation_helper.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -244,8 +245,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   void _syncInputModeToNative() {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final modeName = settings.hifzInputMode.name;
-    _channel.invokeMethod('setInputMode', {'mode': modeName});
+    final isShutter = settings.hifzInputMode == HifzInputMode.bluetoothShutter;
+    _channel.invokeMethod('setInputMode', {
+      'mode': isShutter ? 'bluetoothShutter' : 'none',
+    });
   }
 
   void _onBleClick() {
@@ -266,9 +269,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       Provider.of<BleRemoteProvider>(context, listen: false)
           .removeListener(_onBleClick);
     }
-    if (settings.hifzInputMode == HifzInputMode.bluetoothShutter) {
-      _channel.setMethodCallHandler(null);
-    }
+    // Always disable volume/hardware key interception when leaving Hifz session
+    _channel.invokeMethod('setInputMode', {'mode': 'none'});
+    _channel.setMethodCallHandler(null);
+
     _newVersesPageController.dispose();
     _reviewPageController.dispose();
     _hiddenInputFocusNode.dispose();
@@ -840,31 +844,22 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   String _getVerseTranslationText(
       BuildContext context, int surahNumber, int verseNumber) {
-    final verse = widget.quranRepository
-        .getVerse(surahNumber.toString(), verseNumber.toString());
-    if (verse == null) return '';
-
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final primaryId = settings.primaryTranslationId;
+    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+    final verseKey = '$surahNumber:$verseNumber';
+    final verse = widget.quranRepository.getVerse(
+      surahNumber.toString(),
+      verseNumber.toString(),
+    );
 
-    if (primaryId == 'english') {
-      return verse.english;
-    } else if (primaryId == 'thai_v2') {
-      return verse.thaiV2;
-    } else if (primaryId == 'thai_v3') {
-      return verse.thaiV3;
-    } else {
-      try {
-        final transManager =
-            Provider.of<TranslationManagerProvider>(context, listen: false);
-        final customTrans = transManager.getVerseTranslation(
-            primaryId, '$surahNumber:$verseNumber');
-        if (customTrans != null && customTrans.isNotEmpty) {
-          return customTrans;
-        }
-      } catch (_) {}
-      return verse.thaiV3;
-    }
+    return resolveVerseTranslationText(
+      context: context,
+      verseKey: verseKey,
+      verse: verse,
+      settings: settings,
+      transManager: transManager,
+      repository: widget.quranRepository,
+    );
   }
 
 
@@ -2762,7 +2757,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               provider.surahNumber.toString(), verseNum.toString()),
                           builder: (context, snapshot) {
                             final arabicText = snapshot.data ?? '';
-                            final cleanedText = arabicText.split(' | ').join(' ');
+                            final cleanedText = formatArabicAyahText(
+                              arabicText,
+                              verseNumber: verseNum,
+                            );
                             return Directionality(
                               textDirection: TextDirection.rtl,
                               child: RichText(

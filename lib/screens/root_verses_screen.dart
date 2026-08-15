@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/translation_manager_provider.dart';
 import '../services/offline_quran_database_service.dart';
+import '../shared/quran_translation_helper.dart';
 import '../widgets/word_by_word_strip.dart';
 
 class RootVersesScreen extends StatefulWidget {
@@ -52,6 +56,8 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final settings = Provider.of<SettingsProvider>(context);
+    final transManager = Provider.of<TranslationManagerProvider>(context);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -125,8 +131,19 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                   itemBuilder: (context, index) {
                     final item = _verses![index];
                     final verseKey = item['verse_key'] as String? ?? '';
-                    final textUthmani = item['text_uthmani'] as String? ?? '';
-                    final translationTh = item['translation_th'] as String? ?? '';
+                    final rawTextUthmani = item['text_uthmani'] as String? ?? '';
+                    final verseId = item['verse_id'];
+                    final formattedArabic = formatArabicAyahText(
+                      rawTextUthmani,
+                      verseNumber: verseId,
+                    );
+                    final translationText = resolveVerseTranslationText(
+                      context: context,
+                      verseKey: verseKey,
+                      verseItem: item,
+                      settings: settings,
+                      transManager: transManager,
+                    );
 
                     return Container(
                       decoration: BoxDecoration(
@@ -155,40 +172,21 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                                   ),
                                 ),
                               ),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.translate_rounded, size: 18),
-                                    tooltip: 'แปลคำต่อคำ (Word by Word)',
-                                    color: colorScheme.primary,
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () {
-                                      WordByWordSheet.show(
-                                        context,
-                                        verseKey: verseKey,
-                                        verseTextUthmani: textUthmani,
-                                        translationText: translationTh,
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${index + 1} / ${_verses!.length}',
-                                    style: GoogleFonts.notoSans(
-                                      fontSize: 12,
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                '${index + 1} / ${_verses!.length}',
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 12,
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 16),
 
+                          // Arabic Verse Text with circular Ayah mark
                           Text(
-                            textUthmani,
+                            formattedArabic,
                             textDirection: TextDirection.rtl,
                             style: const TextStyle(
                               fontFamily: 'Tajweed',
@@ -198,6 +196,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          // Word by word view
                           WordByWordView(
                             verseKey: verseKey,
                             isDarkMode: theme.brightness == Brightness.dark,
@@ -210,9 +209,11 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                           ),
                           const SizedBox(height: 12),
 
+                          // Translation text (following active global settings)
                           Text(
-                            translationTh,
-                            style: GoogleFonts.notoSansThai(
+                            translationText,
+                            style: getTranslationTextStyle(
+                              context,
                               fontSize: 15,
                               height: 1.6,
                               color: colorScheme.onSurface,
@@ -226,3 +227,4 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
     );
   }
 }
+

@@ -273,14 +273,12 @@ class BrowseScreenState extends State<BrowseScreen> {
       for (var id = 1; id <= 114; id++) {
         final verses = widget.repository.getSurahVerses(id.toString());
         for (var verse in verses) {
-          String primaryTranslation;
-          if (settings.primaryTranslationId == 'thai_v2') {
-            primaryTranslation = verse.thaiV2;
-          } else if (settings.primaryTranslationId == 'english') {
-            primaryTranslation = verse.english;
-          } else {
-            primaryTranslation = verse.thaiV3;
-          }
+          final primaryTranslation = resolveVerseTranslationText(
+            context: context,
+            verseKey: verse.verseKey,
+            verse: verse,
+            settings: settings,
+          );
           if (primaryTranslation.toLowerCase().contains(query) ||
               verse.thaiV3.toLowerCase().contains(query) ||
               verse.thaiV2.toLowerCase().contains(query) ||

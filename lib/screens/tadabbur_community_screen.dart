@@ -549,7 +549,11 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 _postSurahId,
                 _postVerseId,
               );
-              final translationText = verse?.thaiV3 ?? verse?.thaiV2 ?? '';
+              final translationText = resolveVerseTranslationText(
+                context: context,
+                verseKey: '$_postSurahId:$_postVerseId',
+                verse: verse,
+              );
               if (translationText.isEmpty) return const SizedBox.shrink();
               return Container(
                 width: double.infinity,
@@ -833,7 +837,11 @@ class _CommunityNoteCard extends StatelessWidget {
                 ),
               ),
               child: Text(
-                repository.getVerse(note.surahId, note.verseId)?.thaiV3 ?? '',
+                resolveVerseTranslationText(
+                  context: context,
+                  verseKey: '${note.surahId}:${note.verseId}',
+                  verse: repository.getVerse(note.surahId, note.verseId),
+                ),
                 style: GoogleFonts.notoSansThai(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,

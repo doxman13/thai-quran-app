@@ -201,14 +201,16 @@ class ThaiQuranApp extends StatelessWidget {
           // Connects your live app settings state directly into the theme engine
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
-          // Natively builds your beautiful Material 3 styles using your custom palette options
+          // Natively builds your beautiful Material 3 styles using your custom palette and translation language typography
           theme: AppTheme.toThemeData(
             isDark: false,
             palette: settings.themeColor,
+            languageCode: settings.effectiveLanguageCode,
           ),
           darkTheme: AppTheme.toThemeData(
             isDark: true,
             palette: settings.themeColor,
+            languageCode: settings.effectiveLanguageCode,
           ),
 
           home: WelcomeScreen(repository: repository),

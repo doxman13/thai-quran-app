@@ -101,25 +101,32 @@ class AppTheme {
     return AppThemeColors.teal(isDark: isDark);
   }
 
-  /// Builds Material 3 ThemeData bridge using web theme tokens.
+  /// Builds Material 3 ThemeData bridge using web theme tokens and language-appropriate typography.
   static ThemeData toThemeData({
     required bool isDark,
     String palette = 'teal',
+    String languageCode = 'th',
   }) {
     final c = colors(isDark: isDark, palette: palette);
     final baseTheme = ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
     );
-    final textTheme = GoogleFonts.notoSansThaiTextTheme(
-      baseTheme.textTheme,
-    ).apply(bodyColor: c.textStrong, displayColor: c.textStrong);
+    final isThai = languageCode == 'th';
+    final textTheme = (isThai
+            ? GoogleFonts.notoSansThaiTextTheme(baseTheme.textTheme)
+            : GoogleFonts.notoSansTextTheme(baseTheme.textTheme))
+        .apply(bodyColor: c.textStrong, displayColor: c.textStrong);
+
+    final defaultFontFamily = isThai
+        ? GoogleFonts.notoSansThai().fontFamily
+        : GoogleFonts.notoSans().fontFamily;
 
     return ThemeData(
       useMaterial3: true,
       brightness: isDark ? Brightness.dark : Brightness.light,
       scaffoldBackgroundColor: c.background,
-      fontFamily: GoogleFonts.notoSansThai().fontFamily,
+      fontFamily: defaultFontFamily,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
 
@@ -156,11 +163,17 @@ class AppTheme {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         iconTheme: IconThemeData(color: c.textStrong),
-        titleTextStyle: GoogleFonts.notoSansThai(
-          color: c.textStrong,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-        ),
+        titleTextStyle: isThai
+            ? GoogleFonts.notoSansThai(
+                color: c.textStrong,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              )
+            : GoogleFonts.notoSans(
+                color: c.textStrong,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
@@ -205,18 +218,20 @@ class AppTheme {
           return IconThemeData(color: c.foreground, size: 24);
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return GoogleFonts.notoSansThai(
-              color: c.primary,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            );
-          }
-          return GoogleFonts.notoSansThai(
-            color: c.foreground,
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
-          );
+          final isSelected = states.contains(WidgetState.selected);
+          final color = isSelected ? c.primary : c.foreground;
+          final weight = isSelected ? FontWeight.w700 : FontWeight.w500;
+          return isThai
+              ? GoogleFonts.notoSansThai(
+                  color: color,
+                  fontWeight: weight,
+                  fontSize: 12,
+                )
+              : GoogleFonts.notoSans(
+                  color: color,
+                  fontWeight: weight,
+                  fontSize: 12,
+                );
         }),
       ),
 

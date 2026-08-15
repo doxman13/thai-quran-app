@@ -186,6 +186,7 @@ class _WordByWordViewState extends State<WordByWordView> {
   void _showWordDetailSheet(BuildContext context, Map<String, dynamic> word, int wordIndexOneBased) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final effectiveLang = widget.languageOverride ?? resolveEffectiveWbwLanguage(context);
 
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
     final textUthmani = _cleanWordArabicText(rawTextUthmani);
@@ -282,59 +283,101 @@ class _WordByWordViewState extends State<WordByWordView> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    if (translationTh.isNotEmpty) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('🇹🇭 ', style: TextStyle(fontSize: 13)),
-                          Expanded(
-                            child: Text(
-                              translationTh,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
+                    // If English is selected: Show English ONLY
+                    if (effectiveLang == 'en') ...[
+                      if (translationEn.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                translationEn,
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    if (translationEn.isNotEmpty) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
-                          Expanded(
-                            child: Text(
-                              translationEn,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 13,
-                                color: colorScheme.onSurfaceVariant,
+                          ],
+                        ),
+                    ]
+                    // If Malay is selected: Show Malay & English (for reference)
+                    else if (effectiveLang == 'ms') ...[
+                      if (translationMs.isNotEmpty) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('🇲🇾 ', style: TextStyle(fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                translationMs,
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    if (translationMs.isNotEmpty) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('🇲🇾 ', style: TextStyle(fontSize: 13)),
-                          Expanded(
-                            child: Text(
-                              translationMs,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 13,
-                                color: colorScheme.onSurfaceVariant,
+                          ],
+                        ),
+                        if (translationEn.isNotEmpty) const SizedBox(height: 8),
+                      ],
+                      if (translationEn.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                translationEn,
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 13,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                    ]
+                    // Default / Thai: Show Thai & English (for reference)
+                    else ...[
+                      if (translationTh.isNotEmpty) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('🇹🇭 ', style: TextStyle(fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                translationTh,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (translationEn.isNotEmpty) const SizedBox(height: 8),
+                      ],
+                      if (translationEn.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                translationEn,
+                                style: GoogleFonts.notoSans(
+                                  fontSize: 13,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ],
                 ),

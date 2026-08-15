@@ -1020,7 +1020,10 @@ class _VerseCardState extends State<VerseCard> {
                         style: arabicStyle,
                         children: [
                           TextSpan(
-                            text: widget.verse.arabic.split(' | ').join(' '),
+                            text: formatArabicAyahText(
+                              widget.verse.arabic,
+                              verseNumber: widget.verse.id,
+                            ),
                           ),
                         ],
                       ),
@@ -1302,11 +1305,13 @@ class _VerseCardState extends State<VerseCard> {
     final translationBlock = _buildTranslationBlock(
       text: text,
       locale: locale,
-      textStyle: GoogleFonts.notoSansThai(
+      textStyle: getTranslationTextStyle(
+        context,
         fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
         height: 1.65,
         color: isPrimary ? bodyTextColor : secondaryTextColor,
         fontWeight: FontWeight.w400,
+        translationId: translationId,
       ),
     );
 

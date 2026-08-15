@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/translation_manager_provider.dart';
 import '../services/offline_quran_database_service.dart';
+import '../shared/quran_translation_helper.dart';
 
 class MutashabihatSheet extends StatefulWidget {
   final String verseKey;
@@ -61,6 +65,8 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final settings = Provider.of<SettingsProvider>(context);
+    final transManager = Provider.of<TranslationManagerProvider>(context);
 
     return Container(
       constraints: BoxConstraints(
@@ -218,7 +224,10 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    _currentVerse!['text_uthmani'] as String? ?? '',
+                                    formatArabicAyahText(
+                                      _currentVerse!['text_uthmani'] as String? ?? '',
+                                      verseNumber: _currentVerse!['verse_id'],
+                                    ),
                                     textDirection: TextDirection.rtl,
                                     style: const TextStyle(
                                       fontFamily: 'Tajweed',
@@ -245,7 +254,18 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                           ..._mutashabihat!.map((item) {
                             final vKey = item['verse_key'] as String? ?? '';
                             final textUthmani = item['text_uthmani'] as String? ?? '';
-                            final transTh = item['translation_th'] as String? ?? '';
+                            final verseId = item['verse_id'];
+                            final formattedArabic = formatArabicAyahText(
+                              textUthmani,
+                              verseNumber: verseId,
+                            );
+                            final translationText = resolveVerseTranslationText(
+                              context: context,
+                              verseKey: vKey,
+                              verseItem: item,
+                              settings: settings,
+                              transManager: transManager,
+                            );
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 12),
@@ -282,7 +302,7 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                                   const SizedBox(height: 10),
 
                                   Text(
-                                    textUthmani,
+                                    formattedArabic,
                                     textDirection: TextDirection.rtl,
                                     style: const TextStyle(
                                       fontFamily: 'Tajweed',
@@ -299,8 +319,9 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                                   const SizedBox(height: 10),
 
                                   Text(
-                                    transTh,
-                                    style: GoogleFonts.notoSansThai(
+                                    translationText,
+                                    style: getTranslationTextStyle(
+                                      context,
                                       fontSize: 14,
                                       height: 1.5,
                                       color: colorScheme.onSurface,
@@ -318,3 +339,4 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
     );
   }
 }
+

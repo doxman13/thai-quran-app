@@ -4041,25 +4041,12 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
       color: widget.colors.textStrong,
     );
 
-    final primaryId = widget.settings.primaryTranslationId;
-    String rawTranslation = '';
-    if (primaryId == 'thai_v3') {
-      rawTranslation = widget.verse.thaiV3;
-    } else if (primaryId == 'thai_v2') {
-      rawTranslation = widget.verse.thaiV2;
-    } else if (primaryId == 'english' || primaryId == 'en_sahih') {
-      rawTranslation = widget.verse.english;
-    } else {
-      final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
-      final customTrans = transManager.getVerseTranslation(primaryId, widget.verse.verseKey);
-      if (customTrans != null && customTrans.isNotEmpty) {
-        rawTranslation = customTrans;
-      } else {
-        rawTranslation = widget.verse.thaiV3.isNotEmpty
-            ? widget.verse.thaiV3
-            : widget.verse.thaiV2;
-      }
-    }
+    final rawTranslation = resolveVerseTranslationText(
+      context: context,
+      verseKey: widget.verse.verseKey,
+      verse: widget.verse,
+      settings: widget.settings,
+    );
 
     final thaiTextProtection = Provider.of<ThaiTextProtectionProvider>(context);
     final translation = thaiTextProtection.protect(rawTranslation);

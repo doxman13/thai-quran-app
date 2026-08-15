@@ -34,9 +34,9 @@ class SettingsProvider extends ChangeNotifier {
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
   String _languageCode = 'th'; // Default to Thai
 
-  // New setting for Hifz input mode
+  // Setting for Hifz input mode (default: inAppTally)
   static const String _hifzInputModeKey = 'hifz_input_mode';
-  HifzInputMode _hifzInputMode = HifzInputMode.bluetoothShutter;
+  HifzInputMode _hifzInputMode = HifzInputMode.inAppTally;
 
   // Dual-slot translation model
   // Built-in ID: 'thai_v3'. Other active IDs should come from downloaded API translations.
@@ -83,6 +83,21 @@ class SettingsProvider extends ChangeNotifier {
   bool get showEnglish =>
       _primaryTranslationId == 'english' ||
       _secondaryTranslationId == 'english';
+
+  /// Effective UI and theme language code ('th' or 'en') derived from the active primary translation.
+  String get effectiveLanguageCode {
+    final primary = _primaryTranslationId.trim().toLowerCase();
+    if (primary == 'english' || primary.startsWith('en')) {
+      return 'en';
+    }
+    if (primary == 'ms_basmeih' || primary == 'malay' || primary.startsWith('ms')) {
+      return 'en';
+    }
+    if (primary == 'thai_v3' || primary == 'thai_v2' || primary.startsWith('th') || primary.startsWith('thai')) {
+      return 'th';
+    }
+    return _languageCode;
+  }
 
   SettingsProvider() {
     _loadSettings();
@@ -262,10 +277,10 @@ class SettingsProvider extends ChangeNotifier {
       final savedHifzMode = prefs.getString(_hifzInputModeKey);
       if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
         _hifzInputMode = HifzInputMode.bleSmartRing;
-      } else if (savedHifzMode == HifzInputMode.inAppTally.toString()) {
-        _hifzInputMode = HifzInputMode.inAppTally;
-      } else {
+      } else if (savedHifzMode == HifzInputMode.bluetoothShutter.toString()) {
         _hifzInputMode = HifzInputMode.bluetoothShutter;
+      } else {
+        _hifzInputMode = HifzInputMode.inAppTally;
       }
     } catch (e) {
       debugPrint('Error loading/applying user settings: $e');
@@ -279,6 +294,15 @@ class SettingsProvider extends ChangeNotifier {
     _keepAwake = prefs.getBool('keepAwake') ?? true;
     _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
+
+    final savedHifzMode = prefs.getString(_hifzInputModeKey);
+    if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
+      _hifzInputMode = HifzInputMode.bleSmartRing;
+    } else if (savedHifzMode == HifzInputMode.bluetoothShutter.toString()) {
+      _hifzInputMode = HifzInputMode.bluetoothShutter;
+    } else {
+      _hifzInputMode = HifzInputMode.inAppTally;
+    }
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
@@ -417,7 +441,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _syncGlobalState() {
-    QuranRepository.globalIsThaiName = _languageCode == 'th';
+    QuranRepository.globalIsThaiName = effectiveLanguageCode == 'th';
   }
 
   Future<void> _markSettingsChanged(SharedPreferences prefs) async {
@@ -566,6 +590,14 @@ class SettingsProvider extends ChangeNotifier {
           : _secondaryTranslationId;
       _primaryTranslationId = id;
       _secondaryTranslationId = newSecondary;
+
+      final lowerId = id.trim().toLowerCase();
+      if (lowerId.startsWith('thai') || lowerId.startsWith('th')) {
+        _languageCode = 'th';
+      } else if (lowerId == 'english' || lowerId.startsWith('en') || lowerId == 'malay' || lowerId.startsWith('ms')) {
+        _languageCode = 'en';
+      }
+      await prefs.setString('languageCode', _languageCode);
     } else {
       if (id == _primaryTranslationId) return; // collision — reject
       _secondaryTranslationId = id;

@@ -7,7 +7,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceFragmentActivity() {
     private var channel: MethodChannel? = null
-    private var interceptVolumeKeys: Boolean = true
+    private var interceptVolumeKeys: Boolean = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -25,16 +25,13 @@ class MainActivity : AudioServiceFragmentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (!interceptVolumeKeys) {
+            return super.onKeyDown(keyCode, event)
+        }
+
         return when (keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP,
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (interceptVolumeKeys) {
-                    channel?.invokeMethod("keyClick", keyCode)
-                    true
-                } else {
-                    super.onKeyDown(keyCode, event)
-                }
-            }
+            KeyEvent.KEYCODE_VOLUME_DOWN,
             KeyEvent.KEYCODE_CAMERA,
             KeyEvent.KEYCODE_FOCUS,
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,

@@ -2691,13 +2691,12 @@ class _HomeScreenState extends State<HomeScreen>
         (v) => v.id == continueVerse,
         orElse: () => verses.first,
       );
-      if (settings.primaryTranslationId == 'thai_v2') {
-        translationText = verseObj.thaiV2;
-      } else if (settings.primaryTranslationId == 'english') {
-        translationText = verseObj.english;
-      } else {
-        translationText = verseObj.thaiV3;
-      }
+      translationText = resolveVerseTranslationText(
+        context: context,
+        verseKey: '${verseObj.surahId}:${verseObj.id}',
+        verse: verseObj,
+        settings: settings,
+      );
     }
 
     final textColor = Colors.white;
@@ -4146,6 +4145,7 @@ class _HomeScreenState extends State<HomeScreen>
     TextTheme textTheme,
   ) {
     final query = _searchController.text.toLowerCase();
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
 
     final surahs =
         [
@@ -4292,7 +4292,12 @@ class _HomeScreenState extends State<HomeScreen>
                   subtitle: Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      verse.thaiV3,
+                      resolveVerseTranslationText(
+                        context: context,
+                        verseKey: verse.verseKey,
+                        verse: verse,
+                        settings: settings,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
