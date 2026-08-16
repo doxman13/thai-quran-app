@@ -6,7 +6,6 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'firebase_options.dart';
 import 'providers/ble_remote_provider.dart';
 import 'providers/progress_provider.dart';
@@ -24,6 +23,7 @@ import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/background_download_service.dart';
 import 'services/offline_quran_database_service.dart';
+import 'services/remote_content_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,11 +40,10 @@ void main() async {
 
 
 Future<void> _initializeAppServices() async {
+  await RemoteContentService.instance.cleanOnAppUpgrade();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
-
   await AppTheme.prewarmFonts();
 
   await Supabase.initialize(
