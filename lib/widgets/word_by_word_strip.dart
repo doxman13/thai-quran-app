@@ -554,7 +554,13 @@ class _WordByWordViewState extends State<WordByWordView> {
     final isDark = theme.brightness == Brightness.dark;
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
     final textUthmani = _cleanWordArabicText(rawTextUthmani);
-    final translation = _getWordTranslation(word, effectiveLang);
+    var translation = _getWordTranslation(word, effectiveLang);
+    if (RegExp(r'^\(\d+\)$').hasMatch(translation.trim())) {
+      translation = (word['translation_en'] as String?) ??
+          (word['translation'] as String?) ??
+          (word['transliteration'] as String?) ??
+          '';
+    }
     final transliteration = word['transliteration'] as String? ?? '';
     final isPlaying = _activeWordIndex == index;
     final wordIndexOneBased = index + 1;

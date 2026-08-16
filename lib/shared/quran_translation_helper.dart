@@ -31,7 +31,7 @@ String toArabicDigits(dynamic input) {
 }
 
 /// Normalizes and formats Arabic Quran verse text so that the end of the ayat
-/// includes the official Quranic Ayah Circle Symbol (\u06DD / ۝) containing the Arabic verse numeral.
+/// includes the Quranic Arabic verse numeral formatted for the Uthmanic font.
 String formatArabicAyahText(String text, {dynamic verseNumber}) {
   String cleaned = text.trim();
   if (cleaned.isEmpty) return '';
@@ -39,10 +39,8 @@ String formatArabicAyahText(String text, {dynamic verseNumber}) {
   // Standardize sukun characters if present
   cleaned = cleaned.replaceAll('\u06DF', '\u0652');
 
-  // If the string already contains the Ayah symbol ۝ (\u06DD), return it cleaned
-  if (cleaned.contains('\u06DD') || cleaned.contains('۝')) {
-    return cleaned.split(' | ').join(' ').trim();
-  }
+  // Strip any existing standalone \u06DD (۝) symbols to prevent duplicate circle rendering
+  cleaned = cleaned.replaceAll('\u06DD', '').replaceAll('۝', '').trim();
 
   String numStr = '';
   // Check if verse text ends with a pipe/space followed by digits e.g. " | 1", " | ١", " 12", " ١٢"
@@ -62,7 +60,7 @@ String formatArabicAyahText(String text, {dynamic verseNumber}) {
 
   if (numStr.isNotEmpty) {
     final arabicNum = toArabicDigits(numStr);
-    return '$cleaned \u06DD$arabicNum';
+    return '$cleaned $arabicNum';
   }
 
   return cleaned;
