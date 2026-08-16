@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 class OfflineQuranDatabaseService {
   static Database? _database;
   static const String _dbName = 'quran_offline.db';
-  static const int _targetDbVersion = 15;
+  static const int _targetDbVersion = 16;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
@@ -255,6 +255,7 @@ class OfflineQuranDatabaseService {
       FROM mutashabihat m
       JOIN verses v ON m.matched_verse_key = v.verse_key
       WHERE m.verse_key = ?
+      GROUP BY m.matched_verse_key
       ORDER BY v.surah_id ASC, v.verse_id ASC
     ''', [verseKey]);
   }
@@ -263,7 +264,7 @@ class OfflineQuranDatabaseService {
   static Future<int> getMutashabihatCount(String verseKey) async {
     final db = await database;
     final results = await db.rawQuery('''
-      SELECT COUNT(*) as count FROM mutashabihat WHERE verse_key = ?
+      SELECT COUNT(DISTINCT matched_verse_key) as count FROM mutashabihat WHERE verse_key = ?
     ''', [verseKey]);
     return (results.first['count'] as int?) ?? 0;
   }
