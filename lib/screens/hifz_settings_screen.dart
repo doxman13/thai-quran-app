@@ -771,6 +771,31 @@ class _TranslationSettingCard extends StatelessWidget {
               Icon(Icons.text_fields_rounded, size: 22, color: colorScheme.onSurfaceVariant),
             ],
           ),
+          const SizedBox(height: 12),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'Word-by-Word (WBW) in List View',
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            subtitle: Text(
+              'Show word-level breakdown and translations during memorization.',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            value: settings.showWordByWord,
+            activeThumbColor: colorScheme.primary,
+            onChanged: (val) => settings.toggleShowWordByWord(val),
+          ),
         ],
       ),
     );

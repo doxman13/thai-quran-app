@@ -7,11 +7,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
+import 'hifz_memorize_screen.dart';
 
 /// Return type from the setup screen.
 class NewVersesSetupResult {
@@ -36,6 +39,7 @@ class NewVersesSetupResult {
 
 class HifzNewVersesSetupScreen extends StatefulWidget {
   final QuranRepository quranRepository;
+  final QuranFoundationRepository? foundationRepository;
   final int initialSurah;
   final int initialStartVerse;
   final int initialEndVerse;
@@ -46,6 +50,7 @@ class HifzNewVersesSetupScreen extends StatefulWidget {
   const HifzNewVersesSetupScreen({
     super.key,
     required this.quranRepository,
+    this.foundationRepository,
     this.initialSurah = 1,
     this.initialStartVerse = 1,
     this.initialEndVerse = 3,
@@ -197,6 +202,19 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
 
     if (!mounted) return;
     if (resume == true) {
+      if (widget.foundationRepository != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HifzMemorizeScreen(
+              quranRepository: widget.quranRepository,
+              foundationRepository: widget.foundationRepository!,
+              resumeSessionSnapshot: snap,
+            ),
+          ),
+        );
+        return;
+      }
       Navigator.pop(
         context,
         NewVersesSetupResult(
@@ -209,6 +227,8 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
           resumeSnapshot: snap,
         ),
       );
+    } else if (resume == false) {
+      await repo.clearActiveSession(sessionId: snap.sessionId);
     }
   }
 
@@ -228,22 +248,57 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
     super.dispose();
   }
 
-  void _confirmAndReturn() {
+  Future<void> _confirmAndReturn() async {
     final isSurah = _tabController.index == 0;
-    Navigator.pop(
-      context,
-      NewVersesSetupResult(
-        surah: isSurah ? _surah : _pageSurah,
-        repeatStart: isSurah ? _repeatStart : _pageRepeatStart,
-        startVerse: isSurah ? _startVerse : _pageStart,
-        endVerse: isSurah ? _endVerse : _pageEnd,
-        page: isSurah
-            ? qcf.getPageNumber(isSurah ? _surah : _pageSurah,
-                isSurah ? _startVerse : _pageStart)
-            : _page,
-        isSurahMode: isSurah,
-      ),
-    );
+    final selectedSurah = isSurah ? _surah : _pageSurah;
+    final selectedRepeatStart = isSurah ? _repeatStart : _pageRepeatStart;
+    final selectedStartVerse = isSurah ? _startVerse : _pageStart;
+    final selectedEndVerse = isSurah ? _endVerse : _pageEnd;
+    final selectedPage = isSurah
+        ? qcf.getPageNumber(selectedSurah, selectedStartVerse)
+        : _page;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('hifz_nv_surah', selectedSurah);
+    await prefs.setInt('hifz_nv_start_verse', selectedStartVerse);
+    await prefs.setInt('hifz_nv_end_verse', selectedEndVerse);
+    await prefs.setInt('hifz_nv_repeat_start', selectedRepeatStart);
+    await prefs.setInt('hifz_nv_page', selectedPage);
+    await prefs.setBool('hifz_nv_is_surah_mode', isSurah);
+
+    if (widget.foundationRepository != null && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HifzMemorizeScreen(
+            quranRepository: widget.quranRepository,
+            foundationRepository: widget.foundationRepository!,
+            surahNumber: selectedSurah,
+            startVerse: selectedStartVerse,
+            endVerse: selectedEndVerse,
+            initialSessionType: HifzSessionType.newVerses,
+            repeatStart: selectedRepeatStart,
+            initialPage: selectedPage,
+            isSurahMode: isSurah,
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (mounted) {
+      Navigator.pop(
+        context,
+        NewVersesSetupResult(
+          surah: selectedSurah,
+          repeatStart: selectedRepeatStart,
+          startVerse: selectedStartVerse,
+          endVerse: selectedEndVerse,
+          page: selectedPage,
+          isSurahMode: isSurah,
+        ),
+      );
+    }
   }
 
   @override

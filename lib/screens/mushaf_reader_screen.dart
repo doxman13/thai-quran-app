@@ -454,6 +454,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       return;
     }
 
+    _lastAudioPageNumber = _pageNumber;
     final pageData = await widget.foundationRepository.fetchPage(
       mushafId: displayMushafId,
       pageNumber: _pageNumber,
@@ -999,6 +1000,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                                 _translationVerseKey) {
                                           await audioProvider.togglePlayPause();
                                         } else {
+                                          _lastAudioPageNumber = _pageNumber;
                                           final pageData = await widget
                                               .foundationRepository
                                               .fetchPage(
@@ -1016,8 +1018,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     ),
                                   ),
                                 if (_translationText == null &&
-                                    audioProvider.currentVerseKey != null &&
-                                    audioProvider.isContinuous)
+                                    audioProvider.currentVerseKey != null)
                                   Positioned(
                                     left: 14,
                                     right: 14,

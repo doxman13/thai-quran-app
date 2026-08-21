@@ -53,6 +53,7 @@ class WordByWordView extends StatefulWidget {
   final String? languageOverride;
   final ValueChanged<int>? onWordTap;
   final EdgeInsetsGeometry padding;
+  final bool isHidden;
 
   const WordByWordView({
     super.key,
@@ -61,6 +62,7 @@ class WordByWordView extends StatefulWidget {
     this.languageOverride,
     this.onWordTap,
     this.padding = EdgeInsets.zero,
+    this.isHidden = false,
   });
 
   @override
@@ -551,6 +553,7 @@ class _WordByWordViewState extends State<WordByWordView> {
     ColorScheme colorScheme,
   ) {
     final theme = Theme.of(context);
+    final isHidden = widget.isHidden;
     final isDark = theme.brightness == Brightness.dark;
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
     final textUthmani = _cleanWordArabicText(rawTextUthmani);
@@ -575,13 +578,17 @@ class _WordByWordViewState extends State<WordByWordView> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          widget.onWordTap?.call(index);
-          _playWordAudio(audioUrl, index);
-        },
-        onLongPress: () {
-          _showWordDetailSheet(context, word, wordIndexOneBased);
-        },
+        onTap: isHidden
+            ? null
+            : () {
+                widget.onWordTap?.call(index);
+                _playWordAudio(audioUrl, index);
+              },
+        onLongPress: isHidden
+            ? null
+            : () {
+                _showWordDetailSheet(context, word, wordIndexOneBased);
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -603,9 +610,11 @@ class _WordByWordViewState extends State<WordByWordView> {
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
-                  color: isPlaying
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurface,
+                  color: isHidden
+                      ? Colors.transparent
+                      : (isPlaying
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurface),
                 ),
               ),
               const SizedBox(height: 5),
@@ -617,9 +626,11 @@ class _WordByWordViewState extends State<WordByWordView> {
                 style: GoogleFonts.notoSansThai(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
-                  color: isPlaying
-                      ? colorScheme.onPrimaryContainer.withValues(alpha: 0.85)
-                      : colorScheme.onSurfaceVariant,
+                  color: isHidden
+                      ? Colors.transparent
+                      : (isPlaying
+                          ? colorScheme.onPrimaryContainer.withValues(alpha: 0.85)
+                          : colorScheme.onSurfaceVariant),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -637,12 +648,14 @@ class WordByWordStrip extends StatelessWidget {
   final String verseKey;
   final bool isDarkMode;
   final ValueChanged<int>? onWordTap;
+  final bool isHidden;
 
   const WordByWordStrip({
     super.key,
     required this.verseKey,
     this.isDarkMode = false,
     this.onWordTap,
+    this.isHidden = false,
   });
 
   @override
@@ -651,6 +664,7 @@ class WordByWordStrip extends StatelessWidget {
       verseKey: verseKey,
       isDarkMode: isDarkMode,
       onWordTap: onWordTap,
+      isHidden: isHidden,
     );
   }
 }
