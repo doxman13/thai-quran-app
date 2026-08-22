@@ -121,7 +121,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                 'Extended elongation when a Madd letter carries a wavy mark (~) followed by Hamzah or Sukoon.',
             letters: 'آ, يٓ, وٓ (wavy mark ~)',
             exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
-            exampleTranslit: 'Jāaa'a • As-Sāaakh-khah',
+            exampleTranslit: "Jāaa'a • As-Sāaakh-khah",
             color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
             colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
             colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
@@ -159,7 +159,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
           ),
           TajweedRuleItem(
             id: 'ikhfa',
-            name: 'Ikhfa' (Menyembunyikan)',
+            name: "Ikhfa' (Menyembunyikan)",
             nameAr: 'الإِخْفَاء',
             duration: 'Dengung 2 Harakat',
             description:
@@ -208,7 +208,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                 'Memanjangkan bacaan apabila huruf Mad mempunyai tanda ombak (~) dan diikuti oleh Hamzah atau Sukun.',
             letters: 'آ, يٓ, وٓ (simbol ombak ~)',
             exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
-            exampleTranslit: 'Jāaa'a • As-Sāaakh-khah',
+            exampleTranslit: "Jāaa'a • As-Sāaakh-khah",
             color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
             colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
             colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
