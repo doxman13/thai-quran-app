@@ -248,6 +248,12 @@ const Map<String, Map<String, String>> _localizedValues = {
     'content_updates_desc': 'ระบบจะตรวจสอบการอัปเดตภาษาไทยฉบับปรับปรุง ธีม และบทแปลสรุป Mokhtasar โดยอัตโนมัติวันละครั้ง',
     'checking_updates': 'กำลังตรวจสอบการอัปเดต...',
     'check_now': 'ตรวจสอบทันที',
+    'tajweed_guide_title': 'คู่มือสัญลักษณ์สีกฎตัจญ์วีด (Tajweed Color Rules)',
+    'tajweed_guide_desc':
+        'เรียนรู้ความหมายของสีและวิธีการออกเสียงตามหลักการอ่านอัลกุรอาน',
+    'tajweed_applicable_letters': 'อักษรที่เกี่ยวข้อง: ',
+    'tajweed_examples': 'ตัวอย่าง: ',
+    'tajweed_got_it': 'เข้าใจแล้ว',
   },
   'en': {
     'settings': 'Settings',
@@ -497,6 +503,20 @@ const Map<String, Map<String, String>> _localizedValues = {
     'content_updates_desc': 'Thai v3, Quran themes, and Mokhtasar short tafsir are checked automatically once per day.',
     'checking_updates': 'Checking updates...',
     'check_now': 'Check Now',
+    'tajweed_guide_title': 'Tajweed Color Rules Guide',
+    'tajweed_guide_desc':
+        'Understand color coding and pronunciation rules for Quranic recitation.',
+    'tajweed_applicable_letters': 'Applicable Letters: ',
+    'tajweed_examples': 'Examples: ',
+    'tajweed_got_it': 'Got it',
+  },
+  'ms': {
+    'tajweed_guide_title': 'Panduan Kod Warna Tajwid (Tajweed Color Rules)',
+    'tajweed_guide_desc':
+        'Ketahui maksud warna dan kaedah sebutan mengikut hukum bacaan Al-Quran.',
+    'tajweed_applicable_letters': 'Huruf Terlibat: ',
+    'tajweed_examples': 'Contoh: ',
+    'tajweed_got_it': 'Faham',
   },
 };
 

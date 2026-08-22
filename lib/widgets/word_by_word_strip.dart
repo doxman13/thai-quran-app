@@ -179,7 +179,9 @@ class _WordByWordViewState extends State<WordByWordView> {
     return '';
   }
 
-  static final RegExp _waqfRegex = RegExp(r'[\u06D6-\u06DC\u06E9\u06EA-\u06EC]');
+  static final RegExp _waqfRegex = RegExp(
+    r'[\u06D6-\u06DC\u06DE-\u06E0\u06E2\u06E3\u06E8\u06E9\u06EA-\u06ED]',
+  );
 
   static String _cleanWordArabicText(String text) {
     return text.replaceAll(_waqfRegex, '').trim();

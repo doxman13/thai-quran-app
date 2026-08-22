@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../services/remote_content_service.dart';
+import '../widgets/tajweed_color_guide_sheet.dart';
 import '../widgets/translation_manager_section.dart';
 import '../shared/shared.dart';
 
@@ -252,6 +253,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           TranslationManagerSection(colors: colors),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            colorScheme: colorScheme,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.palette_outlined, color: colorScheme.primary, size: 22),
+              ),
+              title: Text(
+                context.tr('tajweed_guide_title'),
+                style: GoogleFonts.notoSansThai(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              subtitle: Text(
+                context.tr('tajweed_guide_desc'),
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: colors.surface,
+                  showDragHandle: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  ),
+                  builder: (ctx) => TajweedColorGuideSheet(colors: colors),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 24),
           _buildContentUpdateSection(colorScheme),
         ],
