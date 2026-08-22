@@ -70,10 +70,10 @@ class TajweedService {
           )
           .replaceAll('ـ\u0640\u0654', 'ـ\u0654');
     }
-    if (result.contains('ٮٰ') || result.contains('ٮ') || result.contains('ـٰ</rule>')) {
+    if (result.contains('ٮٰ') || result.contains('ٮ')) {
       result = result
           .replaceAllMapped(
-            RegExp(r'<rule class=([^>]+)>[ـٮى]ٰ</rule>([^\s<])'),
+            RegExp(r'<rule class=([^>]+)>ٮٰ</rule>([^\s<])'),
             (m) => '<rule class=${m[1]}>\u0649\u0670\u200D</rule>\u200D${m[2]}',
           )
           .replaceAllMapped(
