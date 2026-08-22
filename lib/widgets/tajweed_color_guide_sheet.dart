@@ -45,12 +45,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'ghunnah',
             name: 'Ghunnah',
-            nameAr: 'غنة',
+            nameAr: 'غُنَّة',
             duration: 'Hold for 2 Harakat',
             description:
                 'Nasalized sound held for 2 counts on Noon Mushaddadah (نّ) or Meem Mushaddadah (مّ).',
             letters: 'نّ, مّ',
-            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
+            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
             exampleTranslit: 'Inna Allāh • Thumma',
             color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
             colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
@@ -59,12 +59,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'idgham',
             name: 'Idgham',
-            nameAr: 'إدغام',
+            nameAr: 'إِدْغَام',
             duration: 'Hold for 2 Harakat (Except for ل, ر)',
             description:
                 'Merging of Noon Sakinah or Tanween into the following letter.',
             letters: 'ي, ر, م, ل, و, ن (Yarmaloon)',
-            exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
+            exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'May-yaqūlu • Ghafūrur-Rahīm',
             color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
             colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
@@ -73,7 +73,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'ikhfa',
             name: 'Ikhfa',
-            nameAr: 'الإخفاء',
+            nameAr: 'الإِخْفَاء',
             duration: 'Hold for 2 Harakat',
             description:
                 'Concealing the sound of Noon Sakinah or Tanween midway between Izhar and Idgham with nasalization.',
@@ -87,7 +87,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'iqlab',
             name: 'Iqlab',
-            nameAr: 'الإقلاب',
+            nameAr: 'الإِقْلَاب',
             duration: 'Hold for 2 Harakat',
             description:
                 'Converting the sound of Noon Sakinah or Tanween into a Meem (م) when followed by the letter Ba (ب).',
@@ -101,7 +101,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'qalqalah',
             name: 'Qalqalah',
-            nameAr: 'القلقلة',
+            nameAr: 'القَلْقَلَة',
             duration: 'Echoing sound',
             description:
                 'Echoing or bouncing sound produced when a Qalqalah letter has a Sukoon or is stopped upon.',
@@ -115,13 +115,13 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'madd',
             name: 'Madd Wajib / Madd Lazim (Madd 4-6 Harakat)',
-            nameAr: 'مد واجب / لازم',
+            nameAr: 'مَدّ وَاجِب / لَازِم',
             duration: 'Prolong for 4 to 6 Harakat',
             description:
                 'Extended elongation when a Madd letter carries a wavy mark (~) followed by Hamzah or Sukoon.',
-            letters: 'آ, يٓ, وٓ, wavy mark (~)',
-            exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
-            exampleTranslit: 'Jāaa\'a • As-Sāaakh-khah',
+            letters: 'آ, يٓ, وٓ (wavy mark ~)',
+            exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
+            exampleTranslit: 'Jāaa'a • As-Sāaakh-khah',
             color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
             colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
             colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
@@ -132,12 +132,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'ghunnah',
             name: 'Ghunnah (Dengung)',
-            nameAr: 'غنة',
+            nameAr: 'غُنَّة',
             duration: 'Dengung 2 Harakat',
             description:
                 'Mendengungkan suara ke pangkal hidung selama 2 harakat apabila bertemu Nun Syaddah (نّ) atau Mim Syaddah (مّ).',
             letters: 'نّ, مّ',
-            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
+            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
             exampleTranslit: 'Inna Allāh • Thumma',
             color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
             colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
@@ -146,12 +146,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'idgham',
             name: 'Idgham (Memasukkan / Menggabungkan)',
-            nameAr: 'إدغام',
+            nameAr: 'إِدْغَام',
             duration: 'Dengung 2 Harakat (Kecuali ل, ر)',
             description:
                 'Memasukkan bunyi Nun Mati (Sakinah) atau Tanwin ke dalam huruf selepasnya.',
             letters: 'ي, ر, م, ل, و, ن (Yarmalun)',
-            exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
+            exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'May-yaqūlu • Ghafūrur-Rahīm',
             color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
             colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
@@ -159,13 +159,13 @@ class TajweedColorGuideSheet extends StatelessWidget {
           ),
           TajweedRuleItem(
             id: 'ikhfa',
-            name: 'Ikhfa\' (Menyembunyikan)',
-            nameAr: 'الإขفاء',
+            name: 'Ikhfa' (Menyembunyikan)',
+            nameAr: 'الإِخْفَاء',
             duration: 'Dengung 2 Harakat',
             description:
                 'Membaca Nun Mati (Sakinah) atau Tanwin secara samar di antara Izhar dan Idgham berserta dengung.',
-            letters: 'ت, ث, ج, د, ذ, ز, س, ช, ص, ض, ط, ظ, ف, ق, ك (15 huruf)',
-            exampleAr: 'มِน قَبْلُ • أَنฟุสَكُمْ',
+            letters: 'ت, ث, ج, د, ذ, ز, س, ش, ص, ض, ط, ظ, ف, ق, ك (15 huruf)',
+            exampleAr: 'مِن قَبْلُ • أَنفُسَكُمْ',
             exampleTranslit: 'Min qablu • Anfusakum',
             color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
             colorBg: isDark ? const Color(0x28059669) : const Color(0x14059669),
@@ -174,12 +174,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'iqlab',
             name: 'Iqlab (Menukar Bunyi)',
-            nameAr: 'الإقلاب',
+            nameAr: 'الإِقْلَاب',
             duration: 'Dengung 2 Harakat',
             description:
-                'Menukarkan bunyi Nun Mati (Sakinah) atau Tanwin kepada bunyi Mim (م) apabila bertemu huruf Ba (บ).',
+                'Menukarkan bunyi Nun Mati (Sakinah) atau Tanwin kepada bunyi Mim (م) apabila bertemu huruf Ba (ب).',
             letters: 'ب (ditandai dengan Mim kecil ۘ)',
-            exampleAr: 'มِۢน بَعْدِ • عَلِيمٌۢ بِذَاتِ',
+            exampleAr: 'مِن بَعْدِ • عَلِيمٌۢ بِذَاتِ',
             exampleTranslit: 'Mim-ba‘di • ‘Alīmum-bi-dhāti',
             color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
             colorBg: isDark ? const Color(0x289333EA) : const Color(0x149333EA),
@@ -188,12 +188,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'qalqalah',
             name: 'Qalqalah (Lantunan)',
-            nameAr: 'القلقلة',
+            nameAr: 'القَلْقَلَة',
             duration: 'Lantunan suara',
             description:
                 'Melantunkan bunyi huruf apabila huruf Qalqalah bertanda Sukun (mati) atau diwaqafkan (berhenti).',
-            letters: 'ق, ط, บ, ج, ด (Qutbu Jaddin)',
-            exampleAr: 'ยَجْعَلُونَ • ٱلْฟَلَقِ',
+            letters: 'ق, ط, ب, ج, د (Qutbu Jaddin)',
+            exampleAr: 'يَجْعَلُونَ • ٱلْفَلَقِ',
             exampleTranslit: 'Yaj‘alūn • Al-Falaq',
             color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
             colorBg: isDark ? const Color(0x284F46E5) : const Color(0x144F46E5),
@@ -202,13 +202,13 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'madd',
             name: 'Mad Wajib / Mad Lazim (Mad 4-6 Harakat)',
-            nameAr: 'مد واجب / لازم',
+            nameAr: 'مَدّ وَاجِب / لَازِم',
             duration: 'Panjang 4 hingga 6 Harakat',
             description:
                 'Memanjangkan bacaan apabila huruf Mad mempunyai tanda ombak (~) dan diikuti oleh Hamzah atau Sukun.',
-            letters: 'آ, يٓ, وٓ, Simbol Ombak (~)',
-            exampleAr: 'จَآءَ • ٱลصَّآขَّةُ',
-            exampleTranslit: 'Jāaa\'a • As-Sāaakh-khah',
+            letters: 'آ, يٓ, وٓ (simbol ombak ~)',
+            exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
+            exampleTranslit: 'Jāaa'a • As-Sāaakh-khah',
             color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
             colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
             colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
@@ -220,12 +220,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'ghunnah',
             name: 'ฆุนนะฮ์ (Ghunnah)',
-            nameAr: 'غنة',
+            nameAr: 'غُنَّة',
             duration: 'หน่วงเสียง 2 ฮารอกาต',
             description:
-                'หน่วงเสียงขึ้นจมูก 2 ฮารอกาต เมื่อพบนูนชัดดะฮ์ (نّ) หรือมีมชัดดะฮ์ (มّ)',
+                'หน่วงเสียงขึ้นจมูก 2 ฮารอกาต เมื่อพบนูนชัดดะฮ์ (نّ) หรือมีมชัดดะฮ์ (مّ)',
             letters: 'نّ, مّ',
-            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
+            exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
             exampleTranslit: 'อินนัลลอฮ์ • ษุมมะ',
             color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
             colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
@@ -234,12 +234,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'idgham',
             name: 'อิดฆอม (Idgham)',
-            nameAr: 'إดغام',
-            duration: 'หน่วงเสียง 2 ฮารอกาต (ยกเว้น ล, ร)',
+            nameAr: 'إِدْغَام',
+            duration: 'หน่วงเสียง 2 ฮารอกาต (ยกเว้น ل, ر)',
             description:
                 'การอ่านกล้ำเสียงนูนสุกูน (นูนตาย) หรือตันวีนเข้าสู่อักษรตัวถัดไป',
-            letters: 'ي, ร, ม, ล, و, น (ยัรมะลูน)',
-            exampleAr: 'มَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
+            letters: 'ي, ر, م, ل, و, ن (ยัรมะลูน)',
+            exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'มัยยะกูลุ • เฆาะฟูรุรเราะฮีม',
             color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
             colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
@@ -248,12 +248,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'ikhfa',
             name: 'อิคฟาอ์ (Ikhfa)',
-            nameAr: 'الإขفاء',
+            nameAr: 'الإِخْفَاء',
             duration: 'หน่วงเสียง 2 ฮารอกาต',
             description:
                 'การอ่านซ่อนเสียงนูนสุกูน (นูนตาย) หรือตันวีน ให้อยู่กึ่งกลางระหว่างอิซฮารและอิดฆอม พร้อมหน่วงเสียงขึ้นจมูก',
-            letters: 'ت, ث, ج, د, ذ, ز, ส, ช, ص, ض, ط, ظ, ف, ق, ك (15 อักษร)',
-            exampleAr: 'มِน قَبْلُ • أَنฟุสَكُمْ',
+            letters: 'ت, ث, ج, د, ذ, ز, س, ش, ص, ض, ط, ظ, ف, ق, ك (15 อักษร)',
+            exampleAr: 'مِن قَبْلُ • أَنفُسَكُمْ',
             exampleTranslit: 'มิงก็อบลิ • อันฟุสะกุม',
             color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
             colorBg: isDark ? const Color(0x28059669) : const Color(0x14059669),
@@ -262,12 +262,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'iqlab',
             name: 'อิกลาบ (Iqlab)',
-            nameAr: 'الإقلاب',
+            nameAr: 'الإِقْلَاب',
             duration: 'หน่วงเสียง 2 ฮารอกาต',
             description:
                 'การแปลงเสียงนูนสุกูน (นูนตาย) หรือตันวีน ให้เป็นเสียงอักษรมีม (م) เมื่อพบกับอักษรบาอ์ (ب)',
             letters: 'ب (พร้อมเครื่องหมาย มีม ตัวเล็ก ۘ)',
-            exampleAr: 'มِۢน بَعْدِ • عَلِيمٌۢ بِذَاتِ',
+            exampleAr: 'مِن بَعْدِ • عَلِيمٌۢ بِذَاتِ',
             exampleTranslit: 'มิมบะอ์ดิ • อะลีมัมบิซาติ',
             color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
             colorBg: isDark ? const Color(0x289333EA) : const Color(0x149333EA),
@@ -276,12 +276,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'qalqalah',
             name: 'ก็อลเกาะละฮ์ (Qalqalah)',
-            nameAr: 'القلقلة',
+            nameAr: 'القَلْقَلَة',
             duration: 'สะท้อนเสียง',
             description:
                 'การสะท้อนหรือกระดอนเสียง เมื่ออักษรก็อลเกาะละฮ์มีเครื่องหมายสุกูน (เครื่องหมายตาย) หรือหยุดอ่านที่อักษรนั้น',
-            letters: 'ق, ط, บ, ج, ด (กุฏบุญัดด์)',
-            exampleAr: 'ยَجْعَلُونَ • ٱلْฟَلَقِ',
+            letters: 'ق, ط, ب, ج, د (กุฏบุญัดด์)',
+            exampleAr: 'يَجْعَلُونَ • ٱلْفَلَقِ',
             exampleTranslit: 'ยัจญ์อะลูน • อัลฟะลัก',
             color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
             colorBg: isDark ? const Color(0x284F46E5) : const Color(0x144F46E5),
@@ -290,12 +290,12 @@ class TajweedColorGuideSheet extends StatelessWidget {
           TajweedRuleItem(
             id: 'madd',
             name: 'มัดด์วาญิบ / มัดด์ลาซิม (Madd 4-6 Harakat)',
-            nameAr: 'مد واجب / لازم',
+            nameAr: 'مَدّ وَاجِب / لَازِم',
             duration: 'ยาว 4 - 6 ฮารอกาต',
             description:
                 'การลากเสียงยาวเป็นพิเศษ เมื่อมีเครื่องหมายคลื่น (~) บนอักษรมัดด์ตามด้วยฮัมซะฮ์หรือสุกูน',
-            letters: 'آ, يٓ, وٓ, สัญลักษณ์คลื่น (~)',
-            exampleAr: 'จَآءَ • ٱลصَّآขَّةُ',
+            letters: 'آ, يٓ, وٓ (เครื่องหมายคลื่น ~)',
+            exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
             exampleTranslit: 'ญาาาอะ • อัศศอคเคาะฮ์',
             color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
             colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
