@@ -5,7 +5,7 @@ import 'package:thai_quran_app/models/mushaf_models.dart';
 
 void main() {
   test('Test Tajweed parsing on updated verse 16:122', () {
-    final rawText = 'وَءَاتَيۡنَ<rule class=madda_normal>ـٰ</rule>هُ فِى <rule class=ham_wasl>ٱ</rule><rule class=laam_shamsiyah>ل</rule>دُّنۡيَا حَسَنَ<rule class=idgham_ghunnah>ةً‌ۖ</rule> <rule class=idgham_ghunnah>و</rule>َإِ<rule class=ghunnah>نّ</rule>َهُ<rule class=madda_normal>ۥ</rule> فِى <rule class=ham_wasl>ٱ</rule>لۡـَٰٔخِرَةِ لَمِنَ <rule class=ham_wasl>ٱ</rule><rule class=laam_shamsiyah>ل</rule>صَّ<rule class=madda_normal>ـٰ</rule>لِح<rule class=madda_permissible>ِي</rule>نَ ١٢٢';
+    final rawText = 'وَءَاتَيۡنَ<rule class=madda_normal>ٰ</rule>هُ فِى <rule class=ham_wasl>ٱ</rule><rule class=laam_shamsiyah>ل</rule>دُّنۡيَا حَسَنَ<rule class=idgham_ghunnah>ةً‌ۖ</rule> <rule class=idgham_ghunnah>و</rule>َإِ<rule class=ghunnah>نّ</rule>َهُ<rule class=madda_normal>ۥ</rule> فِى <rule class=ham_wasl>ٱ</rule>لۡـَٰٔخِرَةِ لَمِنَ <rule class=ham_wasl>ٱ</rule><rule class=laam_shamsiyah>ل</rule>صَّ<rule class=madda_normal>ٰ</rule>لِح<rule class=madda_permissible>ِي</rule>نَ ١٢٢';
     
     // Simulate words split
     List<String> splitTajweed(String tajText) {

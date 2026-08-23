@@ -70,20 +70,32 @@ class TajweedService {
           )
           .replaceAll('ـ\u0640\u0654', 'ـ\u0654');
     }
-    if (result.contains('ٮٰ') || result.contains('ٮ')) {
+    if (result.contains('custom-alef-maksora')) {
       result = result
+          .replaceAll('<rule class=madda_normal><rule class=custom-alef-maksora>ٰ</rule></rule>', '<rule class=madda_normal>ٰ</rule>')
           .replaceAllMapped(
-            RegExp(r'<rule class=([^>]+)>ٮٰ</rule>([^\s<])'),
-            (m) => '<rule class=${m[1]}>\u0649\u0670\u200D</rule>\u200D${m[2]}',
-          )
-          .replaceAllMapped(
-            RegExp(r'<rule class=([^>]+)>ٮٰ</rule>'),
-            (m) => '<rule class=${m[1]}>\u0649\u0670</rule>',
-          )
-          .replaceAllMapped(
-            RegExp(r'<rule class=([^>]+)>ٮ</rule>'),
-            (m) => '<rule class=${m[1]}>\u0649</rule>',
+            RegExp(r'<rule class=custom-alef-maksora>([^<]*)</rule>'),
+            (m) => m[1] ?? '',
           );
+    }
+    if (result.contains('madda_normal')) {
+      result = result
+          .replaceAll('<rule class=madda_normal>ـٰ</rule>', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ىٰ‍</rule>‍', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ىٰ</rule>‍', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ىٰ‍</rule>', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ىٰ</rule>', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ٮٰ</rule>', '<rule class=madda_normal>ٰ</rule>')
+          .replaceAll('<rule class=madda_normal>ٮ</rule>', '');
+    }
+    if (result.contains('ٮٰ') || result.contains('ٮ')) {
+      result = result.replaceAll('ٮٰ', '<rule class=madda_normal>ٰ</rule>').replaceAll('ٮ', '');
+    }
+    if (result.contains('ـٰ')) {
+      result = result.replaceAll('ـٰ', '<rule class=madda_normal>ٰ</rule>');
+    }
+    if (result.contains('\u200D')) {
+      result = result.replaceAll('\u200D', '');
     }
     return result;
   }

@@ -2849,6 +2849,8 @@ class MushafLine extends StatelessWidget {
       case 'silent':
       case 'slnt':
       case 'idgham_wo_ghunnah':
+      case 'idgham_mutajanisayn':
+      case 'idgham_mutaqaribayn':
         return const Color(0xFF94A3B8);
       default:
         return null;

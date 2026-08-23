@@ -12,8 +12,8 @@ class TajweedText extends StatelessWidget {
 
   Color _getColorForClass(String ruleClass) {
     // Strip quotes if they exist in the class name e.g. class='ham_wasl'
-    ruleClass = ruleClass.replaceAll("'", "").replaceAll('"', '');
-    switch (ruleClass) {
+    final sanitized = ruleClass.replaceAll("'", "").replaceAll('"', '');
+    switch (sanitized) {
       case 'madda_normal':
       case 'madda_permissible':
       case 'madda_necessary':
@@ -24,6 +24,8 @@ class TajweedText extends StatelessWidget {
       case 'idgham_ghunnah':
         return Colors.green;
       case 'idgham_wo_ghunnah':
+      case 'idgham_mutajanisayn':
+      case 'idgham_mutaqaribayn':
       case 'slnt':
       case 'ham_wasl':
       case 'laam_shamsiyah':
