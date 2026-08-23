@@ -208,16 +208,7 @@ class SettingsProvider extends ChangeNotifier {
               showArabic: response['always_show_arabic'] == true,
               showTranslation: _readingDisplayMode != quranOnlyMode,
             );
-      _arabicFontSize =
-          double.tryParse(response['arabic_font_size']?.toString() ?? '') ??
-          _arabicFontSize;
-      _translationFontSize =
-          double.tryParse(
-            (response['translation_font_size'] ?? response['thai_font_size'])
-                    ?.toString() ??
-                '',
-          ) ??
-          _translationFontSize;
+      // Note: Mobile font sizes are kept Device-Local in SharedPreferences to prevent conflict with desktop screen sizes.
       _languageCode = response['language_code']?.toString() == 'en'
           ? 'en'
           : 'th';
@@ -530,8 +521,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('arabicFontSize', value);
-    await _markSettingsChanged(prefs);
-    await _syncToSupabase();
+    // Device-local setting: keep in SharedPreferences, do not override desktop web font size
   }
 
   void setTranslationFontSize(double value) async {
@@ -539,8 +529,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('translationFontSize', value);
-    await _markSettingsChanged(prefs);
-    await _syncToSupabase();
+    // Device-local setting: keep in SharedPreferences, do not override desktop web font size
   }
 
   void setThemeColor(String value) async {
