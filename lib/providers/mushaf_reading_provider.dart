@@ -160,7 +160,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
-        _profiles = _decodeList(decoded['profiles'], MushafProfile.fromJson);
+        _profiles = _deduplicateProfiles(
+          _decodeList(decoded['profiles'], MushafProfile.fromJson),
+        );
         _pageBookmarks = _decodeList(
           decoded['pageBookmarks'],
           MushafPageBookmark.fromJson,
@@ -546,6 +548,37 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _activeProfileId ??= 'mushaf-free-1';
   }
 
+  List<MushafProfile> _deduplicateProfiles(List<MushafProfile> profiles) {
+    final byKey = <String, MushafProfile>{};
+    for (final profile in profiles) {
+      if (profile.isFreeRead) {
+        final key = 'free_read_${profile.mushafId}';
+        final existing = byKey[key];
+        if (existing == null || profile.updatedAt.isAfter(existing.updatedAt)) {
+          byKey[key] = profile;
+        }
+        continue;
+      }
+      final key = 'custom_${profile.slug}_${profile.mushafId}';
+      final existing = byKey[key];
+      if (existing == null) {
+        byKey[key] = profile;
+      } else {
+        final isUuid = RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          caseSensitive: false,
+        );
+        final preferCurrent =
+            (isUuid.hasMatch(profile.id) && !isUuid.hasMatch(existing.id)) ||
+            profile.updatedAt.isAfter(existing.updatedAt);
+        if (preferCurrent) {
+          byKey[key] = profile;
+        }
+      }
+    }
+    return byKey.values.toList();
+  }
+
   List<MushafRecentReading> _deduplicateRecent(
     List<MushafRecentReading> items,
   ) {
@@ -760,7 +793,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
 
-      _profiles = reconciledProfiles;
+      _profiles = _deduplicateProfiles(reconciledProfiles);
       final active = profileById(_activeProfileId);
       if (active == null || active.isArchived) {
         _activeProfileId = freeReadProfileForMushaf(_displayMushafId).id;
