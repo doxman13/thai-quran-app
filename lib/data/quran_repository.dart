@@ -6,12 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/verse.dart';
 import '../services/remote_content_service.dart';
-import '../shared/quran_contract.dart';
 import 'offline_surah_names.dart';
 
 class QuranRepository {
   Map<String, dynamic>? _quranData;
-  Map<String, dynamic>? _mergedQuranData;
   Map<String, dynamic>? _tafsirData;
   Map<String, dynamic>? _tafsirDataEn;
   Map<String, String> _offlineArabicData = {};
@@ -22,17 +20,6 @@ class QuranRepository {
   // Loads all Surahs from the local JSON asset and fetches Surah Names
   Future<void> init() async {
     if (_quranData != null) {
-      if (_mergedQuranData == null) {
-        try {
-          final String mergedResponse = await rootBundle.loadString(
-            'assets/merged_quran.json',
-          );
-          _mergedQuranData = json.decode(mergedResponse);
-        } catch (e) {
-          print('Error loading merged_quran.json: $e');
-        }
-      }
-
       if (_tafsirData == null) {
         try {
           final String tafsirResponse = await RemoteContentService.instance
@@ -99,17 +86,6 @@ class QuranRepository {
       }
     }
 
-    if (_mergedQuranData == null) {
-      try {
-        final String mergedResponse = await rootBundle.loadString(
-          'assets/merged_quran.json',
-        );
-        _mergedQuranData = json.decode(mergedResponse);
-      } catch (e) {
-        print('Error loading merged_quran.json: $e');
-      }
-    }
-
     if (_tafsirData == null) {
       try {
         final String tafsirResponse = await RemoteContentService.instance
@@ -166,8 +142,7 @@ class QuranRepository {
       ..sort((a, b) => int.parse(a).compareTo(int.parse(b)));
 
     for (var key in sortedKeys) {
-      final verseKey = createVerseKey(surahId, key);
-      final mergedVerse = _mergedQuranData?[verseKey];
+      final textTh = versesMap[key].toString();
       final shortTafsir = _tafsirData?[surahId]?[key]?.toString();
       final enTafsirRaw = _tafsirDataEn?['$surahId:$key'];
       final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
@@ -176,12 +151,9 @@ class QuranRepository {
         Verse(
           id: key,
           surahId: surahId,
-          thaiV3: versesMap[key].toString(),
-          thaiV2:
-              mergedVerse?['thai_v2']?.toString() ??
-              mergedVerse?['thai_v1']?.toString() ??
-              versesMap[key].toString(),
-          english: mergedVerse?['english']?.toString() ?? 'N/A',
+          thaiV3: textTh,
+          thaiV2: textTh,
+          english: 'N/A',
           shortTafsir: shortTafsir?.trim().isEmpty == true ? null : shortTafsir,
           shortTafsirSource: shortTafsir == null
               ? null
@@ -201,8 +173,7 @@ class QuranRepository {
     final thaiV3Text = versesMap[verseId];
     if (thaiV3Text == null) return null;
 
-    final verseKey = createVerseKey(surahId, verseId);
-    final mergedVerse = _mergedQuranData?[verseKey];
+    final textTh = thaiV3Text.toString();
     final shortTafsir = _tafsirData?[surahId]?[verseId]?.toString();
     final enTafsirRaw = _tafsirDataEn?['$surahId:$verseId'];
     final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
@@ -210,12 +181,9 @@ class QuranRepository {
     return Verse(
       id: verseId,
       surahId: surahId,
-      thaiV3: thaiV3Text.toString(),
-      thaiV2:
-          mergedVerse?['thai_v2']?.toString() ??
-          mergedVerse?['thai_v1']?.toString() ??
-          thaiV3Text.toString(),
-      english: mergedVerse?['english']?.toString() ?? 'N/A',
+      thaiV3: textTh,
+      thaiV2: textTh,
+      english: 'N/A',
       shortTafsir: shortTafsir?.trim().isEmpty == true ? null : shortTafsir,
       shortTafsirSource: shortTafsir == null ? null : 'QuranEnc Thai Mokhtasar',
       shortTafsirEn: shortTafsirEn?.trim().isEmpty == true ? null : shortTafsirEn,
