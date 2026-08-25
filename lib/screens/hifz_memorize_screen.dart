@@ -2492,6 +2492,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                   colors: AppTheme.colors(
                                       isDark: Theme.of(ctx).brightness ==
                                           Brightness.dark),
+                                  showSurahFrame: !surahsWithFrameOnPreviousPage.contains(sid),
+                                  showBismillahText: true,
                                 ),
                               MushafLine(
                                 line: line,
@@ -2521,6 +2523,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                 isPeekActive: false,
                               ),
                             ],
+                            if (surahFrameOnPageBottom[mushafPage.pageNumber] != null)
+                              QcfSurahHeader(
+                                surahNumber: int.tryParse(surahFrameOnPageBottom[mushafPage.pageNumber]!) ?? 0,
+                                colors: AppTheme.colors(
+                                    isDark: Theme.of(ctx).brightness ==
+                                        Brightness.dark),
+                                showSurahFrame: true,
+                                showBismillahText: false,
+                              ),
                           ],
                         ),
                       ),
@@ -3284,6 +3295,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                       colors: AppTheme.colors(
                                           isDark: Theme.of(context).brightness ==
                                               Brightness.dark),
+                                      showSurahFrame: !surahsWithFrameOnPreviousPage.contains(sid),
+                                      showBismillahText: true,
                                     ),
                                   MushafLine(
                                     line: line,
@@ -3318,6 +3331,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     isPeekActive: false,
                                   ),
                                 ],
+                                if (surahFrameOnPageBottom[mushafPage.pageNumber] != null)
+                                  QcfSurahHeader(
+                                    surahNumber: int.tryParse(surahFrameOnPageBottom[mushafPage.pageNumber]!) ?? 0,
+                                    colors: AppTheme.colors(
+                                        isDark: Theme.of(context).brightness ==
+                                            Brightness.dark),
+                                    showSurahFrame: true,
+                                    showBismillahText: false,
+                                  ),
                               ],
                             ),
                           ),

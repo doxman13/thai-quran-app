@@ -2289,6 +2289,8 @@ class MushafPageView extends StatelessWidget {
     final surahStartsByLine = _surahStartsByLine(page);
     final layout = MushafLayoutProfile.forMushaf(mushafId);
     final verseEndWords = _verseEndWords(page);
+    final bottomSurahId = surahFrameOnPageBottom[page.pageNumber];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final content = SizedBox(
@@ -2303,6 +2305,8 @@ class MushafPageView extends StatelessWidget {
                   QcfSurahHeader(
                     surahNumber: int.tryParse(surahId) ?? 0,
                     colors: colors,
+                    showSurahFrame: !surahsWithFrameOnPreviousPage.contains(surahId),
+                    showBismillahText: true,
                   ),
                 Builder(
                   builder: (context) {
@@ -2326,6 +2330,13 @@ class MushafPageView extends StatelessWidget {
                   },
                 ),
               ],
+              if (bottomSurahId != null)
+                QcfSurahHeader(
+                  surahNumber: int.tryParse(bottomSurahId) ?? 0,
+                  colors: colors,
+                  showSurahFrame: true,
+                  showBismillahText: false,
+                ),
             ],
           ),
         );
@@ -2468,11 +2479,14 @@ class MushafLayoutProfile {
 class QcfSurahHeader extends StatelessWidget {
   final int surahNumber;
   final AppThemeColors colors;
+  final bool showSurahFrame;
   final bool showBismillahText;
 
-  const QcfSurahHeader({super.key, 
+  const QcfSurahHeader({
+    super.key, 
     required this.surahNumber,
     required this.colors,
+    this.showSurahFrame = true,
     this.showBismillahText = true,
   });
 
@@ -2487,74 +2501,83 @@ class QcfSurahHeader extends StatelessWidget {
     final showBismillah =
         showBismillahText && surahNumber != 1 && surahNumber != 9;
 
+    if (!showSurahFrame && !showBismillah) return const SizedBox.shrink();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(
+        vertical: showSurahFrame && showBismillah ? 8 : (showSurahFrame ? 4 : 2),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ColorFiltered(
-            colorFilter: isDark
-                ? const ColorFilter.matrix([
-                    -0.2126,
-                    -0.7152,
-                    -0.0722,
-                    0,
-                    255,
-                    -0.2126,
-                    -0.7152,
-                    -0.0722,
-                    0,
-                    255,
-                    -0.2126,
-                    -0.7152,
-                    -0.0722,
-                    0,
-                    255,
-                    0,
-                    0,
-                    0,
-                    1,
-                    0,
-                  ])
-                : const ColorFilter.matrix([
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    1,
-                    0,
-                  ]),
-            child: Opacity(
-              opacity: isDark ? 0.82 : 1,
-              child: HeaderWidget(
-                suraNumber: surahNumber,
-                theme: QcfThemeData(
-                  headerTextColor: headerTextColor,
-                  headerBackgroundColor: Colors.transparent,
-                  headerWidthSmall: 455,
-                  headerWidthLarge: 400,
-                  headerFontSizeSmall: 34,
-                  headerFontSizeLarge: 22,
+          if (showSurahFrame)
+            ColorFiltered(
+              colorFilter: isDark
+                  ? const ColorFilter.matrix([
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
+                    ])
+                  : const ColorFilter.matrix([
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
+                    ]),
+              child: Opacity(
+                opacity: isDark ? 0.82 : 1,
+                child: HeaderWidget(
+                  suraNumber: surahNumber,
+                  theme: QcfThemeData(
+                    headerTextColor: headerTextColor,
+                    headerBackgroundColor: Colors.transparent,
+                    headerWidthSmall: 455,
+                    headerWidthLarge: 400,
+                    headerFontSizeSmall: 34,
+                    headerFontSizeLarge: 22,
+                  ),
                 ),
               ),
             ),
-          ),
           if (showBismillah)
             Padding(
-              padding: const EdgeInsets.only(top: 7, bottom: 2),
+              padding: EdgeInsets.only(
+                top: showSurahFrame ? 7 : 4,
+                bottom: 2,
+              ),
               child: Text(
                 '\ufc41  \ufc42\ufc43\ufc44',
                 textAlign: TextAlign.center,
