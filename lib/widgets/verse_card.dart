@@ -1260,35 +1260,42 @@ class _VerseCardState extends State<VerseCard> {
     String text = '';
     Locale? locale;
 
-    if (translationId == 'thai_v3') {
+    final canonicalId = TranslationConstants.resolveTranslationId(translationId);
+    final apiId = TranslationConstants.resolveApiId(translationId);
+
+    if (canonicalId == 'thai_v3') {
       text = thaiTextProtection.protect(widget.verse.thaiV3);
       locale = const Locale('th', 'TH');
-    } else if (translationId == 'thai_v2') {
-      text = thaiTextProtection.protect(widget.verse.thaiV2);
-      locale = const Locale('th', 'TH');
-    } else if (translationId == 'english') {
+    } else if (canonicalId == 'en_usmani' || canonicalId == 'english') {
       text = widget.verse.english;
+    } else if (canonicalId == 'ms_basmeih' || canonicalId == 'malay') {
+      final transManager = Provider.of<TranslationManagerProvider>(context);
+      text = transManager.getVerseTranslation('ms_basmeih', widget.verse.verseKey) ?? 'Loading translation...';
     } else {
       final transManager = Provider.of<TranslationManagerProvider>(context);
-      final idInt = int.tryParse(translationId);
-      final tInfo = idInt != null
+      final targetId = apiId ?? canonicalId;
+      final tInfo = apiId != null
           ? transManager.downloadedTranslations.firstWhere(
-              (t) => t['id'] == idInt,
+              (t) => t['id'] == apiId,
               orElse: () => <String, dynamic>{},
             )
           : <String, dynamic>{};
 
       final customText = transManager.getVerseTranslation(
-        idInt ?? translationId,
-        widget.verse.verseKey,
-      );
+            targetId,
+            widget.verse.verseKey,
+          ) ??
+          transManager.getVerseTranslation(
+            translationId,
+            widget.verse.verseKey,
+          );
       text = customText ?? 'Loading translation...';
 
       final language = (tInfo['language_name'] ??
               tInfo['language'] ??
-              (translationId.startsWith('en')
+              (canonicalId.startsWith('en') || translationId.startsWith('en')
                   ? 'english'
-                  : translationId.startsWith('ms')
+                  : canonicalId.startsWith('ms') || translationId.startsWith('ms')
                       ? 'malay'
                       : ''))
           .toString()

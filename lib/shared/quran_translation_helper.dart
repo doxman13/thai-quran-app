@@ -5,6 +5,7 @@ import '../models/verse.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import 'translation_constants.dart';
 
 /// Converts Latin Arabic digits (0-9) to Eastern Arabic-Indic numerals (٠-٩).
 String toArabicDigits(dynamic input) {
@@ -85,7 +86,8 @@ String resolveVerseTranslationText({
   QuranRepository? repository,
 }) {
   final s = settings ?? Provider.of<SettingsProvider>(context, listen: false);
-  final primaryId = s.primaryTranslationId.trim().toLowerCase();
+  final primaryId = TranslationConstants.resolveTranslationId(s.primaryTranslationId);
+  final apiId = TranslationConstants.resolveApiId(s.primaryTranslationId);
 
   // 1. If a database query map is provided (from quran_offline.db)
   if (verseItem != null) {
@@ -93,28 +95,25 @@ String resolveVerseTranslationText({
     final en = (verseItem['translation_en'] as String?) ?? (verseItem['translation'] as String?) ?? '';
     final ms = (verseItem['translation_ms'] as String?) ?? '';
 
-    if (primaryId == 'english' || primaryId == 'en_usmani' || primaryId.startsWith('en')) {
+    if (primaryId == 'en_usmani') {
       if (en.isNotEmpty) return en;
       if (verse != null && verse.english.isNotEmpty) return verse.english;
-    } else if (primaryId == 'ms_basmeih' || primaryId == 'malay' || primaryId.startsWith('ms')) {
+    } else if (primaryId == 'ms_basmeih') {
       if (ms.isNotEmpty) return ms;
-    } else if (primaryId == 'thai_v2') {
-      if (verse != null && verse.thaiV2.isNotEmpty) return verse.thaiV2;
-      if (th.isNotEmpty) return th;
-    } else if (primaryId == 'thai_v3' || primaryId.startsWith('th')) {
+    } else if (primaryId == 'thai_v3') {
       if (verse != null && verse.thaiV3.isNotEmpty) return verse.thaiV3;
       if (th.isNotEmpty) return th;
     } else {
       // Custom downloaded translation
       final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
-      final customText = tm.getVerseTranslation(s.primaryTranslationId, verseKey);
+      final customText = tm.getVerseTranslation(apiId ?? primaryId, verseKey) ??
+          tm.getVerseTranslation(s.primaryTranslationId, verseKey);
       if (customText != null && customText.isNotEmpty) {
         return customText;
       }
-      final customId = int.tryParse(s.primaryTranslationId);
-      if (customId != null) {
+      if (apiId != null) {
         final tInfo = tm.downloadedTranslations.firstWhere(
-          (t) => t['id'] == customId,
+          (t) => t['id'] == apiId,
           orElse: () => <String, dynamic>{},
         );
         final lang = (tInfo['language_name'] ?? tInfo['language'] ?? '').toString().toLowerCase();
@@ -131,22 +130,22 @@ String resolveVerseTranslationText({
 
   // 2. If a Verse model object is available
   if (verse != null) {
-    if (primaryId == 'english' || primaryId == 'en_usmani' || primaryId.startsWith('en')) {
+    if (primaryId == 'en_usmani') {
       if (verse.english.isNotEmpty) return verse.english;
-    } else if (primaryId == 'thai_v2') {
-      if (verse.thaiV2.isNotEmpty) return verse.thaiV2;
+    } else if (primaryId == 'ms_basmeih') {
+      final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
+      final msText = tm.getVerseTranslation('ms_basmeih', verseKey);
+      if (msText != null && msText.isNotEmpty) return msText;
+    } else if (primaryId == 'thai_v3') {
       if (verse.thaiV3.isNotEmpty) return verse.thaiV3;
-    } else if (primaryId == 'thai_v3' || primaryId.startsWith('th')) {
-      if (verse.thaiV3.isNotEmpty) return verse.thaiV3;
-      if (verse.thaiV2.isNotEmpty) return verse.thaiV2;
     } else {
       final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
-      final customText = tm.getVerseTranslation(s.primaryTranslationId, verseKey);
+      final customText = tm.getVerseTranslation(apiId ?? primaryId, verseKey) ??
+          tm.getVerseTranslation(s.primaryTranslationId, verseKey);
       if (customText != null && customText.isNotEmpty) {
         return customText;
       }
       if (verse.thaiV3.isNotEmpty) return verse.thaiV3;
-      if (verse.thaiV2.isNotEmpty) return verse.thaiV2;
       if (verse.english.isNotEmpty) return verse.english;
     }
   }

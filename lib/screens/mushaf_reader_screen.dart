@@ -29,6 +29,7 @@ import 'settings_screen.dart';
 import '../services/offline_quran_database_service.dart';
 import '../widgets/tadabbur_panel.dart';
 import '../widgets/tajweed_color_guide_sheet.dart';
+import '../widgets/translation_download_dialog.dart';
 
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -1579,26 +1580,31 @@ class _MushafReaderSettingsSheetState
           Builder(
             builder: (context) {
               final transManager = Provider.of<TranslationManagerProvider>(context);
-              final translationOptions = <Map<String, String>>[
-                {'id': 'thai_v3', 'name': 'ภาษาไทย (Thai - ฉบับสมาคมฯ)'},
-                {'id': 'en_usmani', 'name': 'English (Mufti Taqi Usmani)'},
-                {'id': 'ms_basmeih', 'name': 'Bahasa Melayu (Basmeih)'},
-              ];
+              final allOptions = <String, AppTranslationOption>{};
+              for (final opt in TranslationConstants.builtIns) {
+                allOptions[opt.id] = opt;
+              }
+              for (final opt in TranslationConstants.downloadableTranslations) {
+                allOptions[opt.id] = opt;
+              }
               for (final item in transManager.downloadedTranslations) {
                 final id = item['id'].toString();
-                final name = item['name']?.toString() ?? 'Downloaded translation';
-                if (!translationOptions.any((o) => o['id'] == id)) {
-                  translationOptions.add({'id': id, 'name': name});
+                if (!allOptions.containsKey(id)) {
+                  allOptions[id] = AppTranslationOption(
+                    id: id,
+                    apiId: int.tryParse(id),
+                    name: item['name']?.toString() ?? 'Downloaded translation',
+                    author: item['author_name']?.toString() ?? '',
+                    language: item['language_name']?.toString() ?? '',
+                  );
                 }
               }
-              translationOptions.add({
-                'id': 'download_more',
-                'name': '+ ดาวน์โหลดเพิ่มเติม... / Download more...',
-              });
 
-              final selectedTranslationId = translationOptions.any((o) => o['id'] == settings.primaryTranslationId)
+              final translationList = allOptions.values.toList();
+              final currentPrimary = TranslationConstants.resolveTranslationId(settings.primaryTranslationId);
+              final selectedTranslationId = allOptions.containsKey(settings.primaryTranslationId)
                   ? settings.primaryTranslationId
-                  : 'thai_v3';
+                  : (allOptions.containsKey(currentPrimary) ? currentPrimary : 'thai_v3');
 
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1613,22 +1619,47 @@ class _MushafReaderSettingsSheetState
                     dropdownColor: colors.surface,
                     icon: Icon(Icons.keyboard_arrow_down, color: colors.foreground),
                     isExpanded: true,
-                    items: translationOptions
-                        .map(
-                          (opt) => DropdownMenuItem<String>(
-                            value: opt['id'],
-                            child: Text(
-                              opt['name']!,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 14,
-                                fontWeight: opt['id'] == 'download_more' ? FontWeight.w800 : FontWeight.w600,
-                                color: opt['id'] == 'download_more' ? colors.primary : colors.textStrong,
+                    items: [
+                      ...translationList.map((opt) {
+                        final isDownloaded = transManager.isDownloaded(opt.id);
+                        return DropdownMenuItem<String>(
+                          value: opt.id,
+                          child: Row(
+                            children: [
+                              if (!isDownloaded) ...[
+                                Icon(Icons.download_for_offline_outlined, size: 16, color: colors.primary),
+                                const SizedBox(width: 6),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  isDownloaded
+                                      ? opt.displayName(settings.languageCode)
+                                      : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14,
+                                    fontWeight: isDownloaded ? FontWeight.w600 : FontWeight.w500,
+                                    color: isDownloaded ? colors.textStrong : colors.primary,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
+                        );
+                      }),
+                      DropdownMenuItem<String>(
+                        value: 'download_more',
+                        child: Text(
+                          '+ จัดการคำแปลทั้งหมด / Manage all translations...',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) async {
                       if (value == 'download_more') {
                         Navigator.pop(context);
                         Navigator.push(
@@ -1638,7 +1669,22 @@ class _MushafReaderSettingsSheetState
                           ),
                         );
                       } else if (value != null) {
-                        settings.updateTranslationSlot('primary', value);
+                        final opt = allOptions[value] ??
+                            TranslationConstants.getKnownOption(value) ??
+                            TranslationConstants.builtInThaiV3;
+                        if (transManager.isDownloaded(value)) {
+                          settings.updateTranslationSlot('primary', value);
+                          transManager.loadTranslationIntoCache(value);
+                        } else {
+                          final downloaded = await TranslationDownloadDialog.show(
+                            context,
+                            option: opt,
+                            isPrimary: true,
+                          );
+                          if (downloaded) {
+                            setState(() {});
+                          }
+                        }
                       }
                     },
                   ),
@@ -2932,6 +2978,7 @@ class _TranslationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
     return Material(
       color: colors.surface,
       elevation: 16,
@@ -3018,6 +3065,8 @@ class _TranslationPanel extends StatelessWidget {
                         height: 1.55,
                       ),
                       colors.primary,
+                      verseKey: verseKey,
+                      translationId: settings.primaryTranslationId,
                     ),
                   ),
                 ),

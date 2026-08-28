@@ -109,14 +109,18 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _listenToAuthChanges() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
-      data,
-    ) async {
-      final user = data.session?.user;
-      if (user != null) {
-        await loadAndApplySyncedSettings(user.id);
-      }
-    });
+    try {
+      _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+        data,
+      ) async {
+        final user = data.session?.user;
+        if (user != null) {
+          await loadAndApplySyncedSettings(user.id);
+        }
+      });
+    } catch (e) {
+      debugPrint('Supabase auth listener not initialized: $e');
+    }
   }
 
   @override

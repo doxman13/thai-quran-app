@@ -909,7 +909,7 @@ class _DownloadProgressOverlayState extends State<_DownloadProgressOverlay> with
                     const SizedBox(height: 8),
                     if (isFinished) ...[
                       Text(
-                        'Translation is ready. Open Settings to activate it.',
+                        'Translation is ready to read.',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 12,
                           color: colorScheme.onSurfaceVariant,
@@ -926,15 +926,12 @@ class _DownloadProgressOverlayState extends State<_DownloadProgressOverlay> with
                           const SizedBox(width: 8),
                           FilledButton.icon(
                             onPressed: () {
-                              Scrollable.ensureVisible(
-                                widget.sectionContext,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeOutCubic,
-                              );
+                              final settings = widget.sectionContext.read<SettingsProvider>();
+                              settings.updateTranslationSlot('primary', widget.option.id);
                               widget.onClose();
                             },
-                            icon: const Icon(Icons.settings_rounded, size: 16),
-                            label: const Text('Open Settings'),
+                            icon: const Icon(Icons.check_rounded, size: 16),
+                            label: const Text('Activate Now'),
                           ),
                         ],
                       ),

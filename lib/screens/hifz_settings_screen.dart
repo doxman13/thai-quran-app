@@ -5,6 +5,8 @@ import '../providers/ble_remote_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../shared/shared.dart';
+import '../widgets/translation_download_dialog.dart';
 import 'settings_screen.dart';
 
 class HifzSettingsScreen extends StatelessWidget {
@@ -619,30 +621,31 @@ class _TranslationSettingCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final translationOptions = <Map<String, String>>[
-      {'id': 'thai_v3', 'name': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ปรับปรุงภาษา / Revised)'},
-      {'id': 'thai_orig', 'name': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ฉบับดั้งเดิม / Original)'},
-      {'id': 'en_saheeh', 'name': 'English (Saheeh International)'},
-      {'id': 'en_hilali_khan', 'name': 'English (Al-Hilali & Muhsin Khan - King Fahd)'},
-      {'id': 'en_bridges', 'name': "English (Bridges' Translation - 10 Qira'at)"},
-      {'id': 'en_usmani', 'name': 'English (Mufti Taqi Usmani - Offline)'},
-      {'id': 'ms_basmeih', 'name': 'Bahasa Melayu (Basmeih - Offline)'},
-    ];
+    final allOptions = <String, AppTranslationOption>{};
+    for (final opt in TranslationConstants.builtIns) {
+      allOptions[opt.id] = opt;
+    }
+    for (final opt in TranslationConstants.downloadableTranslations) {
+      allOptions[opt.id] = opt;
+    }
     for (final item in transManager.downloadedTranslations) {
       final id = item['id'].toString();
-      final name = item['name']?.toString() ?? 'Downloaded translation';
-      if (!translationOptions.any((o) => o['id'] == id)) {
-        translationOptions.add({'id': id, 'name': name});
+      if (!allOptions.containsKey(id)) {
+        allOptions[id] = AppTranslationOption(
+          id: id,
+          apiId: int.tryParse(id),
+          name: item['name']?.toString() ?? 'Downloaded translation',
+          author: item['author_name']?.toString() ?? '',
+          language: item['language_name']?.toString() ?? '',
+        );
       }
     }
-    translationOptions.add({
-      'id': 'download_more',
-      'name': '+ ดาวน์โหลดเพิ่มเติม... / Download more...',
-    });
 
-    final currentSelected = translationOptions.any((o) => o['id'] == settings.primaryTranslationId)
+    final translationList = allOptions.values.toList();
+    final currentPrimary = TranslationConstants.resolveTranslationId(settings.primaryTranslationId);
+    final currentSelected = allOptions.containsKey(settings.primaryTranslationId)
         ? settings.primaryTranslationId
-        : 'thai_v3';
+        : (allOptions.containsKey(currentPrimary) ? currentPrimary : 'thai_v3');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -715,19 +718,46 @@ class _TranslationSettingCard extends StatelessWidget {
                 ),
               ),
             ),
-            items: translationOptions.map((opt) {
-              return DropdownMenuItem<String>(
-                value: opt['id'],
+            isExpanded: true,
+            items: [
+              ...translationList.map((opt) {
+                final isDownloaded = transManager.isDownloaded(opt.id);
+                return DropdownMenuItem<String>(
+                  value: opt.id,
+                  child: Row(
+                    children: [
+                      if (!isDownloaded) ...[
+                        Icon(Icons.download_for_offline_outlined, size: 16, color: colorScheme.primary),
+                        const SizedBox(width: 6),
+                      ],
+                      Expanded(
+                        child: Text(
+                          isDownloaded
+                              ? opt.displayName(settings.languageCode)
+                              : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
+                            color: isDownloaded ? null : colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              DropdownMenuItem<String>(
+                value: 'download_more',
                 child: Text(
-                  opt['name']!,
+                  '+ ดาวน์โหลดเพิ่มเติม... / Download more...',
                   style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: opt['id'] == 'download_more' ? FontWeight.w700 : FontWeight.w500,
-                    color: opt['id'] == 'download_more' ? colorScheme.primary : null,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.primary,
                   ),
                 ),
-              );
-            }).toList(),
-            onChanged: (val) {
+              ),
+            ],
+            onChanged: (val) async {
               if (val == 'download_more') {
                 Navigator.push(
                   context,
@@ -736,7 +766,19 @@ class _TranslationSettingCard extends StatelessWidget {
                   ),
                 );
               } else if (val != null) {
-                settings.updateTranslationSlot('primary', val);
+                final opt = allOptions[val] ??
+                    TranslationConstants.getKnownOption(val) ??
+                    TranslationConstants.builtInThaiV3;
+                if (transManager.isDownloaded(val)) {
+                  settings.updateTranslationSlot('primary', val);
+                  transManager.loadTranslationIntoCache(val);
+                } else {
+                  await TranslationDownloadDialog.show(
+                    context,
+                    option: opt,
+                    isPrimary: true,
+                  );
+                }
               }
             },
           ),

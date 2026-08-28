@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../data/translation_database.dart';
 import '../services/offline_quran_database_service.dart';
+import '../shared/translation_constants.dart';
 
 class TranslationManagerProvider extends ChangeNotifier {
   final TranslationDatabase _db = TranslationDatabase.instance;
@@ -85,36 +86,53 @@ class TranslationManagerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isDownloaded(dynamic id) {
+    if (id == null) return false;
+    if (TranslationConstants.isBuiltIn(id)) return true;
+    final apiId = TranslationConstants.resolveApiId(id);
+    final canonicalId = TranslationConstants.resolveTranslationId(id);
+    return _downloadedTranslations.any((t) {
+      final tId = t['id'];
+      return tId == apiId ||
+          tId.toString() == canonicalId ||
+          tId.toString() == id.toString();
+    });
+  }
+
   /// Load a translation into memory cache if not already loaded.
   Future<void> loadTranslationIntoCache(dynamic id) async {
     if (id == null) return;
-    if (_activeTranslationsCache.containsKey(id)) return;
-    if (_loadingIds.contains(id)) return; // Prevent duplicate concurrent loads!
+    final canonicalId = TranslationConstants.resolveTranslationId(id);
+    final apiId = TranslationConstants.resolveApiId(id);
+
+    if (_activeTranslationsCache.containsKey(id) ||
+        _activeTranslationsCache.containsKey(canonicalId) ||
+        (apiId != null && _activeTranslationsCache.containsKey(apiId))) {
+      return;
+    }
+    if (_loadingIds.contains(id) || _loadingIds.contains(canonicalId)) return; // Prevent duplicate concurrent loads!
     
     _loadingIds.add(id);
+    _loadingIds.add(canonicalId);
     try {
       Map<String, String> verses = {};
-      final idStr = id.toString().trim();
 
-      if (idStr == 'en_usmani' || idStr == 'english') {
+      if (canonicalId == 'en_usmani' || canonicalId == 'english') {
         verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'en');
-      } else if (idStr == 'ms_basmeih' || idStr == 'malay') {
+      } else if (canonicalId == 'ms_basmeih' || canonicalId == 'malay') {
         verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'ms');
-      } else if (idStr == 'thai_v3') {
+      } else if (canonicalId == 'thai_v3' || canonicalId == 'th') {
         verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'th');
-      } else {
-        final idInt = int.tryParse(idStr);
-        if (idInt != null) {
-          verses = await _db.getAllVersesForTranslation(idInt);
-        }
+      } else if (apiId != null) {
+        verses = await _db.getAllVersesForTranslation(apiId);
       }
 
       if (verses.isNotEmpty) {
         _activeTranslationsCache[id] = verses;
-        if (id is int) {
-          _activeTranslationsCache[id.toString()] = verses;
-        } else if (id is String && int.tryParse(id) != null) {
-          _activeTranslationsCache[int.parse(id)] = verses;
+        _activeTranslationsCache[canonicalId] = verses;
+        if (apiId != null) {
+          _activeTranslationsCache[apiId] = verses;
+          _activeTranslationsCache[apiId.toString()] = verses;
         }
         notifyListeners();
       }
@@ -122,29 +140,46 @@ class TranslationManagerProvider extends ChangeNotifier {
       debugPrint('Error loading translation $id into cache: $e');
     } finally {
       _loadingIds.remove(id);
+      _loadingIds.remove(canonicalId);
     }
   }
 
   /// Remove from memory cache if no longer needed.
   void removeTranslationFromCache(dynamic id) {
     if (id == null) return;
+    final canonicalId = TranslationConstants.resolveTranslationId(id);
+    final apiId = TranslationConstants.resolveApiId(id);
+
     _activeTranslationsCache.remove(id);
     _activeTranslationsCache.remove(id.toString());
-    if (id is String && int.tryParse(id) != null) {
-      _activeTranslationsCache.remove(int.parse(id));
+    _activeTranslationsCache.remove(canonicalId);
+    if (apiId != null) {
+      _activeTranslationsCache.remove(apiId);
+      _activeTranslationsCache.remove(apiId.toString());
     }
     _loadingIds.remove(id);
+    _loadingIds.remove(canonicalId);
   }
 
   /// Get the translation text synchronously from memory.
   /// If it is not in the cache, it schedules a lazy load and returns null.
   String? getVerseTranslation(dynamic id, String verseKey) {
     if (id == null) return null;
-    if (!_activeTranslationsCache.containsKey(id)) {
-      loadTranslationIntoCache(id);
-      return null;
+    final canonicalId = TranslationConstants.resolveTranslationId(id);
+    final apiId = TranslationConstants.resolveApiId(id);
+
+    if (_activeTranslationsCache.containsKey(id)) {
+      return _activeTranslationsCache[id]?[verseKey];
     }
-    return _activeTranslationsCache[id]?[verseKey];
+    if (_activeTranslationsCache.containsKey(canonicalId)) {
+      return _activeTranslationsCache[canonicalId]?[verseKey];
+    }
+    if (apiId != null && _activeTranslationsCache.containsKey(apiId)) {
+      return _activeTranslationsCache[apiId]?[verseKey];
+    }
+
+    loadTranslationIntoCache(id);
+    return null;
   }
 
   Future<void> deleteTranslation(int id) async {

@@ -34,18 +34,46 @@ class HtmlParser {
     // If footnotes are disabled by user, strip any [N] or <sup foot_note=...> tags, but keep grammatical tags
     if (!showFootnotes) {
       workingText = workingText
-          .replaceAll(RegExp(r'<sup\s+[^>]*foot_note="?\d+"?[^>]*>.*?<\/sup>'), '')
+          .replaceAll(RegExp(r'<sup\s+[^>]*foot_note="?\d+"?[^>]*>.*?<\/sup>', caseSensitive: false), '')
           .replaceAll(RegExp(r'\[\d+\]'), '')
           .trim();
     }
+
+    // Pre-clean and normalize Bridges & QDC tags:
+    // 1. Bridges `<a class="sup"><sup>sg </sup></a>` or `<a class=sub>pl</a>` -> `<gram>...</gram>`
+    workingText = workingText.replaceAllMapped(
+      RegExp(r'''<a\s+[^>]*class=["']?(?:sup|sub)["']?[^>]*>(?:\s*<sup[^>]*>)?(.*?)(?:</sup>\s*)?</a>''', caseSensitive: false),
+      (m) => '<gram>${m.group(1)}</gram>',
+    );
+
+    // 2. Standalone <sup ...> without foot_note attribute -> grammatical tag
+    workingText = workingText.replaceAllMapped(
+      RegExp(r'''<sup(?![^>]*foot_note)[^>]*>(.*?)</sup>''', caseSensitive: false),
+      (m) => '<gram>${m.group(1)}</gram>',
+    );
+
+    // 3. Standalone <sub ...> -> grammatical tag
+    workingText = workingText.replaceAllMapped(
+      RegExp(r'''<sub[^>]*>(.*?)</sub>''', caseSensitive: false),
+      (m) => '<gram>${m.group(1)}</gram>',
+    );
+
+    // 4. Strip stray unclosed <a ...> or </a>
+    workingText = workingText.replaceAll(RegExp(r'''</?a(?:\s+[^>]*)?>''', caseSensitive: false), '');
+
+    // 5. Strip formatting spans and translator italics: <span...>, </span>, <i...>, </i>
+    workingText = workingText.replaceAll(RegExp(r'''</?(?:span|i)(?:\s+[^>]*)?>''', caseSensitive: false), '');
 
     final List<TextSpan> spans = [];
 
     // Combined regex to find:
     // 1) <sup foot_note="123">1</sup>
     // 2) [1]
-    // 3) Grammatical floating tags like <sup>pl</sup> or <sup>sg </sup>
-    final regex = RegExp(r'<sup\s+[^>]*foot_note="?(\d+)"?[^>]*>(.*?)<\/sup>|\[(\d+)\]|<sup[^>]*>(.*?)<\/sup>', caseSensitive: false);
+    // 3) Grammatical floating tags <gram>pl</gram>
+    final regex = RegExp(
+      r'<sup\s+[^>]*foot_note="?(\d+)"?[^>]*>(.*?)<\/sup>|\[(\d+)\]|<gram>(.*?)<\/gram>',
+      caseSensitive: false,
+    );
     int lastMatchEnd = 0;
 
     for (final match in regex.allMatches(workingText)) {
@@ -55,14 +83,15 @@ class HtmlParser {
 
       // Check for grammatical floating tag
       if (match.group(4) != null) {
-        final gramTag = match.group(4)!.trim();
+        final rawGramTag = match.group(4)!.trim();
+        final floatingTag = _toSuperscript(rawGramTag);
         spans.add(
           TextSpan(
-            text: gramTag,
+            text: floatingTag,
             style: style.copyWith(
-              fontSize: (style.fontSize ?? 14) * 0.65,
-              fontWeight: FontWeight.bold,
-              color: (style.color ?? Colors.black).withValues(alpha: 0.55),
+              fontSize: (style.fontSize ?? 14) * 0.75,
+              fontWeight: FontWeight.w600,
+              color: (style.color ?? Colors.black).withValues(alpha: 0.65),
             ),
           ),
         );
@@ -115,6 +144,24 @@ class HtmlParser {
     }
 
     return spans;
+  }
+
+  static const Map<String, String> _superscriptMap = {
+    'a': 'ᵃ', 'b': 'ᵇ', 'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ', 'h': 'ʰ',
+    'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ', 'm': 'ᵐ', 'n': 'ⁿ', 'o': 'ᵒ', 'p': 'ᵖ',
+    'r': 'ʳ', 's': 'ˢ', 't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ', 'x': 'ˣ', 'y': 'ʸ',
+    'z': 'ᶻ', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶',
+    '7': '⁷', '8': '⁸', '9': '⁹', '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾'
+  };
+
+  static String _toSuperscript(String input) {
+    final buffer = StringBuffer();
+    for (int i = 0; i < input.length; i++) {
+      final char = input[i];
+      final lower = char.toLowerCase();
+      buffer.write(_superscriptMap[lower] ?? char);
+    }
+    return buffer.toString();
   }
 
   static Future<void> _showFootnoteModal(

@@ -20,6 +20,7 @@ import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
+import '../widgets/translation_download_dialog.dart';
 
 class ReadingScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -43,31 +44,6 @@ class ReadingScreen extends StatefulWidget {
 
   @override
   State<ReadingScreen> createState() => _ReadingScreenState();
-}
-
-class _TranslationOption {
-  final String id;
-  final int? apiId;
-  final String name;
-  final String? nameTh;
-  final String author;
-  final String language;
-
-  const _TranslationOption({
-    required this.id,
-    required this.apiId,
-    required this.name,
-    this.nameTh,
-    required this.author,
-    required this.language,
-  });
-
-  String displayName(String appLanguage) {
-    if (appLanguage == 'th' && nameTh != null && nameTh!.isNotEmpty) {
-      return nameTh!;
-    }
-    return name;
-  }
 }
 
 class _ReadingScreenState extends State<ReadingScreen> {
@@ -988,7 +964,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                initialValue: settings.primaryTranslationId,
+                                initialValue: _availableTranslationOptions(transManager).any((o) => o.id == settings.primaryTranslationId)
+                                    ? settings.primaryTranslationId
+                                    : TranslationConstants.resolveTranslationId(settings.primaryTranslationId),
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: colorScheme.surfaceContainerLow,
@@ -998,15 +976,54 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     borderSide: BorderSide(color: colorScheme.outline, width: 1),
                                   ),
                                 ),
+                                isExpanded: true,
                                 items: _availableTranslationOptions(transManager).map((opt) {
+                                  final isDownloaded = transManager.isDownloaded(opt.id);
                                   return DropdownMenuItem<String>(
                                     value: opt.id,
-                                    child: Text(opt.displayName(settings.languageCode)),
+                                    child: Row(
+                                      children: [
+                                        if (!isDownloaded) ...[
+                                          Icon(Icons.download_for_offline_outlined, size: 16, color: colorScheme.primary),
+                                          const SizedBox(width: 6),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            isDownloaded
+                                                ? opt.displayName(settings.languageCode)
+                                                : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.notoSansThai(
+                                              fontSize: 13,
+                                              color: isDownloaded ? colorScheme.onSurface : colorScheme.primary,
+                                              fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   );
                                 }).toList(),
-                                onChanged: (val) {
+                                onChanged: (val) async {
                                   if (val != null) {
-                                    settings.updateTranslationSlot('primary', val);
+                                    final options = _availableTranslationOptions(transManager);
+                                    final opt = options.firstWhere(
+                                      (o) => o.id == val,
+                                      orElse: () => TranslationConstants.getKnownOption(val) ?? TranslationConstants.builtInThaiV3,
+                                    );
+                                    if (transManager.isDownloaded(val)) {
+                                      settings.updateTranslationSlot('primary', val);
+                                      transManager.loadTranslationIntoCache(val);
+                                    } else {
+                                      final downloaded = await TranslationDownloadDialog.show(
+                                        context,
+                                        option: opt,
+                                        isPrimary: true,
+                                      );
+                                      if (downloaded) {
+                                        setState(() {});
+                                      }
+                                    }
                                   }
                                 },
                               ),
@@ -1021,7 +1038,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
-                                initialValue: settings.secondaryTranslationId ?? '',
+                                initialValue: (settings.secondaryTranslationId != null &&
+                                        _availableTranslationOptions(transManager).any((o) => o.id == settings.secondaryTranslationId))
+                                    ? settings.secondaryTranslationId
+                                    : (settings.secondaryTranslationId != null
+                                        ? TranslationConstants.resolveTranslationId(settings.secondaryTranslationId)
+                                        : ''),
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: colorScheme.surfaceContainerLow,
@@ -1031,23 +1053,65 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     borderSide: BorderSide(color: colorScheme.outline, width: 1),
                                   ),
                                 ),
+                                isExpanded: true,
                                 items: [
                                   DropdownMenuItem<String>(
                                     value: '',
-                                    child: Text(settings.languageCode == 'th' ? 'ไม่เลือก' : 'None'),
+                                    child: Text(
+                                      settings.languageCode == 'th' ? 'ไม่เลือก' : 'None',
+                                      style: GoogleFonts.notoSansThai(fontSize: 13),
+                                    ),
                                   ),
                                   ..._availableTranslationOptions(transManager).map((opt) {
+                                    final isDownloaded = transManager.isDownloaded(opt.id);
                                     return DropdownMenuItem<String>(
                                       value: opt.id,
-                                      child: Text(opt.displayName(settings.languageCode)),
+                                      child: Row(
+                                        children: [
+                                          if (!isDownloaded) ...[
+                                            Icon(Icons.download_for_offline_outlined, size: 16, color: colorScheme.primary),
+                                            const SizedBox(width: 6),
+                                          ],
+                                          Expanded(
+                                            child: Text(
+                                              isDownloaded
+                                                  ? opt.displayName(settings.languageCode)
+                                                  : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.notoSansThai(
+                                                fontSize: 13,
+                                                color: isDownloaded ? colorScheme.onSurface : colorScheme.primary,
+                                                fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     );
                                   }),
                                 ],
-                                onChanged: (val) {
+                                onChanged: (val) async {
                                   if (val == null || val.isEmpty) {
                                     settings.updateTranslationSlot('secondary', null);
                                   } else if (val != settings.primaryTranslationId) {
-                                    settings.updateTranslationSlot('secondary', val);
+                                    final options = _availableTranslationOptions(transManager);
+                                    final opt = options.firstWhere(
+                                      (o) => o.id == val,
+                                      orElse: () => TranslationConstants.getKnownOption(val) ?? TranslationConstants.builtInThaiV3,
+                                    );
+                                    if (transManager.isDownloaded(val)) {
+                                      settings.updateTranslationSlot('secondary', val);
+                                      transManager.loadTranslationIntoCache(val);
+                                    } else {
+                                      final downloaded = await TranslationDownloadDialog.show(
+                                        context,
+                                        option: opt,
+                                        isPrimary: false,
+                                      );
+                                      if (downloaded) {
+                                        setState(() {});
+                                      }
+                                    }
                                   }
                                 },
                               ),
@@ -1164,84 +1228,30 @@ class _ReadingScreenState extends State<ReadingScreen> {
     });
   }
 
-  List<_TranslationOption> _availableTranslationOptions(TranslationManagerProvider transManager) {
+  List<AppTranslationOption> _availableTranslationOptions(TranslationManagerProvider transManager) {
     final downloaded = transManager.downloadedTranslations;
 
-    final builtIns = <_TranslationOption>[
-      const _TranslationOption(
-        id: 'thai_v3',
-        apiId: null,
-        name: 'King Fahd Complex (The Arab Alumni Association - Revised Edition)',
-        nameTh: 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ปรับปรุงภาษา / Revised)',
-        author: 'King Fahd Complex / สมาคมนักเรียนเก่าอาหรับ',
-        language: 'thai',
-      ),
-      const _TranslationOption(
-        id: 'thai_orig',
-        apiId: null,
-        name: 'King Fahd Complex (The Arab Alumni Association - Original Edition)',
-        nameTh: 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ฉบับดั้งเดิม / Original)',
-        author: 'King Fahd Complex / สมาคมนักเรียนเก่าอาหรับ',
-        language: 'thai',
-      ),
-      const _TranslationOption(
-        id: 'en_saheeh',
-        apiId: 20,
-        name: 'Saheeh International (Offline)',
-        nameTh: 'Saheeh International (อังกฤษ - เชิงอรรถ)',
-        author: 'Saheeh International',
-        language: 'english',
-      ),
-      const _TranslationOption(
-        id: 'en_hilali_khan',
-        apiId: 203,
-        name: 'Al-Hilali & Muhsin Khan (King Fahd Complex)',
-        nameTh: 'Al-Hilali & Muhsin Khan (อังกฤษ - เชิงอรรถ)',
-        author: 'Al-Hilali & Muhsin Khan',
-        language: 'english',
-      ),
-      const _TranslationOption(
-        id: 'en_bridges',
-        apiId: 149,
-        name: "Bridges' Translation (10 Qira'at)",
-        nameTh: "Bridges' Translation (อังกฤษ - 10 กิรออาต)",
-        author: 'Fadel Soliman',
-        language: 'english',
-      ),
-      const _TranslationOption(
-        id: 'en_usmani',
-        apiId: null,
-        name: 'Mufti Taqi Usmani (Offline)',
-        nameTh: 'มุฟตี ตะกี อุษมานี (อังกฤษ - ออฟไลน์)',
-        author: 'Mufti Taqi Usmani',
-        language: 'english',
-      ),
-      const _TranslationOption(
-        id: 'ms_basmeih',
-        apiId: null,
-        name: 'Abdullah Muhammad Basmeih (Offline)',
-        nameTh: 'อับดุลลอฮ์ มูฮัมหมัด บาสเมียะฮ์ (มลายู - ออฟไลน์)',
-        author: 'Abdullah Muhammad Basmeih',
-        language: 'malay',
-      ),
-    ];
-
-    final result = <String, _TranslationOption>{};
-    for (final opt in builtIns) {
-      result[opt.id] = opt;
+    final allOptions = <String, AppTranslationOption>{};
+    for (final opt in TranslationConstants.builtIns) {
+      allOptions[opt.id] = opt;
+    }
+    for (final opt in TranslationConstants.downloadableTranslations) {
+      allOptions[opt.id] = opt;
     }
     for (final item in downloaded) {
       final id = item['id'].toString();
-      result[id] = _TranslationOption(
-        id: id,
-        apiId: int.tryParse(id),
-        name: item['name']?.toString() ?? 'Downloaded translation',
-        author: item['author_name']?.toString() ?? '',
-        language: item['language_name']?.toString() ?? '',
-      );
+      if (!allOptions.containsKey(id)) {
+        allOptions[id] = AppTranslationOption(
+          id: id,
+          apiId: int.tryParse(id),
+          name: item['name']?.toString() ?? 'Downloaded translation',
+          author: item['author_name']?.toString() ?? '',
+          language: item['language_name']?.toString() ?? '',
+        );
+      }
     }
 
-    final list = result.values.toList();
+    final list = allOptions.values.toList();
     list.sort((a, b) {
       final langCompare = _languageSortOrder(a.language).compareTo(_languageSortOrder(b.language));
       if (langCompare != 0) return langCompare;
