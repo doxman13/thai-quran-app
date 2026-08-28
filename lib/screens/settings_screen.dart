@@ -256,6 +256,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           _SettingsCard(
             colorScheme: colorScheme,
+            child: SwitchListTile.adaptive(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              secondary: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.menu_book_rounded, color: colorScheme.primary, size: 22),
+              ),
+              title: Text(
+                settings.languageCode == 'th' ? 'แสดงเชิงอรรถ (Footnotes)' : 'Footnotes & Commentary',
+                style: GoogleFonts.notoSansThai(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              subtitle: Text(
+                settings.languageCode == 'th'
+                    ? 'แสดงตัวเลขเชิงอรรถ [1] และคำอธิบายใต้บทแปล'
+                    : 'Show footnote numbers [1] and commentary under translations',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              value: settings.showFootnotes,
+              onChanged: (val) => settings.setShowFootnotes(val),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SettingsCard(
+            colorScheme: colorScheme,
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               leading: Container(

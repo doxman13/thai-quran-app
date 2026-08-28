@@ -1305,6 +1305,7 @@ class _VerseCardState extends State<VerseCard> {
     final translationBlock = _buildTranslationBlock(
       text: text,
       locale: locale,
+      translationId: translationId,
       textStyle: getTranslationTextStyle(
         context,
         fontSize: settings.translationFontSize + (isPrimary ? 1.0 : -1.0),
@@ -1348,6 +1349,7 @@ class _VerseCardState extends State<VerseCard> {
     required String text,
     required TextStyle textStyle,
     Locale? locale,
+    String? translationId,
   }) {
     return RichText(
       locale: locale,
@@ -1359,6 +1361,8 @@ class _VerseCardState extends State<VerseCard> {
           text,
           textStyle,
           Theme.of(context).primaryColor,
+          verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+          translationId: translationId,
         ),
       ),
     );

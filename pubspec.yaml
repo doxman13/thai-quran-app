@@ -68,6 +68,9 @@ flutter:
     - assets/qcf_v1_fonts/
     - assets/Tajweed/
     - assets/quran_offline.db
+    - assets/footnotes/
+    - assets/en_hilali_khan.json
+    - assets/en_bridges.json
 
   fonts:
     - family: UthmanicHafs

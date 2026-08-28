@@ -69,6 +69,10 @@ class SettingsProvider extends ChangeNotifier {
   String _wordByWordLanguage = 'th'; // 'th', 'en', 'ms'
   String get wordByWordLanguage => _wordByWordLanguage;
 
+  // Footnotes display setting (default: true)
+  bool _showFootnotes = true;
+  bool get showFootnotes => _showFootnotes;
+
   // New dual-slot getters
   String get primaryTranslationId => _primaryTranslationId;
   String? get secondaryTranslationId => _secondaryTranslationId;
@@ -285,6 +289,7 @@ class SettingsProvider extends ChangeNotifier {
     _keepAwake = prefs.getBool('keepAwake') ?? true;
     _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
+    _showFootnotes = prefs.getBool('showFootnotes') ?? true;
 
     final savedHifzMode = prefs.getString(_hifzInputModeKey);
     if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
@@ -559,6 +564,15 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setString('languageCode', _languageCode);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
+  }
+
+  void setShowFootnotes(bool value) async {
+    if (_showFootnotes == value) return;
+    _showFootnotes = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showFootnotes', value);
+    await _markSettingsChanged(prefs);
   }
 
   /// Core dual-slot mutation with Auto-Eviction collision logic.

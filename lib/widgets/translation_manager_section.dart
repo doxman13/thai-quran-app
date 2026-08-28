@@ -21,9 +21,9 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
   static const _builtInThaiV3 = _TranslationOption(
     id: 'thai_v3',
     apiId: null,
-    name: 'Society of Institutes and Universities (Language revised edition)',
-    nameTh: 'สมาคมสถาบันอุดมศึกษา (ฉบับปรับปรุงภาษา - ออฟไลน์)',
-    author: 'Society of Institutes and Universities',
+    name: 'King Fahd Complex (The Arab Alumni Association - Revised Edition)',
+    nameTh: 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ปรับปรุงภาษา / Revised)',
+    author: 'King Fahd Complex / สมาคมนักเรียนเก่าอาหรับ',
     language: 'thai',
   );
 
@@ -74,6 +74,22 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
       apiId: 20,
       name: 'Saheeh International',
       author: 'Saheeh International',
+      language: 'english',
+    ),
+    _TranslationOption(
+      id: '203',
+      apiId: 203,
+      name: 'Al-Hilali & Muhsin Khan (King Fahd Complex)',
+      nameTh: 'Al-Hilali & Muhsin Khan (King Fahd Complex - เชิงอรรถ)',
+      author: 'Al-Hilali & Muhsin Khan',
+      language: 'english',
+    ),
+    _TranslationOption(
+      id: '149',
+      apiId: 149,
+      name: "Bridges' Translation (Fadel Soliman - 10 Qira'at)",
+      nameTh: "Bridges' Translation (Fadel Soliman - 10 กิรออาต)",
+      author: 'Fadel Soliman',
       language: 'english',
     ),
   ];

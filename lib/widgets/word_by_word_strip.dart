@@ -627,7 +627,7 @@ class _WordByWordViewState extends State<WordByWordView> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.notoSansThai(
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.normal,
                   color: isHidden
                       ? Colors.transparent
                       : (isPlaying
