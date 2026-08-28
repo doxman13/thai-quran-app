@@ -1229,44 +1229,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   List<AppTranslationOption> _availableTranslationOptions(TranslationManagerProvider transManager) {
-    final downloaded = transManager.downloadedTranslations;
-
-    final allOptions = <String, AppTranslationOption>{};
-    for (final opt in TranslationConstants.builtIns) {
-      allOptions[opt.id] = opt;
-    }
-    for (final opt in TranslationConstants.downloadableTranslations) {
-      allOptions[opt.id] = opt;
-    }
-    for (final item in downloaded) {
-      final id = item['id'].toString();
-      if (!allOptions.containsKey(id)) {
-        allOptions[id] = AppTranslationOption(
-          id: id,
-          apiId: int.tryParse(id),
-          name: item['name']?.toString() ?? 'Downloaded translation',
-          author: item['author_name']?.toString() ?? '',
-          language: item['language_name']?.toString() ?? '',
-        );
-      }
-    }
-
-    final list = allOptions.values.toList();
-    list.sort((a, b) {
-      final langCompare = _languageSortOrder(a.language).compareTo(_languageSortOrder(b.language));
-      if (langCompare != 0) return langCompare;
-      return a.name.compareTo(b.name);
-    });
-    return list;
-  }
-
-  int _languageSortOrder(String language) {
-    return switch (language.toLowerCase()) {
-      'thai' => 0,
-      'english' => 1,
-      'malay' => 2,
-      _ => 99,
-    };
+    return TranslationConstants.getAllOptions(
+      downloadedTranslations: transManager.downloadedTranslations,
+    );
   }
 
   Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {

@@ -388,17 +388,21 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final transManager = context.read<TranslationManagerProvider>();
     String translation = 'Translation not found.';
 
-    if (settings.primaryTranslationId == 'english' || settings.primaryTranslationId == 'en_usmani') {
+    final pId = TranslationConstants.resolveTranslationId(settings.primaryTranslationId);
+    final aId = TranslationConstants.resolveApiId(settings.primaryTranslationId);
+
+    if (pId == 'english' || pId == 'en_usmani') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'en');
       translation = dbTrans ?? verse?.english ?? 'Translation not found.';
-    } else if (settings.primaryTranslationId == 'malay' || settings.primaryTranslationId == 'ms_basmeih') {
+    } else if (pId == 'malay' || pId == 'ms_basmeih') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'ms');
       translation = dbTrans ?? 'Translation not found.';
-    } else if (settings.primaryTranslationId == 'thai_v3' || settings.primaryTranslationId == 'thai_v2') {
+    } else if (pId == 'thai_v3' || pId == 'thai_v2') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'th');
       translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
     } else {
-      final customTrans = transManager.getVerseTranslation(settings.primaryTranslationId, verseKey);
+      final customTrans = transManager.getVerseTranslation(aId ?? pId, verseKey) ??
+          transManager.getVerseTranslation(settings.primaryTranslationId, verseKey);
       if (customTrans != null) {
         translation = customTrans;
       } else {
@@ -1580,31 +1584,13 @@ class _MushafReaderSettingsSheetState
           Builder(
             builder: (context) {
               final transManager = Provider.of<TranslationManagerProvider>(context);
-              final allOptions = <String, AppTranslationOption>{};
-              for (final opt in TranslationConstants.builtIns) {
-                allOptions[opt.id] = opt;
-              }
-              for (final opt in TranslationConstants.downloadableTranslations) {
-                allOptions[opt.id] = opt;
-              }
-              for (final item in transManager.downloadedTranslations) {
-                final id = item['id'].toString();
-                if (!allOptions.containsKey(id)) {
-                  allOptions[id] = AppTranslationOption(
-                    id: id,
-                    apiId: int.tryParse(id),
-                    name: item['name']?.toString() ?? 'Downloaded translation',
-                    author: item['author_name']?.toString() ?? '',
-                    language: item['language_name']?.toString() ?? '',
-                  );
-                }
-              }
-
-              final translationList = allOptions.values.toList();
+              final translationList = TranslationConstants.getAllOptions(
+                downloadedTranslations: transManager.downloadedTranslations,
+              );
               final currentPrimary = TranslationConstants.resolveTranslationId(settings.primaryTranslationId);
-              final selectedTranslationId = allOptions.containsKey(settings.primaryTranslationId)
+              final selectedTranslationId = translationList.any((o) => o.id == settings.primaryTranslationId)
                   ? settings.primaryTranslationId
-                  : (allOptions.containsKey(currentPrimary) ? currentPrimary : 'thai_v3');
+                  : (translationList.any((o) => o.id == currentPrimary) ? currentPrimary : 'thai_v3');
 
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1668,10 +1654,11 @@ class _MushafReaderSettingsSheetState
                             builder: (_) => const SettingsScreen(),
                           ),
                         );
-                      } else if (value != null) {
-                        final opt = allOptions[value] ??
-                            TranslationConstants.getKnownOption(value) ??
-                            TranslationConstants.builtInThaiV3;
+                        final opt = TranslationConstants.getKnownOption(value) ??
+                            translationList.firstWhere(
+                              (o) => o.id == value,
+                              orElse: () => TranslationConstants.builtInThaiV3,
+                            );
                         if (transManager.isDownloaded(value)) {
                           settings.updateTranslationSlot('primary', value);
                           transManager.loadTranslationIntoCache(value);

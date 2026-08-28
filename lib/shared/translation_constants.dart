@@ -116,6 +116,66 @@ class TranslationConstants {
     ),
   ];
 
+  /// Language priority for sorting translations
+  static int _languageSortOrder(String language) {
+    switch (language.toLowerCase()) {
+      case 'thai':
+      case 'th':
+        return 0;
+      case 'english':
+      case 'en':
+        return 1;
+      case 'malay':
+      case 'ms':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  /// Consistent comparator across all app screens
+  static int compareOptions(AppTranslationOption a, AppTranslationOption b) {
+    if (a.id == builtInThaiV3.id && b.id != builtInThaiV3.id) return -1;
+    if (b.id == builtInThaiV3.id && a.id != builtInThaiV3.id) return 1;
+
+    final langA = _languageSortOrder(a.language);
+    final langB = _languageSortOrder(b.language);
+    if (langA != langB) return langA.compareTo(langB);
+
+    if (a.isBuiltIn && !b.isBuiltIn) return -1;
+    if (!a.isBuiltIn && b.isBuiltIn) return 1;
+
+    return a.name.compareTo(b.name);
+  }
+
+  /// Unified source of truth for all translation options
+  static List<AppTranslationOption> getAllOptions({List<dynamic>? downloadedTranslations}) {
+    final map = <String, AppTranslationOption>{};
+    for (final opt in builtIns) {
+      map[opt.id] = opt;
+    }
+    for (final opt in downloadableTranslations) {
+      map[opt.id] = opt;
+    }
+    if (downloadedTranslations != null) {
+      for (final item in downloadedTranslations) {
+        final id = item['id'].toString();
+        if (!map.containsKey(id)) {
+          map[id] = AppTranslationOption(
+            id: id,
+            apiId: int.tryParse(id),
+            name: item['name']?.toString() ?? 'Downloaded translation',
+            author: item['author_name']?.toString() ?? '',
+            language: item['language_name']?.toString() ?? '',
+          );
+        }
+      }
+    }
+    final list = map.values.toList();
+    list.sort(compareOptions);
+    return list;
+  }
+
   /// Normalize any legacy string alias to its canonical ID.
   static String resolveTranslationId(dynamic id) {
     if (id == null) return 'thai_v3';

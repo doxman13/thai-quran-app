@@ -37,12 +37,21 @@ void main() {
       expect(TranslationConstants.isBuiltIn('20'), isFalse);
       expect(TranslationConstants.isBuiltIn('149'), isFalse);
     });
+
+    test('getAllOptions provides unified and consistently sorted translations', () {
+      final options = TranslationConstants.getAllOptions();
+      // First must be thai_v3
+      expect(options.first.id, equals('thai_v3'));
+      // All 3 built-ins and 6 downloadable translations must be present
+      final ids = options.map((o) => o.id).toList();
+      expect(ids, containsAll(['thai_v3', 'en_usmani', 'ms_basmeih', '20', '203', '149', '85', '230', '51']));
+      expect(options.length, equals(9));
+    });
   });
 
   group('Bridges HTML Parsing & Floating Superscript Tests', () {
     testWidgets('Parses Bridges <a class="sup"><sup>sg </sup></a> into floating ˢᵍ', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
       final settings = SettingsProvider();
 
       late BuildContext capturedContext;
@@ -76,7 +85,6 @@ void main() {
 
     testWidgets('Parses raw Bridges <a class=sub>pl</a> and unquoted classes into floating ᵖˡ', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
       final settings = SettingsProvider();
 
       late BuildContext capturedContext;
@@ -109,7 +117,6 @@ void main() {
 
     testWidgets('Cleans formatting tags and preserves footnote links', (tester) async {
       SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
       final settings = SettingsProvider();
 
       late BuildContext capturedContext;
