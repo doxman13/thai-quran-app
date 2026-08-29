@@ -1646,6 +1646,7 @@ class _MushafReaderSettingsSheetState
                       ),
                     ],
                     onChanged: (value) async {
+                      if (value == null) return;
                       if (value == 'download_more') {
                         Navigator.pop(context);
                         Navigator.push(
@@ -1654,23 +1655,24 @@ class _MushafReaderSettingsSheetState
                             builder: (_) => const SettingsScreen(),
                           ),
                         );
-                        final opt = TranslationConstants.getKnownOption(value) ??
-                            translationList.firstWhere(
-                              (o) => o.id == value,
-                              orElse: () => TranslationConstants.builtInThaiV3,
-                            );
-                        if (transManager.isDownloaded(value)) {
-                          settings.updateTranslationSlot('primary', value);
-                          transManager.loadTranslationIntoCache(value);
-                        } else {
-                          final downloaded = await TranslationDownloadDialog.show(
-                            context,
-                            option: opt,
-                            isPrimary: true,
+                        return;
+                      }
+                      final opt = TranslationConstants.getKnownOption(value) ??
+                          translationList.firstWhere(
+                            (o) => o.id == value,
+                            orElse: () => TranslationConstants.builtInThaiV3,
                           );
-                          if (downloaded) {
-                            setState(() {});
-                          }
+                      if (transManager.isDownloaded(value)) {
+                        settings.updateTranslationSlot('primary', value);
+                        transManager.loadTranslationIntoCache(value);
+                      } else {
+                        final downloaded = await TranslationDownloadDialog.show(
+                          context,
+                          option: opt,
+                          isPrimary: true,
+                        );
+                        if (downloaded) {
+                          setState(() {});
                         }
                       }
                     },
@@ -3909,6 +3911,7 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<TranslationManagerProvider>(context);
     final arabicStyle = TextStyle(
       fontFamily: 'UthmanicHafs',
       fontSize: widget.settings.arabicFontSize,

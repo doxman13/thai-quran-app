@@ -50,7 +50,7 @@ class TranslationConstants {
 
   static const builtInMsBasmeih = AppTranslationOption(
     id: 'ms_basmeih',
-    apiId: null,
+    apiId: 39,
     name: 'Abdullah Muhammad Basmeih (Offline)',
     nameTh: 'Bahasa Melayu - Basmeih (มลายู - ออฟไลน์)',
     author: 'Abdullah Muhammad Basmeih',
@@ -213,6 +213,7 @@ class TranslationConstants {
       case 'ms_basmeih':
       case 'malay':
       case 'ms':
+      case '39':
         return 'ms_basmeih';
       default:
         return id.toString();

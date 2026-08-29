@@ -740,6 +740,7 @@ class _TranslationSettingCard extends StatelessWidget {
               ),
             ],
             onChanged: (val) async {
+              if (val == null) return;
               if (val == 'download_more') {
                 Navigator.push(
                   context,
@@ -747,21 +748,22 @@ class _TranslationSettingCard extends StatelessWidget {
                     builder: (_) => const SettingsScreen(),
                   ),
                 );
-                final opt = TranslationConstants.getKnownOption(val) ??
-                    translationList.firstWhere(
-                      (o) => o.id == val,
-                      orElse: () => TranslationConstants.builtInThaiV3,
-                    );
-                if (transManager.isDownloaded(val)) {
-                  settings.updateTranslationSlot('primary', val);
-                  transManager.loadTranslationIntoCache(val);
-                } else {
-                  await TranslationDownloadDialog.show(
-                    context,
-                    option: opt,
-                    isPrimary: true,
+                return;
+              }
+              final opt = TranslationConstants.getKnownOption(val) ??
+                  translationList.firstWhere(
+                    (o) => o.id == val,
+                    orElse: () => TranslationConstants.builtInThaiV3,
                   );
-                }
+              if (transManager.isDownloaded(val)) {
+                settings.updateTranslationSlot('primary', val);
+                transManager.loadTranslationIntoCache(val);
+              } else {
+                await TranslationDownloadDialog.show(
+                  context,
+                  option: opt,
+                  isPrimary: true,
+                );
               }
             },
           ),
