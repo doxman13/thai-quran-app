@@ -12,6 +12,7 @@ class QuranRepository {
   Map<String, dynamic>? _quranData;
   Map<String, dynamic>? _tafsirData;
   Map<String, dynamic>? _tafsirDataEn;
+  Map<String, dynamic>? _tafsirDataId;
   Map<String, String> _offlineArabicData = {};
   
   static bool globalIsThaiName = true;
@@ -41,6 +42,17 @@ class QuranRepository {
           _tafsirDataEn = json.decode(tafsirEnResponse);
         } catch (e) {
           print('Error loading tafsir_eng_mokhtasar.json: $e');
+        }
+      }
+
+      if (_tafsirDataId == null) {
+        try {
+          final String tafsirIdResponse = await rootBundle.loadString(
+            'assets/tafsir_id_mokhtasar.json',
+          );
+          _tafsirDataId = json.decode(tafsirIdResponse);
+        } catch (e) {
+          print('Error loading tafsir_id_mokhtasar.json: $e');
         }
       }
 
@@ -110,6 +122,17 @@ class QuranRepository {
       }
     }
 
+    if (_tafsirDataId == null) {
+      try {
+        final String tafsirIdResponse = await rootBundle.loadString(
+          'assets/tafsir_id_mokhtasar.json',
+        );
+        _tafsirDataId = json.decode(tafsirIdResponse);
+      } catch (e) {
+        print('Error loading tafsir_id_mokhtasar.json: $e');
+      }
+    }
+
     // Offline surah names are loaded synchronously via offline_surah_names.dart
   }
 
@@ -117,6 +140,7 @@ class QuranRepository {
     _quranData = null;
     _tafsirData = null;
     _tafsirDataEn = null;
+    _tafsirDataId = null;
     _offlineArabicData = {};
     await initOfflineMushaf();
   }
@@ -146,6 +170,8 @@ class QuranRepository {
       final shortTafsir = _tafsirData?[surahId]?[key]?.toString();
       final enTafsirRaw = _tafsirDataEn?['$surahId:$key'];
       final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
+      final idTafsirRaw = _tafsirDataId?['$surahId:$key'];
+      final shortTafsirId = idTafsirRaw is Map ? idTafsirRaw['text']?.toString() : idTafsirRaw?.toString();
 
       versesList.add(
         Verse(
@@ -160,6 +186,8 @@ class QuranRepository {
               : 'QuranEnc Thai Mokhtasar',
           shortTafsirEn: shortTafsirEn?.trim().isEmpty == true ? null : shortTafsirEn,
           shortTafsirSourceEn: shortTafsirEn == null ? null : 'QuranEnc English Mokhtasar',
+          shortTafsirId: shortTafsirId?.trim().isEmpty == true ? null : shortTafsirId,
+          shortTafsirSourceId: shortTafsirId == null ? null : 'Mokhtasar (ID)',
           arabic: '', // Initially empty, will be fetched via API
         ),
       );
@@ -177,6 +205,8 @@ class QuranRepository {
     final shortTafsir = _tafsirData?[surahId]?[verseId]?.toString();
     final enTafsirRaw = _tafsirDataEn?['$surahId:$verseId'];
     final shortTafsirEn = enTafsirRaw is Map ? enTafsirRaw['text']?.toString() : enTafsirRaw?.toString();
+    final idTafsirRaw = _tafsirDataId?['$surahId:$verseId'];
+    final shortTafsirId = idTafsirRaw is Map ? idTafsirRaw['text']?.toString() : idTafsirRaw?.toString();
 
     return Verse(
       id: verseId,
@@ -188,6 +218,8 @@ class QuranRepository {
       shortTafsirSource: shortTafsir == null ? null : 'QuranEnc Thai Mokhtasar',
       shortTafsirEn: shortTafsirEn?.trim().isEmpty == true ? null : shortTafsirEn,
       shortTafsirSourceEn: shortTafsirEn == null ? null : 'QuranEnc English Mokhtasar',
+      shortTafsirId: shortTafsirId?.trim().isEmpty == true ? null : shortTafsirId,
+      shortTafsirSourceId: shortTafsirId == null ? null : 'Mokhtasar (ID)',
       arabic: '',
     );
   }

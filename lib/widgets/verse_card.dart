@@ -169,16 +169,47 @@ class _VerseCardState extends State<VerseCard> {
     return true;
   }
 
+  bool _isMalayPrimary() {
+    if (!mounted) return false;
+    final settings = Provider.of<SettingsProvider>(context, listen: true);
+    if (settings.languageCode == 'ms') return true;
+    final primaryId = settings.primaryTranslationId;
+    if (primaryId == 'ms_basmeih' || primaryId == '39' || primaryId == 'malay') return true;
+    
+    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+    final customId = int.tryParse(primaryId);
+    if (customId != null) {
+      final translation = transManager.downloadedTranslations.firstWhere(
+        (t) => t['id'] == customId,
+        orElse: () => <String, dynamic>{},
+      );
+      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
+      if (lang == 'ms' || lang == 'malay' || lang == 'melayu' || lang == 'id' || lang == 'indonesian') {
+        return true;
+      }
+    }
+    return false;
+  }
+
   String? _getTafsir() {
+    if (_isMalayPrimary()) {
+      final idTafsir = widget.verse.shortTafsirId;
+      if (idTafsir != null && idTafsir.trim().isNotEmpty) {
+        return idTafsir;
+      }
+    }
     final primaryTafsir = _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
     if (primaryTafsir != null && primaryTafsir.trim().isNotEmpty) {
       return primaryTafsir;
     }
-    final fallback = widget.verse.shortTafsir ?? widget.verse.shortTafsirEn;
+    final fallback = widget.verse.shortTafsir ?? widget.verse.shortTafsirEn ?? widget.verse.shortTafsirId;
     return (fallback != null && fallback.trim().isNotEmpty) ? fallback : null;
   }
 
   String? _getTafsirSource() {
+    if (_isMalayPrimary() && widget.verse.shortTafsirId != null && widget.verse.shortTafsirId!.trim().isNotEmpty) {
+      return widget.verse.shortTafsirSourceId ?? 'Mokhtasar (ID)';
+    }
     final primaryTafsir = _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
     if (primaryTafsir != null && primaryTafsir.trim().isNotEmpty) {
       return _isNonThaiPrimary() ? widget.verse.shortTafsirSourceEn : widget.verse.shortTafsirSource;
@@ -186,7 +217,7 @@ class _VerseCardState extends State<VerseCard> {
     if (widget.verse.shortTafsir != null && widget.verse.shortTafsir!.trim().isNotEmpty) {
       return widget.verse.shortTafsirSource;
     }
-    return widget.verse.shortTafsirSourceEn;
+    return widget.verse.shortTafsirSourceEn ?? widget.verse.shortTafsirSourceId;
   }
 
   @override
