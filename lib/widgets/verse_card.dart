@@ -1298,7 +1298,13 @@ class _VerseCardState extends State<VerseCard> {
       text = thaiTextProtection.protect(widget.verse.thaiV3);
       locale = const Locale('th', 'TH');
     } else if (canonicalId == 'en_usmani' || canonicalId == 'english') {
-      text = widget.verse.english;
+      final transManager = Provider.of<TranslationManagerProvider>(context);
+      final en = transManager.getVerseTranslation('en_usmani', widget.verse.verseKey);
+      text = (en != null && en.isNotEmpty)
+          ? en
+          : (widget.verse.english.isNotEmpty && widget.verse.english != 'N/A'
+              ? widget.verse.english
+              : 'Loading translation...');
     } else if (canonicalId == 'ms_basmeih' || canonicalId == 'malay') {
       final transManager = Provider.of<TranslationManagerProvider>(context);
       text = transManager.getVerseTranslation('ms_basmeih', widget.verse.verseKey) ?? 'Loading translation...';

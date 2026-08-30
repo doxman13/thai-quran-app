@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
+import 'package:thai_quran_app/providers/translation_manager_provider.dart';
 import 'package:thai_quran_app/shared/translation_constants.dart';
 import 'package:thai_quran_app/utils/html_parser.dart';
 

@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_background_service/flutter_background_service.dart';
 import '../data/translation_database.dart';
 import '../services/offline_quran_database_service.dart';
@@ -22,35 +26,41 @@ class TranslationManagerProvider extends ChangeNotifier {
   }
 
   void _initBackgroundServiceListener() {
-    final service = FlutterBackgroundService();
+    try {
+      if (kIsWeb) return;
+      if (!Platform.isAndroid && !Platform.isIOS) return;
+      final service = FlutterBackgroundService();
 
-    service.on('update_progress').listen((event) {
-      final id = event?['id'] as int?;
-      final progress = event?['progress'] as double?;
-      if (id != null && progress != null) {
-        _downloadProgress[id] = progress;
-        _loadingIds.add(id);
-        notifyListeners();
-      }
-    });
+      service.on('update_progress').listen((event) {
+        final id = event?['id'] as int?;
+        final progress = event?['progress'] as double?;
+        if (id != null && progress != null) {
+          _downloadProgress[id] = progress;
+          _loadingIds.add(id);
+          notifyListeners();
+        }
+      });
 
-    service.on('download_success').listen((event) async {
-      final id = event?['id'] as int?;
-      if (id != null) {
-        _downloadProgress.remove(id);
-        _loadingIds.remove(id);
-        await refreshDownloadedList();
-      }
-    });
+      service.on('download_success').listen((event) async {
+        final id = event?['id'] as int?;
+        if (id != null) {
+          _downloadProgress.remove(id);
+          _loadingIds.remove(id);
+          await refreshDownloadedList();
+        }
+      });
 
-    service.on('download_failed').listen((event) {
-      final id = event?['id'] as int?;
-      if (id != null) {
-        _downloadProgress.remove(id);
-        _loadingIds.remove(id);
-        notifyListeners();
-      }
-    });
+      service.on('download_failed').listen((event) {
+        final id = event?['id'] as int?;
+        if (id != null) {
+          _downloadProgress.remove(id);
+          _loadingIds.remove(id);
+          notifyListeners();
+        }
+      });
+    } catch (e) {
+      debugPrint('Background service listener not initialized: $e');
+    }
   }
 
   Future<void> startBackgroundDownload({
@@ -82,8 +92,12 @@ class TranslationManagerProvider extends ChangeNotifier {
   }
 
   Future<void> refreshDownloadedList() async {
-    _downloadedTranslations = await _db.getDownloadedTranslations();
-    notifyListeners();
+    try {
+      _downloadedTranslations = await _db.getDownloadedTranslations();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Could not refresh downloaded translations: $e');
+    }
   }
 
   bool isDownloaded(dynamic id) {
@@ -118,9 +132,21 @@ class TranslationManagerProvider extends ChangeNotifier {
       Map<String, String> verses = {};
 
       if (canonicalId == 'en_usmani' || canonicalId == 'english') {
-        verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'en');
+        try {
+          final jsonStr = await rootBundle.loadString('assets/en_usmani.json');
+          final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+          verses = decoded.map((k, v) => MapEntry(k, v.toString()));
+        } catch (_) {
+          verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'en');
+        }
       } else if (canonicalId == 'ms_basmeih' || canonicalId == 'malay') {
-        verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'ms');
+        try {
+          final jsonStr = await rootBundle.loadString('assets/ms_basmeih.json');
+          final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+          verses = decoded.map((k, v) => MapEntry(k, v.toString()));
+        } catch (_) {
+          verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'ms');
+        }
       } else if (canonicalId == 'thai_v3' || canonicalId == 'th') {
         verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'th');
       } else if (apiId != null) {

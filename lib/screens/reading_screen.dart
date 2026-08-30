@@ -91,6 +91,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
         if (settings.keepAwake) {
           WakelockPlus.enable();
         }
+        final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+        if (settings.primaryTranslationId.isNotEmpty) {
+          transManager.loadTranslationIntoCache(settings.primaryTranslationId);
+        }
+        if (settings.secondaryTranslationId != null && settings.secondaryTranslationId!.isNotEmpty) {
+          transManager.loadTranslationIntoCache(settings.secondaryTranslationId);
+        }
       }
     });
   }

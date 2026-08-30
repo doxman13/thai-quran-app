@@ -97,9 +97,15 @@ String resolveVerseTranslationText({
 
     if (primaryId == 'en_usmani') {
       if (en.isNotEmpty) return en;
-      if (verse != null && verse.english.isNotEmpty) return verse.english;
+      if (verse != null && verse.english.isNotEmpty && verse.english != 'N/A') return verse.english;
+      final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
+      final enText = tm.getVerseTranslation('en_usmani', verseKey);
+      if (enText != null && enText.isNotEmpty) return enText;
     } else if (primaryId == 'ms_basmeih') {
       if (ms.isNotEmpty) return ms;
+      final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
+      final msText = tm.getVerseTranslation('ms_basmeih', verseKey);
+      if (msText != null && msText.isNotEmpty) return msText;
     } else if (primaryId == 'thai_v3') {
       if (verse != null && verse.thaiV3.isNotEmpty) return verse.thaiV3;
       if (th.isNotEmpty) return th;
@@ -131,7 +137,10 @@ String resolveVerseTranslationText({
   // 2. If a Verse model object is available
   if (verse != null) {
     if (primaryId == 'en_usmani') {
-      if (verse.english.isNotEmpty) return verse.english;
+      if (verse.english.isNotEmpty && verse.english != 'N/A') return verse.english;
+      final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
+      final enText = tm.getVerseTranslation('en_usmani', verseKey);
+      if (enText != null && enText.isNotEmpty) return enText;
     } else if (primaryId == 'ms_basmeih') {
       final tm = transManager ?? Provider.of<TranslationManagerProvider>(context, listen: false);
       final msText = tm.getVerseTranslation('ms_basmeih', verseKey);

@@ -72,6 +72,8 @@ flutter:
     - assets/footnotes/
     - assets/en_hilali_khan.json
     - assets/en_bridges.json
+    - assets/ms_basmeih.json
+    - assets/en_usmani.json
 
   fonts:
     - family: UthmanicHafs

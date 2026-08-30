@@ -393,10 +393,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
     if (pId == 'english' || pId == 'en_usmani') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'en');
-      translation = dbTrans ?? verse?.english ?? 'Translation not found.';
+      translation = dbTrans ?? transManager.getVerseTranslation('en_usmani', verseKey) ?? (verse?.english != 'N/A' ? verse?.english : null) ?? 'Translation not found.';
     } else if (pId == 'malay' || pId == 'ms_basmeih') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'ms');
-      translation = dbTrans ?? 'Translation not found.';
+      translation = dbTrans ?? transManager.getVerseTranslation('ms_basmeih', verseKey) ?? 'Translation not found.';
     } else if (pId == 'thai_v3' || pId == 'thai_v2') {
       final dbTrans = await OfflineQuranDatabaseService.getTranslation(verseKey, lang: 'th');
       translation = dbTrans ?? verse?.thaiV3 ?? 'Translation not found.';
