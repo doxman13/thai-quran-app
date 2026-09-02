@@ -5,6 +5,7 @@ import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
+import '../utils/html_parser.dart';
 
 class MutashabihatSheet extends StatefulWidget {
   final String verseKey;
@@ -318,13 +319,23 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                                   ),
                                   const SizedBox(height: 10),
 
-                                  Text(
-                                    translationText,
-                                    style: getTranslationTextStyle(
-                                      context,
-                                      fontSize: 14,
-                                      height: 1.5,
-                                      color: colorScheme.onSurface,
+                                  RichText(
+                                    softWrap: true,
+                                    text: TextSpan(
+                                      children: HtmlParser.parseTranslationText(
+                                        context,
+                                        translationText,
+                                        getTranslationTextStyle(
+                                          context,
+                                          fontSize: 14,
+                                          height: 1.5,
+                                          color: colorScheme.onSurface,
+                                          translationId: settings.primaryTranslationId,
+                                        ),
+                                        colorScheme.primary,
+                                        verseKey: vKey,
+                                        translationId: settings.primaryTranslationId,
+                                      ),
                                     ),
                                   ),
                                 ],

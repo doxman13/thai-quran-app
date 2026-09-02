@@ -15,6 +15,7 @@ class HtmlParser {
     Color linkColor, {
     String? verseKey,
     String? translationId,
+    bool isInteractive = true,
   }) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final showFootnotes = settings.showFootnotes;
@@ -34,7 +35,8 @@ class HtmlParser {
     // If footnotes are disabled by user, strip any [N] or <sup foot_note=...> tags, but keep grammatical tags
     if (!showFootnotes) {
       workingText = workingText
-          .replaceAll(RegExp(r'<sup\s+[^>]*foot_note="?\d+"?[^>]*>.*?<\/sup>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'''<sup\s+[^>]*foot_note\s*=\s*["']?\d+["']?[^>]*>.*?<\/sup>''', caseSensitive: false), '')
+          .replaceAll(RegExp(r'''<sup\s+[^>]*class=["']?(?:foot_?note|qiraat)["']?[^>]*>.*?<\/sup>''', caseSensitive: false), '')
           .replaceAll(RegExp(r'\[\d+\]'), '')
           .trim();
     }
@@ -61,17 +63,18 @@ class HtmlParser {
     // 4. Strip stray unclosed <a ...> or </a>
     workingText = workingText.replaceAll(RegExp(r'''</?a(?:\s+[^>]*)?>''', caseSensitive: false), '');
 
-    // 5. Strip formatting spans and translator italics: <span...>, </span>, <i...>, </i>
-    workingText = workingText.replaceAll(RegExp(r'''</?(?:span|i)(?:\s+[^>]*)?>''', caseSensitive: false), '');
+    // 5. Strip formatting spans, translator italics, and common block wrappers: <span...>, </span>, <i...>, </i>, <b>, <em>, <p>, etc.
+    workingText = workingText.replaceAll(RegExp(r'''</?(?:span|i|em|b|strong|p|small|div|font)(?:\s+[^>]*)?>''', caseSensitive: false), '');
+    workingText = workingText.replaceAll(RegExp(r'''<br\s*/?>''', caseSensitive: false), ' ');
 
     final List<TextSpan> spans = [];
 
     // Combined regex to find:
-    // 1) <sup foot_note="123">1</sup>
+    // 1) <sup foot_note="123">1</sup> (with optional class, quotes, or whitespace)
     // 2) [1]
     // 3) Grammatical floating tags <gram>pl</gram>
     final regex = RegExp(
-      r'<sup\s+[^>]*foot_note="?(\d+)"?[^>]*>(.*?)<\/sup>|\[(\d+)\]|<gram>(.*?)<\/gram>',
+      r'''<sup\s+[^>]*foot_note\s*=\s*["']?(\d+)["']?[^>]*>(.*?)<\/sup>|\[(\d+)\]|<gram>(.*?)<\/gram>''',
       caseSensitive: false,
     );
     int lastMatchEnd = 0;
@@ -118,17 +121,19 @@ class HtmlParser {
             fontWeight: FontWeight.bold,
             fontSize: (style.fontSize ?? 14) * 0.75,
           ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () {
-              _showFootnoteModal(
-                context,
-                fnId: fnId,
-                rawOrigId: rawOrigId,
-                footnoteEntry: footnoteEntry,
-                textColor: style.color ?? Colors.black,
-                translationId: translationId,
-              );
-            },
+          recognizer: isInteractive
+              ? (TapGestureRecognizer()
+                ..onTap = () {
+                  _showFootnoteModal(
+                    context,
+                    fnId: fnId,
+                    rawOrigId: rawOrigId,
+                    footnoteEntry: footnoteEntry,
+                    textColor: style.color ?? Colors.black,
+                    translationId: translationId,
+                  );
+                })
+              : null,
         ),
       );
 
@@ -198,12 +203,15 @@ class HtmlParser {
       editionTitle = 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ)';
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: colorScheme.surface,
+      elevation: 0,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         Widget content;
@@ -212,7 +220,7 @@ class HtmlParser {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Text(
               offlineText,
-              style: GoogleFonts.notoSansThai(fontSize: 15, height: 1.6, color: textColor),
+              style: GoogleFonts.notoSansThai(fontSize: 15, height: 1.6, color: colorScheme.onSurface),
             ),
           );
         } else if (rawOrigId != null) {
@@ -220,9 +228,9 @@ class HtmlParser {
             future: _fetchFootnote(rawOrigId),
             builder: (ctx, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(child: CircularProgressIndicator()),
+                return Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.primary)),
                 );
               }
               if (snapshot.hasError || !snapshot.hasData) {
@@ -231,7 +239,7 @@ class HtmlParser {
                   child: Center(
                     child: Text(
                       isThai ? 'โหลดเชิงอรรถล้มเหลว' : 'Failed to load footnote.',
-                      style: GoogleFonts.notoSansThai(color: textColor),
+                      style: GoogleFonts.notoSansThai(color: colorScheme.onSurfaceVariant),
                     ),
                   ),
                 );
@@ -241,7 +249,7 @@ class HtmlParser {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: Text(
                   clean,
-                  style: GoogleFonts.notoSansThai(fontSize: 15, height: 1.6, color: textColor),
+                  style: GoogleFonts.notoSansThai(fontSize: 15, height: 1.6, color: colorScheme.onSurface),
                 ),
               );
             },
@@ -252,7 +260,7 @@ class HtmlParser {
             child: Center(
               child: Text(
                 isThai ? 'ไม่พบข้อมูลเชิงอรรถ' : 'Footnote not found.',
-                style: GoogleFonts.notoSansThai(color: textColor),
+                style: GoogleFonts.notoSansThai(color: colorScheme.onSurfaceVariant),
               ),
             ),
           );
@@ -264,16 +272,16 @@ class HtmlParser {
             children: [
               const SizedBox(height: 12),
               Container(
-                width: 40,
+                width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.5),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -285,29 +293,30 @@ class HtmlParser {
                             isThai ? 'เชิงอรรถ [$fnId]' : 'Footnote [$fnId]',
                             style: GoogleFonts.notoSansThai(
                               fontWeight: FontWeight.bold,
-                              fontSize: 17,
-                              color: Theme.of(context).primaryColor,
+                              fontSize: 18,
+                              color: colorScheme.primary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             editionTitle,
                             style: GoogleFonts.notoSansThai(
-                              fontSize: 11,
-                              color: Colors.grey,
+                              fontSize: 12,
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: Icon(Icons.close_rounded, size: 20, color: colorScheme.onSurfaceVariant),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
               ),
-              const Divider(),
+              const SizedBox(height: 8),
+              Divider(height: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
               Flexible(child: content),
               const SizedBox(height: 16),
             ],

@@ -34,6 +34,7 @@ import '../widgets/mutashabihat_sheet.dart';
 import '../widgets/word_by_word_strip.dart';
 import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
+import '../utils/html_parser.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -2056,6 +2057,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
             final notesProvider = context.watch<NotesProvider>();
             final readingProvider = context.watch<MushafReadingProvider>();
+            final settings = context.watch<SettingsProvider>();
             final favorited = notesProvider.getNoteObjectForVerse(
                   surahNum.toString(),
                   verseNum.toString(),
@@ -2384,13 +2386,26 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           colorScheme.outlineVariant.withValues(alpha: 0.3),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      translation,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: isHidden
-                            ? Colors.transparent
-                            : colorScheme.onSurfaceVariant,
-                        height: 1.5,
+                    RichText(
+                      softWrap: true,
+                      text: TextSpan(
+                        children: HtmlParser.parseTranslationText(
+                          context,
+                          translation,
+                          getTranslationTextStyle(
+                            context,
+                            fontSize: settings.translationFontSize,
+                            height: 1.5,
+                            color: isHidden
+                                ? Colors.transparent
+                                : colorScheme.onSurfaceVariant,
+                            translationId: settings.primaryTranslationId,
+                          ),
+                          isHidden ? Colors.transparent : colorScheme.primary,
+                          verseKey: verseKey,
+                          translationId: settings.primaryTranslationId,
+                          isInteractive: !isHidden,
+                        ),
                       ),
                     ),
                   ],
@@ -3414,6 +3429,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             final verseKey = '${provider.surahNumber}:$verseNum';
             final notesProvider = context.watch<NotesProvider>();
             final readingProvider = context.watch<MushafReadingProvider>();
+            final settings = context.watch<SettingsProvider>();
             final favorited = notesProvider.getNoteObjectForVerse(
                   provider.surahNumber.toString(),
                   verseNum.toString(),
@@ -3734,13 +3750,26 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       color: colorScheme.outlineVariant.withValues(alpha: 0.3),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      translation,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: isHidden
-                            ? Colors.transparent
-                            : colorScheme.onSurfaceVariant,
-                        height: 1.5,
+                    RichText(
+                      softWrap: true,
+                      text: TextSpan(
+                        children: HtmlParser.parseTranslationText(
+                          context,
+                          translation,
+                          getTranslationTextStyle(
+                            context,
+                            fontSize: settings.translationFontSize,
+                            height: 1.5,
+                            color: isHidden
+                                ? Colors.transparent
+                                : colorScheme.onSurfaceVariant,
+                            translationId: settings.primaryTranslationId,
+                          ),
+                          isHidden ? Colors.transparent : colorScheme.primary,
+                          verseKey: verseKey,
+                          translationId: settings.primaryTranslationId,
+                          isInteractive: !isHidden,
+                        ),
                       ),
                     ),
                   ],

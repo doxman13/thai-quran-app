@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
-import 'package:thai_quran_app/providers/translation_manager_provider.dart';
 import 'package:thai_quran_app/shared/translation_constants.dart';
 import 'package:thai_quran_app/utils/html_parser.dart';
 
@@ -146,6 +145,103 @@ void main() {
       expect(fullText, contains('Master[1] of the Day, not those who incurred(Your) wrath'));
       expect(fullText, isNot(contains('<span')));
       expect(fullText, isNot(contains('<i class=')));
+    });
+
+    testWidgets('Parses single quoted foot_note and unquoted attributes correctly', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsProvider();
+
+      late BuildContext capturedContext;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: settings,
+          child: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      const rawText = "In the name of Allah<sup foot_note='195932'>1</sup> and praise<sup foot_note=195933>2</sup>";
+      final spans = HtmlParser.parseTranslationText(
+        capturedContext,
+        rawText,
+        const TextStyle(fontSize: 16, color: Colors.black),
+        Colors.blue,
+      );
+
+      final fullText = spans.map((s) => s.text).join();
+      expect(fullText, equals('In the name of Allah[1] and praise[2]'));
+      expect(fullText, isNot(contains('<sup')));
+      expect(fullText, isNot(contains('foot_note')));
+    });
+
+    testWidgets('Suppresses recognizers when isInteractive is false', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsProvider();
+
+      late BuildContext capturedContext;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: settings,
+          child: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      const rawText = 'Text with footnote<sup foot_note="123" class="foot_note">1</sup>';
+      final spans = HtmlParser.parseTranslationText(
+        capturedContext,
+        rawText,
+        const TextStyle(fontSize: 16, color: Colors.transparent),
+        Colors.transparent,
+        isInteractive: false,
+      );
+
+      final footnoteSpan = spans.firstWhere((s) => s.text == '[1]');
+      expect(footnoteSpan.recognizer, isNull);
+    });
+
+    testWidgets('Strips footnote tags completely when showFootnotes is false', (tester) async {
+      SharedPreferences.setMockInitialValues({'showFootnotes': false});
+      final settings = SettingsProvider();
+
+      late BuildContext capturedContext;
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: settings,
+          child: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      const rawText = 'Verse with<sup foot_note="123" class="qiraat">1</sup> footnote and [2] marker.';
+      final spans = HtmlParser.parseTranslationText(
+        capturedContext,
+        rawText,
+        const TextStyle(fontSize: 16, color: Colors.black),
+        Colors.blue,
+      );
+
+      final fullText = spans.map((s) => s.text).join();
+      expect(fullText, equals('Verse with footnote and  marker.'));
+      expect(fullText, isNot(contains('[1]')));
+      expect(fullText, isNot(contains('[2]')));
+      expect(fullText, isNot(contains('class=')));
+      expect(fullText, isNot(contains('<sup')));
     });
   });
 }
