@@ -486,3 +486,11 @@ fallback. Flutter should use the `share_plus` package.
 - Convert legacy single-profile bookmarks into reading profiles or bookmark
   rows, depending on user intent.
 - Convert legacy Last Read into recent readings.
+
+## Future Database & Translation Update Roadmap (Post-Testing)
+
+- **Over-The-Air (OTA) Differential Translation Patching**:
+  - Keep offline-first SQLite architecture (`quran_offline.db`).
+  - For minor translation/WBW typo corrections in production, implement a lightweight remote patch sync (`patches.json` / Supabase table) to update SQLite rows directly via `UPDATE words SET translation_th = ? WHERE verse_key = ? AND position = ?` without requiring full app re-compilation or full APK re-downloads.
+  - Deferred during initial testing phase; currently relying on bundled asset + DB version bump (`_targetDbVersion`).
+
