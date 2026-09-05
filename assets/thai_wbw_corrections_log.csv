@@ -710,3 +710,57 @@
 75:40,5,أَن,an,bahwa,to,ที่,ว่า,SUBORDINATING_PARTICLE_ALIGNMENT,Aligned subordinating particle 'an' to contextual Thai subordinator 'ว่า' (Malay: bahwa)
 76:30,4,أَن,an,bahwa,that,ที่,ว่า,SUBORDINATING_PARTICLE_ALIGNMENT,Aligned subordinating particle 'an' to contextual Thai subordinator 'ว่า' (Malay: bahwa)
 92:19,4,مِن,min,dari,any,ซึ่ง,จาก,PARTICLE_INVERSION_FIX,Restored proper lexical fidelity from phantom particle 'ซึ่ง' to 'จาก' (Malay: dari)
+10:1,5,ٱلْحَكِيمِ,l-ḥakīmi,hikmah,the wise,อันเต็มไปด้วยความเมตตา,อันเปี่ยมด้วยวิทยปัญญา,LEXICAL_FIDELITY_REALIGNMENT,"10:1:5 root ح ك م (wisdom, not rahmah/mercy)"
+58:1,8,زَوْجِهَا,zawjihā,suaminya/pasangannya,her husband,สามีของเจ้า,สามีของนาง,PRONOUN_INVERSION_FIX,"58:1:8 3rd pers fem (-hā, her husband, was erroneously สามีของเจ้า)"
+58:1,9,وَتَشْتَكِىٓ,watashtakī,dan ia mengadukan,and she directs her complaint,และเจ้าก็ร้องเรียน,และนางก็ร้องเรียน,PRONOUN_INVERSION_FIX,"58:1:9 3rd pers fem (she directs complaint, was erroneously และเจ้าก็ร้องเรียน)"
+24:39,6,يَحْسَبُهُ,yaḥsabuhu,mengiranya,thinks it,ผู้กระหายน้ำ,คิดว่ามัน,INTRA_VERSE_WORD_SWAP,"24:39:6 verb yahsabuhu (thinks it), was swapped with pos 7"
+24:39,7,ٱلظَّمْـَٔانُ,l-ẓamānu,orang-orang yang dahaga,the thirsty one,คิดว่ามัน,ผู้กระหายน้ำ,INTRA_VERSE_WORD_SWAP,"24:39:7 noun al-zamaanu (the thirsty one), was swapped with pos 6"
+53:32,3,كَبَـٰٓئِرَ,kabāira,besar,great,บาป,ใหญ่หลวง,INTRA_VERSE_WORD_SWAP,"53:32:3 kabair (great), was swapped with pos 4, unabsorbed บาป"
+53:32,4,ٱلْإِثْمِ,l-ith'mi,dosa,sins,ใหญ่,บาป,INTRA_VERSE_WORD_SWAP,"53:32:4 al-ithm (sins), was swapped with pos 3"
+42:37,3,كَبَـٰٓئِرَ,kabāira,besar,(the) greater,บาป,ใหญ่หลวง,INTRA_VERSE_WORD_SWAP,"42:37:3 kabair (greater), was swapped with pos 4, unabsorbed บาป"
+42:37,4,ٱلْإِثْمِ,l-ith'mi,dosa,sins,อันใหญ่หลวง,บาป,INTRA_VERSE_WORD_SWAP,"42:37:4 al-ithm (sins), was swapped with pos 3"
+7:141,7,سُوٓءَ,sūa,seburuk-buruk,(with) worst,ด้วยการลงทัณฑ์,อันชั่วร้ายยิ่งของ,INTRA_VERSE_WORD_SWAP,"7:141:7 soo-a (worst/evil), was swapped with pos 8"
+7:141,8,ٱلْعَذَابِ ۖ,l-ʿadhābi,azab,(of) torment,อันชั่วร้ายยิ่ง,การลงทัณฑ์,INTRA_VERSE_WORD_SWAP,"7:141:8 al-adhaab (torment), was swapped with pos 7"
+59:2,11,لِأَوَّلِ,li-awwali,pada yang pertama,at (the) first,ในการเนรเทศ,ในการ(เนรเทศ)ครั้งแรกของ,INTRA_VERSE_WORD_SWAP,"59:2:11 li-awwali (at first), was swapped with pos 12"
+59:2,12,ٱلْحَشْرِ ۚ,l-ḥashri,pengusiran,gathering,ครั้งแรก,การรวมพล (การขับไล่),INTRA_VERSE_WORD_SWAP,"59:2:12 al-hashr (gathering/expulsion), was swapped with pos 11"
+39:23,3,أَحْسَنَ,aḥsana,paling baik,(the) best,ซึ่งคำพูด,อันดียิ่งของ,INTRA_VERSE_WORD_SWAP,"39:23:3 ahsana (the best of), was swapped with pos 4"
+39:23,4,ٱلْحَدِيثِ,l-ḥadīthi,pembicaraan/perkataan,(of) [the] statement,ที่ดียิ่ง,คำพูด (ดำรัส),INTRA_VERSE_WORD_SWAP,"39:23:4 al-hadeeth (the statement/speech), was swapped with pos 3"
+3:159,10,غَلِيظَ,ghalīẓa,kasar,(and) harsh,ผู้มีใจ,(จิตใจ)หยาบกระด้าง,INTRA_VERSE_WORD_SWAP,"3:159:10 ghaleeda (harsh), was swapped with pos 11"
+3:159,11,ٱلْقَلْبِ,l-qalbi,hati,(at) [the] heart,กระด้าง,แห่งหัวใจ (จิตใจ),INTRA_VERSE_WORD_SWAP,"3:159:11 al-qalb (the heart), was swapped with pos 10"
+57:23,14,مُخْتَالٍۢ,mukh'tālin,sombong,self-deluded,ผู้โอ้อวด,คนเย่อหยิ่งจองหอง,INTRA_VERSE_WORD_SWAP,"57:23:14 mukhtaal (arrogant/conceited), was swapped with pos 15"
+57:23,15,فَخُورٍ,fakhūrin,membanggakan diri,boaster,ผู้หลงระเริง,คนชอบโอ้อวด,INTRA_VERSE_WORD_SWAP,"57:23:15 fakhoor (boaster), was swapped with pos 14"
+60:11,11,ذَهَبَتْ,dhahabat,pergi/lari,have gone,ภรรยาของพวกเขาไป,ได้หนีไป,PHRASE_PACKING_UNPACKED,"60:11:11 dhabat (have gone/fled), absorbed azwaajuhum from pos 12"
+60:11,12,أَزْوَٰجُهُم,azwājuhum,isteri-isteri mereka,their wives,ภรรยาของพวกเขา,บรรดาภรรยาของพวกเขา,TRIANGULATED_WBW_FIX,60:11:12 azwaajuhum (their wives)
+17:47,13,يَقُولُ,yaqūlu,berkat,say,บรรดาผู้ (อธรรม) กล่าวว่า,กล่าวว่า,PHRASE_PACKING_UNPACKED,"17:47:13 yaqoolu (say), absorbed al-zaalimoon from pos 14"
+32:3,15,مِّن,min,dari,before you,ก่อนหน้า,จาก,DUPLICATE_TOKEN_DEDUPLICATION,"32:3:15 min (from), duplicated with pos 16 qablika"
+33:21,10,كَانَ,kāna,adalah,has,หวัง,ปรากฏว่า,DUPLICATE_TOKEN_DEDUPLICATION,"33:21:10 kaana (has been / was), duplicated with pos 11 yarjoo"
+25:3,11,يَمْلِكُونَ,yamlikūna,kuasa/mampu,they possess,ทรงครอง,พวกมันมีอำนาจครอบครอง,HONORIFIC_ALIGNMENT,"25:3:11 idols do not possess, remove royal ทรง"
+25:3,17,يَمْلِكُونَ,yamlikūna,mereka kuasa/tidak mampu,they control,ทรงครอง,พวกมันมีอำนาจครอบครอง,HONORIFIC_ALIGNMENT,"25:3:17 idols do not possess, remove royal ทรง"
+17:71,3,كُلَّ,kulla,tiap-tiap,all,มนุษย์,ทุกๆ (แต่ละ),INTRA_VERSE_WORD_SWAP,"17:71:3 kulla (all/every), was swapped with pos 4"
+17:71,4,أُنَاسٍۭ,unāsin,manusia,human beings,ทุกคน,กลุ่มชน (มนุษย์),INTRA_VERSE_WORD_SWAP,"17:71:4 unaasin (human beings/people), was swapped with pos 3"
+12:72,11,بِهِۦ,bihi,terhadapnya,for it,รับประกัน,ต่อสิ่งนั้น (มัน),INTRA_VERSE_WORD_SWAP,"12:72:11 bihi (for it), was swapped with pos 12"
+12:72,12,زَعِيمٌۭ,zaʿīmun,menjamin,(is) responsible,สิ่งนั้น,เป็นผู้ค้ำประกัน (ผู้รับรอง),INTRA_VERSE_WORD_SWAP,"12:72:12 zaeem (guarantor/responsible), was swapped with pos 11"
+2:206,6,أَخَذَتْهُ,akhadhathu,ia mengambilnya/bangkit,takes him,ความเย่อหยิ่งก็,ได้เข้าครอบงำเขา,INTRA_VERSE_WORD_SWAP,"2:206:6 verb akhadhathu (seizes him), was swapped with pos 7"
+2:206,7,ٱلْعِزَّةُ,l-ʿizatu,kesombongan,(his) pride,ครอบงำเขา,ความหยิ่งผยอง (ความเย่อหยิ่ง),INTRA_VERSE_WORD_SWAP,"2:206:7 noun al-izzatu (pride), was swapped with pos 6"
+8:53,5,يَكُ,yaku,ada,is,ทรงเปลี่ยนแปลง,ทรงเป็น,PHRASE_PACKING_UNPACKED,"8:53:5 verb yaku (is/was), absorbed mughayyiran pos 6"
+15:5,3,مِنْ,min,dari,any,ประชาชาติใด,(จาก)ใดๆ,PHRASE_PACKING_UNPACKED,"15:5:3 particle min (any), absorbed ummatin pos 4"
+9:13,11,أَوَّلَ,awwala,pertama,first,เป็นครั้ง,เป็นครั้งแรกของ,INTRA_VERSE_WORD_SWAP,"9:13:11 awwala (first), was swapped with pos 12"
+9:13,12,مَرَّةٍ ۚ,marratin,kali,time,แรก,ครั้ง,INTRA_VERSE_WORD_SWAP,"9:13:12 marrah (time/instance), was swapped with pos 11"
+18:66,4,هَلْ,hal,apakah,May,ฉันจะติดตามท่านได้ไหม,ได้หรือไม่,PHRASE_PACKING_UNPACKED,"18:66:4 interrogative hal, swallowed entire phrase"
+18:66,5,أَتَّبِعُكَ,attabiʿuka,aku mengikuti kamu,I follow you,เพื่อที่ฉันจะติดตามท่าน,ฉันจะติดตามท่าน,VERB_RESTORATION,18:66:5 verb attabiuka (I follow you)
+18:66,6,عَلَىٰٓ,ʿalā,atas/terhadap,on,เพื่อ,บน (เงื่อนไข),TRIANGULATED_WBW_FIX,18:66:6 preposition ala (upon condition)
+18:66,7,أَن,an,supaya,that,เพื่อที่,ว่า (การที่),TRIANGULATED_WBW_FIX,18:66:7 subordinator an (that)
+42:20,21,مِن,min,dari,any,ส่วน,(จาก)ใดๆ,DUPLICATE_TOKEN_DEDUPLICATION,"42:20:21 particle min, duplicated naseebin"
+42:20,22,نَّصِيبٍ,naṣībin,bahagian,share,ได้ส่วนแบ่งใดๆ,ส่วนแบ่ง,TRIANGULATED_WBW_FIX,42:20:22 noun naseebin (share)
+24:47,10,مِّنۢ,min,dari,after,หลังจาก,ตั้งแต่,TRIANGULATED_WBW_FIX,24:47:10 preposition min
+24:47,11,بَعْدِ,baʿdi,sesudah,after,นั้น,หลังจาก,TRIANGULATED_WBW_FIX,"24:47:11 noun baadi (after), was mistranslated as นั้น"
+24:47,12,ذَٰلِكَ ۚ,dhālika,demikian itu,that,สิ่งนั้น,สิ่งนั้น (นั้น),TRIANGULATED_WBW_FIX,24:47:12 demonstrative dhalika
+13:4,3,قِطَعٌۭ,qiṭaʿun,bagian-bagian,are tracks,มีผืนแผ่นดิน,(มี)ผืนส่วนต่างๆ,DUPLICATE_TOKEN_DEDUPLICATION,"13:4:3 plural noun qitaun (plots/tracts), duplicated al-ard"
+2:245,11,كَثِيرَةًۭ ۚ,kathīratan,yang banyak,many,ทวีคูณ,อันมากมาย,TRIANGULATED_WBW_FIX,"2:245:11 adjective katheeratan (many), was translated as ทวีคูณ"
+36:32,3,لَّمَّا,lammā,melainkan,then,ทั้งหมด,เว้นแต่,DUPLICATE_TOKEN_DEDUPLICATION,"36:32:3 exceptive lamma, duplicated jameeun"
+12:4,15,سَـٰجِدِينَ,sājidīna,bersujud,prostrating,กราบสุดยอด,ก้มกราบ (สุญูด),OCR_CORRECTION,"12:4:15 saajideen (prostrating), was OCR error กราบสุดยอด"
+6:138,17,يَذْكُرُونَ,yadhkurūna,mereka menyebut,they mention,พวกเขาเอ่ยนาม,พวกเขากล่าวถึง,PHRASE_PACKING_UNPACKED,"6:138:17 yadhkuroona (mention), unabsorbed ism/พระนาม from pos 18"
+6:138,18,ٱسْمَ,is'ma,nama,(the) name,เอ่ยนาม,พระนาม,DUPLICATE_TOKEN_DEDUPLICATION,"6:138:18 isma (the name), was duplicate เอ่ยนาม"
+5:96,14,دُمْتُمْ,dum'tum,selama kamu,long as you,พวกท่าน,พวกท่านยังคงอยู่,VERB_RESTORATION,"5:96:14 dumtum (as long as you remain), restored verb daama"
+5:117,17,دُمْتُ,dum'tu,selama aku,as long as I,ฉันได้,ฉันยังคงอยู่,VERB_RESTORATION,"5:117:17 dumtu (as long as I remained), restored verb daama"
+20:91,3,نَّبْرَحَ,nabraḥa,selalu/tetap,we will cease,พวกเราจะหยุด,พวกเราหยุดยั้ง,DUPLICATE_TOKEN_DEDUPLICATION,"20:91:3 nabraha (we cease), removed duplicate จะ from lan"
