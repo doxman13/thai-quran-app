@@ -25,6 +25,7 @@ import '../models/verse.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
+import '../services/footnote_service.dart';
 import 'settings_screen.dart';
 import '../services/offline_quran_database_service.dart';
 import '../widgets/tadabbur_panel.dart';
@@ -2968,102 +2969,108 @@ class _TranslationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    return Material(
-      color: colors.surface,
-      elevation: 16,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 290),
-        padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.borderSoft),
+    return ListenableBuilder(
+      listenable: FootnoteService(),
+      builder: (context, _) {
+        return Material(
+          color: colors.surface,
+          elevation: 16,
           borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 290),
+            padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.borderSoft),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    verseKey,
-                    style: GoogleFonts.notoSansThai(
-                      color: colors.textStrong,
-                      fontWeight: FontWeight.w900,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        verseKey,
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.foreground,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: isAudioPlaying ? 'Pause' : 'Play verse audio',
+                      onPressed: isAudioLoading ? null : onPlay,
+                      icon: isAudioLoading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colors.primary,
+                              ),
+                            )
+                          : Icon(
+                              isAudioPlaying
+                                  ? Icons.pause_circle_filled_rounded
+                                  : Icons.play_circle_fill_rounded,
+                              color: colors.primary,
+                            ),
+                    ),
+                    IconButton(
+                      tooltip: bookmarked ? 'Remove bookmark' : 'Bookmark verse',
+                      onPressed: onBookmark,
+                      icon: Icon(
+                        bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        color: colors.primary,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: favorited ? 'Remove favorite' : 'Favorite verse',
+                      onPressed: onFavorite,
+                      icon: Icon(
+                        favorited
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: favorited ? Colors.redAccent : colors.primary,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: onClose,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: RichText(
+                      locale: const Locale('th', 'TH'),
+                      softWrap: true,
+                      text: TextSpan(
+                        children: HtmlParser.parseTranslationText(
+                          context,
+                          translation,
+                          GoogleFonts.notoSansThai(
+                            color: colors.foreground,
+                            fontSize: fontSize,
+                            height: 1.55,
+                          ),
+                          colors.primary,
+                          verseKey: verseKey,
+                          translationId: settings.primaryTranslationId,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  tooltip: isAudioPlaying ? 'Pause verse' : 'Play verse',
-                  onPressed: onPlay,
-                  icon: isAudioLoading
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colors.primary,
-                          ),
-                        )
-                      : Icon(
-                          isAudioPlaying
-                              ? Icons.pause_circle_filled_rounded
-                              : Icons.play_circle_fill_rounded,
-                          color: colors.primary,
-                        ),
-                ),
-                IconButton(
-                  tooltip: bookmarked ? 'Remove bookmark' : 'Bookmark verse',
-                  onPressed: onBookmark,
-                  icon: Icon(
-                    bookmarked ? Icons.bookmark : Icons.bookmark_border,
-                    color: colors.primary,
-                  ),
-                ),
-                IconButton(
-                  tooltip: favorited ? 'Remove favorite' : 'Favorite verse',
-                  onPressed: onFavorite,
-                  icon: Icon(
-                    favorited
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: favorited ? Colors.redAccent : colors.primary,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: SingleChildScrollView(
-                child: RichText(
-                  locale: const Locale('th', 'TH'),
-                  softWrap: true,
-                  text: TextSpan(
-                    children: HtmlParser.parseTranslationText(
-                      context,
-                      translation,
-                      GoogleFonts.notoSansThai(
-                        color: colors.foreground,
-                        fontSize: fontSize,
-                        height: 1.55,
-                      ),
-                      colors.primary,
-                      verseKey: verseKey,
-                      translationId: settings.primaryTranslationId,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

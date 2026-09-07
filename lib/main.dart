@@ -41,6 +41,7 @@ void main() async {
 
 
 Future<void> _initializeAppServices() async {
+  final footnoteFuture = FootnoteService().init();
   await RemoteContentService.instance.cleanOnAppUpgrade();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -56,7 +57,7 @@ Future<void> _initializeAppServices() async {
   await _initializeAudioBackground();
   await initializeDownloadService();
   unawaited(OfflineQuranDatabaseService.getMutashabihatVerseKeys());
-  unawaited(FootnoteService().init());
+  await footnoteFuture;
 }
 
 Future<void> _initializeAudioBackground() async {

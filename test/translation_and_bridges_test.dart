@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
+import 'package:thai_quran_app/services/footnote_service.dart';
 import 'package:thai_quran_app/shared/translation_constants.dart';
 import 'package:thai_quran_app/utils/html_parser.dart';
 
@@ -242,6 +243,46 @@ void main() {
       expect(fullText, isNot(contains('[2]')));
       expect(fullText, isNot(contains('class=')));
       expect(fullText, isNot(contains('<sup')));
+    });
+  });
+
+  group('FootnoteService Tests', () {
+    test('parseFootnotesJson correctly parses raw JSON into FootnoteEntry objects', () {
+      const sampleJson = '''
+      {
+        "1:4": {
+          "annotated": "ผู้ทรงอภิสิทธิ์แห่งวันตอบแทน[1]",
+          "footnotes": [
+            {
+              "id": 1,
+              "origId": 1,
+              "text": "คือวันปรโลก อันเป็นวันที่มนุษย์ฟื้นคืนชีพมาเพื่อรับการตอบแทน"
+            }
+          ]
+        }
+      }
+      ''';
+
+      final map = parseFootnotesJson(sampleJson);
+      expect(map.containsKey('1:4'), isTrue);
+      final entry = map['1:4']!;
+      expect(entry.annotated, equals('ผู้ทรงอภิสิทธิ์แห่งวันตอบแทน[1]'));
+      expect(entry.footnotes.length, equals(1));
+      expect(entry.footnotes.first.id, equals(1));
+      expect(entry.footnotes.first.text, contains('คือวันปรโลก'));
+    });
+
+    test('FootnoteService notifies listeners when state changes', () {
+      final service = FootnoteService();
+      bool notified = false;
+      void listener() {
+        notified = true;
+      }
+
+      service.addListener(listener);
+      service.notifyListeners();
+      expect(notified, isTrue);
+      service.removeListener(listener);
     });
   });
 }

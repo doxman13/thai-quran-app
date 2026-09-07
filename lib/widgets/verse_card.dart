@@ -30,6 +30,7 @@ import 'tadabbur_panel.dart';
 import 'word_by_word_strip.dart';
 import 'mutashabihat_sheet.dart';
 import '../services/offline_quran_database_service.dart';
+import '../services/footnote_service.dart';
 
 class VerseCardController extends ChangeNotifier {
   VoidCallback? toggleTafsir;
@@ -223,6 +224,7 @@ class _VerseCardState extends State<VerseCard> {
   @override
   void initState() {
     super.initState();
+    FootnoteService().addListener(_onFootnoteLoaded);
     _communityNotesFuture = _tadabburRepository.fetchCommunityNotes(
       widget.verse.surahId,
       widget.verse.id,
@@ -342,8 +344,15 @@ class _VerseCardState extends State<VerseCard> {
 
   @override
   void dispose() {
+    FootnoteService().removeListener(_onFootnoteLoaded);
     _auditController.dispose();
     super.dispose();
+  }
+
+  void _onFootnoteLoaded() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _openTadabburModal() {
