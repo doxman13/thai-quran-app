@@ -764,3 +764,4 @@
 5:96,14,دُمْتُمْ,dum'tum,selama kamu,long as you,พวกท่าน,พวกท่านยังคงอยู่,VERB_RESTORATION,"5:96:14 dumtum (as long as you remain), restored verb daama"
 5:117,17,دُمْتُ,dum'tu,selama aku,as long as I,ฉันได้,ฉันยังคงอยู่,VERB_RESTORATION,"5:117:17 dumtu (as long as I remained), restored verb daama"
 20:91,3,نَّبْرَحَ,nabraḥa,selalu/tetap,we will cease,พวกเราจะหยุด,พวกเราหยุดยั้ง,DUPLICATE_TOKEN_DEDUPLICATION,"20:91:3 nabraha (we cease), removed duplicate จะ from lan"
+77:10,3,نُسِفَتْ,nusifat,dihancurkan,are blown away,ถูกทำให้ปลิวหายไป,ถูกแตกออกเป็นผุยผง,TRIANGULATED_WBW_FIX,"77:10:3 nusifat (are blown away / shattered into dust, was erroneously ถูกทำให้ปลิวหายไป)"
