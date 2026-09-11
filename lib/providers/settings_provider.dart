@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/translation_database.dart';
 import '../data/quran_repository.dart';
+import '../models/recitation_event.dart';
 import '../theme/app_theme.dart';
 
 enum HifzInputMode {
@@ -37,6 +38,19 @@ class SettingsProvider extends ChangeNotifier {
   // Setting for Hifz input mode (default: inAppTally)
   static const String _hifzInputModeKey = 'hifz_input_mode';
   HifzInputMode _hifzInputMode = HifzInputMode.inAppTally;
+
+  // Setting for on-device voice recitation tracking
+  static const String _voiceRecitationEnabledKey = 'voice_recitation_enabled';
+  bool _voiceRecitationEnabled = true;
+  bool get voiceRecitationEnabled => _voiceRecitationEnabled;
+
+  static const String _voiceRecitationSensitivityKey = 'voice_recitation_sensitivity';
+  RecitationSensitivity _voiceRecitationSensitivity = RecitationSensitivity.balanced;
+  RecitationSensitivity get voiceRecitationSensitivity => _voiceRecitationSensitivity;
+
+  static const String _voiceRecitationAdaptiveNoiseKey = 'voice_recitation_adaptive_noise';
+  bool _voiceRecitationAdaptiveNoise = true;
+  bool get voiceRecitationAdaptiveNoise => _voiceRecitationAdaptiveNoise;
 
   // Dual-slot translation model
   // Built-in ID: 'thai_v3'. Other active IDs should come from downloaded API translations.
@@ -294,6 +308,15 @@ class SettingsProvider extends ChangeNotifier {
     _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
     _showFootnotes = prefs.getBool('showFootnotes') ?? true;
+    _voiceRecitationEnabled = prefs.getBool(_voiceRecitationEnabledKey) ?? true;
+    _voiceRecitationAdaptiveNoise = prefs.getBool(_voiceRecitationAdaptiveNoiseKey) ?? true;
+    final savedSensitivity = prefs.getString(_voiceRecitationSensitivityKey);
+    if (savedSensitivity != null) {
+      _voiceRecitationSensitivity = RecitationSensitivity.values.firstWhere(
+        (e) => e.name == savedSensitivity,
+        orElse: () => RecitationSensitivity.balanced,
+      );
+    }
 
     final savedHifzMode = prefs.getString(_hifzInputModeKey);
     if (savedHifzMode == HifzInputMode.bleSmartRing.toString()) {
@@ -629,6 +652,33 @@ class SettingsProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_hifzInputModeKey, mode.toString());
+  }
+
+  Future<void> setVoiceRecitationEnabled(bool enabled) async {
+    if (_voiceRecitationEnabled == enabled) return;
+    _voiceRecitationEnabled = enabled;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_voiceRecitationEnabledKey, enabled);
+    await _markSettingsChanged(prefs);
+  }
+
+  Future<void> setVoiceRecitationSensitivity(RecitationSensitivity sensitivity) async {
+    if (_voiceRecitationSensitivity == sensitivity) return;
+    _voiceRecitationSensitivity = sensitivity;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_voiceRecitationSensitivityKey, sensitivity.name);
+    await _markSettingsChanged(prefs);
+  }
+
+  Future<void> setVoiceRecitationAdaptiveNoise(bool enabled) async {
+    if (_voiceRecitationAdaptiveNoise == enabled) return;
+    _voiceRecitationAdaptiveNoise = enabled;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_voiceRecitationAdaptiveNoiseKey, enabled);
+    await _markSettingsChanged(prefs);
   }
 
   // Legacy adaptor setters — delegate to updateTranslationSlot for backwards compat

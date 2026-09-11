@@ -103,6 +103,18 @@ class HifzSessionProvider extends ChangeNotifier {
   // New Verses getters (preserved exactly)
   // ---------------------------------------------------------------------------
   int get surahNumber => _surahNumber;
+
+  /// Returns the effective surah number for both Review and New Verses modes.
+  int get currentSurahNumber {
+    if (_sessionType == HifzSessionType.review) {
+      final step = currentReviewStep;
+      if (step != null) {
+        return step.surahNumber ?? (_reviewGranularity == ReviewGranularity.bySurah ? step.primaryIndex : _surahNumber);
+      }
+    }
+    return _surahNumber;
+  }
+
   int get repeatStart => _repeatStart;
   int get startVerse => _startVerse;
   int get endVerse => _endVerse;
@@ -279,6 +291,23 @@ class HifzSessionProvider extends ChangeNotifier {
   bool get isTargetHidden {
     if (isSessionCompleted) return false;
     return _manualHiddenOverride ?? isCurrentStepDefaultHidden;
+  }
+
+  /// Whether voice recitation tracking is eligible for the current session state.
+  /// Only available for:
+  /// 1. Review mode in hidden stage.
+  /// 2. New verses mode during cumulative repeat range in hidden stage.
+  bool get isVoiceTrackingEligible {
+    if (isSessionCompleted) return false;
+    if (_sessionType == HifzSessionType.review) {
+      return _reviewPhase == ReviewPhase.hidden;
+    } else if (_sessionType == HifzSessionType.newVerses) {
+      final task = currentTask;
+      if (task == null) return false;
+      return task.type == TaskType.cumulativeLink &&
+          task.mode == TextVisibilityMode.hidden;
+    }
+    return false;
   }
 
   /// True if the user has manually toggled the visibility away from default for this step.

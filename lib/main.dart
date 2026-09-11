@@ -18,6 +18,7 @@ import 'providers/supabase_provider.dart';
 import 'providers/thai_text_protection_provider.dart';
 import 'providers/translation_manager_provider.dart';
 import 'providers/mushaf_audio_provider.dart';
+import 'providers/recitation_tracker_provider.dart';
 import 'data/quran_repository.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
@@ -108,6 +109,7 @@ class ThaiQuranBootstrap extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => StatsProvider()),
             ChangeNotifierProvider(create: (_) => ThaiTextProtectionProvider()),
             ChangeNotifierProvider(create: (_) => MushafAudioProvider()),
+            ChangeNotifierProvider(create: (_) => RecitationTrackerProvider()),
           ],
           child: ThaiQuranApp(repository: repository),
         );

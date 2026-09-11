@@ -5,8 +5,8 @@ import '../providers/ble_remote_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
-import '../shared/shared.dart';
 import '../widgets/translation_download_dialog.dart';
+import '../shared/translation_constants.dart';
 import 'settings_screen.dart';
 
 class HifzSettingsScreen extends StatelessWidget {
@@ -76,6 +76,16 @@ class HifzSettingsScreen extends StatelessWidget {
             groupValue: settings.hifzInputMode,
             onSelect: () => settings.setHifzInputMode(HifzInputMode.inAppTally),
           ),
+          const SizedBox(height: 24),
+          Text(
+            'Voice Recitation Tracking',
+            style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const _VoiceRecitationSettingCard(),
           const SizedBox(height: 24),
           Text(
             'Audio Control',
@@ -826,6 +836,236 @@ class _TranslationSettingCard extends StatelessWidget {
             value: settings.showWordByWord,
             activeThumbColor: colorScheme.primary,
             onChanged: (val) => settings.toggleShowWordByWord(val),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceRecitationSettingCard extends StatelessWidget {
+  const _VoiceRecitationSettingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        final isEnabled = settings.voiceRecitationEnabled;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isEnabled
+                ? colorScheme.primaryContainer.withValues(alpha: 0.12)
+                : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isEnabled
+                  ? colorScheme.primary.withValues(alpha: 0.5)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.2),
+              width: 1.0,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isEnabled
+                          ? colorScheme.primary.withValues(alpha: 0.15)
+                          : colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.record_voice_over_rounded,
+                      color: isEnabled
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Voice Recitation Tracking',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Offline AI',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Active during hidden stages (Review mode & cumulative repeat range in New Verses). Automatically reveals verses as you recite sequentially and alerts if a verse is skipped.',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Switch.adaptive(
+                    value: isEnabled,
+                    onChanged: (val) => settings.setVoiceRecitationEnabled(val),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _FeaturePill(
+                    icon: Icons.offline_bolt_rounded,
+                    label: '100% On-Device',
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
+                  ),
+                  _FeaturePill(
+                    icon: Icons.warning_amber_rounded,
+                    label: 'Skip Detection',
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
+                  ),
+                  _FeaturePill(
+                    icon: Icons.mic_rounded,
+                    label: 'In-Session Mic Toggle',
+                    colorScheme: colorScheme,
+                    textTheme: textTheme,
+                  ),
+                ],
+              ),
+              if (isEnabled) ...[
+                const SizedBox(height: 12),
+                Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: settings.voiceRecitationAdaptiveNoise
+                            ? colorScheme.primary.withValues(alpha: 0.12)
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.graphic_eq_rounded,
+                        color: settings.voiceRecitationAdaptiveNoise
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Adaptive Noise Filter',
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Auto-adapts breath detection in rooms with fans or air conditioning without distorting your recitation.',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch.adaptive(
+                      value: settings.voiceRecitationAdaptiveNoise,
+                      onChanged: (val) =>
+                          settings.setVoiceRecitationAdaptiveNoise(val),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _FeaturePill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final ColorScheme colorScheme;
+  final TextTheme textTheme;
+
+  const _FeaturePill({
+    required this.icon,
+    required this.label,
+    required this.colorScheme,
+    required this.textTheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

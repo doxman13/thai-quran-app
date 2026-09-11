@@ -2646,10 +2646,13 @@ class MushafLine extends StatelessWidget {
   final Map<int, List<String>> surahStartsByLine;
   final String? highlightedVerseKey;
   final Set<String>? highlightedVerseKeys;
+  final Set<String>? weakVerseKeys;
+  final Set<String>? hintedVerseKeys;
   final ValueChanged<String> onVerseTap;
   final ValueChanged<String> onVerseLongPressStart;
   final ValueChanged<String> onVerseLongPress;
   final bool Function(String)? isVerseHidden;
+  final bool Function(String verseKey, int wordPosition)? isWordHidden;
   final bool isPeekActive;
 
   const MushafLine({super.key, 
@@ -2665,10 +2668,13 @@ class MushafLine extends StatelessWidget {
     required this.surahStartsByLine,
     required this.highlightedVerseKey,
     this.highlightedVerseKeys,
+    this.weakVerseKeys,
+    this.hintedVerseKeys,
     required this.onVerseTap,
     required this.onVerseLongPressStart,
     required this.onVerseLongPress,
     this.isVerseHidden,
+    this.isWordHidden,
     this.isPeekActive = false,
   });
 
@@ -2727,12 +2733,22 @@ class MushafLine extends StatelessWidget {
     for (int i = 0; i < line.length; i++) {
       final word = line[i];
       final isEndWord = verseEndWords.contains(word);
-      final isWordHidden = (isVerseHidden?.call(word.verseKey) ?? false) && !isPeekActive && !isEndWord;
-      final isHighlighted = (highlightedVerseKeys?.contains(word.verseKey) ?? false) || highlightedVerseKey == word.verseKey;
+      final isWordHidden = ((this.isWordHidden != null)
+              ? this.isWordHidden!(word.verseKey, word.position)
+              : (isVerseHidden?.call(word.verseKey) ?? false)) &&
+          !isPeekActive &&
+          !isEndWord;
+      final isWeak = (weakVerseKeys?.contains(word.verseKey) ?? false) && !isWordHidden;
+      final isHinted = (hintedVerseKeys?.contains(word.verseKey) ?? false) && !isWordHidden && word.position == 1;
+      final isHighlighted = (((highlightedVerseKeys?.contains(word.verseKey) ?? false) || highlightedVerseKey == word.verseKey) && !isWordHidden);
       final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-      final highlightColor = isHighlighted
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: isDarkMode ? 0.20 : 0.10)
-          : null;
+      final highlightColor = isWeak
+          ? Theme.of(context).colorScheme.error.withValues(alpha: isDarkMode ? 0.32 : 0.18)
+          : (isHinted
+              ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: isDarkMode ? 0.45 : 0.35)
+              : (isHighlighted
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: isDarkMode ? 0.20 : 0.10)
+                  : null));
 
       final wordColor = isWordHidden
           ? Colors.transparent

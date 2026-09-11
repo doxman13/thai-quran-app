@@ -35,6 +35,8 @@ import '../widgets/word_by_word_strip.dart';
 import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
 import '../utils/html_parser.dart';
+import '../providers/recitation_tracker_provider.dart';
+import '../widgets/voice_recitation_banner.dart';
 
 class HifzMemorizeScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -71,7 +73,7 @@ class HifzMemorizeScreen extends StatefulWidget {
 }
 
 class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const _channel = MethodChannel('com.abuzayd.iqra/key_events');
   int _lastBleClickCount = 0;
   bool _isBleListenerAttached = false;
@@ -94,33 +96,280 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   bool _isTransitioningStep = false;
   String _transitionBannerMessage = '';
 
+  // Voice recitation tracking state
+  final Set<int> _voiceRevealedVerses = {};
+  final Set<int> _weakOrAssistedVerses = {};
+  int? _lastSkippedVerse;
+  int? _hintedVerse;
+
   // Controls whether the top/bottom UI chrome is visible
   bool _chromeVisible = true;
   late AnimationController _chromeAnimController;
   late Animation<double> _chromeAnim;
 
+  // List view scrolling & item keys
+  final ScrollController _listScrollController = ScrollController();
+  final Map<String, GlobalKey> _verseItemKeys = {};
+
+  // Audio recitation tracking for page/list synchronization
+  MushafAudioProvider? _audioProvider;
+  String? _lastObservedAudioVerseKey;
+
+  GlobalKey _keyForVerse(int surah, int verse) {
+    return _verseItemKeys.putIfAbsent('$surah:$verse', GlobalKey.new);
+  }
+
+  Future<void> _animateToMushafPage(int targetPage, {bool animate = true}) async {
+    final clampedPage = targetPage.clamp(1, 604);
+    if (_currentPage == clampedPage) return;
+
+    _currentPage = clampedPage;
+    _selectedPage = clampedPage;
+
+    if (!mounted) return;
+
+    try {
+      final isNewVerses = _hifzProvider.sessionType == HifzSessionType.newVerses;
+      if (isNewVerses) {
+        if (_newVersesPageController.hasClients) {
+          final pageIndex = (clampedPage - 1).clamp(0, 603);
+          if (animate) {
+            await _newVersesPageController.animateToPage(
+              pageIndex,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+            );
+          } else {
+            _newVersesPageController.jumpToPage(pageIndex);
+          }
+        }
+      } else {
+        if (_reviewPageController.hasClients) {
+          final step = _hifzProvider.currentReviewStep;
+          if (step != null) {
+            final int basePageForStep;
+            if (_hifzProvider.reviewGranularity == ReviewGranularity.byPage) {
+              basePageForStep = step.primaryIndex;
+            } else {
+              final surah = step.surahNumber ?? step.primaryIndex;
+              final verse = step.verseStart ?? 1;
+              basePageForStep = qcf.getPageNumber(surah, verse);
+            }
+            final offset = clampedPage - basePageForStep;
+            _reviewPageOffset = offset;
+            final targetIndex = 10000 + offset;
+            if (animate) {
+              await _reviewPageController.animateToPage(
+                targetIndex,
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+              );
+            } else {
+              _reviewPageController.jumpToPage(targetIndex);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error navigating to page $clampedPage: $e');
+    }
+  }
+
+  void _scrollToVerse(int surah, int verse, {bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = _verseItemKeys['$surah:$verse'];
+      final targetContext = key?.currentContext;
+      if (targetContext != null) {
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: animate ? const Duration(milliseconds: 350) : Duration.zero,
+          curve: Curves.easeInOutCubic,
+          alignment: 0.12,
+        );
+      } else if (_listScrollController.hasClients) {
+        final isNewVerses = _hifzProvider.sessionType == HifzSessionType.newVerses;
+        int index = 0;
+        if (isNewVerses) {
+          final startDisplayVerse = _selectedRepeatStart < _selectedStartVerse
+              ? _selectedRepeatStart
+              : _selectedStartVerse;
+          index = (verse - startDisplayVerse).clamp(0, 999);
+        } else {
+          final step = _hifzProvider.currentReviewStep;
+          if (step != null) {
+            final verses = _getVersesForReviewStep(step, _hifzProvider.reviewGranularity);
+            final idx = verses.indexWhere((v) => v.$1 == surah && v.$2 == verse);
+            if (idx >= 0) index = idx;
+          }
+        }
+        final estimatedOffset = (index * 140.0).clamp(0.0, _listScrollController.position.maxScrollExtent);
+        if (animate) {
+          _listScrollController.animateTo(
+            estimatedOffset,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeInOutCubic,
+          );
+        } else {
+          _listScrollController.jumpTo(estimatedOffset);
+        }
+      }
+    });
+  }
+
+  (int surah, int verse) _getLatestReadingVerse() {
+    final surahNumber = _hifzProvider.currentSurahNumber;
+
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    if (tracker.isListening) {
+      return (surahNumber, tracker.currentExpectedAyah);
+    }
+
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+    if (audio.currentVerseKey != null) {
+      final parts = audio.currentVerseKey!.split(':');
+      if (parts.length == 2) {
+        final s = int.tryParse(parts[0]) ?? surahNumber;
+        final v = int.tryParse(parts[1]);
+        if (v != null) return (s, v);
+      }
+    }
+
+    if (_voiceRevealedVerses.isNotEmpty) {
+      return (surahNumber, _voiceRevealedVerses.last);
+    }
+
+    if (_hifzProvider.sessionType == HifzSessionType.newVerses) {
+      final task = _hifzProvider.currentTask;
+      if (task != null && task.verseNumbers.isNotEmpty) {
+        return (surahNumber, task.verseNumbers.first);
+      }
+      return (surahNumber, _selectedRepeatStart);
+    }
+
+    final step = _hifzProvider.currentReviewStep;
+    if (step != null) {
+      if (step.verseStart != null) {
+        return (step.surahNumber ?? surahNumber, step.verseStart!);
+      }
+      final pageData = qcf.getPageData(_currentPage);
+      if (pageData.isNotEmpty) {
+        final firstItem = pageData.first;
+        return (firstItem['surah'] as int, firstItem['start'] as int);
+      }
+    }
+
+    return (surahNumber, 1);
+  }
+
+  void _toggleMushafListView() {
+    final switchingToListView = _isMushafView;
+    setState(() {
+      _isMushafView = !_isMushafView;
+    });
+    if (switchingToListView) {
+      final (surah, verse) = _getLatestReadingVerse();
+      _scrollToVerse(surah, verse, animate: true);
+    } else {
+      final (surah, verse) = _getLatestReadingVerse();
+      final targetPage = qcf.getPageNumber(surah, verse);
+      if (targetPage != _currentPage) {
+        _animateToMushafPage(targetPage, animate: false);
+      }
+    }
+  }
+
+  void _handleRoundRestartOrStepChange(int surah, int startAyah) {
+    final targetPage = qcf.getPageNumber(surah, startAyah);
+    if (_isMushafView) {
+      if (targetPage != _currentPage) {
+        _animateToMushafPage(targetPage, animate: true);
+      }
+    } else {
+      _scrollToVerse(surah, startAyah, animate: true);
+    }
+  }
+
+  void _syncToCurrentTaskOrStepStart() {
+    final surahNumber = _hifzProvider.currentSurahNumber;
+    final int startAyah;
+    if (_hifzProvider.sessionType == HifzSessionType.newVerses) {
+      final task = _hifzProvider.currentTask;
+      startAyah = task != null ? task.verseNumbers.first : _selectedRepeatStart;
+    } else {
+      final step = _hifzProvider.currentReviewStep;
+      startAyah = step?.verseStart ?? 1;
+    }
+    _handleRoundRestartOrStepChange(surahNumber, startAyah);
+  }
+
+  void _onAudioStateChanged() {
+    final audio = _audioProvider;
+    if (audio == null || !audio.isPlaying) return;
+    final key = audio.currentVerseKey;
+    if (key == null || key == _lastObservedAudioVerseKey) return;
+    _lastObservedAudioVerseKey = key;
+
+    final parts = key.split(':');
+    if (parts.length != 2) return;
+    final surah = int.tryParse(parts[0]);
+    final verse = int.tryParse(parts[1]);
+    if (surah == null || verse == null) return;
+
+    final targetPage = qcf.getPageNumber(surah, verse);
+    if (_isMushafView) {
+      if (targetPage != _currentPage) {
+        _animateToMushafPage(targetPage, animate: true);
+      }
+    } else {
+      _scrollToVerse(surah, verse, animate: true);
+    }
+  }
+
   bool _isVerseHidden(int verseNum, HifzTask? currentTask) {
-    if (currentTask == null) return false;
+    final isReview = _hifzProvider.sessionType == HifzSessionType.review;
+    if (isReview) {
+      // In review mode: only hidden when in hidden review phase
+      if (!_hifzProvider.isTargetHidden) {
+        return false;
+      }
+      return !_voiceRevealedVerses.contains(verseNum);
+    }
+
     if (verseNum < _selectedRepeatStart || verseNum > _selectedEndVerse) {
       return false;
     }
+
+    // In New Verses mode:
+    if (currentTask == null) return false;
     final targetVerse = currentTask.verseNumbers.last;
     if (verseNum > targetVerse) {
+      // Future verses in progressive memorization are hidden
       return true;
     }
+
+    final bool isStageHidden;
     if (verseNum < targetVerse) {
       if (currentTask.type == TaskType.cumulativeLink) {
-        return _hifzProvider.isTargetHidden;
+        isStageHidden = _hifzProvider.isTargetHidden;
       } else {
-        return false;
+        isStageHidden = false;
       }
+    } else {
+      isStageHidden = _hifzProvider.isTargetHidden;
     }
-    return _hifzProvider.isTargetHidden;
+
+    if (!isStageHidden) {
+      return false;
+    }
+
+    return !_voiceRevealedVerses.contains(verseNum);
   }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentPage = widget.initialPage;
     _selectedPage = widget.initialPage;
 
@@ -143,6 +392,18 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         _applyInputModeSettings();
         if (widget.resumeSessionSnapshot == null) {
           _checkForResumableSession();
+        }
+
+        // Ensure recitation tracking is strictly stopped when entering a session
+        final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+        if (tracker.isListening) {
+          tracker.stopTracking();
+        }
+
+        // Warm up recitation engine in the background
+        final settings = Provider.of<SettingsProvider>(context, listen: false);
+        if (settings.voiceRecitationEnabled && !tracker.isEngineReady) {
+          tracker.initializeEngine();
         }
       }
     });
@@ -297,20 +558,244 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
 
     // 4. Update wakelock
-    if (settings.keepAwake) {
+    _updateWakelockState();
+
+    // 5. Update word-by-word visibility
+    _showWbw = settings.showWordByWord;
+  }
+
+  void _updateWakelockState() {
+    if (!mounted) return;
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (tracker.isListening || settings.keepAwake) {
       WakelockPlus.enable();
     } else {
       WakelockPlus.disable();
     }
+  }
 
-    // 5. Update word-by-word visibility
-    _showWbw = settings.showWordByWord;
+  void _toggleVoiceRecitationMic(RecitationTrackerProvider tracker) async {
+    if (tracker.isListening) {
+      await tracker.stopTracking();
+      _updateWakelockState();
+      if (mounted) setState(() {});
+      return;
+    }
+
+    if (!_hifzProvider.isVoiceTrackingEligible) {
+      return;
+    }
+
+    if (tracker.isInitializing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Recitation engine is warming up, please wait a moment...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final isReview = _hifzProvider.sessionType == HifzSessionType.review;
+    final int surahNumber;
+    final int startAyah;
+    final int endAyah;
+    final int totalNeeded;
+
+    if (isReview) {
+      final step = _hifzProvider.currentReviewStep;
+      surahNumber = _hifzProvider.currentSurahNumber;
+      startAyah = step?.verseStart ?? 1;
+      endAyah = step?.verseEnd ?? qcf.getVerseCount(surahNumber);
+      totalNeeded = endAyah - startAyah + 1;
+    } else if (_hifzProvider.currentTask != null) {
+      final task = _hifzProvider.currentTask!;
+      surahNumber = _hifzProvider.currentSurahNumber;
+      startAyah = task.verseNumbers.first;
+      endAyah = task.verseNumbers.last;
+      totalNeeded = task.verseNumbers.length;
+    } else {
+      surahNumber = _hifzProvider.currentSurahNumber;
+      startAyah = _selectedRepeatStart;
+      endAyah = _selectedEndVerse;
+      totalNeeded = _selectedEndVerse - _selectedRepeatStart + 1;
+    }
+
+    _voiceRevealedVerses.clear();
+    _lastSkippedVerse = null;
+    _hintedVerse = null;
+
+    try {
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      WakelockPlus.enable();
+      await tracker.startTracking(
+        surah: surahNumber,
+        startAyah: startAyah,
+        endAyah: endAyah,
+        sensitivity: settings.voiceRecitationSensitivity,
+        adaptiveNoise: settings.voiceRecitationAdaptiveNoise,
+        onVerseMatched: (ayah) {
+          if (!mounted) return;
+          setState(() {
+            _voiceRevealedVerses.add(ayah);
+            _lastSkippedVerse = null;
+            if (_hintedVerse == ayah) {
+              _hintedVerse = null;
+            }
+          });
+          HapticFeedback.lightImpact();
+
+          if (_voiceRevealedVerses.length >= totalNeeded) {
+            _handleIncrementOrAdvance(clearVoiceImmediately: false);
+            Future.delayed(const Duration(milliseconds: 1000), () {
+              if (!mounted) return;
+              if (!_isTransitioningStep) {
+                setState(() {
+                  _voiceRevealedVerses.clear();
+                  _hintedVerse = null;
+                });
+                if (tracker.isListening) {
+                  tracker.setExpectedAyah(startAyah);
+                }
+                _handleRoundRestartOrStepChange(surahNumber, startAyah);
+              }
+            });
+          } else {
+            final nextAyah = ayah + 1;
+            if (nextAyah <= endAyah) {
+              final targetPage = qcf.getPageNumber(surahNumber, nextAyah);
+              if (_isMushafView) {
+                if (targetPage != _currentPage) {
+                  Future.delayed(const Duration(milliseconds: 350), () {
+                    if (mounted && _isMushafView && targetPage != _currentPage) {
+                      _animateToMushafPage(targetPage, animate: true);
+                    }
+                  });
+                }
+              } else {
+                _scrollToVerse(surahNumber, nextAyah, animate: true);
+              }
+            }
+          }
+        },
+        onVerseSkipped: (expectedAyah, jumpedToAyah) {
+          if (!mounted) return;
+          HapticFeedback.heavyImpact();
+          setState(() {
+            _lastSkippedVerse = expectedAyah;
+          });
+        },
+      );
+    } catch (e) {
+      _updateWakelockState();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not start voice tracking: $e')),
+        );
+      }
+    }
+    _updateWakelockState();
+    if (mounted) setState(() {});
+  }
+
+  void _handleSkipOrRevealCurrentVerse(RecitationTrackerProvider tracker) {
+    if (!tracker.isListening) return;
+
+    final stuckAyah = tracker.currentExpectedAyah;
+    final isReview = _hifzProvider.sessionType == HifzSessionType.review;
+    final int surahNumber = _hifzProvider.currentSurahNumber;
+
+    final int startAyah;
+    final int endAyah;
+    final int totalNeeded;
+
+    if (isReview) {
+      final step = _hifzProvider.currentReviewStep;
+      startAyah = step?.verseStart ?? 1;
+      endAyah = step?.verseEnd ?? qcf.getVerseCount(surahNumber);
+      totalNeeded = endAyah - startAyah + 1;
+    } else if (_hifzProvider.currentTask != null) {
+      final task = _hifzProvider.currentTask!;
+      startAyah = task.verseNumbers.first;
+      endAyah = task.verseNumbers.last;
+      totalNeeded = task.verseNumbers.length;
+    } else {
+      startAyah = _selectedRepeatStart;
+      endAyah = _selectedEndVerse;
+      totalNeeded = _selectedEndVerse - _selectedRepeatStart + 1;
+    }
+
+    // Stage 1: If current stuck verse is not yet hinted, hint it (reveal 1st word, do NOT advance tracker)
+    if (_hintedVerse != stuckAyah) {
+      setState(() {
+        _hintedVerse = stuckAyah;
+      });
+      HapticFeedback.lightImpact();
+      return;
+    }
+
+    // Stage 2: Second tap -> Strikeout! Full reveal, mark as assisted/weakness, and advance tracker
+    setState(() {
+      _voiceRevealedVerses.add(stuckAyah);
+      _weakOrAssistedVerses.add(stuckAyah);
+      _hintedVerse = null;
+      _lastSkippedVerse = null;
+    });
+
+    HapticFeedback.mediumImpact();
+
+    // Advance expected verse target if within range
+    if (stuckAyah < endAyah) {
+      tracker.setExpectedAyah(stuckAyah + 1);
+    }
+
+    // If all verses in the set are revealed, advance repetition round
+    if (_voiceRevealedVerses.length >= totalNeeded) {
+      _handleIncrementOrAdvance(clearVoiceImmediately: false);
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (!mounted) return;
+        if (!_isTransitioningStep) {
+          setState(() {
+            _voiceRevealedVerses.clear();
+            _hintedVerse = null;
+          });
+          if (tracker.isListening) {
+            tracker.setExpectedAyah(startAyah);
+          }
+          _handleRoundRestartOrStepChange(surahNumber, startAyah);
+        }
+      });
+    } else {
+      final nextAyah = stuckAyah + 1;
+      if (nextAyah <= endAyah) {
+        final targetPage = qcf.getPageNumber(surahNumber, nextAyah);
+        if (_isMushafView) {
+          if (targetPage != _currentPage) {
+            Future.delayed(const Duration(milliseconds: 350), () {
+              if (mounted && _isMushafView && targetPage != _currentPage) {
+                _animateToMushafPage(targetPage, animate: true);
+              }
+            });
+          }
+        } else {
+          _scrollToVerse(surahNumber, nextAyah, animate: true);
+        }
+      }
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _applyInputModeSettings();
+
+    final audio = Provider.of<MushafAudioProvider>(context);
+    if (_audioProvider != audio) {
+      _audioProvider?.removeListener(_onAudioStateChanged);
+      _audioProvider = audio;
+      _audioProvider?.addListener(_onAudioStateChanged);
+    }
   }
 
   void _onBleClick() {
@@ -325,7 +810,24 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _updateWakelockState();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _audioProvider?.removeListener(_onAudioStateChanged);
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    if (tracker.isListening) {
+      tracker.stopTracking();
+    }
+
     if (_isBleListenerAttached) {
       Provider.of<BleRemoteProvider>(context, listen: false)
           .removeListener(_onBleClick);
@@ -335,6 +837,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     _channel.invokeMethod('setInputMode', {'mode': 'none'});
     _channel.setMethodCallHandler(null);
 
+    _listScrollController.dispose();
     _newVersesPageController.dispose();
     _reviewPageController.dispose();
     _hiddenInputFocusNode.dispose();
@@ -1549,8 +2052,46 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         // Collapsible top chrome
                         SizeTransition(
                           sizeFactor: _chromeAnim,
-                          child: _buildCompactTopBar(
-                              context, provider, colorScheme, textTheme, isReview),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildCompactTopBar(
+                                  context, provider, colorScheme, textTheme, isReview),
+                              Consumer<RecitationTrackerProvider>(
+                                builder: (context, tracker, _) {
+                                  if (!provider.isVoiceTrackingEligible &&
+                                      !tracker.isListening &&
+                                      tracker.errorMessage == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  if (!tracker.isListening &&
+                                      tracker.skippedFromAyah == null &&
+                                      !tracker.isInitializing &&
+                                      tracker.errorMessage == null) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return VoiceRecitationBanner(
+                                    tracker: tracker,
+                                    onToggleMic: () => _toggleVoiceRecitationMic(tracker),
+                                    onDismissAlert: () {
+                                      tracker.dismissSkipAlert();
+                                      setState(() => _lastSkippedVerse = null);
+                                    },
+                                    onRetryVerse: (ayah) {
+                                      tracker.retryVerse(ayah);
+                                      setState(() => _lastSkippedVerse = null);
+                                    },
+                                    onAcceptSkip: (fromAyah, toAyah) {
+                                      tracker.acceptSkip();
+                                      setState(() => _lastSkippedVerse = null);
+                                    },
+                                    onSkipOrRevealNextVerse: () => _handleSkipOrRevealCurrentVerse(tracker),
+                                    isCurrentVerseHinted: _hintedVerse == tracker.currentExpectedAyah,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ),
 
                         // Reading area - takes all remaining space
@@ -1801,7 +2342,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               size: 20,
             ),
             tooltip: _isMushafView ? 'List View' : 'Mushaf View',
-            onPressed: () => setState(() => _isMushafView = !_isMushafView),
+            onPressed: _toggleMushafListView,
           ),
 
           // Visibility toggle (Show / Hide text override)
@@ -1817,6 +2358,46 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ),
             tooltip: provider.isTargetHidden ? 'Show Text' : 'Hide Text',
             onPressed: () => provider.toggleVisibilityOverride(),
+          ),
+
+          // Voice Recitation toggle button (only in eligible hidden stages)
+          if (provider.isVoiceTrackingEligible)
+            Consumer<RecitationTrackerProvider>(
+              builder: (context, tracker, _) {
+              final isListening = tracker.isListening;
+              final isInit = tracker.isInitializing;
+              return IconButton(
+                icon: isInit
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isListening
+                              ? colorScheme.primaryContainer
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                          color: isListening
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                      ),
+                tooltip: isListening
+                    ? 'Voice Recitation Active (Tap to pause)'
+                    : 'Start Voice Recitation',
+                onPressed: () => _toggleVoiceRecitationMic(tracker),
+              );
+            },
           ),
 
           // Gear/more icon with popup menu (all settings consolidated)
@@ -1945,6 +2526,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       onPageChanged: (index) {
         setState(() {
           _reviewPageOffset = index - 10000;
+          _currentPage = (basePageForStep + _reviewPageOffset).clamp(1, 604);
         });
       },
       itemBuilder: (context, index) {
@@ -2014,6 +2596,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
 
     return ListView.separated(
+      controller: _listScrollController,
       padding: const EdgeInsets.all(16),
       itemCount: verses.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -2021,8 +2604,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         final (surahNum, verseNum) = verses[index];
         final verseKey = '$surahNum:$verseNum';
         final translation = _getVerseTranslationText(context, surahNum, verseNum);
+        final isVerseHidden = isHidden && !_voiceRevealedVerses.contains(verseNum);
 
-        return Consumer<MushafAudioProvider>(
+        return KeyedSubtree(
+          key: _keyForVerse(surahNum, verseNum),
+          child: Consumer<MushafAudioProvider>(
           builder: (context, audio, _) {
             final isCurrentPlaying =
                 audio.isPlaying && audio.currentVerseKey == verseKey;
@@ -2072,17 +2658,27 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             final showBismillah =
                 (verseNum == 1) && surahNum != 1 && surahNum != 9;
 
+            final isWeak = _weakOrAssistedVerses.contains(verseNum);
+            final isHinted = isVerseHidden && _hintedVerse == verseNum;
             final card = AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
+                color: isWeak
+                    ? colorScheme.errorContainer.withValues(alpha: 0.20)
+                    : (isHinted
+                        ? colorScheme.primaryContainer.withValues(alpha: 0.15)
+                        : colorScheme.surfaceContainerLow),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isCurrentPlaying
                       ? colorScheme.primary
-                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  width: isCurrentPlaying ? 1.5 : 1.0,
+                      : (isWeak
+                          ? colorScheme.error.withValues(alpha: 0.55)
+                          : (isHinted
+                              ? colorScheme.primary.withValues(alpha: 0.5)
+                              : colorScheme.outlineVariant.withValues(alpha: 0.3))),
+                  width: (isCurrentPlaying || isWeak || isHinted) ? 1.5 : 1.0,
                 ),
               ),
               child: Column(
@@ -2099,9 +2695,63 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: colorScheme.primary.withValues(alpha: 0.8),
+                              color: isWeak
+                                  ? colorScheme.error
+                                  : colorScheme.primary.withValues(alpha: 0.8),
                             ),
                           ),
+                          if (isWeak) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colorScheme.errorContainer.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.flag_outlined, size: 12, color: colorScheme.error),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Assisted',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.error,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (isHinted) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.lightbulb_outline_rounded, size: 12, color: colorScheme.onPrimaryContainer),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Hint: 1st word',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (OfflineQuranDatabaseService.hasMutashabihatSync(
                               verseKey)) ...[
                             const SizedBox(width: 8),
@@ -2339,6 +2989,50 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               arabicText,
                               verseNumber: verseNum,
                             );
+                            final isHintedVerse = isVerseHidden && _hintedVerse == verseNum;
+                            final firstSpaceIndex = cleanedText.indexOf(' ');
+                            final List<InlineSpan> spans;
+                            if (isHintedVerse) {
+                              if (firstSpaceIndex != -1) {
+                                spans = [
+                                  TextSpan(
+                                    text: cleanedText.substring(0, firstSpaceIndex),
+                                    style: TextStyle(
+                                      color: textTheme.bodyLarge?.color,
+                                      backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: cleanedText.substring(firstSpaceIndex),
+                                    style: const TextStyle(
+                                      color: Colors.transparent,
+                                    ),
+                                  ),
+                                ];
+                              } else {
+                                spans = [
+                                  TextSpan(
+                                    text: cleanedText,
+                                    style: TextStyle(
+                                      color: textTheme.bodyLarge?.color,
+                                      backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ];
+                              }
+                            } else {
+                              spans = [
+                                TextSpan(
+                                  text: cleanedText,
+                                  style: TextStyle(
+                                    color: isVerseHidden
+                                        ? Colors.transparent
+                                        : textTheme.bodyLarge?.color,
+                                  ),
+                                ),
+                              ];
+                            }
+
                             return Directionality(
                               textDirection: TextDirection.rtl,
                               child: RichText(
@@ -2350,16 +3044,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     fontSize: 28,
                                     height: 2.0,
                                   ),
-                                  children: [
-                                    TextSpan(
-                                      text: cleanedText,
-                                      style: TextStyle(
-                                        color: isHidden
-                                            ? Colors.transparent
-                                            : textTheme.bodyLarge?.color,
-                                      ),
-                                    ),
-                                  ],
+                                  children: spans,
                                 ),
                               ),
                             );
@@ -2372,7 +3057,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     const SizedBox(height: 12),
                     WordByWordView(
                       verseKey: verseKey,
-                      isHidden: isHidden,
+                      isHidden: isVerseHidden,
                       isDarkMode:
                           Theme.of(context).brightness == Brightness.dark,
                     ),
@@ -2396,15 +3081,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             context,
                             fontSize: settings.translationFontSize,
                             height: 1.5,
-                            color: isHidden
+                            color: isVerseHidden
                                 ? Colors.transparent
                                 : colorScheme.onSurfaceVariant,
                             translationId: settings.primaryTranslationId,
                           ),
-                          isHidden ? Colors.transparent : colorScheme.primary,
+                          isVerseHidden ? Colors.transparent : colorScheme.primary,
                           verseKey: verseKey,
                           translationId: settings.primaryTranslationId,
-                          isInteractive: !isHidden,
+                          isInteractive: !isVerseHidden,
                         ),
                       ),
                     ),
@@ -2436,6 +3121,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               ],
             );
           },
+        ),
         );
       },
     );
@@ -2523,17 +3209,57 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                 surahStartsByLine: surahStartsByLine,
                                 highlightedVerseKey: null,
                                 highlightedVerseKeys: isHiddenPhase
-                                    ? const {}
+                                    ? (activeSurah != null
+                                        ? _voiceRevealedVerses
+                                            .map((v) => '$activeSurah:$v')
+                                            .toSet()
+                                        : const <String>{})
                                     : highlightedVerseKeys,
+                                weakVerseKeys: activeSurah != null
+                                    ? _weakOrAssistedVerses
+                                        .map((v) => '$activeSurah:$v')
+                                        .toSet()
+                                    : const <String>{},
+                                hintedVerseKeys: (activeSurah != null && _hintedVerse != null)
+                                    ? {'$activeSurah:$_hintedVerse'}
+                                    : null,
                                 onVerseTap: (_) => _toggleChrome(),
                                 onVerseLongPressStart: (_) {},
                                 onVerseLongPress: (_) {},
                                 isVerseHidden: (verseKey) {
                                   if (!isHiddenPhase) return false;
                                   if (activeSurah == null) {
-                                    return true;
+                                    return false;
                                   }
-                                  return highlightedVerseKeys.contains(verseKey);
+                                  if (!highlightedVerseKeys.contains(verseKey)) {
+                                    return false;
+                                  }
+                                  final parts = verseKey.split(':');
+                                  if (parts.length == 2 && parts[0] == activeSurah.toString()) {
+                                    final vNum = int.tryParse(parts[1]);
+                                    if (vNum != null) {
+                                      return !_voiceRevealedVerses.contains(vNum);
+                                    }
+                                  }
+                                  return false;
+                                },
+                                isWordHidden: (verseKey, wordPosition) {
+                                  if (activeSurah != null &&
+                                      _hintedVerse != null &&
+                                      verseKey == '$activeSurah:$_hintedVerse') {
+                                    return wordPosition != 1;
+                                  }
+                                  if (!isHiddenPhase) return false;
+                                  if (activeSurah == null) return false;
+                                  if (!highlightedVerseKeys.contains(verseKey)) return false;
+                                  final parts = verseKey.split(':');
+                                  if (parts.length == 2 && parts[0] == activeSurah.toString()) {
+                                    final vNum = int.tryParse(parts[1]);
+                                    if (vNum != null) {
+                                      return !_voiceRevealedVerses.contains(vNum);
+                                    }
+                                  }
+                                  return false;
                                 },
                                 isPeekActive: false,
                               ),
@@ -2849,6 +3575,45 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     accentColor: phaseColor,
                     onTap: () => _showResetDialog(context),
                   ),
+                  if (provider.isVoiceTrackingEligible) ...[
+                    const SizedBox(width: 6),
+                    Consumer<RecitationTrackerProvider>(
+                      builder: (context, tracker, _) {
+                        final isListening = tracker.isListening;
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildActionButton(
+                              context: context,
+                              icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                              tooltip: isListening
+                                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
+                                  : 'Start Voice Tracking (Hold for precision)',
+                              accentColor: isListening ? colorScheme.primary : phaseColor,
+                              onTap: () => _toggleVoiceRecitationMic(tracker),
+                              onLongPress: () => VoiceRecitationBanner.showSensitivitySheet(context, tracker),
+                            ),
+                            if (isListening) ...[
+                              const SizedBox(width: 6),
+                              _buildActionButton(
+                                context: context,
+                                icon: _hintedVerse == tracker.currentExpectedAyah
+                                    ? Icons.arrow_forward_rounded
+                                    : Icons.lightbulb_outline_rounded,
+                                tooltip: _hintedVerse == tracker.currentExpectedAyah
+                                    ? 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)'
+                                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
+                                accentColor: _hintedVerse == tracker.currentExpectedAyah
+                                    ? colorScheme.error
+                                    : colorScheme.primary,
+                                onTap: () => _handleSkipOrRevealCurrentVerse(tracker),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2884,6 +3649,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required String tooltip,
     required Color accentColor,
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -2891,6 +3657,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(10),
         child: Tooltip(
           message: tooltip,
@@ -2979,6 +3746,59 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     accentColor: taskColor,
                     onTap: () => _showResetDialog(context),
                   ),
+                  if (provider.isVoiceTrackingEligible) ...[
+                    const SizedBox(width: 6),
+                    Consumer<RecitationTrackerProvider>(
+                      builder: (context, tracker, _) {
+                        final isListening = tracker.isListening;
+                        final isInit = tracker.isInitializing;
+                        if (isInit) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          );
+                        }
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildActionButton(
+                              context: context,
+                              icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                              tooltip: isListening
+                                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
+                                  : 'Start Voice Tracking (Hold for precision)',
+                              accentColor: isListening ? colorScheme.primary : taskColor,
+                              onTap: () => _toggleVoiceRecitationMic(tracker),
+                              onLongPress: () => VoiceRecitationBanner.showSensitivitySheet(context, tracker),
+                            ),
+                            if (isListening) ...[
+                              const SizedBox(width: 6),
+                              _buildActionButton(
+                                context: context,
+                                icon: _hintedVerse == tracker.currentExpectedAyah
+                                    ? Icons.arrow_forward_rounded
+                                    : Icons.lightbulb_outline_rounded,
+                                tooltip: _hintedVerse == tracker.currentExpectedAyah
+                                    ? 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)'
+                                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
+                                accentColor: _hintedVerse == tracker.currentExpectedAyah
+                                    ? colorScheme.error
+                                    : colorScheme.primary,
+                                onTap: () => _handleSkipOrRevealCurrentVerse(tracker),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -3011,7 +3831,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   // Increment / advance logic
   // ---------------------------------------------------------------------------
-  void _handleIncrementOrAdvance() {
+  void _handleIncrementOrAdvance({bool clearVoiceImmediately = true}) {
     if (_isTransitioningStep) return;
 
     final isNewVerses = _hifzProvider.sessionType == HifzSessionType.newVerses;
@@ -3026,11 +3846,36 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final audio = Provider.of<MushafAudioProvider>(context, listen: false);
     if (audio.isPlaying) return;
 
-    // Already completed – nothing to do
-    if (currentCount >= targetCount) return;
+    // Already completed – advance to next step
+    if (currentCount >= targetCount) {
+      _triggerStepCompletionAndHold();
+      return;
+    }
 
     _hifzProvider.incrementProgress();
     HapticFeedback.lightImpact();
+
+    // When advancing round via tally click, immediately clear revealed verses so the new round hides the range again
+    if (clearVoiceImmediately) {
+      final int startAyah;
+      if (isNewVerses) {
+        final task = _hifzProvider.currentTask;
+        startAyah = task != null ? task.verseNumbers.first : _selectedRepeatStart;
+      } else {
+        final step = _hifzProvider.currentReviewStep;
+        startAyah = step?.verseStart ?? 1;
+      }
+      setState(() {
+        _voiceRevealedVerses.clear();
+        _lastSkippedVerse = null;
+        _hintedVerse = null;
+      });
+      final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+      if (tracker.isListening) {
+        tracker.setExpectedAyah(startAyah);
+      }
+      _handleRoundRestartOrStepChange(_hifzProvider.currentSurahNumber, startAyah);
+    }
 
     final int newCount = isNewVerses
         ? (_hifzProvider.currentTask?.currentProgress ?? 0)
@@ -3051,10 +3896,21 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (!mounted) return;
       _hifzProvider.advanceStepOrPhase();
+      _voiceRevealedVerses.clear();
+      _weakOrAssistedVerses.clear();
+      _lastSkippedVerse = null;
+      _hintedVerse = null;
+      final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+      // Never auto-toggle mic for a new step or range: always stop tracking on step completion
+      if (tracker.isListening) {
+        tracker.stopTracking();
+        _updateWakelockState();
+      }
       setState(() {
         _isTransitioningStep = false;
         _transitionBannerMessage = '';
       });
+      _syncToCurrentTaskOrStepStart();
     });
   }
 
@@ -3063,9 +3919,21 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final audio = Provider.of<MushafAudioProvider>(context, listen: false);
     if (audio.isPlaying) return;
     _hifzProvider.undoLastIncrement();
+    _voiceRevealedVerses.clear();
+    _weakOrAssistedVerses.clear();
+    _lastSkippedVerse = null;
+    _hintedVerse = null;
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    if (tracker.isListening) {
+      tracker.stopTracking();
+      _updateWakelockState();
+    }
+    _syncToCurrentTaskOrStepStart();
+    setState(() {});
   }
 
   Future<void> _showResetDialog(BuildContext context) async {
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final isThai = settings.languageCode == 'th';
     final choice = await showDialog<String>(
@@ -3106,10 +3974,28 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
 
     if (choice == null || !mounted) return;
+    _voiceRevealedVerses.clear();
+    _weakOrAssistedVerses.clear();
+    _lastSkippedVerse = null;
+    _hintedVerse = null;
     if (choice == 'current') {
       _hifzProvider.resetCurrentTask();
+      if (!_hifzProvider.isVoiceTrackingEligible) {
+        if (tracker.isListening) {
+          tracker.stopTracking();
+          _updateWakelockState();
+        }
+      }
+      _syncToCurrentTaskOrStepStart();
+      setState(() {});
     } else if (choice == 'all') {
       _hifzProvider.resetSession();
+      if (tracker.isListening) {
+        tracker.stopTracking();
+        _updateWakelockState();
+      }
+      _syncToCurrentTaskOrStepStart();
+      setState(() {});
     }
   }
 
@@ -3327,11 +4213,34 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     surahStartsByLine: surahStartsByLine,
                                     highlightedVerseKey: null,
                                     highlightedVerseKeys: highlightedKeys,
+                                    weakVerseKeys: _weakOrAssistedVerses
+                                        .map((v) => '${provider.surahNumber}:$v')
+                                        .toSet(),
+                                    hintedVerseKeys: _hintedVerse != null
+                                        ? {'${provider.surahNumber}:$_hintedVerse'}
+                                        : null,
                                     onVerseTap: (_) => _toggleChrome(),
                                     onVerseLongPressStart: (_) {},
                                     onVerseLongPress: (_) {},
                                     isVerseHidden: (verseKey) {
                                       if (currentTask == null) return false;
+                                      final parts = verseKey.split(':');
+                                      if (parts.length == 2 &&
+                                          parts[0] ==
+                                              provider.surahNumber.toString()) {
+                                        final vNum = int.tryParse(parts[1]);
+                                        if (vNum != null) {
+                                          return _isVerseHidden(vNum, currentTask);
+                                        }
+                                      }
+                                      return false;
+                                    },
+                                    isWordHidden: (verseKey, wordPosition) {
+                                      if (currentTask == null) return false;
+                                      if (_hintedVerse != null &&
+                                          verseKey == '${provider.surahNumber}:$_hintedVerse') {
+                                        return wordPosition != 1;
+                                      }
                                       final parts = verseKey.split(':');
                                       if (parts.length == 2 &&
                                           parts[0] ==
@@ -3381,6 +4290,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         : _selectedStartVerse;
 
     return ListView.separated(
+      controller: _listScrollController,
       padding: const EdgeInsets.all(16),
       itemCount: _selectedEndVerse - startDisplayVerse + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -3392,7 +4302,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         final translation =
             _getVerseTranslationText(context, provider.surahNumber, verseNum);
 
-        return Consumer<MushafAudioProvider>(
+        return KeyedSubtree(
+          key: _keyForVerse(provider.surahNumber, verseNum),
+          child: Consumer<MushafAudioProvider>(
           builder: (context, audio, _) {
             final isCurrentPlaying = audio.isPlaying &&
                 audio.currentVerseKey == '${provider.surahNumber}:$verseNum';
@@ -3445,21 +4357,36 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                 provider.surahNumber != 1 &&
                 provider.surahNumber != 9;
 
+            final isSkipped = _lastSkippedVerse == verseNum;
+            final isWeak = _weakOrAssistedVerses.contains(verseNum);
+            final isHinted = isHidden && _hintedVerse == verseNum;
             final card = AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isTarget
-                    ? (isHidden
-                        ? colorScheme.primaryContainer.withValues(alpha: 0.04)
-                        : colorScheme.primaryContainer.withValues(alpha: 0.08))
-                    : colorScheme.surfaceContainerLow,
+                color: isWeak
+                    ? colorScheme.errorContainer.withValues(alpha: 0.20)
+                    : (isSkipped
+                        ? colorScheme.errorContainer.withValues(alpha: 0.15)
+                        : (isHinted
+                            ? colorScheme.primaryContainer.withValues(alpha: 0.15)
+                            : (isTarget
+                                ? (isHidden
+                                    ? colorScheme.primaryContainer.withValues(alpha: 0.04)
+                                    : colorScheme.primaryContainer.withValues(alpha: 0.08))
+                                : colorScheme.surfaceContainerLow))),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isTarget
-                      ? colorScheme.primary
-                      : colorScheme.outlineVariant.withValues(alpha: 0.3),
-                  width: isTarget ? 1.5 : 1.0,
+                  color: isWeak
+                      ? colorScheme.error.withValues(alpha: 0.55)
+                      : (isSkipped
+                          ? colorScheme.error
+                          : (isHinted
+                              ? colorScheme.primary.withValues(alpha: 0.5)
+                              : (isTarget
+                                  ? colorScheme.primary
+                                  : colorScheme.outlineVariant.withValues(alpha: 0.3)))),
+                  width: (isWeak || isSkipped || isHinted) ? 2.0 : (isTarget ? 1.5 : 1.0),
                 ),
               ),
               child: Column(
@@ -3476,9 +4403,63 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: colorScheme.primary.withValues(alpha: 0.8),
+                              color: isWeak
+                                  ? colorScheme.error
+                                  : colorScheme.primary.withValues(alpha: 0.8),
                             ),
                           ),
+                          if (isWeak) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colorScheme.errorContainer.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.flag_outlined, size: 12, color: colorScheme.error),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Assisted',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.error,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (isHinted) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.lightbulb_outline_rounded, size: 12, color: colorScheme.onPrimaryContainer),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Hint: 1st word',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (OfflineQuranDatabaseService.hasMutashabihatSync(verseKey)) ...[
                             const SizedBox(width: 8),
                             InkWell(
@@ -3702,6 +4683,53 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               arabicText,
                               verseNumber: verseNum,
                             );
+                            final isHintedVerse = isHidden && _hintedVerse == verseNum;
+                            final firstSpaceIndex = cleanedText.indexOf(' ');
+                            final List<InlineSpan> spans;
+                            if (isHintedVerse) {
+                              if (firstSpaceIndex != -1) {
+                                spans = [
+                                  TextSpan(
+                                    text: cleanedText.substring(0, firstSpaceIndex),
+                                    style: TextStyle(
+                                      color: textTheme.bodyLarge?.color,
+                                      backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: cleanedText.substring(firstSpaceIndex),
+                                    style: const TextStyle(
+                                      color: Colors.transparent,
+                                    ),
+                                  ),
+                                ];
+                              } else {
+                                spans = [
+                                  TextSpan(
+                                    text: cleanedText,
+                                    style: TextStyle(
+                                      color: textTheme.bodyLarge?.color,
+                                      backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ];
+                              }
+                            } else {
+                              spans = [
+                                TextSpan(
+                                  text: cleanedText,
+                                  style: TextStyle(
+                                    color: isHidden
+                                        ? Colors.transparent
+                                        : (isTarget
+                                            ? textTheme.bodyLarge?.color
+                                            : textTheme.bodyLarge?.color
+                                                ?.withValues(alpha: 0.6)),
+                                  ),
+                                ),
+                              ];
+                            }
+
                             return Directionality(
                               textDirection: TextDirection.rtl,
                               child: RichText(
@@ -3713,19 +4741,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     fontSize: 28,
                                     height: 2.0,
                                   ),
-                                  children: [
-                                    TextSpan(
-                                      text: cleanedText,
-                                      style: TextStyle(
-                                        color: isHidden
-                                            ? Colors.transparent
-                                            : (isTarget
-                                                ? textTheme.bodyLarge?.color
-                                                : textTheme.bodyLarge?.color
-                                                    ?.withValues(alpha: 0.6)),
-                                      ),
-                                    ),
-                                  ],
+                                  children: spans,
                                 ),
                               ),
                             );
@@ -3799,6 +4815,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               ],
             );
           },
+        ),
         );
       },
     );

@@ -39,11 +39,16 @@ dependencies:
   firebase_core: ^4.12.1
   firebase_analytics: ^12.4.5
   intl: any
+  onnxruntime_v2: ^1.23.2+2
+  record: ^5.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+
+dependency_overrides:
+  record_linux: ^1.3.1
 
 flutter:
   uses-material-design: true
@@ -74,6 +79,7 @@ flutter:
     - assets/en_bridges.json
     - assets/ms_basmeih.json
     - assets/en_usmani.json
+    - assets/models/
 
   fonts:
     - family: UthmanicHafs
