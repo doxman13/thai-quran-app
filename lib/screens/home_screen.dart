@@ -27,6 +27,7 @@ import 'bookmarks_screen.dart';
 import 'profile_screen.dart';
 import 'browse_screen.dart';
 import 'hifz_landing_screen.dart';
+import 'hifz_wizard_setup_screen.dart';
 
 class _ModeSelectionCard extends StatelessWidget {
   final IconData icon;
@@ -1065,9 +1066,12 @@ class _HomeScreenState extends State<HomeScreen>
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => HifzLandingScreen(
+          builder: (_) => HifzWizardSetupScreen(
             quranRepository: widget.repository,
             foundationRepository: _foundationRepository,
+            initialSurah: surah,
+            initialStartVerse: verse,
+            initialStep: 0,
           ),
         ),
       );
@@ -1412,9 +1416,13 @@ class _HomeScreenState extends State<HomeScreen>
             // 1: Browse (Surahs)
             BrowseScreen(
               repository: widget.repository,
-              colors: settings.getAppColors(),
-              onOpen: _chooseBrowseDestination,
-              onOpenPage: _navigateToMushafFreeReadPage,
+              foundationRepository: _foundationRepository,
+              onOpenMushafPage: (page, {highlightVerseKey}) {
+                _navigateToMushafFreeReadPage(
+                  page,
+                  highlightedVerseKey: highlightVerseKey,
+                );
+              },
             ),
             // 2: Bookmarks
             BookmarksScreen(

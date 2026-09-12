@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/mushaf_models.dart';
 import '../services/tajweed_service.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+import 'medina_mushaf_pages.dart';
 
 class QuranFoundationConfig {
   static const liveContentBaseUrl =
@@ -87,8 +88,6 @@ class QuranFoundationException implements Exception {
 
 class QuranFoundationRepository {
   static const _cachePrefix = 'quran_foundation_cache_v5';
-  static final Map<String, MushafPage> _inMemoryPageCache = {};
-  static final Map<String, Future<MushafPage>> _inFlightPageFutures = {};
   final http.Client _client;
 
   QuranFoundationRepository({http.Client? client})
@@ -171,68 +170,7 @@ class QuranFoundationRepository {
     return mushafId;
   }
 
-  MushafPage? getCachedPage({
-    required int mushafId,
-    required int pageNumber,
-  }) {
-    final key = '$mushafId:$pageNumber';
-    final page = _inMemoryPageCache[key];
-    if (page != null) {
-      _preloadAdjacentPages(mushafId, pageNumber);
-      return page;
-    }
-    return null;
-  }
-
   Future<MushafPage> fetchPage({
-    required int mushafId,
-    required int pageNumber,
-  }) async {
-    final key = '$mushafId:$pageNumber';
-    if (_inMemoryPageCache.containsKey(key)) {
-      _preloadAdjacentPages(mushafId, pageNumber);
-      return _inMemoryPageCache[key]!;
-    }
-    if (_inFlightPageFutures.containsKey(key)) {
-      return await _inFlightPageFutures[key]!;
-    }
-
-    final future = _fetchPageInternal(mushafId: mushafId, pageNumber: pageNumber);
-    _inFlightPageFutures[key] = future;
-    try {
-      final page = await future;
-      _inMemoryPageCache[key] = page;
-      _preloadAdjacentPages(mushafId, pageNumber);
-      return page;
-    } finally {
-      _inFlightPageFutures.remove(key);
-    }
-  }
-
-  void _preloadAdjacentPages(int mushafId, int currentPage) {
-    final resolvedMushafId = _contentMushafId(mushafId);
-    final pageCount = mushafTypeById(resolvedMushafId).pageCount;
-    // Pre-cache +/- 4 pages around current page for buttery smooth offline swiping
-    for (final offset in [-3, -2, -1, 1, 2, 3, 4]) {
-      final p = currentPage + offset;
-      if (p >= 1 && p <= pageCount) {
-        final key = '$mushafId:$p';
-        if (!_inMemoryPageCache.containsKey(key) && !_inFlightPageFutures.containsKey(key)) {
-          fetchPage(mushafId: mushafId, pageNumber: p).catchError((e) {
-            debugPrint("Preload error for page $p: $e");
-            return MushafPage(
-              mushafId: mushafId,
-              pageNumber: p,
-              verses: [],
-              lines: [],
-            );
-          });
-        }
-      }
-    }
-  }
-
-  Future<MushafPage> _fetchPageInternal({
     required int mushafId,
     required int pageNumber,
   }) async {
@@ -240,20 +178,20 @@ class QuranFoundationRepository {
     final pageCount = mushafTypeById(resolvedMushafId).pageCount;
     final safePage = _clampInt(pageNumber, 1, pageCount);
 
-    if (mushafId == 11 || mushafId == 21) {
+    if (mushafId == 11) {
       final basePage = await fetchPage(mushafId: 2, pageNumber: safePage);
-      await TajweedService.load(mushafId: mushafId);
-      return TajweedService.augmentMushafPage(basePage, targetMushafId: mushafId);
+      await TajweedService.load();
+      return TajweedService.augmentMushafPage(basePage);
     }
 
     if (mushafId == qcfPackageMushafId) {
       final List<MushafVerse> verses = [];
       try {
-        final pageItems = qcf.getPageData(safePage);
+        final pageItems = getMedinaMushafPageData(safePage);
         for (final item in pageItems) {
-          final int surah = item['surah'];
-          final int start = item['start'];
-          final int end = item['end'];
+          final int surah = item['surah']!;
+          final int start = item['start']!;
+          final int end = item['end']!;
           for (int v = start; v <= end; v++) {
             verses.add(MushafVerse(
               verseKey: '$surah:$v',
@@ -322,7 +260,7 @@ class QuranFoundationRepository {
       'mushaf': resolvedMushafId.toString(),
       'words': 'true',
       'include_words': 'true',
-      if (mushafId == 11 || mushafId == 19 || mushafId == 21) 'fields': 'text_uthmani_tajweed',
+      if (mushafId == 11 || mushafId == 19) 'fields': 'text_uthmani_tajweed',
       'word_fields':
           'code,code_v1,code_v2,text_uthmani,text_indopak,text_qpc_hafs,text,text_uthmani_tajweed',
     }, config);
@@ -338,7 +276,7 @@ class QuranFoundationRepository {
       return 'qcf_v2_p$pageNumber';
     } else if (mushafId == 2) {
       return 'qcf_v1_p$pageNumber';
-    } else if (mushafId == 11 || mushafId == 21) {
+    } else if (mushafId == 11) {
       return 'Tajweed';
     } else if (mushafId == 19) {
       return 'p$pageNumber-v4';
@@ -354,7 +292,7 @@ class QuranFoundationRepository {
       return 'https://verses.quran.foundation/fonts/quran/hafs/v2/ttf/p$pageNumber.ttf';
     } else if (mushafId == 2) {
       return 'https://verses.quran.foundation/fonts/quran/hafs/v1/ttf/p$pageNumber.ttf';
-    } else if (mushafId == 11 || mushafId == 21) {
+    } else if (mushafId == 11) {
       return null;
     } else if (mushafId == 19) {
       return 'https://verses.quran.foundation/fonts/quran/hafs/v4/colrv1/ttf/p$pageNumber.ttf';
@@ -369,11 +307,6 @@ class QuranFoundationRepository {
     required int pageNumber,
   }) async {
     if (mushafId == qcfPackageMushafId) return;
-    if (mushafId == 11 || mushafId == 21) {
-      final endFont = 'qcf_v1_p$pageNumber';
-      await DynamicFontLoader.loadFont(fontFamily: endFont, url: '');
-      return;
-    }
     final fontFamily = getFontFamily(mushafId, pageNumber);
     final fontUrl = getFontUrl(mushafId, pageNumber);
     if (fontUrl == null) return;
@@ -423,9 +356,9 @@ class QuranFoundationRepository {
     if (mushafTypeById(mushafId).pageCount == 604) {
       if (cacheSuffix.startsWith('surah:')) {
         final surahNumber = int.parse(cacheSuffix.substring(6));
-        final startPage = qcf.getPageNumber(surahNumber, 1);
+        final startPage = getMedinaMushafPageNumber(surahNumber, 1);
         final totalVerses = qcf.getVerseCount(surahNumber);
-        final endPage = qcf.getPageNumber(surahNumber, totalVerses);
+        final endPage = getMedinaMushafPageNumber(surahNumber, totalVerses);
         return MushafPageRange(startPage: startPage, endPage: endPage);
       } else if (cacheSuffix.startsWith('juz:')) {
         final juzNumber = int.parse(cacheSuffix.substring(4));
@@ -444,8 +377,8 @@ class QuranFoundationRepository {
           final fromVerse = int.parse(parts[1]);
           final toSurah = int.parse(parts[2]);
           final toVerse = int.parse(parts[3]);
-          final startPage = qcf.getPageNumber(fromSurah, fromVerse);
-          final endPage = qcf.getPageNumber(toSurah, toVerse);
+          final startPage = getMedinaMushafPageNumber(fromSurah, fromVerse);
+          final endPage = getMedinaMushafPageNumber(toSurah, toVerse);
           return MushafPageRange(startPage: startPage, endPage: endPage);
         }
       }
