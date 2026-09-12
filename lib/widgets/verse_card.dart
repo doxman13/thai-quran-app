@@ -1413,7 +1413,7 @@ class _VerseCardState extends State<VerseCard> {
           context,
           text,
           textStyle,
-          Theme.of(context).primaryColor,
+          Theme.of(context).colorScheme.primary,
           verseKey: '${widget.verse.surahId}:${widget.verse.id}',
           translationId: translationId,
         ),
