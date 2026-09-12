@@ -4,3 +4,4 @@ export 'share_formatter.dart';
 export 'localization.dart';
 export 'quran_translation_helper.dart';
 export 'translation_constants.dart';
+export 'translation_hierarchy.dart';
