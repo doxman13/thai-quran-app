@@ -78,7 +78,7 @@ class SettingsProvider extends ChangeNotifier {
   String get webHostUrl => _webHostUrl;
   HifzInputMode get hifzInputMode => _hifzInputMode;
   // Word by word display setting
-  bool _showWordByWord = false;
+  bool _showWordByWord = true;
   bool get showWordByWord => _showWordByWord;
   String _wordByWordLanguage = 'th'; // 'th', 'en', 'ms'
   String get wordByWordLanguage => _wordByWordLanguage;
@@ -305,7 +305,7 @@ class SettingsProvider extends ChangeNotifier {
     _languageCode = prefs.getString('languageCode') ?? 'th';
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _keepAwake = prefs.getBool('keepAwake') ?? true;
-    _showWordByWord = prefs.getBool('showWordByWord') ?? false;
+    _showWordByWord = prefs.getBool('showWordByWord') ?? true;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
     _showFootnotes = prefs.getBool('showFootnotes') ?? true;
     _voiceRecitationEnabled = prefs.getBool(_voiceRecitationEnabledKey) ?? true;
