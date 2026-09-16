@@ -9,6 +9,7 @@ import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/medina_mushaf_pages.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../models/mushaf_models.dart';
@@ -989,9 +990,10 @@ class _HomeScreenState extends State<HomeScreen>
     String? shortcutId,
   }) async {
     final colorScheme = Theme.of(context).colorScheme;
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
     final surah = int.tryParse(surahId) ?? 1;
     final verse = int.tryParse(verseId) ?? 1;
-    final pageNumber = qcf.getPageNumber(surah, verse);
+    final pageNumber = getMedinaMushafPageNumber(surah, verse);
 
     final destination = await showModalBottomSheet<String>(
       context: context,
@@ -1045,8 +1047,8 @@ class _HomeScreenState extends State<HomeScreen>
                   Expanded(
                     child: _ModeSelectionCard(
                       icon: Icons.psychology_outlined,
-                      title: 'ท่องจำฮิฟซ์',
-                      subtitle: 'Hifz Memorize',
+                      title: isThai ? 'ท่องจำฮิฟซ์' : 'Hifz Memorize',
+                      subtitle: isThai ? 'โหมดฝึกท่องจำ' : 'Memorization Mode',
                       onTap: () => Navigator.pop(sheetContext, 'hifz'),
                     ),
                   ),
@@ -1059,7 +1061,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
     if (!mounted || destination == null) return;
     if (destination == 'mushaf') {
-      await _navigateToMushafFreeReadPage(pageNumber, shortcutId: shortcutId);
+      await _navigateToMushafFreeReadPage(
+        pageNumber,
+        shortcutId: shortcutId,
+        highlightedVerseKey: '$surah:$verse',
+      );
       return;
     }
     if (destination == 'hifz') {
@@ -1417,12 +1423,9 @@ class _HomeScreenState extends State<HomeScreen>
             BrowseScreen(
               repository: widget.repository,
               foundationRepository: _foundationRepository,
-              onOpenMushafPage: (page, {highlightVerseKey}) {
-                _navigateToMushafFreeReadPage(
-                  page,
-                  highlightedVerseKey: highlightVerseKey,
-                );
-              },
+              colors: settings.getAppColors(),
+              onOpen: _chooseBrowseDestination,
+              onOpenPage: _navigateToMushafFreeReadPage,
             ),
             // 2: Bookmarks
             BookmarksScreen(
