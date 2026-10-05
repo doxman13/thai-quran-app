@@ -506,6 +506,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         if (settings.voiceRecitationEnabled && !tracker.isEngineReady) {
           tracker.initializeEngine();
         }
+
+        // Warm up selected primary translation in the background
+        final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
+        transManager.loadTranslationIntoCache(settings.primaryTranslationId);
       }
     });
 
@@ -2797,6 +2801,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   ) {
     final granularity = provider.reviewGranularity;
     final isHidden = provider.isTargetHidden;
+    context.watch<TranslationManagerProvider>();
     final verses = _getVersesForReviewStep(step, granularity);
 
     if (verses.isEmpty) {
@@ -4689,6 +4694,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             final notesProvider = context.watch<NotesProvider>();
             final readingProvider = context.watch<MushafReadingProvider>();
             final settings = context.watch<SettingsProvider>();
+            context.watch<TranslationManagerProvider>();
             final favorited = notesProvider.getNoteObjectForVerse(
                   provider.surahNumber.toString(),
                   verseNum.toString(),
