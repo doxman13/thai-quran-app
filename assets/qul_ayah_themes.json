@@ -20,7 +20,7 @@
     "title_th": "อัลกุรอานคือทางนำ",
     "title_ms": "Al-Quran Sebagai Petunjuk",
     "theme_en": "Claim of Al-Quran that there it contains no doubtful statement and Al-Quran is a guide for those who are God-conscious",
-    "theme_th": "การยืนยันว่าอัลกุรอานไม่มีข้อเคลือบแคลงสงสัยใดๆ และเป็นทางนำสำหรับบรรดาผู้ยำเกรง",
+    "theme_th": "การยืนยันว่าอัลกุรอานไม่มีข้อเคลือบแคลงสงสัยใด ๆ และเป็นทางนำสำหรับบรรดาผู้ยำเกรง",
     "theme_ms": "Penegasan bahawa Al-Quran tidak mengandungi sebarang keraguan dan merupakan petunjuk bagi orang-orang yang bertakwa."
   },
   {
@@ -104,7 +104,7 @@
     "title_th": "อุทาหรณ์เรื่องยุงและสิ่งที่มีขนาดเล็กกว่า",
     "title_ms": "Perumpamaan Nyamuk",
     "theme_en": "Parable of gnat may confound many and enlighten many",
-    "theme_th": "อุทาหรณ์เรื่องยุงที่ทำให้ผู้คนหลงทางและทำให้ผู้คนได้รับทางนำจำนวนมาก",
+    "theme_th": "อุทาหรณ์เรื่องยุงที่ทำให้มนุษย์หลงทางและทำให้มนุษย์ได้รับทางนำจำนวนมาก",
     "theme_ms": "Perumpamaan tentang nyamuk yang dapat menyesatkan sebahagian dan memberi petunjuk kepada sebahagian yang lain"
   },
   {
@@ -149,7 +149,7 @@
     "ayah_to": 35,
     "total_ayahs": 2,
     "title_en": "Angels Prostrate to Adam",
-    "title_th": "มลาอิกะฮฺสุญูดต่อมบีอาดัม",
+    "title_th": "มลาอิกะฮฺสุญูดต่อนบีอาดัม",
     "title_ms": "Malaikat Sujud kepada Nabi Adam a.s.",
     "theme_en": "Angels show respect to Adam",
     "theme_th": "มลาอิกะฮฺแสดงความเคารพด้วยการสุญูดต่อนบีอาดัม และการพำนักในสวนสวรรค์",
@@ -197,10 +197,10 @@
     "ayah_to": 43,
     "total_ayahs": 4,
     "title_en": "Allah's covenants with the Children",
-    "title_th": "พันธสัญญาของอัลลอฮฺกับวงศ์วานอิสราเอล",
+    "title_th": "พันธสัญญาของอัลลอฮฺกับวงศ์วานอิสรออีล",
     "title_ms": "Perjanjian Allah dengan Bani Israil",
     "theme_en": "Allah's covenants with the Children of Israel",
-    "theme_th": "คำมั่นสัญญาและข้อตกลงที่อัลลอฮฺทรงมีต่อวงศ์วานอิสราเอล",
+    "theme_th": "คำมั่นสัญญาและข้อตกลงที่อัลลอฮฺทรงมีต่อวงศ์วานอิสรออีล",
     "theme_ms": "Perjanjian dan peringatan Allah kepada Bani Israil"
   },
   {
@@ -236,7 +236,7 @@
     "title_th": "บรรดาผู้กระทำผิดจะไร้ซึ่งทางรอดในวันกิยามะฮฺ",
     "title_ms": "Orang-orang Zalim Tiada Penyelamat",
     "theme_en": "Criminals will find no way out on the Day of Judgement",
-    "theme_th": "บรรดาผู้กระทำผิดจะไม่มีทางช่วยเหลือใดๆ ได้ในวันกิยามะฮฺ",
+    "theme_th": "บรรดาผู้กระทำผิดจะไม่มีทางช่วยเหลือใด ๆ ได้ในวันกิยามะฮฺ",
     "theme_ms": "Golongan yang berdosa tidak akan mendapat pembelaan pada Hari Kiamat"
   },
   {
@@ -245,10 +245,10 @@
     "ayah_to": 50,
     "total_ayahs": 2,
     "title_en": "Israelites deliverance from Pharaoh's persecution",
-    "title_th": "การช่วยเหลือนำวงศ์วานอิสราเอลให้รอดพ้นจากการข่มเหงของฟิรเอาน์",
+    "title_th": "การช่วยเหลือนำวงศ์วานอิสรออีลให้รอดพ้นจากการข่มเหงของฟิรเอานฺ",
     "title_ms": "Penyelamatan Bani Israil daripada Firaun",
     "theme_en": "Israelites deliverance from Pharaoh's persecution",
-    "theme_th": "เหตุการณ์ที่อัลลอฮฺทรงช่วยวงศ์วานอิสราเอลให้รอดพ้นจากการทรมานของฟิรเอาน์",
+    "theme_th": "เหตุการณ์ที่อัลลอฮฺทรงช่วยวงศ์วานอิสรออีลให้รอดพ้นจากการทรมานของฟิรเอานฺ",
     "theme_ms": "Nikmat penyelamatan Bani Israil daripada kezaliman tentera Firaun"
   },
   {
@@ -440,7 +440,7 @@
     "title_th": "พฤติกรรมของพวกเขาที่มีต่อพวกพ้องเดียวกัน",
     "title_ms": "Perangai buruk terhadap bangsa sendiri",
     "theme_en": "Their behavior with their own people and their punishment for breaking the covenant",
-    "theme_th": "พฤติกรรมของพวกเขาต่อผู้คนของตนเองและการลงโทษเนื่องจากการผิดสัญญา",
+    "theme_th": "พฤติกรรมของพวกเขาต่อมนุษย์ของตนเองและการลงโทษเนื่องจากการผิดสัญญา",
     "theme_ms": "Tingkah laku buruk mereka terhadap bangsa sendiri serta hukuman akibat memungkiri janji"
   },
   {
@@ -500,7 +500,7 @@
     "title_th": "การกล่าวอ้างสิทธิแต่เพียงผู้เดียวของชาวยิว",
     "title_ms": "Dakwaan eksklusif golongan Yahudi",
     "theme_en": "Jews' claim of exclusive right to inherit paradise is put to test",
-    "theme_th": "การอ้างสิทธิ์อันจำเพาะในการได้สรวงสวรรค์ของชาวยิวถูกนำมาทดสอบ",
+    "theme_th": "การอ้างสิทธิ์อันจำเพาะในการได้สวนสวรรค์ของชาวยิวถูกนำมาทดสอบ",
     "theme_ms": "Dakwaan eksklusif orang Yahudi mengenai hak keistimewaan syurga diuji"
   },
   {
@@ -509,10 +509,10 @@
     "ayah_to": 98,
     "total_ayahs": 2,
     "title_en": "Their animosity for Gabriel",
-    "title_th": "ความความเป็นปฏิปักษ์ของพวกเขาต่อมลาอิกะฮฺญิบรีล",
+    "title_th": "ความเป็นปฏิปักษ์ของพวกเขาต่อมลาอิกะฮฺญิบรีล",
     "title_ms": "Permusuhan terhadap Malaikat Jibril",
     "theme_en": "Their animosity for Gabriel and other angels",
-    "theme_th": "ความความเป็นปฏิปักษ์ของพวกเขาที่มีต่อมลาอิกะฮฺญิบรีลและมลาอิกะฮฺท่านอื่นๆ",
+    "theme_th": "ความเป็นปฏิปักษ์ของพวกเขาที่มีต่อมลาอิกะฮฺญิบรีลและมลาอิกะฮฺท่านอื่น ๆ",
     "theme_ms": "Permusuhan golongan Yahudi terhadap Malaikat Jibril dan malaikat-malaikat lain"
   },
   {
@@ -533,10 +533,10 @@
     "ayah_to": 103,
     "total_ayahs": 3,
     "title_en": "Their accusation against Prophet Solomon (Sulaiman)",
-    "title_th": "ข้อกล่าวหาของพวกเขาที่มีต่อท่านนบีสุไลมาน",
+    "title_th": "ข้อกล่าวหาของพวกเขาที่มีต่อท่านนบีสุลัยมาน",
     "title_ms": "Tuduhan terhadap Nabi Sulaiman a.s.",
     "theme_en": "Their accusation against Prophet Solomon (Sulaiman) and their learning of witchcraft",
-    "theme_th": "ข้อกล่าวหาของพวกเขาต่อท่านนบีสุไลมานและการที่พวกเขาศึกษาเวทมนตร์คาถา",
+    "theme_th": "ข้อกล่าวหาของพวกเขาต่อท่านนบีสุลัยมานและการที่พวกเขาศึกษาเวทมนตร์คาถา",
     "theme_ms": "Tuduhan palsu terhadap Nabi Sulaiman a.s. serta penglibatan mereka dalam ilmu sihir"
   },
   {
@@ -608,7 +608,7 @@
     "title_th": "คำกล่าวอ้างอันเป็นเท็จของชาวยิวและคริสเตียน",
     "title_ms": "Dakwaan Palsu Orang Yahudi dan Nasrani",
     "theme_en": "Jews' and Christians' false claim to inherit paradise",
-    "theme_th": "การกล่าวอ้างอันเป็นเท็จของชาวยิวและคริสเตียนเกี่ยวกับการได้สืบทอดสรวงสวรรค์",
+    "theme_th": "การกล่าวอ้างอันเป็นเท็จของชาวยิวและคริสเตียนเกี่ยวกับการได้สืบทอดสวนสวรรค์",
     "theme_ms": "Dakwaan palsu golongan Yahudi dan Nasrani untuk mewarisi syurga"
   },
   {
@@ -629,10 +629,10 @@
     "ayah_to": 114,
     "total_ayahs": 1,
     "title_en": "Order not to prevent people",
-    "title_th": "คำสั่งห้ามมิให้กีดขวางผู้คน",
+    "title_th": "คำสั่งห้ามมิให้กีดขวางมนุษย์",
     "title_ms": "Larangan Menghalang Manusia",
     "theme_en": "Order not to prevent people from coming to the Masajid",
-    "theme_th": "คำสั่งห้ามมิให้กีดขวางผู้คนจากการเข้าสู่บรรดามัสยิดของอัลลอฮฺ",
+    "theme_th": "คำสั่งห้ามมิให้กีดขวางมนุษย์จากการเข้าสู่บรรดามัสยิดของอัลลอฮฺ",
     "theme_ms": "Perintah agar tidak menghalang orang daripada mendatangi masjid-masjid Allah"
   },
   {
@@ -749,10 +749,10 @@
     "ayah_to": 133,
     "total_ayahs": 1,
     "title_en": "Ya'qoob's advice to his sons",
-    "title_th": "คำสั่งเสียของนบียะอ์กูบแก่บรรดาบุตรชาย",
+    "title_th": "คำสั่งเสียของนบียะอฺกูบแก่บรรดาบุตรชาย",
     "title_ms": "Wasiat Nabi Ya'qub a.s. kepada Anak-anaknya",
     "theme_en": "Ya'qoob's advice to his sons",
-    "theme_th": "คำสั่งเสียของนบียะอ์กูบแก่บรรดาบุตรชายของท่าน",
+    "theme_th": "คำสั่งเสียของนบียะอฺกูบแก่บรรดาบุตรชายของท่าน",
     "theme_ms": "Wasiat dan pesanan Nabi Ya'qub a.s. kepada anak-anaknya menjelang kewafatan"
   },
   {
@@ -896,7 +896,7 @@
     "title_th": "อัลลอฮฺจะทรงทดสอบความศรัทธาของบรรดาผู้ศรัทธา",
     "title_ms": "Ujian Terhadap Orang yang Beriman",
     "theme_en": "Allah will test the Believer's belief",
-    "theme_th": "อัลลอฮฺจะทรงทดสอบความศรัทธาของบรรดาผู้ศรัทธาด้วยการบททดสอบต่างๆ",
+    "theme_th": "อัลลอฮฺจะทรงทดสอบความศรัทธาของบรรดาผู้ศรัทธาด้วยบททดสอบต่าง ๆ",
     "theme_ms": "Allah menguji orang mukmin dengan kesusahan serta berita gembira untuk yang sabar"
   },
   {
@@ -932,7 +932,7 @@
     "title_th": "สัญญาณจากธรรมชาติในการตระหนักรู้ถึงอัลลอฮฺ",
     "title_ms": "Tanda-tanda alam untuk mengenali Allah",
     "theme_en": "Signs from nature to recognize Allah",
-    "theme_th": "สัญญาณต่างๆ ในธรรมชาติเพื่อการเรียนรู้และตระหนักถึงพระอานุภาพของอัลลอฮฺ",
+    "theme_th": "สัญญาณต่าง ๆ ในธรรมชาติเพื่อการเรียนรู้และตระหนักถึงพระอานุภาพของอัลลอฮฺ",
     "theme_ms": "Tanda-tanda kekuasaan Allah pada alam semesta untuk mengenali Pencipta"
   },
   {
@@ -1100,7 +1100,7 @@
     "title_th": "ข้างขึ้นข้างแรมของดวงจันทร์เป็นตัวกำหนดเวลา",
     "title_ms": "Fasa anak bulan sebagai penentu masa",
     "theme_en": "The moon is to determine Time periods",
-    "theme_th": "ดวงจันทร์เป็นเครื่องหมายกำหนดช่วงเวลาและกิจการของผู้คนรวมถึงการทำฮัจญ์",
+    "theme_th": "ดวงจันทร์เป็นเครื่องหมายกำหนดช่วงเวลาและกิจการของมนุษย์รวมถึงการทำฮัจญ์",
     "theme_ms": "Penjelasan mengenai kejadian anak bulan untuk penetapan masa dan ibadah haji"
   },
   {
@@ -1217,10 +1217,10 @@
     "ayah_to": 214,
     "total_ayahs": 1,
     "title_en": "Way to Paradise passes through trials",
-    "title_th": "เส้นทางสู่สรวงสวรรค์ต้องผ่านการทดสอบ",
+    "title_th": "เส้นทางสู่สวนสวรรค์ต้องผ่านการทดสอบ",
     "title_ms": "Jalan ke Syurga Melalui Ujian",
     "theme_en": "Way to Paradise passes through trials",
-    "theme_th": "เส้นทางสู่สรวงสวรรค์ต้องผ่านการทดสอบ",
+    "theme_th": "เส้นทางสู่สวนสวรรค์ต้องผ่านการทดสอบ",
     "theme_ms": "Jalan menuju syurga sentiasa diuji dengan pelbagai kesusahan dan cubaan hidup"
   },
   {
@@ -1352,7 +1352,7 @@
     "title_th": "ไม่มีข้อจำกัดในการแต่งงานใหม่",
     "title_ms": "Kebebasan Berkahwin Semula bagi Wanita Dicerai",
     "theme_en": "There is no restriction on divorcees to remarry",
-    "theme_th": "ไม่มีข้อจำกัดใดๆ ในการที่สตรีที่ถูกหย่าจะแต่งงานใหม่กับสามีเก่า",
+    "theme_th": "ไม่มีข้อจำกัดใด ๆ ในการที่สตรีที่ถูกหย่าจะแต่งงานใหม่กับสามีเก่า",
     "theme_ms": "Larangan menghalang wanita yang diceraikan daripada berkahwin semula dengan bakal suami pilihan mereka secara sah"
   },
   {
@@ -1424,7 +1424,7 @@
     "title_th": "ไม่มีผู้ใดหลีกหนีความตายพ้น",
     "title_ms": "Tiada Sesiapa yang Dapat Lari daripada Kematian",
     "theme_en": "There is no escape from death",
-    "theme_th": "อุทาหรณ์เรื่องผู้คนที่หนีความตายและบทบัญญัติการต่อสู้ในหนทางของอัลลอฮฺ",
+    "theme_th": "อุทาหรณ์เรื่องมนุษย์ที่หนีความตายและบทบัญญัติการต่อสู้ในหนทางของอัลลอฮฺ",
     "theme_ms": "Kisah kaum yang lari daripada kematian dan seruan berjihad di jalan Allah"
   },
   {
@@ -1529,10 +1529,10 @@
     "ayah_to": 257,
     "total_ayahs": 2,
     "title_en": "There is no compulsion in religion",
-    "title_th": "ไม่มีการบังคับใดๆ ในศาสนา",
+    "title_th": "ไม่มีการบังคับใด ๆ ในศาสนา",
     "title_ms": "Tiada paksaan dalam agama",
     "theme_en": "There is no compulsion in religion and Wali of Allah vs Wali of Shaitan",
-    "theme_th": "ไม่มีการบังคับใดๆ ในศาสนา และการเปรียบเทียบระหว่างวะลี (ผู้ปกป้อง) ของอัลลอฮฺกับวะลีของชัยฏอน",
+    "theme_th": "ไม่มีการบังคับใด ๆ ในศาสนา และการเปรียบเทียบระหว่างวะลี (ผู้ปกป้อง) ของอัลลอฮฺกับวะลีของชัยฏอน",
     "theme_ms": "Tiada paksaan dalam menganut agama Islam serta perbandingan antara Wali Allah dan wali Syaitan"
   },
   {
@@ -1709,7 +1709,7 @@
     "ayah_to": 286,
     "total_ayahs": 2,
     "title_en": "True belief of Prophets",
-    "title_th": "การศรัทธาที่แท้จริงของบรรดาศาสนทูตและผู้ศรัทธา",
+    "title_th": "การศรัทธาที่แท้จริงของบรรดารอซูลและผู้ศรัทธา",
     "title_ms": "Keimanan Rasul dan orang mukmin serta doa permohonan",
     "theme_en": "True belief of Prophets and Muslims and Believer's supplication",
     "theme_th": "การศรัทธาอันมั่นคงของบรรดารอซูลและผู้ศรัทธา พร้อมด้วยการวิงวอนขอพร",
@@ -1772,7 +1772,7 @@
     "title_th": "การทรงเป็นพยานของอัลลอฮฺถึงความประเสริฐแห่งเอกภาพของพระองค์",
     "title_ms": "Kesaksian Allah dan para malaikat",
     "theme_en": "Testimony of Allah about Himself and that the True Religio in the sight of Allah is Al-Islam",
-    "theme_th": "การทรงเป็นพยานของอัลลอฮฺและมะลาอิกะฮฺว่าแท้จริงศาสนา ณ ที่อัลลอฮฺคืออิสลาม",
+    "theme_th": "การทรงเป็นพยานของอัลลอฮฺและมลาอิกะฮฺว่าแท้จริงศาสนา ณ ที่อัลลอฮฺคืออิสลาม",
     "theme_ms": "Kesaksian Allah, para malaikat dan orang berilmu tentang keesaan-Nya serta agama yang benar di sisi Allah ialah Islam"
   },
   {
@@ -1892,7 +1892,7 @@
     "title_th": "การประสูติของท่านนบีอีซาและปาฏิหาริย์",
     "title_ms": "Kelahiran Nabi Isa a.s. dan mukjizatnya",
     "theme_en": "Birth of Isa (Jesus) son of Maryem and Miracles given to Isa (Jesus)",
-    "theme_th": "การประสูติของท่านนบีอีซาบุตรของมัรยัม และปาฏิหาริย์ต่างๆ ที่ถูกประทานแก่ท่าน",
+    "theme_th": "การประสูติของท่านนบีอีซาบุตรของมัรยัม และปาฏิหาริย์ต่าง ๆ ที่ถูกประทานแก่ท่าน",
     "theme_ms": "Kelahiran Nabi Isa a.s. putera Maryam serta pelbagai mukjizat yang dikurniakan kepadanya"
   },
   {
@@ -1985,10 +1985,10 @@
     "ayah_to": 80,
     "total_ayahs": 2,
     "title_en": "Isa (Jesus) never said to",
-    "title_th": "ท่านนบีอีซามิได้เคยเรียกร้องให้ผู้คนสักการะท่าน",
+    "title_th": "ท่านนบีอีซามิได้เคยเรียกร้องให้มนุษย์สักการะท่าน",
     "title_ms": "Nabi Isa a.s. tidak pernah menyuruh manusia menyembahnya",
     "theme_en": "Isa (Jesus) never said to worship him instead of Allah",
-    "theme_th": "ท่านนบีอีซามิได้เคยสั่งใช้ให้ผู้คนสักการะบูชาท่านอื่นจากอัลลอฮฺ",
+    "theme_th": "ท่านนบีอีซามิได้เคยสั่งใช้ให้มนุษย์สักการะบูชาท่านอื่นจากอัลลอฮฺ",
     "theme_ms": "Nabi Isa a.s. tidak pernah mengajak manusia menjadikan dirinya tuhan selain Allah"
   },
   {
@@ -2012,7 +2012,7 @@
     "title_th": "ศาสนาเดียวที่ได้รับการยอมรับ ณ ที่อัลลอฮฺ",
     "title_ms": "Islam satu-satunya agama yang diterima di sisi Allah",
     "theme_en": "No religion is acceptable to Allah other than Al-Islam",
-    "theme_th": "ไม่มีศาสนาใดๆ เป็นที่ยอมรับ ณ ที่อัลลอฮฺ นอกจากอิสลามเท่านั้น",
+    "theme_th": "ไม่มีศาสนาใด ๆ เป็นที่ยอมรับ ณ ที่อัลลอฮฺ นอกจากอิสลามเท่านั้น",
     "theme_ms": "Tiada sebarang agama yang diterima di sisi Allah melainkan agama Islam"
   },
   {
@@ -2045,10 +2045,10 @@
     "ayah_to": 95,
     "total_ayahs": 3,
     "title_en": "Lawful",
-    "title_th": "อาหารที่อนุมัติและต้องห้ามสำหรับวงศ์วานอิสราเอล",
+    "title_th": "อาหารที่อนุมัติและต้องห้ามสำหรับวงศ์วานอิสรออีล",
     "title_ms": "Makanan yang halal dan haram",
     "theme_en": "Lawful and unlawful food for the Children of Israel",
-    "theme_th": "ข้อเท็จจริงเกี่ยวกับอาหารที่อนุมัติและต้องห้ามสำหรับวงศ์วานอิสราเอลก่อนคัมภีร์เตารอตจะถูกประทานลงมา",
+    "theme_th": "ข้อเท็จจริงเกี่ยวกับอาหารที่อนุมัติและต้องห้ามสำหรับวงศ์วานอิสรออีลก่อนคัมภีร์เตารอตจะถูกประทานลงมา",
     "theme_ms": "Hukum halal dan haram mengenai makanan bagi Bani Israil serta kebenaran syariat Nabi Ibrahim a.s."
   },
   {
@@ -2165,10 +2165,10 @@
     "ayah_to": 143,
     "total_ayahs": 2,
     "title_en": "No paradise without trial",
-    "title_th": "ไม่มีสรวงสวรรค์ใดที่ปราศจากการทดสอบ",
+    "title_th": "ไม่มีสวนสวรรค์ใดที่ปราศจากการทดสอบ",
     "title_ms": "Tiada Syurga tanpa ujian",
     "theme_en": "No paradise without trial",
-    "theme_th": "ไม่มีสรวงสวรรค์ใดที่จะเข้าได้โดยปราศจากการทดสอบ",
+    "theme_th": "ไม่มีสวนสวรรค์ใดที่จะเข้าได้โดยปราศจากการทดสอบ",
     "theme_ms": "Kenyataan bahawa seseorang tidak akan layak memasuki Syurga melainkan setelah melalui pelbagai ujian."
   },
   {
@@ -2177,10 +2177,10 @@
     "ayah_to": 145,
     "total_ayahs": 2,
     "title_en": "Muhammad (pbuh) is no more",
-    "title_th": "ท่านนบีมุฮัมมัด (ซ.ล.) เป็นเพียงศาสนทูตท่านหนึ่ง",
+    "title_th": "ท่านนบีมุฮัมมัด (ซ.ล.) เป็นเพียงรอซูลท่านหนึ่ง",
     "title_ms": "Nabi Muhammad s.a.w. adalah pesuruh Allah",
     "theme_en": "Muhammad (pbuh) is no more than a Rasool of Allah",
-    "theme_th": "ท่านนบีมุฮัมมัด (ซ.ล.) มิได้เป็นอื่นใดนอกจากเป็นศาสนทูตแห่งอัลลอฮฺ",
+    "theme_th": "ท่านนบีมุฮัมมัด (ซ.ล.) มิได้เป็นอื่นใดนอกจากเป็นรอซูลแห่งอัลลอฮฺ",
     "theme_ms": "Nabi Muhammad s.a.w. tidak lain hanyalah seorang Rasul dan ketentuan ajal bagi setiap manusia."
   },
   {
@@ -2393,10 +2393,10 @@
     "ayah_to": 194,
     "total_ayahs": 5,
     "title_en": "Signs from Nature",
-    "title_th": "สัญญาณต่างๆ ในธรรมชาติและการวิงวอน",
+    "title_th": "สัญญาณต่าง ๆ ในธรรมชาติและการวิงวอน",
     "title_ms": "Tanda kekuasaan Allah pada alam dan doa mukmin",
     "theme_en": "Signs from Nature and Supplication of the believers",
-    "theme_th": "สัญญาณต่างๆ ในการสร้างสรรค์ของธรรมชาติและการวิงวอนขอพรของบรรดาผู้ศรัทธา",
+    "theme_th": "สัญญาณต่าง ๆ ในการสร้างสรรค์ของธรรมชาติและการวิงวอนขอพรของบรรดาผู้ศรัทธา",
     "theme_ms": "Tanda-tanda kebesaran Allah pada penciptaan langit dan bumi, serta doa munajat orang-orang yang berakal (Ulul Albab)."
   },
   {
@@ -2717,10 +2717,10 @@
     "ayah_to": 42,
     "total_ayahs": 4,
     "title_en": "Witnesses of the Rasools on",
-    "title_th": "การเป็นพยานของบรรดาศาสนทูต",
+    "title_th": "การเป็นพยานของบรรดารอซูล",
     "title_ms": "Penyaksian Para Rasul",
     "theme_en": "Witnesses of the Rasools on the Day of Judgement",
-    "theme_th": "การเป็นพยานของบรรดาศาสนทูตในวันกิยามะฮฺ",
+    "theme_th": "การเป็นพยานของบรรดารอซูลในวันกิยามะฮฺ",
     "theme_ms": "Penyaksian para rasul terhadap umat masing-masing pada Hari Kiamat"
   },
   {
@@ -2852,7 +2852,7 @@
     "title_th": "ความยำเกรงต่ออัลลอฮฺและความตาย",
     "title_ms": "Bertakwa kepada Allah dan Hakikat Kematian",
     "theme_en": "Fear Allah and not the people and There is no escape from death",
-    "theme_th": "จงยำเกรงต่ออัลลอฮฺมิใช่ผู้คน และไม่มีผู้ใดหลบหนีความตายไปได้",
+    "theme_th": "จงยำเกรงต่ออัลลอฮฺมิใช่มนุษย์ และไม่มีผู้ใดหลบหนีความตายไปได้",
     "theme_ms": "Perintah bertakwa kepada Allah semata-mata serta ketetapan bahawa tiada sesiapapun yang dapat lari daripada kematian"
   },
   {
@@ -3017,7 +3017,7 @@
     "ayah_to": 126,
     "total_ayahs": 2,
     "title_en": "No one is better than",
-    "title_th": "ไม่มีผู้ใดดียิ่งไปกว่า",
+    "title_th": "ไม่มีผู้ใดดียิ่งไปกว่าผู้ที่มอบตนต่ออัลลอฮฺ",
     "title_ms": "Sebaik-baik Agama dan Pegangan",
     "theme_en": "No one is better than a Muslim",
     "theme_th": "ไม่มีผู้ใดดียิ่งไปกว่าผู้ที่นอบน้อมตนต่ออัลลอฮฺ",
@@ -3080,7 +3080,7 @@
     "title_th": "ลักษณะและพฤติกรรมของบรรดาผู้กลับกลอก (มุนาฟิก)",
     "title_ms": "Ciri-ciri Golongan Munafik",
     "theme_en": "Characteristics of hypocrites and the acts of hypocrisy and Hypocrites will be in the lowest depths of hellfire",
-    "theme_th": "ลักษณะและพฤติกรรมของบรรดาผู้กลับกลอก (มุนาฟิก) และบทสรุปว่าพวกเขาจะอยู่ในชั้นที่ต่ำที่สุดของขุมนรก",
+    "theme_th": "ลักษณะและพฤติกรรมของบรรดาผู้กลับกลอก (มุนาฟิก) และบทสรุปว่าพวกเขาจะอยู่ในชั้นที่ต่ำที่สุดของไฟนรก",
     "theme_ms": "Ciri-ciri golongan munafik serta balasan azab yang paling bawah di dalam neraka bagi mereka"
   },
   {
@@ -3149,7 +3149,7 @@
     "ayah_to": 173,
     "total_ayahs": 2,
     "title_en": "Jesus was a Prophet",
-    "title_th": "นบีอีซาเป็นบ่าวและศาสนทูตของอัลลอฮฺ",
+    "title_th": "นบีอีซาเป็นบ่าวและรอซูลของอัลลอฮฺ",
     "title_ms": "Kedudukan Nabi Isa a.s.",
     "theme_en": "Jesus was a Prophet and worshipper of Allah",
     "theme_th": "แท้จริงนบีอีซาและบรรดามลาอิกะฮฺไม่เคยปฏิเสธการเป็นบ่าวผู้ภักดีต่ออัลลอฮฺ",
@@ -3248,7 +3248,7 @@
     "title_th": "พันธสัญญาของอิสราเอลและการฝ่าฝืนคำมั่นสัญญา",
     "title_ms": "Perjanjian Bani Israil",
     "theme_en": "Salah and Zakah were obligatory for Jews and Jews habit of being deceitful",
-    "theme_th": "พันธสัญญาที่อัลลอฮฺทรงทำไว้กับวงศ์วานอิสราเอล และผลของการละเมิดคำมั่นสัญญา",
+    "theme_th": "พันธสัญญาที่อัลลอฮฺทรงทำไว้กับวงศ์วานอิสรออีล และผลของการละเมิดคำมั่นสัญญา",
     "theme_ms": "Perjanjian Allah dengan Bani Israil, kewajipan solat dan zakat, serta akibat buruk daripada pencabulan janji"
   },
   {
@@ -3293,10 +3293,10 @@
     "ayah_to": 26,
     "total_ayahs": 7,
     "title_en": "Behavior of Jews with their",
-    "title_th": "ท่าทีดื้อดึงของวงศ์วานอิสราเอลต่อแผ่นดินศักดิ์สิทธิ์",
+    "title_th": "ท่าทีดื้อดึงของวงศ์วานอิสรออีลต่อแผ่นดินศักดิ์สิทธิ์",
     "title_ms": "Keingkaran Bani Israil terhadap Nabi Musa a.s.",
     "theme_en": "Behavior of Jews with their own Prophet Musa (Moses) and Curse of Allah on the Jews for 40 years",
-    "theme_th": "เรื่องราวการปฏิเสธคำสั่งของนบีมูซาโดยวงศ์วานอิสราเอล และบทลงโทษให้เร่ร่อนในแผ่นดินเป็นเวลาสี่สิบปี",
+    "theme_th": "เรื่องราวการปฏิเสธคำสั่งของนบีมูซาโดยวงศ์วานอิสรออีล และบทลงโทษให้เร่ร่อนในแผ่นดินเป็นเวลาสี่สิบปี",
     "theme_ms": "Sikap degil Bani Israil terhadap Nabi Musa a.s. ketika disuruh memasuki bumi suci serta hukuman kesesatan selama 40 tahun"
   },
   {
@@ -3572,7 +3572,7 @@
     "title_th": "สิ่งอันศักดิ์สิทธิ์และบทบัญญัติแห่งฮัจญ์",
     "title_ms": "Kesyukuran Terhadap Syariat Kaabah dan Bulan-Bulan Haram",
     "theme_en": "Sacred elements of Hajj",
-    "theme_th": "บัญญัติอันศักดิ์สิทธิ์และพิธีกรรมต่างๆ ของการประกอบพิธีฮัจญ์",
+    "theme_th": "บัญญัติอันศักดิ์สิทธิ์และพิธีกรรมต่าง ๆ ของการประกอบพิธีฮัจญ์",
     "theme_ms": "Hikmah penetapan Kaabah, Baitulharam, dan bulan-bulan suci sebagai pusat ketenangan serta pengabdian diri kepada Allah"
   },
   {
@@ -3677,10 +3677,10 @@
     "ayah_to": 26,
     "total_ayahs": 6,
     "title_en": "Prejudice has made the people",
-    "title_th": "อคติได้ทำให้ผู้คนหลงผิด",
+    "title_th": "อคติได้ทำให้มนุษย์หลงผิด",
     "title_ms": "Sikap Prasangka dan Kedegilan Manusia",
     "theme_en": "Prejudice has made the people worship deities other than Allah",
-    "theme_th": "อคติและความดื้อรั้นได้ทำให้ผู้คนหันไปกราบไหว้พระเจ้าอื่นนอกจากอัลลอฮฺ",
+    "theme_th": "อคติและความดื้อรั้นได้ทำให้มนุษย์หันไปกราบไหว้พระเจ้าอื่นนอกจากอัลลอฮฺ",
     "theme_ms": "Sikap prasangka dan penentangan telah menyebabkan manusia menyembah tuhan selain Allah."
   },
   {
@@ -3704,7 +3704,7 @@
     "title_th": "การปฏิเสธท่านนบีมุฮัมมัด (ซ.ล.)",
     "title_ms": "Pendustaan terhadap Nabi Muhammad s.a.w.",
     "theme_en": "Those who deny Prophet Muhammad, in fact deny Allah's revelations",
-    "theme_th": "บรรดาผู้ที่ปฏิเสธท่านนบีมุฮัมมัด (ซ.ล.) แท้จริงแล้วพวกเขากำลังปฏิเสธโองการต่างๆ ของอัลลอฮฺ",
+    "theme_th": "บรรดาผู้ที่ปฏิเสธท่านนบีมุฮัมมัด (ซ.ล.) แท้จริงแล้วพวกเขากำลังปฏิเสธโองการต่าง ๆ ของอัลลอฮฺ",
     "theme_ms": "Golongan yang mendustakan Nabi Muhammad s.a.w. sebenarnya sedang mengingkari ayat-ayat keterangan Allah."
   },
   {
@@ -3716,7 +3716,7 @@
     "title_th": "ผู้ที่สดับฟังย่อมยอมรับสัจธรรม",
     "title_ms": "Penerimaan terhadap Kebenaran",
     "theme_en": "Those who listen will accept the Truth and Use your common sense to learn from the signs of nature and Do you not call Allah alone in real distress?",
-    "theme_th": "บรรดาผู้ที่สดับฟังย่อมยอมรับสัจธรรม และจงใช้สามัญสำนึกของพวกท่านเพื่อเรียนรู้จากสัญญาณต่างๆ ของธรรมชาติ และพวกท่านมิได้วิงวอนต่ออัลลอฮฺแต่องค์เดียวดอกหรือยามเมื่อประสบภัยพิบัติอย่างแท้จริง",
+    "theme_th": "บรรดาผู้ที่สดับฟังย่อมยอมรับสัจธรรม และจงใช้สามัญสำนึกของพวกท่านเพื่อเรียนรู้จากสัญญาณต่าง ๆ ของธรรมชาติ และพวกท่านมิได้วิงวอนต่ออัลลอฮฺแต่องค์เดียวดอกหรือยามเมื่อประสบภัยพิบัติอย่างแท้จริง",
     "theme_ms": "Hanya mereka yang mendengar dengan teliti akan menerima kebenaran, seruan menggunakan akal fikiran untuk mengambil iktibar daripada tanda-tanda kebesaran alam, serta pertanyaan adakah kamu hanya menyeru Allah ketika berada dalam kesusahan yang sebenar"
   },
   {
@@ -3800,7 +3800,7 @@
     "title_th": "ข้อห้ามในการนั่งร่วมวงกับผู้เย้ยหยันโองการ",
     "title_ms": "Larangan Bermajelis dengan Penentang Agama",
     "theme_en": "Do not sit with those who argue about Allah's revelations",
-    "theme_th": "อย่านั่งร่วมวงกับบรรดาผู้ที่จ้วจาบหรือโต้เถียงในทางปฏิเสธโองการต่างๆ ของอัลลอฮฺ",
+    "theme_th": "อย่านั่งร่วมวงกับบรรดาผู้ที่จ้วจาบหรือโต้เถียงในทางปฏิเสธโองการต่าง ๆ ของอัลลอฮฺ",
     "theme_ms": "Larangan duduk bersama golongan yang memperlekehkan ayat-ayat Allah."
   },
   {
@@ -4004,7 +4004,7 @@
     "title_th": "บรรดาผู้ตั้งภาคีให้ความสำคัญแก่บรรดาภาคีของพวกเขาเหนือกว่าอัลลอฮฺ",
     "title_ms": "Sikap orang musyrik terhadap tuhan sembahan mereka",
     "theme_en": "Mushrikin give their deities preference over Allah and Mushrikin falsely attribute their self-imposed prohibitions to Allah",
-    "theme_th": "บรรดาผู้ตั้งภาคี (มุชริกีน) ให้ความสำคัญแก่บรรดาพระเจ้าของพวกเขาเหนือกว่าอัลลอฮฺ และพวกเขากล่าวเท็จใส่อัลลอฮฺเกี่ยวกับข้อห้ามต่างๆ ที่พวกเขาบัญญัติขึ้นเอง",
+    "theme_th": "บรรดาผู้ตั้งภาคี (มุชริกีน) ให้ความสำคัญแก่บรรดาพระเจ้าของพวกเขาเหนือกว่าอัลลอฮฺ และพวกเขากล่าวเท็จใส่อัลลอฮฺเกี่ยวกับข้อห้ามต่าง ๆ ที่พวกเขาบัญญัติขึ้นเอง",
     "theme_ms": "Golongan musyrik mengutamakan sekutu-sekutu tandingan berbanding Allah serta mendustakan hukum-hakam ciptaan mereka sendiri."
   },
   {
@@ -4064,7 +4064,7 @@
     "title_th": "บทบัญญัติข้อห้ามอันเป็นรากฐานสำคัญในศาสนาอิสลาม",
     "title_ms": "Prinsip asas larangan dalam Islam",
     "theme_en": "In Islam forbidden things are based on fundamental moral principles",
-    "theme_th": "สิ่งต้องห้ามต่างๆ ในศาสนาอิสลามมีรากฐานอยู่บนหลักการทางศีลธรรมอันมั่นคงและคุณธรรมขั้นพื้นฐาน",
+    "theme_th": "สิ่งต้องห้ามต่าง ๆ ในศาสนาอิสลามมีรากฐานอยู่บนหลักการทางศีลธรรมอันมั่นคงและคุณธรรมขั้นพื้นฐาน",
     "theme_ms": "Perintah-perintah asas dan larangan moral yang agung serta prinsip syariat Islam yang lurus."
   },
   {
@@ -4073,10 +4073,10 @@
     "ayah_to": 158,
     "total_ayahs": 4,
     "title_en": "The Book of Allah has",
-    "title_th": "คัมภีร์ของอัลลอฮฺคือทางนำที่ไม่มีข้อแก้ตัวใดๆ อีก",
+    "title_th": "คัมภีร์ของอัลลอฮฺคือทางนำที่ไม่มีข้อแก้ตัวใด ๆ อีก",
     "title_ms": "Kitab Al-Quran sebagai panduan hidup",
     "theme_en": "The Book of Allah has come to you for your guidance so that there may be no excuse about the true Word of Allah",
-    "theme_th": "คัมภีร์อัลกุรอานอันจำรัสแห่งอัลลอฮฺได้ถูกประทานลงมาเป็นทางนำแก่พวกท่าน เพื่อมิให้มีข้ออ้างใดๆ หลงเหลืออยู่อีกเกี่ยวกับพระดำรัสอันสัจจริงของพระองค์",
+    "theme_th": "คัมภีร์อัลกุรอานอันจำรัสแห่งอัลลอฮฺได้ถูกประทานลงมาเป็นทางนำแก่พวกท่าน เพื่อมิให้มีข้ออ้างใด ๆ หลงเหลืออยู่อีกเกี่ยวกับพระดำรัสอันสัจจริงของพระองค์",
     "theme_ms": "Al-Quran diturunkan sebagai Kitab panduan yang penuh keberkatan agar manusia tidak mempunyai hujah menolak kebenaran."
   },
   {
@@ -4088,7 +4088,7 @@
     "title_th": "การแตกแยกออกเป็นนิกายและกลุ่มเหล่าในศาสนา",
     "title_ms": "Larangan memecah-belahkan agama",
     "theme_en": "Those who divide the religion into sects are not Muslims",
-    "theme_th": "บรรดาผู้ที่แตกแยกศาสนาออกเป็นนิกายต่างๆ และกลายเป็นพวกพ้อง พระองค์ทรงปราศจากความเกี่ยวข้องกับพวกเขาโดยสิ้นเชิง",
+    "theme_th": "บรรดาผู้ที่แตกแยกศาสนาออกเป็นนิกายต่าง ๆ และกลายเป็นพวกพ้อง พระองค์ทรงปราศจากความเกี่ยวข้องกับพวกเขาโดยสิ้นเชิง",
     "theme_ms": "Amaran keras terhadap mereka yang memecah-belahkan agama Islam kepada pelbagai puak dan mazhab."
   },
   {
@@ -4112,7 +4112,7 @@
     "title_th": "บรรดารอซูลและประชาชาติจะถูกสอบสวนในวันกิยามะฮฺ",
     "title_ms": "Pertanyaan kepada Para Rasul dan Umat Manusia",
     "theme_en": "The Rasools as well as the people to whom they were sent shall be questioned on the Day of Judgement and a Scale of justice shall be established",
-    "theme_th": "ทั้งบรรดารอซูลและบรรดาผู้คนที่พวกเขาถูกส่งไปหา ล้วนจะต้องถูกสอบสวนในวันกิยามะฮฺ และตาชั่งแห่งความยุติธรรมจะถูกตั้งขึ้น",
+    "theme_th": "ทั้งบรรดารอซูลและบรรดามนุษย์ที่พวกเขาถูกส่งไปหา ล้วนจะต้องถูกสอบสวนในวันกิยามะฮฺ และตาชั่งแห่งความยุติธรรมจะถูกตั้งขึ้น",
     "theme_ms": "Para rasul serta umat yang diutuskan kepada mereka akan disoal kelak pada Hari Kiamat, dan neraca timbangan amalan yang adil akan ditegakkan"
   },
   {
@@ -4184,7 +4184,7 @@
     "title_th": "ประตูแห่งชั้นฟ้าจะไม่ถูกเปิดให้แก่บรรดาผู้ปฏิเสธศรัทธา",
     "title_ms": "Pintu langit tertutup bagi orang kafir",
     "theme_en": "Gates of heaven shall not be opened for the disbelievers",
-    "theme_th": "ประตูแห่งชั้นฟ้าทั้งหลายจะไม่ถูกเปิดต้อนรับบรรดาผู้ปฏิเสธศรัทธา และพวกเขาจะไม่ได้เข้าสวรรค์จนกว่าอูรูกจะลอดรูเข็ม",
+    "theme_th": "ประตูแห่งชั้นฟ้าทั้งหลายจะไม่ถูกเปิดต้อนรับบรรดาผู้ปฏิเสธศรัทธา และพวกเขาจะไม่ได้เข้าสวนสวรรค์จนกว่าอูฐจะลอดรูเข็ม",
     "theme_ms": "Pintu syurga tidak akan dibuka bagi orang-orang kafir dan mereka kekal menerima balasan azab yang pedih."
   },
   {
@@ -4193,7 +4193,7 @@
     "ayah_to": 43,
     "total_ayahs": 2,
     "title_en": "Only believers shall enter paradise",
-    "title_th": "บรรดาผู้ศรัทธาเท่านั้นที่จะได้เป็นชาวสวรรค์",
+    "title_th": "บรรดาผู้ศรัทธาเท่านั้นที่จะได้เป็นชาวสวนสวรรค์",
     "title_ms": "Balasan nikmat syurga bagi orang mukmin",
     "theme_en": "Only believers shall enter paradise",
     "theme_th": "มีเพียงบรรดาผู้ศรัทธาและกระทำความดีเท่านั้นที่จะได้เป็นชาวสวนสวรรค์ และพวกเขาจะได้รับความผาสุกนิรันดร์",
@@ -4205,7 +4205,7 @@
     "ayah_to": 47,
     "total_ayahs": 4,
     "title_en": "Dialogue between the residents of paradise",
-    "title_th": "การสนทนาระหว่างชาวสวรรค์",
+    "title_th": "การสนทนาระหว่างชาวสวนสวรรค์",
     "title_ms": "Dialog antara penghuni syurga",
     "theme_en": "Dialogue between the residents of paradise and the inmates of hell",
     "theme_th": "การสนทนาระหว่างชาวสวนสวรรค์และชาวไฟนรก",
@@ -4265,10 +4265,10 @@
     "ayah_to": 79,
     "total_ayahs": 7,
     "title_en": "Prophet Saleh's address to his people",
-    "title_th": "คำกล่าวของนบีศอลิห์ต่อกลุ่มชนของท่าน",
+    "title_th": "คำกล่าวของนบีศอลิหฺต่อกลุ่มชนของท่าน",
     "title_ms": "Ucapan Nabi Saleh a.s. kepada kaumnya",
     "theme_en": "Prophet Saleh's address to his people, their disbelief and their fate",
-    "theme_th": "คำกล่าวของนบีศอลิห์ต่อกลุ่มชนของท่าน การปฏิเสธศรัทธาของพวกเขา และชะตากรรมของพวกเขา",
+    "theme_th": "คำกล่าวของนบีศอลิหฺต่อกลุ่มชนของท่าน การปฏิเสธศรัทธาของพวกเขา และชะตากรรมของพวกเขา",
     "theme_ms": "Ucapan Nabi Saleh a.s. kepada kaumnya, kekufuran mereka serta kesudahan nasib mereka"
   },
   {
@@ -4289,10 +4289,10 @@
     "ayah_to": 87,
     "total_ayahs": 3,
     "title_en": "Prophet Shu'aib's address to his people",
-    "title_th": "คำกล่าวของนบีชุอัยบ์ต่อกลุ่มชนของท่าน",
+    "title_th": "คำกล่าวของนบีชุอัยบฺต่อกลุ่มชนของท่าน",
     "title_ms": "Ucapan Nabi Syuaib a.s. kepada kaumnya",
     "theme_en": "Prophet Shu'aib's address to his people, their disbelief and their fate",
-    "theme_th": "คำกล่าวของนบีชุอัยบ์ต่อกลุ่มชนของท่าน การปฏิเสธศรัทธาของพวกเขา และชะตากรรมของพวกเขา",
+    "theme_th": "คำกล่าวของนบีชุอัยบฺต่อกลุ่มชนของท่าน การปฏิเสธศรัทธาของพวกเขา และชะตากรรมของพวกเขา",
     "theme_ms": "Ucapan Nabi Syuaib a.s. kepada kaumnya, kekufuran mereka serta kesudahan nasib mereka"
   },
   {
@@ -4304,7 +4304,7 @@
     "title_th": "พฤติกรรมของผู้ปฏิเสธศรัทธาที่มีต่อท่าน",
     "title_ms": "Sikap golongan kafir terhadap Nabi Syuaib a.s.",
     "theme_en": "Behavior of the unbelievers with Prophet Shu'aib",
-    "theme_th": "พฤติกรรมของบรรดาผู้ปฏิเสธศรัทธาที่มีต่อนบีชุอัยบ์",
+    "theme_th": "พฤติกรรมของบรรดาผู้ปฏิเสธศรัทธาที่มีต่อนบีชุอัยบฺ",
     "theme_ms": "Sikap penentangan orang-orang kafir terhadap Nabi Syuaib a.s."
   },
   {
@@ -4340,7 +4340,7 @@
     "title_th": "การส่งนบีมูซาไป",
     "title_ms": "Utusan Nabi Musa a.s.",
     "theme_en": "Prophet Moses was sent for the guidance of Pharaoh and his chiefs",
-    "theme_th": "นบีมูซาถูกส่งมาเพื่อให้ทางนำแก่ฟิรเอาน์และบรรดาหัวหน้าของเขา",
+    "theme_th": "นบีมูซาถูกส่งมาเพื่อให้ทางนำแก่ฟิรเอานฺและบรรดาหัวหน้าของเขา",
     "theme_ms": "Nabi Musa a.s. diutus untuk menyampaikan petunjuk kepada Firaun dan pembesar-pembesarnya"
   },
   {
@@ -4352,7 +4352,7 @@
     "title_th": "การเผชิญหน้าระหว่างนบีมูซากับบรรดานักมายากล",
     "title_ms": "Konfrontasi Nabi Musa a.s. dengan ahli sihir",
     "theme_en": "Moses' confrontation with the magicians of Pharaoh",
-    "theme_th": "การเผชิญหน้าระหว่างนบีมูซากับบรรดานักมายากลของฟิรเอาน์",
+    "theme_th": "การเผชิญหน้าระหว่างนบีมูซากับบรรดานักมายากลของฟิรเอานฺ",
     "theme_ms": "Pertembungan antara Nabi Musa a.s. dengan ahli-ahli sihir Firaun"
   },
   {
@@ -4361,10 +4361,10 @@
     "ayah_to": 129,
     "total_ayahs": 3,
     "title_en": "Pharaoh's revenge against the people",
-    "title_th": "การแก้แค้นของฟิรเอาน์ต่อกลุ่มชน",
+    "title_th": "การแก้แค้นของฟิรเอานฺต่อกลุ่มชน",
     "title_ms": "Tindakan balas dendam Firaun terhadap kaum",
     "theme_en": "Pharaoh's revenge against the people of Moses",
-    "theme_th": "การแก้แค้นของฟิรเอาน์ที่มีต่อกลุ่มชนของนบีมูซา",
+    "theme_th": "การแก้แค้นของฟิรเอานฺที่มีต่อกลุ่มชนของนบีมูซา",
     "theme_ms": "Pembalasan kejam Firaun terhadap kaum Nabi Musa a.s."
   },
   {
@@ -4373,10 +4373,10 @@
     "ayah_to": 137,
     "total_ayahs": 8,
     "title_en": "Scourge of Allah against Pharaoh",
-    "title_th": "การลงทัณฑ์ของอัลลอฮฺต่อฟิรเอาน์",
+    "title_th": "การลงทัณฑ์ของอัลลอฮฺต่อฟิรเอานฺ",
     "title_ms": "Azab seksaan Allah terhadap Firaun",
     "theme_en": "Scourge of Allah against Pharaoh and his chiefs, and their final destruction",
-    "theme_th": "การลงทัณฑ์ของอัลลอฮฺต่อฟิรเอาน์และบรรดาหัวหน้าของเขา พร้อมกับความพินาศครั้งสุดท้ายของพวกเขา",
+    "theme_th": "การลงทัณฑ์ของอัลลอฮฺต่อฟิรเอานฺและบรรดาหัวหน้าของเขา พร้อมกับความพินาศครั้งสุดท้ายของพวกเขา",
     "theme_ms": "Azab seksaan Allah terhadap Firaun berserta para pembesarnya dan kesudahan kebinasaan mereka"
   },
   {
@@ -4457,10 +4457,10 @@
     "ayah_to": 158,
     "total_ayahs": 1,
     "title_en": "Muhammad (pbuh) is the Prophet",
-    "title_th": "ท่านนบีมุฮัมมัด (ซ.ล.) คือศาสดา",
+    "title_th": "ท่านนบีมุฮัมมัด (ซ.ล.) คือรอซูล",
     "title_ms": "Nabi Muhammad s.a.w. utusan untuk seluruh manusia",
     "theme_en": "Muhammad (pbuh) is the Prophet for the whole of mankind",
-    "theme_th": "ท่านนบีมุฮัมมัด (ซ.ล.) คือศาสดาสำหรับมวลมนุษยชาติ",
+    "theme_th": "ท่านนบีมุฮัมมัด (ซ.ล.) คือรอซูลสำหรับมวลมนุษยชาติ",
     "theme_ms": "Nabi Muhammad s.a.w. ialah Rasul bagi seluruh umat manusia"
   },
   {
@@ -4520,7 +4520,7 @@
     "title_th": "อุทาหรณ์ของบรรดาผู้ปฏิเสธ",
     "title_ms": "Perumpamaan Orang-orang yang Mendustakan",
     "theme_en": "Example of those who deny Allah's revelations",
-    "theme_th": "อุทาหรณ์ของบรรดาผู้ที่ปฏิเสธโองการต่างๆ ของอัลลอฮฺ",
+    "theme_th": "อุทาหรณ์ของบรรดาผู้ที่ปฏิเสธโองการต่าง ๆ ของอัลลอฮฺ",
     "theme_ms": "Perumpamaan golongan yang mendustakan ayat-ayat Allah"
   },
   {
@@ -4544,7 +4544,7 @@
     "title_th": "การเข้าใกล้ความหายนะของผู้ปฏิเสธโองการของอัลลอฮฺ",
     "title_ms": "Kehampiran Kebinasaan bagi yang Mengingkari Ayat Allah",
     "theme_en": "Those who deny Allah's revelations are drawing closer to destruction and Prophet himself has no power to benefit anyone or to avert any harm",
-    "theme_th": "บรรดาผู้ที่ปฏิเสธโองการต่างๆ ของอัลลอฮฺกำลังเข้าใกล้ความหายนะ และตัวนบีเองก็ไม่มีอำนาจที่จะอำนวยประโยชน์หรือปัดเป่าอันตรายใดๆ ให้แก่ผู้ใดได้",
+    "theme_th": "บรรดาผู้ที่ปฏิเสธโองการต่าง ๆ ของอัลลอฮฺกำลังเข้าใกล้ความหายนะ และตัวนบีเองก็ไม่มีอำนาจที่จะอำนวยประโยชน์หรือปัดเป่าอันตรายใด ๆ ให้แก่ผู้ใดได้",
     "theme_ms": "Orang-orang yang mengingkari ayat-ayat Allah semakin hampir kepada kebinasaan dan Nabi Muhammad (s.a.w.) sendiri tidak berkuasa untuk memberi manfaat atau menolak sebarang kemudaratan kepada sesiapa pun"
   },
   {
@@ -4556,7 +4556,7 @@
     "title_th": "อัลลอฮฺทรงสร้างมนุษยชาติจากชีวิตหนึ่งเดียว",
     "title_ms": "Penciptaan Manusia daripada Satu Jiwa",
     "theme_en": "Allah created the whole of mankind from a single soul and Reality of those gods whom people worship beside Allah and Allah is the Protecting Friend of the righteous",
-    "theme_th": "อัลลอฮฺทรงสร้างมนุษยชาติทั้งหมดจากชีวิตหนึ่งเดียว และความจริงแท้ของบรรดาพระเจ้าที่ผู้คนกราบไหว้บูชาอื่นจากอัลลอฮฺ และอัลลอฮฺทรงเป็นผู้ทรงคุ้มครองผู้มีความยำเกรง",
+    "theme_th": "อัลลอฮฺทรงสร้างมนุษยชาติทั้งหมดจากชีวิตหนึ่งเดียว และความจริงแท้ของบรรดาพระเจ้าที่มนุษย์กราบไหว้บูชาอื่นจากอัลลอฮฺ และอัลลอฮฺทรงเป็นผู้ทรงคุ้มครองผู้มีความยำเกรง",
     "theme_ms": "Allah menciptakan seluruh umat manusia daripada satu jiwa, penjelasan tentang hakikat tuhan-tuhan palsu yang disembah selain Allah, dan bahawa Allah adalah Tuhan Pelindung bagi orang-orang yang soleh"
   },
   {
@@ -4856,7 +4856,7 @@
     "title_th": "เตือนสติเรื่องการกักตุนทรัพย์สินของนักบวช",
     "title_ms": "Larangan Menyelewengkan Harta Seperti Rabbi dan Paderi",
     "theme_en": "Do not be like Rabbis and Priests who misappropriate the wealth of people",
-    "theme_th": "อย่าประพฤติตนเช่นบรรดาแรบไบและนักบวชผู้กินทรัพย์สินของผู้คนโดยมิชอบ",
+    "theme_th": "อย่าประพฤติตนเช่นบรรดาแรบไบและนักบวชผู้กินทรัพย์สินของมนุษย์โดยมิชอบ",
     "theme_ms": "Amaran agar tidak mencontohi golongan rabbi dan paderi yang memakan harta orang ramai secara batil."
   },
   {
@@ -5033,10 +5033,10 @@
     "ayah_to": 110,
     "total_ayahs": 11,
     "title_en": "Categories of hypocrites",
-    "title_th": "ประเภทต่างๆ ของบรรดาผู้กลับกลอก",
+    "title_th": "ประเภทต่าง ๆ ของบรรดาผู้กลับกลอก",
     "title_ms": "Kategori-kategori Orang Munafik",
     "theme_en": "Categories of hypocrites and Commandment for the collection of Az-Zakah and Hypocrites' masjid for mischievous motives, called \"Masjid-e-Zirar\"",
-    "theme_th": "ประเภทต่างๆ ของบรรดาผู้กลับกลอก บทบัญญัติการจัดเก็บซะกาต และกรณีมัสยิดของบรรดาผู้กลับกลอกที่สร้างขึ้นเพื่อมุ่งร้ายซึ่งเรียกว่า มัสยิดดิรอร",
+    "theme_th": "ประเภทต่าง ๆ ของบรรดาผู้กลับกลอก บทบัญญัติการจัดเก็บซะกาต และกรณีมัสยิดของบรรดาผู้กลับกลอกที่สร้างขึ้นเพื่อมุ่งร้ายซึ่งเรียกว่า มัสยิดดิรอร",
     "theme_ms": "Kategori-kategori orang munafik, perintah pengumpulan zakat, serta kisah masjid yang dibina oleh orang-orang munafik atas dasar niat yang merosakkan, yang dinamakan \"Masjid Dirar\"."
   },
   {
@@ -5081,10 +5081,10 @@
     "ayah_to": 122,
     "total_ayahs": 4,
     "title_en": "Believers are those",
-    "title_th": "บรรดาผู้ศรัทธาคือผู้ที่",
+    "title_th": "คำสั่งใช้ให้ผู้ศรัทธาอยู่ร่วมกับบรรดาผู้สัจจริง",
     "title_ms": "Seruan Bersifat Benar Serta Tuntutan Mempelajari Agama",
     "theme_en": "Believers are those who prefer the life of the Rasool over their own and requirement of obtaining understanding of religion",
-    "theme_th": "บรรดาผู้ศรัทธาคือผู้ที่ให้ความสำคัญแก่ชีวิตของร่อซูลเหนือกว่าชีวิตของตนเอง และข้อกำหนดในการศึกษาหาความรู้ทางศาสนา",
+    "theme_th": "บรรดาผู้ศรัทธาคือผู้ที่ให้ความสำคัญแก่ชีวิตของรอซูลเหนือกว่าชีวิตของตนเอง และข้อกำหนดในการศึกษาหาความรู้ทางศาสนา",
     "theme_ms": "Tuntutan agar sentiasa bersama orang yang benar serta kewajipan mendalami ilmu agama."
   },
   {
@@ -5141,7 +5141,7 @@
     "ayah_to": 10,
     "total_ayahs": 5,
     "title_en": "There are signs of His",
-    "title_th": "สัญญาณต่างๆ ของอัลลอฮฺในจักรวาล",
+    "title_th": "สัญญาณต่าง ๆ ของอัลลอฮฺในจักรวาล",
     "title_ms": "Tanda-tanda Kebesaran Allah",
     "theme_en": "There are signs of His manifestation in the creation of heaven, earth, sun, moon, day and night",
     "theme_th": "มีสัญญาณแห่งความยิ่งใหญ่ของพระองค์ในการสร้างชั้นฟ้าทั้งหลาย แผ่นดิน ดวงอาทิตย์ ดวงจันทร์ ตลอดจนกลางวันและกลางคืน",
@@ -5156,7 +5156,7 @@
     "title_th": "พฤติกรรมของบรรดาผู้ละเมิด",
     "title_ms": "Sikap Orang-orang yang Zalim",
     "theme_en": "Behavior of the wrong doers towards Allah and His revelations",
-    "theme_th": "พฤติกรรมของบรรดาผู้ละเมิดที่มีต่ออัลลอฮฺและโองการต่างๆ ของพระองค์",
+    "theme_th": "พฤติกรรมของบรรดาผู้ละเมิดที่มีต่ออัลลอฮฺและโองการต่าง ๆ ของพระองค์",
     "theme_ms": "Sikap orang-orang yang zalim terhadap Allah serta ayat-ayat keterangan-Nya"
   },
   {
@@ -5168,7 +5168,7 @@
     "title_th": "พระเจ้าอื่นนอกจากอัลลอฮฺไม่สามารถให้คุณให้โทษได้",
     "title_ms": "Sembahan Selain Allah Tidak Berkuasa",
     "theme_en": "Deities other than Allah can neither harm nor benefit you and Mankind was one nation until they invented different creeds",
-    "theme_th": "พระเจ้าอื่นนอกเหนือจากอัลลอฮฺไม่สามารถให้โทษหรือให้ประโยชน์แก่ผู้ใดได้ และมนุษยชาติเคยเป็นประชาชาติเดียวกัน ก่อนที่พวกเขาจะแตกแยกออกเป็นลัทธิความเชื่อต่างๆ",
+    "theme_th": "พระเจ้าอื่นนอกเหนือจากอัลลอฮฺไม่สามารถให้โทษหรือให้ประโยชน์แก่ผู้ใดได้ และมนุษยชาติเคยเป็นประชาชาติเดียวกัน ก่อนที่พวกเขาจะแตกแยกออกเป็นลัทธิความเชื่อต่าง ๆ",
     "theme_ms": "Sembahan-sembahan selain Allah tidak dapat mendatangkan kemudaratan dan tidak pula manfaat, serta manusia asalnya adalah satu umat sebelum mereka berselisih"
   },
   {
@@ -5204,7 +5204,7 @@
     "title_th": "การเชิญชวนสู่นครแห่งความสันติ",
     "title_ms": "Seruan ke Darul Salam (Syurga)",
     "theme_en": "Allah invites you to the Home of Peace and Deities whom they worship are not even aware of their worship",
-    "theme_th": "อัลลอฮฺทรงเชิญชวนไปสู่บ้านแห่งความสันติสุข (สวรรค์) ในขณะที่พระเจ้าที่พวกเขาอุปโลกน์กราบไหว้ไม่รู้เรื่องการเคารพสักการะของพวกเขาเลย",
+    "theme_th": "อัลลอฮฺทรงเชิญชวนไปสู่บ้านแห่งความสันติสุข (สวนสวรรค์) ในขณะที่พระเจ้าที่พวกเขาอุปโลกน์กราบไหว้ไม่รู้เรื่องการเคารพสักการะของพวกเขาเลย",
     "theme_ms": "Allah menyeru ke Darul Salam (Syurga) manakala sembahan yang selain Allah tidak menyedari penyembahan mereka"
   },
   {
@@ -5249,10 +5249,10 @@
     "ayah_to": 53,
     "total_ayahs": 7,
     "title_en": "Every nation was sent a",
-    "title_th": "ทุกประชาชาติมีร่อซูลถูกส่งมาเพื่อชี้นำ",
+    "title_th": "ทุกประชาชาติมีรอซูลถูกส่งมาเพื่อชี้นำ",
     "title_ms": "Setiap Umat Diutuskan Rasul",
     "theme_en": "Every nation was sent a Rasool for their guidance",
-    "theme_th": "ทุกประชาชาติจะได้รับการส่งร่อซูลมาเพื่อชี้นำทางนำให้แก่พวกเขา",
+    "theme_th": "ทุกประชาชาติจะได้รับการส่งรอซูลมาเพื่อชี้นำทางนำให้แก่พวกเขา",
     "theme_ms": "Setiap umat mempunyai Rasul untuk menyampaikan petunjuk dan keadilan"
   },
   {
@@ -5264,7 +5264,7 @@
     "title_th": "ไม่มีทางรอดพ้นสำหรับผู้ปฏิเสธศรัทธาในวันฟื้นคืนชีพ",
     "title_ms": "Tiada Jalan Lepas bagi Orang Kafir",
     "theme_en": "There shall be no way out for the unbelievers on the Day of Judgement",
-    "theme_th": "จะไม่มีทางรอดพ้นใดๆ สำหรับบรรดาผู้ปฏิเสธศรัทธาในวันแห่งการตอบแทน",
+    "theme_th": "จะไม่มีทางรอดพ้นใด ๆ สำหรับบรรดาผู้ปฏิเสธศรัทธาในวันแห่งการตอบแทน",
     "theme_ms": "Tiada jalan keselamatan bagi orang-orang kafir pada Hari Pembalasan"
   },
   {
@@ -5321,10 +5321,10 @@
     "ayah_to": 82,
     "total_ayahs": 9,
     "title_en": "Rasools were sent to the",
-    "title_th": "การส่งบรรดาร่อซูลไปยังกลุ่มชนต่างๆ รวมถึงนบีมูซากับฟิรเอาน์",
+    "title_th": "การส่งบรรดารอซูลไปยังกลุ่มชนต่าง ๆ รวมถึงนบีมูซากับฟิรเอานฺ",
     "title_ms": "Utusan Rasul kepada Kaum-kaum Terdahulu",
     "theme_en": "Rasools were sent to the descendants of Prophet Nuh - similarly Prophet Musa and Haroon were sent to Pharaoh",
-    "theme_th": "บรรดาร่อซูลถูกส่งไปยังกลุ่มชนต่างๆ ในทำนองเดียวกัน ท่านนบีมูซาและท่านนบีฮารูนก็ถูกส่งไปหาฟิรเอาน์",
+    "theme_th": "บรรดารอซูลถูกส่งไปยังกลุ่มชนต่าง ๆ ในทำนองเดียวกัน ท่านนบีมูซาและท่านนบีฮารูนก็ถูกส่งไปหาฟิรเอานฺ",
     "theme_ms": "Pengutusan para rasul kepada kaum-kaum, serta kisah Nabi Musa a.s. dan Nabi Harun a.s. kepada Firaun"
   },
   {
@@ -5333,10 +5333,10 @@
     "ayah_to": 92,
     "total_ayahs": 10,
     "title_en": "Musa and Fir'on (Pharaoh) and",
-    "title_th": "นบีมูซากับฟิรเอาน์ และการรอดพ้นของลูกหลานอิสราเอล",
+    "title_th": "นบีมูซากับฟิรเอานฺ และการรอดพ้นของลูกหลานอิสราเอล",
     "title_ms": "Nabi Musa a.s. dan Firaun",
     "theme_en": "Story of Musa and Fir'on (Pharaoh) and Children of Israel were delivered from the bondage of Fir'on",
-    "theme_th": "เรื่องราวของท่านนบีมูซากับฟิรเอาน์ และการที่ลูกหลานอิสราเอลได้รับการปลดปล่อยจากการจองจำของฟิรเอาน์",
+    "theme_th": "เรื่องราวของท่านนบีมูซากับฟิรเอานฺ และการที่ลูกหลานอิสราเอลได้รับการปลดปล่อยจากการจองจำของฟิรเอานฺ",
     "theme_ms": "Kisah Nabi Musa a.s., Firaun, dan penyelamatan Bani Israil daripada kezaliman"
   },
   {
@@ -5369,10 +5369,10 @@
     "ayah_to": 103,
     "total_ayahs": 5,
     "title_en": "Forcing someone to convert to",
-    "title_th": "ข้อห้ามในการบังคับให้ผู้คนเข้ารับอิสลาม",
+    "title_th": "ข้อห้ามในการบังคับให้มนุษย์เข้ารับอิสลาม",
     "title_ms": "Tiada Paksaan dalam Agama",
     "theme_en": "Forcing someone to convert to Islam is prohibited",
-    "theme_th": "การบังคับผู้คนให้หันมานับถือศาสนาอิสลามนั้นเป็นสิ่งต้องห้าม",
+    "theme_th": "การบังคับมนุษย์ให้หันมานับถือศาสนาอิสลามนั้นเป็นสิ่งต้องห้าม",
     "theme_ms": "Hidayah adalah ketentuan Allah dan tiada paksaan dalam memeluk agama Islam"
   },
   {
@@ -5453,10 +5453,10 @@
     "ayah_to": 35,
     "total_ayahs": 11,
     "title_en": "Nuh's address to his people",
-    "title_th": "คำกล่าวของนบีนูห์แก่ประชาชาติของเขา",
+    "title_th": "คำกล่าวของนบีนูฮฺแก่ประชาชาติของเขา",
     "title_ms": "Seruan Nabi Nuh a.s. kepada kaumnya",
     "theme_en": "Nuh's address to his people and Nuh's people challenged him and asked for the scourge of Allah",
-    "theme_th": "คำกล่าวเตือนของนบีนูห์แก่ประชาชาติของเขา และการที่พวกเขาได้ท้าทายพร้อมทั้งร้องขอการลงทัณฑ์จากอัลลอฮฺ",
+    "theme_th": "คำกล่าวเตือนของนบีนูฮฺแก่ประชาชาติของเขา และการที่พวกเขาได้ท้าทายพร้อมทั้งร้องขอการลงทัณฑ์จากอัลลอฮฺ",
     "theme_ms": "Dakwah Nabi Nuh a.s. kepada kaumnya serta pendirian degil kaumnya yang mencabar balasan azab Allah."
   },
   {
@@ -5465,10 +5465,10 @@
     "ayah_to": 39,
     "total_ayahs": 4,
     "title_en": "Allah commanded Nuh to build",
-    "title_th": "อัลลอฮฺทรงบัญชาให้นบีนูห์สร้างเรือ",
+    "title_th": "อัลลอฮฺทรงบัญชาให้นบีนูฮฺสร้างเรือ",
     "title_ms": "Perintah Allah membina bahtera",
     "theme_en": "Allah commanded Nuh to build and ark",
-    "theme_th": "อัลลอฮฺทรงมีพระบัญชาให้นบีนูห์สร้างเรือใหญ่",
+    "theme_th": "อัลลอฮฺทรงมีพระบัญชาให้นบีนูฮฺสร้างเรือใหญ่",
     "theme_ms": "Allah s.w.t. memerintahkan Nabi Nuh a.s. membina sebuah bahtera besar."
   },
   {
@@ -5477,10 +5477,10 @@
     "ayah_to": 41,
     "total_ayahs": 2,
     "title_en": "Allah commanded Nuh to embark",
-    "title_th": "อัลลอฮฺทรงบัญชาให้นบีนูห์ขึ้นเรือ",
+    "title_th": "อัลลอฮฺทรงบัญชาให้นบีนูฮฺขึ้นเรือ",
     "title_ms": "Nabi Nuh a.s. menaiki bahtera",
     "theme_en": "Allah commanded Nuh to embark and gather on board the believers and a pair from every species",
-    "theme_th": "อัลลอฮฺทรงมีพระบัญชาให้นบีนูห์นำบรรดาผู้ศรัทธาและสัตว์ทุกคู่ขึ้นสู่เรือ",
+    "theme_th": "อัลลอฮฺทรงมีพระบัญชาให้นบีนูฮฺนำบรรดาผู้ศรัทธาและสัตว์ทุกคู่ขึ้นสู่เรือ",
     "theme_ms": "Perintah Allah supaya Nabi Nuh a.s. membawa orang beriman serta pasangan haiwan menaiki bahtera."
   },
   {
@@ -5489,10 +5489,10 @@
     "ayah_to": 49,
     "total_ayahs": 8,
     "title_en": "Dialogue between Nuh",
-    "title_th": "บทสนทนาระหว่างนบีนูห์",
+    "title_th": "บทสนทนาระหว่างนบีนูฮฺ",
     "title_ms": "Dialog Nabi Nuh a.s. dengan anaknya",
     "theme_en": "Dialogue between Nuh, his son, and Allah",
-    "theme_th": "บทสนทนาระหว่างนบีนูห์ บุตรชายของเขา และพระองค์อัลลอฮฺ",
+    "theme_th": "บทสนทนาระหว่างนบีนูฮฺ บุตรชายของเขา และพระองค์อัลลอฮฺ",
     "theme_ms": "Dialog penuh hiba antara Nabi Nuh a.s., anaknya yang ingkar, dan ketentuan Allah."
   },
   {
@@ -5513,10 +5513,10 @@
     "ayah_to": 68,
     "total_ayahs": 8,
     "title_en": "Prophet Salah's address to his people",
-    "title_th": "คำกล่าวของนบีศอลิห์แก่ประชาชาติของเขา",
+    "title_th": "คำกล่าวของนบีศอลิหฺแก่ประชาชาติของเขา",
     "title_ms": "Seruan Nabi Soleh a.s. kepada kaum Thamud",
     "theme_en": "Prophet Salah's address to his people, their disbelief and its consequences",
-    "theme_th": "คำกล่าวของนบีศอลิห์แก่ประชาชาติของเขา การปฏิเสธศรัทธาของพวกเขา และบทลงโทษที่ได้รับ",
+    "theme_th": "คำกล่าวของนบีศอลิหฺแก่ประชาชาติของเขา การปฏิเสธศรัทธาของพวกเขา และบทลงโทษที่ได้รับ",
     "theme_ms": "Dakwah Nabi Soleh a.s. kepada kaum Thamud, keingkaran mereka terhadap unta mukjizat, dan kebinasaan mereka."
   },
   {
@@ -5528,7 +5528,7 @@
     "title_th": "ข่าวดีสำหรับนบีอิบรอฮีม",
     "title_ms": "Khabar gembira kepada Nabi Ibrahim a.s.",
     "theme_en": "Good news for Prophet Ibrahim, he will have a son (Isaac) and beyond him a grandson (Jacob)",
-    "theme_th": "ข่าวดีสำหรับนบีอิบรอฮีมเกี่ยวกับบุตรชาย (คือนบีอิสฮาก) และหลานชาย (คือนบียะอ์กูบ) ที่จะถือกำเนิดขึ้น",
+    "theme_th": "ข่าวดีสำหรับนบีอิบรอฮีมเกี่ยวกับบุตรชาย (คือนบีอิสฮาก) และหลานชาย (คือนบียะอฺกูบ) ที่จะถือกำเนิดขึ้น",
     "theme_ms": "Khabar gembira daripada malaikat mengenai kurniaan anak (Ishaq) dan cucu (Yakub) kepada Nabi Ibrahim a.s."
   },
   {
@@ -5549,10 +5549,10 @@
     "ayah_to": 95,
     "total_ayahs": 12,
     "title_en": "Prophet Shu'aib's address to his people",
-    "title_th": "คำกล่าวของนบีชุอัยบ์แก่ประชาชาติของเขา",
+    "title_th": "คำกล่าวของนบีชุอัยบฺแก่ประชาชาติของเขา",
     "title_ms": "Seruan Nabi Syuaib a.s. kepada kaum Madyan",
     "theme_en": "Prophet Shu'aib's address to his people who were cheating in their business transactions and Their disbelief and its consequences",
-    "theme_th": "คำกล่าวของนบีชุอัยบ์แก่ประชาชาติของเขาผู้ซึ่งคดโกงในการชั่งตวง และการปฏิเสธศรัทธาพร้อมผลลัพธ์อันตราย",
+    "theme_th": "คำกล่าวของนบีชุอัยบฺแก่ประชาชาติของเขาผู้ซึ่งคดโกงในการชั่งตวง และการปฏิเสธศรัทธาพร้อมผลลัพธ์อันตราย",
     "theme_ms": "Seruan Nabi Syuaib a.s. agar meninggalkan penipuan sukatan serta akibat buruk penolakan kaum Madyan."
   },
   {
@@ -5768,7 +5768,7 @@
     "title_th": "บรรดาพี่น้องของนบียูซุฟเดินทางมายังอียิปต์",
     "title_ms": "Saudara-saudara Nabi Yusuf a.s. datang ke Mesir",
     "theme_en": "Yusuf's brothers came to Egypt to get food and grain and Yusuf asked them to bring Benjamin (Yusuf's younger brother)",
-    "theme_th": "บรรดาพี่น้องของนบียูซุฟเดินทางมายังอียิปต์เพื่อขอเสบียงอาหารและธัญญาหาร และนบียูซุฟได้ขอให้พวกเขาพาน้องชาย (บนยามีน) มาด้วยในครั้งหน้า",
+    "theme_th": "บรรดาพี่น้องของนบียูซุฟเดินทางมายังอียิปต์เพื่อขอเสบียงอาหารและธัญญาหาร และนบียูซุฟได้ขอให้พวกเขาพาน้องชาย (บินยามีน) มาด้วยในครั้งหน้า",
     "theme_ms": "Saudara-saudara Nabi Yusuf a.s. datang ke Mesir untuk mendapatkan bekalan makanan, dan Nabi Yusuf a.s. meminta mereka membawa Benyamin adiknya pada kunjungan seterusnya."
   },
   {
@@ -5777,10 +5777,10 @@
     "ayah_to": 68,
     "total_ayahs": 6,
     "title_en": "They asked their father to",
-    "title_th": "พวกเขาขออนุญาตพระบิดา",
+    "title_th": "พวกเขาขออนุญาตบิดา",
     "title_ms": "Permohonan kepada bapa mereka",
     "theme_en": "They asked their father to send Benjamin with them in order to get more grain and Ya'qoob's advice to his sons",
-    "theme_th": "พวกเขาขออนุญาตพระบิดาให้นำบนยามีนร่วมเดินทางไปด้วยเพื่อรับเสบียงเพิ่ม พร้อมทั้งคำตักเตือนของนบียะอ์กูบแก่บุตรชายของท่าน",
+    "theme_th": "พวกเขาขออนุญาตบิดาให้นำบินยามีนร่วมเดินทางไปด้วยเพื่อรับเสบียงเพิ่ม พร้อมทั้งคำตักเตือนของนบียะอฺกูบแก่บุตรชายของท่าน",
     "theme_ms": "Mereka meminta izin daripada bapa mereka agar menghantar Benyamin bersama mereka untuk mendapatkan tambahan sukatan gandum, serta nasihat Nabi Ya'qub a.s. kepada anak-anaknya."
   },
   {
@@ -5792,7 +5792,7 @@
     "title_th": "นบียูซุฟเปิดเผยตัวตนต่อน้องชายของท่าน",
     "title_ms": "Nabi Yusuf a.s. memperkenalkan diri kepada adiknya",
     "theme_en": "Yusuf introduced himself to his brother and plotted to retain him and Benjamin was accused of stealing so that he could be retained",
-    "theme_th": "นบียูซุฟเปิดเผยตัวตนให้น้องชายทราบและวางแผนรั้งตัวเขาไว้ โดยให้บนยามีนถูกกล่าวหาว่าขโมยเพื่อกักตัวเขาไว้ตามกฎหมาย",
+    "theme_th": "นบียูซุฟเปิดเผยตัวตนให้น้องชายทราบและวางแผนรั้งตัวเขาไว้ โดยให้บินยามีนถูกกล่าวหาว่าขโมยเพื่อกักตัวเขาไว้ตามกฎหมาย",
     "theme_ms": "Nabi Yusuf a.s. memperkenalkan dirinya kepada adiknya dan merangka strategi untuk menahannya, di mana Benyamin dituduh mencuri bagi membolehkannya ditahan."
   },
   {
@@ -5804,7 +5804,7 @@
     "title_th": "บรรดาพี่น้องของนบียูซุฟเดินทางกลับ",
     "title_ms": "Saudara-saudara Nabi Yusuf a.s. pulang menemui bapa mereka",
     "theme_en": "Yusuf's brothers went back and told their father about the incident of Benjamin's stealing and retention and Their father sent them back",
-    "theme_th": "บรรดาพี่น้องของนบียูซุฟเดินทางกลับไปเล่าเรื่องราวการถูกกักตัวของบนยามีนให้พระบิดาฟัง และพระบิดาได้ทรงส่งพวกเขากลับไปอีกครั้ง",
+    "theme_th": "บรรดาพี่น้องของนบียูซุฟเดินทางกลับไปเล่าเรื่องราวการถูกกักตัวของบินยามีนให้บิดาฟัง และบิดาได้ส่งพวกเขากลับไปอีกครั้ง",
     "theme_ms": "Saudara-saudara Nabi Yusuf a.s. pulang dan menceritakan kepada bapa mereka tentang insiden penahanan Benyamin, lalu bapa mereka menyuruh mereka kembali semula ke Mesir."
   },
   {
@@ -5825,10 +5825,10 @@
     "ayah_to": 98,
     "total_ayahs": 5,
     "title_en": "Ya'qoob got the good news",
-    "title_th": "นบียะอ์กูบได้รับข่าวดี",
+    "title_th": "นบียะอฺกูบได้รับข่าวดี",
     "title_ms": "Nabi Ya'qub a.s. menerima khabar gembira",
     "theme_en": "Ya'qoob got the good news of his son Yusuf",
-    "theme_th": "นบียะอ์กูบได้รับข่าวดีเกี่ยวกับนบียูซุฟบุตรชายของท่าน",
+    "theme_th": "นบียะอฺกูบได้รับข่าวดีเกี่ยวกับนบียูซุฟบุตรชายของท่าน",
     "theme_ms": "Nabi Ya'qub a.s. menerima khabar gembira mengenai keselamatan anakandanya Nabi Yusuf a.s."
   },
   {
@@ -5837,7 +5837,7 @@
     "ayah_to": 104,
     "total_ayahs": 6,
     "title_en": "Thus his family relocated from",
-    "title_th": "ครอบครัวของนบียะอ์กูบอพยพมายังอียิปต์",
+    "title_th": "ครอบครัวของนบียะอฺกูบอพยพมายังอียิปต์",
     "title_ms": "Hijrah keluarga Nabi Ya'qub a.s. ke Mesir",
     "theme_en": "Thus his family relocated from Ken'and to Egypt and Yusuf's prayer to live and die as a Muslim",
     "theme_th": "ครอบครัวของท่านจึงอพยพจากแผ่นดินคานาอันมายังอียิปต์ พร้อมด้วยดุอาอ์ของนบียูซุฟขอให้ทรงให้ท่านมีชีวิตและเสียชีวิตในฐานะมุสลิม",
@@ -5861,10 +5861,10 @@
     "ayah_to": 111,
     "total_ayahs": 3,
     "title_en": "All Rasools were human beings",
-    "title_th": "บรรดาเราะซูลทั้งหมดคือมนุษย์ปุถุชน",
+    "title_th": "บรรดารอซูลทั้งหมดคือมนุษย์ปุถุชน",
     "title_ms": "Kesemua Rasul adalah kalangan manusia biasa",
     "theme_en": "All Rasools were human beings and Story of Yusuf is confirmation of previous scriptures",
-    "theme_th": "บรรดาเราะซูลที่ถูกส่งมาล้วนเป็นมนุษย์ปุถุชน และเรื่องราวของนบียูซุฟคือบทเรียนยืนยันคัมภีร์ก่อนหน้า",
+    "theme_th": "บรรดารอซูลที่ถูกส่งมาล้วนเป็นมนุษย์ปุถุชน และเรื่องราวของนบียูซุฟคือบทเรียนยืนยันคัมภีร์ก่อนหน้า",
     "theme_ms": "Kesemua Rasul yang diutuskan adalah manusia biasa, dan kisah Nabi Yusuf a.s. adalah pengesahan kepada kitab-kitab suci terdahulu."
   },
   {
@@ -5888,7 +5888,7 @@
     "title_th": "ความหลากหลายของพืชผลและสัญญาณของอัลลอฮฺ",
     "title_ms": "Tanda-tanda kekuasaan Allah pada tumbuh-tumbuhan dan buah-buahan",
     "theme_en": "Trees, fruit, vegetables and their tastes are the signs of Allah and For every nation Allah sent a guide (Rasool)",
-    "theme_th": "พืชผลและรสชาติต่าง ๆ คือสัญญาณของอัลลอฮฺ และสำหรับทุกประชาชาติ พระองค์ทรงส่งผู้ชี้นำ (เราะซูล) มาโปรด",
+    "theme_th": "พืชผลและรสชาติต่าง ๆ คือสัญญาณของอัลลอฮฺ และสำหรับทุกประชาชาติ พระองค์ทรงส่งผู้ชี้นำ (รอซูล) มาโปรด",
     "theme_ms": "Pelbagai jenis tumbuhan, buah-buahan dan rasanya adalah tanda-tanda kekuasaan Allah, serta pengutusan rasul pembimbing bagi setiap umat."
   },
   {
@@ -5981,10 +5981,10 @@
     "ayah_to": 43,
     "total_ayahs": 6,
     "title_en": "Rasool has no power to",
-    "title_th": "เราะซูลไม่มีอำนาจนำปาฏิหาริย์มาได้เอง",
+    "title_th": "รอซูลไม่มีอำนาจนำปาฏิหาริย์มาได้เอง",
     "title_ms": "Rasul Tidak Berkuasa Mendatangkan Mukjizat Sendiri",
     "theme_en": "Rasool has no power to show any miracle without the sanction of Allah and When Allah commands, there is none to reverse it and That Allah is the Master of all planning",
-    "theme_th": "เราะซูลไม่มีอำนาจในการแสดงปาฏิหาริย์ใดๆ เว้นแต่ด้วยอนุมัติจากอัลลอฮฺ และเมื่ออัลลอฮฺทรงกำหนดสิ่งใด ย่อมไม่มีผู้ใดเปลี่ยนแปลงได้ และแท้จริงอัลลอฮฺทรงเป็นผู้ทรงวางแผนดียิ่ง",
+    "theme_th": "รอซูลไม่มีอำนาจในการแสดงปาฏิหาริย์ใด ๆ เว้นแต่ด้วยอนุมัติจากอัลลอฮฺ และเมื่ออัลลอฮฺทรงกำหนดสิ่งใด ย่อมไม่มีผู้ใดเปลี่ยนแปลงได้ และแท้จริงอัลลอฮฺทรงเป็นผู้ทรงวางแผนดียิ่ง",
     "theme_ms": "Rasul tidak berkuasa mendatangkan sebarang mukjizat melainkan dengan izin Allah, apabila Allah menetapkan sesuatu perintah tiada sesiapa yang dapat menolaknya, dan bahawa Allah adalah sebaik-baik Perancang segala urusan."
   },
   {
@@ -6032,7 +6032,7 @@
     "title_th": "หากมวลมนุษย์บนแผ่นดินปฏิเสธศรัทธา",
     "title_ms": "Kecukupan Allah dan Tawakal Orang Mukmin",
     "theme_en": "If all the dwellers of earth become nonbelievers, it makes no difference to Allah and In Allah let the believers put their trust",
-    "theme_th": "หากชาวแผ่นดินทั้งหมดกลายเป็นผู้ปฏิเสธศรัทธา นั่นก็จะไม่สร้างความเสียหายใดๆ ต่ออัลลอฮฺ และบรรดาผู้ศรัทธาจงมอบหมายความไว้วางใจต่อพระองค์เท่านั้น",
+    "theme_th": "หากชาวแผ่นดินทั้งหมดกลายเป็นผู้ปฏิเสธศรัทธา นั่นก็จะไม่สร้างความเสียหายใด ๆ ต่ออัลลอฮฺ และบรรดาผู้ศรัทธาจงมอบหมายความไว้วางใจต่อพระองค์เท่านั้น",
     "theme_ms": "Jika semua penduduk bumi menjadi orang-orang kafir, maka tidak ada mudaratnya bagi Allah, dan kepada Allah jualah hendaknya orang-orang mukmin bertawakal."
   },
   {
@@ -6068,7 +6068,7 @@
     "title_th": "ชัยฏอนไม่มีอำนาจบังคับเหนือมนุษย์",
     "title_ms": "Syaitan Tiada Kuasa Paksaan ke Atas Manusia",
     "theme_en": "Shaitan has no power over human beings - he only invites and people follow",
-    "theme_th": "ชัยฏอนไม่มีอำนาจใดๆ เหนือมนุษย์ นอกจากมันได้เพียงแค่กระซิบกระซาบเชิญชวนแล้วมนุษย์ตอบรับมันเอง",
+    "theme_th": "ชัยฏอนไม่มีอำนาจใด ๆ เหนือมนุษย์ นอกจากมันได้เพียงแค่กระซิบกระซาบเชิญชวนแล้วมนุษย์ตอบรับมันเอง",
     "theme_ms": "Syaitan tidak mempunyai kuasa paksaan ke atas manusia, melainkan sekadar menghasut dan manusia sendiri yang menurutinya."
   },
   {
@@ -6080,7 +6080,7 @@
     "title_th": "คำทักทายในสวนสวรรค์คือความสันติสุข",
     "title_ms": "Ucapan Salam Penghuni Syurga",
     "theme_en": "Greetings in Paradise will be 'Peace'",
-    "theme_th": "คำทักทายของชาวสวรรค์เมื่อพวกเขาพบกันคือความสันติสุข (สลาม)",
+    "theme_th": "คำทักทายของชาวสวนสวรรค์เมื่อพวกเขาพบกันคือความสันติสุข (สลาม)",
     "theme_ms": "Ucapan penghormatan dan salam damai bagi para penghuni syurga."
   },
   {
@@ -6104,7 +6104,7 @@
     "title_th": "การแสดงความเนรคุณต่อความโปรดปรานของอัลลอฮฺ",
     "title_ms": "Akibat Kufur Nikmat dan Nikmat Allah yang Tidak Terhitung",
     "theme_en": "Those who show ingratitude towards Allah's favors shall be cast into Hell and Allah has given you countless favors",
-    "theme_th": "บรรดาผู้ที่เปลี่ยนความโปรดปรานของอัลลอฮฺเป็นความเนรคุณจะต้องถูกโยนลงสู่นรก และพระองค์ทรงประทานความโปรดปรานอันนับไม่ถ้วนแก่พวกท่าน",
+    "theme_th": "บรรดาผู้ที่เปลี่ยนความโปรดปรานของอัลลอฮฺเป็นความเนรคุณจะต้องถูกโยนลงสู่ไฟนรก และพระองค์ทรงประทานความโปรดปรานอันนับไม่ถ้วนแก่พวกท่าน",
     "theme_ms": "Orang-orang yang kufur terhadap nikmat Allah akan dicampakkan ke dalam neraka jahanam, padahal Allah telah melimpahkan pelbagai nikmat yang tidak terhitung."
   },
   {
@@ -6188,7 +6188,7 @@
     "title_th": "การสร้างนบีอาดัม",
     "title_ms": "Penciptaan Nabi Adam",
     "theme_en": "Story of Adam's creation; prostration of the angels before him and the refusal of Shaitan to prostrate and Shaitan and his followers are destined for hell",
-    "theme_th": "เรื่องราวการสร้างนบีอาดัม การสุญูดของบรรดามลาอิกะฮฺต่อท่าน และการปฏิเสธของชัยฏอนที่จะไม่สุญูด ตลอดจนชัยฏอนและผู้ติดตามของมันถูกกำหนดให้ต้องลงสู่นรก",
+    "theme_th": "เรื่องราวการสร้างนบีอาดัม การสุญูดของบรรดามลาอิกะฮฺต่อท่าน และการปฏิเสธของชัยฏอนที่จะไม่สุญูด ตลอดจนชัยฏอนและผู้ติดตามของมันถูกกำหนดให้ต้องลงสู่ไฟนรก",
     "theme_ms": "Kisah penciptaan Nabi Adam, sujudnya para malaikat kepada baginda, keengganan syaitan untuk sujud, serta ketetapan bahawa syaitan dan pengikutnya akan menghuni api neraka."
   },
   {
@@ -6356,7 +6356,7 @@
     "title_th": "หากอัลลอฮฺทรงลงโทษมนุษย์",
     "title_ms": "Jika Allah Menghukum Manusia",
     "theme_en": "If Allah were to punish for wrong doings, He would not leave even and animal around the wrongdoers and As water gives life to dead land so does Al-Quran to the human soul",
-    "theme_th": "หากอัลลอฮฺทรงลงโทษมนุษย์เนื่องด้วยความอธรรมของพวกเขา พระองค์ก็จะไม่ทรงปล่อยให้สิ่งมีชีวิตใดๆ เหลือรอดบนแผ่นดินเลย และเช่นเดียวกับที่น้ำทำให้แผ่นดินที่ตายแล้วกลับมีชีวิต อัลกุรอานก็ทำให้จิตใจของมนุษย์มีชีวิตเช่นกัน",
+    "theme_th": "หากอัลลอฮฺทรงลงโทษมนุษย์เนื่องด้วยความอธรรมของพวกเขา พระองค์ก็จะไม่ทรงปล่อยให้สิ่งมีชีวิตใด ๆ เหลือรอดบนแผ่นดินเลย และเช่นเดียวกับที่น้ำทำให้แผ่นดินที่ตายแล้วกลับมีชีวิต อัลกุรอานก็ทำให้จิตใจของมนุษย์มีชีวิตเช่นกัน",
     "theme_ms": "Seandainya Allah menghukum manusia kerana kezaliman mereka, nescaya Dia tidak akan membiarkan walau seekor haiwan pun di sekeliling orang-orang yang zalim itu, dan sebagaimana air menghidupkan bumi yang mati, demikian jugalah Al-Quran menghidupkan jiwa manusia."
   },
   {
@@ -6392,7 +6392,7 @@
     "title_th": "ยังมีสัญญาณนานาประการ",
     "title_ms": "Terdapat juga tanda-tanda kekuasaan Allah",
     "theme_en": "There are also signs of Allah in the lives of the birds and the animals",
-    "theme_th": "นอกจากนี้ยังมีสัญญาณต่างๆ ของอัลลอฮฺในธรรมชาติของนกและสรรพสัตว์",
+    "theme_th": "นอกจากนี้ยังมีสัญญาณต่าง ๆ ของอัลลอฮฺในธรรมชาติของนกและสรรพสัตว์",
     "theme_ms": "Terdapat juga tanda-tanda kekuasaan Allah pada burung-burung dan haiwan-haiwan"
   },
   {
@@ -6500,7 +6500,7 @@
     "title_th": "อัลลอฮฺทรงทำให้คำพยากรณ์เป็นจริง",
     "title_ms": "Allah menyempurnakan nubuatan yang telah ditetapkan",
     "theme_en": "Allah fulfilled the prophecy made in the Holy Book of the Israelites that they will create mischief in the land twice and each time they will be punished and Al-Quran guides to the perfectly Straight Way",
-    "theme_th": "อัลลอฮฺทรงทำให้คำพยากรณ์ที่ระบุไว้ในคัมภีร์ของวงศ์วานอิสราเอลเป็นจริง ว่าพวกเขาจะสร้างความเสียหายในแผ่นดินสองครั้ง และในแต่ละครั้งพวกเขาจะถูกลงทัณฑ์ และอัลกุรอานทรงนำทางไปสู่เส้นทางที่เที่ยงตรงสมบูรณ์",
+    "theme_th": "อัลลอฮฺทรงทำให้คำพยากรณ์ที่ระบุไว้ในคัมภีร์ของวงศ์วานอิสรออีลเป็นจริง ว่าพวกเขาจะสร้างความเสียหายในแผ่นดินสองครั้ง และในแต่ละครั้งพวกเขาจะถูกลงทัณฑ์ และอัลกุรอานทรงนำทางไปสู่เส้นทางที่เที่ยงตรงสมบูรณ์",
     "theme_ms": "Allah menyempurnakan nubuatan yang dinyatakan di dalam Kitab kepada Bani Israil bahawa mereka pasti akan melakukan kerosakan di bumi sebanyak dua kali dan pada setiap kali itu mereka akan ditimpa hukuman, serta Al-Quran memberikan petunjuk ke jalan yang benar-benarnya lurus"
   },
   {
@@ -6536,7 +6536,7 @@
     "title_th": "ผู้ที่ปรารถนาความสุขสำราญอันชั่วคราว",
     "title_ms": "Sesiapa yang menghendaki kehidupan dunia yang fana",
     "theme_en": "He that desires the transitory things of this life is given here, but in the hereafter he shall be condemned to hell",
-    "theme_th": "ผู้ที่ปรารถนาความสุขสำราญอันชั่วคราวในโลกนี้ พระองค์จะทรงประทานให้ตามประสงค์ แต่ในปรโลกเขาจะต้องถูกลงทัณฑ์ในนรกญะฮันนัม",
+    "theme_th": "ผู้ที่ปรารถนาความสุขสำราญอันชั่วคราวในโลกนี้ พระองค์จะทรงประทานให้ตามประสงค์ แต่ในปรโลกเขาจะต้องถูกลงทัณฑ์ในญะฮันนัม",
     "theme_ms": "Sesiapa yang menghendaki kesenangan dunia yang sementara, Kami segerakan baginya di sini mengikut kehendak Kami, kemudian Kami sediakan baginya neraka Jahanam di akhirat"
   },
   {
@@ -6572,7 +6572,7 @@
     "title_th": "หากมีพระเจ้าอื่นร่วมกับอัลลอฮฺ",
     "title_ms": "Jika ada tuhan-tuhan selain Allah",
     "theme_en": "If there were other gods besides Allah, they would have tried to dethrone Him",
-    "theme_th": "หากมีพระเจ้าอื่นๆ ร่วมกับอัลลอฮฺตามที่พวกเขาอ้าง พระองค์เหล่านั้นคงจะหาทางแย่งชิงอำนาจกับพระเจ้าผู้ทรง 1 เดียวไปแล้ว",
+    "theme_th": "หากมีพระเจ้าอื่น ๆ ร่วมกับอัลลอฮฺตามที่พวกเขาอ้าง พระองค์เหล่านั้นคงจะหาทางแย่งชิงอำนาจกับพระเจ้าผู้ทรง 1 เดียวไปแล้ว",
     "theme_ms": "Seandainya ada tuhan-tuhan lain bersama Allah, nescaya tuhan-tuhan itu akan mencari jalan untuk menyaingi Tuhan Yang Maha 'Arasy"
   },
   {
@@ -6605,10 +6605,10 @@
     "ayah_to": 57,
     "total_ayahs": 2,
     "title_en": "Invented gods have no power",
-    "title_th": "พระเจ้าที่ถูกอุปโลกน์ขึ้นไม่มีอำนาจใดๆ",
+    "title_th": "พระเจ้าที่ถูกอุปโลกน์ขึ้นไม่มีอำนาจใด ๆ",
     "title_ms": "Sembahan batil tidak mempunyai kuasa",
     "theme_en": "Invented gods have no power to relieve you from any distress",
-    "theme_th": "พระเจ้าที่ถูกอุปโลกน์ขึ้นไม่มีอำนาจที่จะบรรเทาความทุกข์ยากใดๆ จากพวกเจ้าได้",
+    "theme_th": "พระเจ้าที่ถูกอุปโลกน์ขึ้นไม่มีอำนาจที่จะบรรเทาความทุกข์ยากใด ๆ จากพวกเจ้าได้",
     "theme_ms": "Sembahan-sembahan batil yang diada-adakan tidak mempunyai kuasa untuk melepaskan kamu daripada sebarang kesusahan"
   },
   {
@@ -6617,10 +6617,10 @@
     "ayah_to": 60,
     "total_ayahs": 3,
     "title_en": "Why the signs are not",
-    "title_th": "เหตุใดจึงไม่มีการประทานสัญญาณต่างๆ",
+    "title_th": "เหตุใดจึงไม่มีการประทานสัญญาณต่าง ๆ",
     "title_ms": "Sebab mukjizat tidak diturunkan",
     "theme_en": "Why the signs are not sent to Muhammad (pbuh) like prior prophets",
-    "theme_th": "เหตุใดสัญญาณต่างๆ จึงไม่ถูกประทานแก่ท่านนบีมุฮัมมัด (ซ.ล.) เช่นเดียวกับบรรดานบีก่อนหน้านี้",
+    "theme_th": "เหตุใดสัญญาณต่าง ๆ จึงไม่ถูกประทานแก่ท่านนบีมุฮัมมัด (ซ.ล.) เช่นเดียวกับบรรดานบีก่อนหน้านี้",
     "theme_ms": "Mengapa mukjizat-mukjizat tidak diturunkan kepada Nabi Muhammad s.a.w. seperti nabi-nabi terdahulu"
   },
   {
@@ -6716,7 +6716,7 @@
     "title_th": "อัลลอฮฺทรงส่งมนุษย์มาเป็นรอซูล",
     "title_ms": "Allah mengutuskan seorang Rasul daripada kalangan manusia",
     "theme_en": "Allah has sent a human Rasool to human beings; if the dwellers of earth had been Angels, Allah would have sent and angel as a Rasool and Only disbelievers can doubt life after death",
-    "theme_th": "อัลลอฮฺทรงส่งรอซูลที่เป็นมนุษย์มายังมนุษยชาติ หากชาวแผ่นดินเป็นมะลาอิกะฮฺ พระองค์ก็คงทรงส่งมะลาอิกะฮฺมาเป็นรอซูล และมีเพียงบรรดาผู้ปฏิเสธศรัทธาเท่านั้นที่สงสัยในชีวิตหลังความตาย",
+    "theme_th": "อัลลอฮฺทรงส่งรอซูลที่เป็นมนุษย์มายังมนุษยชาติ หากชาวแผ่นดินเป็นมลาอิกะฮฺ พระองค์ก็คงทรงส่งมลาอิกะฮฺมาเป็นรอซูล และมีเพียงบรรดาผู้ปฏิเสธศรัทธาเท่านั้นที่สงสัยในชีวิตหลังความตาย",
     "theme_ms": "Allah mengutuskan seorang Rasul daripada kalangan manusia kepada umat manusia; sekiranya penduduk bumi ini terdiri daripada malaikat, nescaya Allah akan mengutuskan malaikat sebagai rasul, dan hanya orang-orang kafir sahaja yang meragui kehidupan selepas kematian"
   },
   {
@@ -6728,7 +6728,7 @@
     "title_th": "นบีมูซาได้รับ 9 สัญญาณปาฏิหาริย์",
     "title_ms": "Nabi Musa a.s. dikurniakan sembilan mukjizat",
     "theme_en": "Musa was given NINE signs; people still did not believe him",
-    "theme_th": "นบีมูซาได้รับ 9 สัญญาณปาฏิหาริย์ แต่ผู้คนก็ยังไม่ยอมเชื่อฟัง",
+    "theme_th": "นบีมูซาได้รับ 9 สัญญาณปาฏิหาริย์ แต่มนุษย์ก็ยังไม่ยอมเชื่อฟัง",
     "theme_ms": "Nabi Musa a.s. telah dikurniakan sembilan mukjizat yang jelas, namun Firaun dan kaumnya tetap enggan beriman"
   },
   {
@@ -6740,7 +6740,7 @@
     "title_th": "อัลกุรอานถูกประทานลงมาด้วยความจริง",
     "title_ms": "Al-Quran diturunkan dengan kebenaran",
     "theme_en": "Al-Quran is revealed in truth and with the truth it has come dow in sections to suit each occasion, for easy deliberation Offer Salah neither too loud nor too low a voice, adopt the middle course",
-    "theme_th": "อัลกุรอานถูกประทานลงมาด้วยความจริงและพร้อมกับความจริง มันถูกประทานลงมาเป็นช่วงๆ เพื่อให้เหมาะสมในแต่ละโอกาสสำหรับการไตร่ตรองอย่างง่ายดาย จงปฏิบัติละหมาดโดยไม่ต้องใช้เสียงดังเกินไปและไม่เบาจนเกินไป จงเลือกแนวทางสายกลาง",
+    "theme_th": "อัลกุรอานถูกประทานลงมาด้วยความจริงและพร้อมกับความจริง มันถูกประทานลงมาเป็นช่วง ๆ เพื่อให้เหมาะสมในแต่ละโอกาสสำหรับการไตร่ตรองอย่างง่ายดาย จงปฏิบัติละหมาดโดยไม่ต้องใช้เสียงดังเกินไปและไม่เบาจนเกินไป จงเลือกแนวทางสายกลาง",
     "theme_ms": "Al-Quran diturunkan dengan kebenaran dan dengannya ia turun secara beransur-ansur mengikut kesesuaian setiap peristiwa demi memudahkan perenungan, serta didirikan solat dengan suara yang tidak terlalu kuat dan tidak pula terlalu perlahan, sebaliknya mengamalkan cara yang pertengahan"
   },
   {
@@ -6800,7 +6800,7 @@
     "title_th": "การเปิดเผยตัวตนของชาวถ้ำ",
     "title_ms": "Identiti mereka telah mendedahkan",
     "theme_en": "Their identity was disclosed to resolve the disputed issue of life after death, What a shame that instead of getting the point people are disputing about their numbers",
-    "theme_th": "ตัวตนของพวกเขาถูกเปิดเผยเพื่อยุติข้อพิพาทเรื่องการฟื้นคืนชีพหลังความตาย น่าเสียดายที่ผู้คนกลับไปโต้เถียงกันเรื่องจำนวนของพวกเขาแทนที่จะทำความเข้าใจประเด็นสำคัญ",
+    "theme_th": "ตัวตนของพวกเขาถูกเปิดเผยเพื่อยุติข้อพิพาทเรื่องการฟื้นคืนชีพหลังความตาย น่าเสียดายที่มนุษย์กลับไปโต้เถียงกันเรื่องจำนวนของพวกเขาแทนที่จะทำความเข้าใจประเด็นสำคัญ",
     "theme_ms": "Identiti mereka didedahkan bagi merungkai isu perselisihan mengenai hari kebangkitan, amat malang sekali apabila manusia lebih sibuk berbalah tentang bilangan mereka berbanding mengambil pengajaran penting daripadanya"
   },
   {
@@ -6869,7 +6869,7 @@
     "ayah_to": 59,
     "total_ayahs": 6,
     "title_en": "Allah has given all kinds",
-    "title_th": "อัลลอฮฺทรงยกอุทาหรณ์ต่างๆ ในอัลกุรอาน",
+    "title_th": "อัลลอฮฺทรงยกอุทาหรณ์ต่าง ๆ ในอัลกุรอาน",
     "title_ms": "Pelbagai perumpamaan dalam Al-Quran",
     "theme_en": "Allah has given all kinds of examples in the Quran, so that the people may understand His Message",
     "theme_th": "อัลลอฮฺทรงยกอุทาหรณ์นานัปการในอัลกุรอาน เพื่อให้มนุษย์ได้เข้าใจสาส์นของพระองค์",
@@ -7097,10 +7097,10 @@
     "ayah_to": 24,
     "total_ayahs": 8,
     "title_en": "Allah chose him as His Rasool",
-    "title_th": "อัลลอฮฺทรงคัดเลือกท่านเป็นร่อซูล",
+    "title_th": "อัลลอฮฺทรงคัดเลือกท่านเป็นรอซูล",
     "title_ms": "Pelantikan Nabi Musa a.s. sebagai Rasul",
     "theme_en": "Allah chose him as His Rasool and assigned him towards Fir'on (Pharaoh)",
-    "theme_th": "อัลลอฮฺทรงคัดเลือกเขาเป็นรอซูลและทรงมอบหมายภารกิจให้ไปหาฟิรเอาน์",
+    "theme_th": "อัลลอฮฺทรงคัดเลือกเขาเป็นรอซูลและทรงมอบหมายภารกิจให้ไปหาฟิรเอานฺ",
     "theme_ms": "Allah SWT melantik Nabi Musa a.s. sebagai Rasul serta menganugerahkannya mukjizat"
   },
   {
@@ -7112,7 +7112,7 @@
     "title_th": "ดุอาอ์ของนบีมูซาต่ออัลลอฮฺ",
     "title_ms": "Nabi Musa berdoa kepada Allah",
     "theme_en": "Prophet Musa prayed to Allah to open his heart, easy his task and remove the impediment from his speech so that people may understand, what he says Allah granted his request and reminded him about His favors",
-    "theme_th": "นบีมูซาได้วิงวอนดุอาอ์ต่ออัลลอฮฺให้ทรงเปิดอกของเขา ทรงทำให้ภารกิจของเขาง่ายดาย และทรงแก้ปมลิ้นของเขาเพื่อให้ผู้คนเข้าใจสิ่งที่เขากล่าว ซึ่งอัลลอฮฺทรงตอบรับคำขอของเขาและทรงเตือนเขาถึงความเมตตาต่างๆ ของพระองค์",
+    "theme_th": "นบีมูซาได้วิงวอนดุอาอ์ต่ออัลลอฮฺให้ทรงเปิดอกของเขา ทรงทำให้ภารกิจของเขาง่ายดาย และทรงแก้ปมลิ้นของเขาเพื่อให้มนุษย์เข้าใจสิ่งที่เขากล่าว ซึ่งอัลลอฮฺทรงตอบรับคำขอของเขาและทรงเตือนเขาถึงความเมตตาต่าง ๆ ของพระองค์",
     "theme_ms": "Nabi Musa berdoa kepada Allah agar melapangkan dadanya, memudahkan urusannya, dan meleraikan kekakuan pada lidahnya agar manusia memahami kata-katanya, lalu Allah memperkenankan permohonannya serta mengingatkannya tentang nikmat-nikmat-Nya"
   },
   {
@@ -7121,10 +7121,10 @@
     "ayah_to": 54,
     "total_ayahs": 6,
     "title_en": "Dialogue between Musa",
-    "title_th": "บทสนทนาระหว่างนบีมูซากับฟิรเอาน์",
+    "title_th": "บทสนทนาระหว่างนบีมูซากับฟิรเอานฺ",
     "title_ms": "Dialog antara Nabi Musa a.s. dan Firaun",
     "theme_en": "Dialogue between Musa and Fir'on",
-    "theme_th": "บทสนทนาระหว่างนบีมูซากับฟิรเอาน์",
+    "theme_th": "บทสนทนาระหว่างนบีมูซากับฟิรเอานฺ",
     "theme_ms": "Perbincangan dan hujah antara Nabi Musa a.s. dengan Firaun"
   },
   {
@@ -7145,10 +7145,10 @@
     "ayah_to": 64,
     "total_ayahs": 9,
     "title_en": "Fir'on disbelieved Musa by calling",
-    "title_th": "ฟิรเอาน์ปฏิเสธนบีมูซาโดยกล่าวหาว่าท่านเป็นนักมายากล",
+    "title_th": "ฟิรเอานฺปฏิเสธนบีมูซาโดยกล่าวหาว่าท่านเป็นนักมายากล",
     "title_ms": "Firaun mengingkari Nabi Musa dengan menuduh",
     "theme_en": "Fir'on disbelieved Musa by calling his miracles a magician trick and challenged him to confront his magicians in public - Musa accepted the challenge",
-    "theme_th": "ฟิรเอาน์ปฏิเสธศรัทธานบีมูซาโดยกล่าวหาว่าปาฏิหาริย์ของท่านเป็นกลอุบายของนักมายากล และท้าทายให้ท่านไปประลองกับเหล่านักมายากลของเขาในที่สาธารณะ ซึ่งนบีมูซาก็ตอบรับคำท้านั้น",
+    "theme_th": "ฟิรเอานฺปฏิเสธศรัทธานบีมูซาโดยกล่าวหาว่าปาฏิหาริย์ของท่านเป็นกลอุบายของนักมายากล และท้าทายให้ท่านไปประลองกับเหล่านักมายากลของเขาในที่สาธารณะ ซึ่งนบีมูซาก็ตอบรับคำท้านั้น",
     "theme_ms": "Firaun mendustakan Nabi Musa dengan menuduh mukjizatnya sebagai tipu helah ahli sihir dan mencabarnya untuk berdepan dengan ahli-ahli sihirnya di khalayak ramai, lalu Nabi Musa menerima cabaran tersebut"
   },
   {
@@ -7160,7 +7160,7 @@
     "title_th": "การเผชิญหน้าระหว่างนบีมูซากับนักมายากล",
     "title_ms": "Konfrontasi Nabi Musa",
     "theme_en": "Confrontation of Musa and Fir'on's magicians, after witnessing Musa's miracle Magicians accepted Islam and Dialogue between Magicians and Fir'on",
-    "theme_th": "การเผชิญหน้าระหว่างนบีมูซากับบรรดานักมายากลของฟิรเอาน์ หลังจากได้ประจักษ์ในปาฏิหาริย์ บรรดานักมายากลจึงประกาศศรัทธาเข้ารับอิสลาม และการสนทนาระหว่างนักมายากลกับฟิรเอาน์",
+    "theme_th": "การเผชิญหน้าระหว่างนบีมูซากับบรรดานักมายากลของฟิรเอานฺ หลังจากได้ประจักษ์ในปาฏิหาริย์ บรรดานักมายากลจึงประกาศศรัทธาเข้ารับอิสลาม และการสนทนาระหว่างนักมายากลกับฟิรเอานฺ",
     "theme_ms": "Konfrontasi antara Nabi Musa dan ahli-ahli sihir Firaun. Selepas menyaksikan mukjizat Nabi Musa, para ahli-ahli sihir menerima Islam, diikuti dengan dialog antara ahli-ahli sihir dan Firaun."
   },
   {
@@ -7172,7 +7172,7 @@
     "title_th": "การปลดปล่อยลูกหลานอิสราเอล",
     "title_ms": "Penyelamatan Bani Israil",
     "theme_en": "Deliverance of the Children of Israel from the bondage of Fir'on",
-    "theme_th": "การทรงช่วยลูกหลานอิสราเอลให้รอดพ้นจากการเป็นทาสของฟิรเอาน์",
+    "theme_th": "การทรงช่วยลูกหลานอิสราเอลให้รอดพ้นจากการเป็นทาสของฟิรเอานฺ",
     "theme_ms": "Penyelamatan Bani Israil daripada kezaliman Firaun serta nikmat kurniaan Allah"
   },
   {
@@ -7268,7 +7268,7 @@
     "title_th": "อัลกุรอานคือสัญญาณอันชัดแจ้งจากพระองค์",
     "title_ms": "Al-Quran Adalah Bukti yang Nyata daripada Allah",
     "theme_en": "AL-Quran is a sign from Allah so there can be no excuse for the unbelievers on the Day of Judgement",
-    "theme_th": "อัลกุรอานคือหลักฐานอันชัดแจ้งจากอัลลอฮฺ เพื่อมิให้บรรดาผู้ปฏิเสธศรัทธามีข้อแก้ตัวใดๆ ในวันพิพากษา",
+    "theme_th": "อัลกุรอานคือหลักฐานอันชัดแจ้งจากอัลลอฮฺ เพื่อมิให้บรรดาผู้ปฏิเสธศรัทธามีข้อแก้ตัวใด ๆ ในวันพิพากษา",
     "theme_ms": "Al-Quran adalah satu tanda dan bukti yang nyata daripada Allah, maka tiada lagi sebarang alasan bagi orang-orang kafir pada Hari Kiamat."
   },
   {
@@ -7277,10 +7277,10 @@
     "ayah_to": 10,
     "total_ayahs": 10,
     "title_en": "The day of accountability is",
-    "title_th": "วันแห่งการสอบสวนกำลัง",
+    "title_th": "วันแห่งการสอบสวนกำลังใกล้เข้ามา",
     "title_ms": "Hari Perhitungan Amal Semakin Hampir",
     "theme_en": "The day of accountability is getting closer but the disbelievers are still heedless to the admonition and disputing as to how Rasool can be a human beings",
-    "theme_th": "วันแห่งการสอบสวนกำลังใกล้เข้ามาแล้ว แต่บรรดาผู้ปฏิเสธศรัทธายังคงเพิกเฉยต่อการตักเตือน และโต้แย้งว่าร่อซูลเป็นมนุษย์ได้อย่างไร",
+    "theme_th": "วันแห่งการสอบสวนกำลังใกล้เข้ามาแล้ว แต่บรรดาผู้ปฏิเสธศรัทธายังคงเพิกเฉยต่อการตักเตือน และโต้แย้งว่ารอซูลเป็นมนุษย์ได้อย่างไร",
     "theme_ms": "Hari perhitungan amal semakin menghampiri, namun orang-orang kafir masih lagi lalai daripada peringatan serta berselisih faham tentang bagaimana seorang Rasul boleh menjadi manusia biasa."
   },
   {
@@ -7325,10 +7325,10 @@
     "ayah_to": 29,
     "total_ayahs": 5,
     "title_en": "All Rasools were sent with",
-    "title_th": "บรรดาร่อซูลทุกคนถูกส่งมาพร้อมกับ",
+    "title_th": "บรรดารอซูลทุกคนถูกส่งมาพร้อมกับสาสน์เตาฮีด",
     "title_ms": "Kesemua Rasul Diutuskan dengan Risalah Tauhid",
     "theme_en": "All Rasools were sent with the same Message, \"There is no god but Allah, so worship Him alone",
-    "theme_th": "บรรดาร่อซูลทุกคนถูกส่งมาพร้อมกับสาส์นเดียวกัน นั่นคือ \"ไม่มีพระเจ้าอื่นใดนอกจากอัลลอฮฺ ดังนั้น จงเคารพภักดีต่อพระองค์เพียงผู้เดียว\"",
+    "theme_th": "บรรดารอซูลทุกคนถูกส่งมาพร้อมกับสาส์นเดียวกัน นั่นคือ \"ไม่มีพระเจ้าอื่นใดนอกจากอัลลอฮฺ ดังนั้น จงเคารพภักดีต่อพระองค์เพียงผู้เดียว\"",
     "theme_ms": "Kesemua rasul diutuskan dengan membawa risalah yang sama iaitu, \"Tiada Tuhan selain Allah, maka sembahlah Dia sahaja.\""
   },
   {
@@ -7400,7 +7400,7 @@
     "title_th": "ความเมตตาที่อัลลอฮฺประทานแก่นบีอิบรอฮีมและวงศ์วาน",
     "title_ms": "Anugerah Keturunan Nabi yang Soleh kepada Nabi Ibrahim a.s.",
     "theme_en": "Allah blessed Ibrahim with son (Ishaq) and then a grandson (Ya'qoob) and made each of them Prophets",
-    "theme_th": "อัลลอฮฺทรงประทานความเมตตาแก่นบีอิบรอฮีมด้วยการประทานอิสฮากเป็นบุตร และยะอ์กูบเป็นหลาน พร้อมทั้งทรงแต่งตั้งให้ทุกคนเป็นนบี",
+    "theme_th": "อัลลอฮฺทรงประทานความเมตตาแก่นบีอิบรอฮีมด้วยการประทานอิสฮากเป็นบุตร และยะอฺกูบเป็นหลาน พร้อมทั้งทรงแต่งตั้งให้ทุกคนเป็นนบี",
     "theme_ms": "Allah mengurniakan kepada Nabi Ibrahim a.s. anak iaitu Ishak dan cucu iaitu Yaakub, serta menjadikan masing-masing daripada mereka sebagai nabi yang soleh."
   },
   {
@@ -7409,10 +7409,10 @@
     "ayah_to": 77,
     "total_ayahs": 2,
     "title_en": "Allah accepted the prayer of",
-    "title_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีนูห์",
+    "title_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีนูฮฺ",
     "title_ms": "Doa Nabi Nuh a.s. yang Diperkenankan oleh Allah",
     "theme_en": "Allah accepted the prayer of Nuh against the unbelievers",
-    "theme_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีนูห์เมื่อครั้งที่ท่านขอความช่วยเหลือให้รอดพ้นจากกลุ่มชนผู้ปฏิเสธศรัทธา",
+    "theme_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีนูฮฺเมื่อครั้งที่ท่านขอความช่วยเหลือให้รอดพ้นจากกลุ่มชนผู้ปฏิเสธศรัทธา",
     "theme_ms": "Allah memperkenankan doa Nabi Nuh a.s. ketika beliau memohon pertolongan daripada kaum yang mendustakan."
   },
   {
@@ -7421,10 +7421,10 @@
     "ayah_to": 82,
     "total_ayahs": 5,
     "title_en": "Allah blessed Prophets Dawood",
-    "title_th": "ความเมตตาและปัญญาที่ประทานแก่นบีดาวูดและนบีสุไลมาน",
+    "title_th": "ความเมตตาและปัญญาที่ประทานแก่นบีดาวูดและนบีสุลัยมาน",
     "title_ms": "Kurniaan Ilmu dan Kebijaksanaan kepada Nabi Daud a.s. dan Nabi Sulaiman a.s.",
     "theme_en": "Allah blessed Prophets Dawood and Sulaiman with wisdom, knowledge and kingdoms",
-    "theme_th": "อัลลอฮฺทรงประทานความรู้ ความเข้าใจ และปัญญาญาณแก่นบีดาวูดและนบีสุไลมาน พร้อมทั้งทรงปรีชาสามารถในการบริหารอาณาจักร",
+    "theme_th": "อัลลอฮฺทรงประทานความรู้ ความเข้าใจ และปัญญาญาณแก่นบีดาวูดและนบีสุลัยมาน พร้อมทั้งทรงปรีชาสามารถในการบริหารอาณาจักร",
     "theme_ms": "Allah mengurniakan kepada Nabi Daud a.s. dan Nabi Sulaiman a.s. kebijaksanaan, ilmu pengetahuan serta kekuasaan yang besar."
   },
   {
@@ -7433,10 +7433,10 @@
     "ayah_to": 84,
     "total_ayahs": 2,
     "title_en": "Allah accepted Prophet Ayub's prayer",
-    "title_th": "การตอบรับคำวิงวอนของนบีอัยยู้บ",
+    "title_th": "การตอบรับคำวิงวอนของนบีอัยยูบ",
     "title_ms": "Doa Nabi Ayub a.s. yang Dimustajabkan",
     "theme_en": "Allah accepted Prophet Ayub's prayer and removed his affliction",
-    "theme_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีอัยยู้บ และทรงขจัดความทุกข์ระทมรวมถึงโรคภัยไข้เจ็บของท่านให้หมดไป",
+    "theme_th": "อัลลอฮฺทรงตอบรับคำวิงวอนของนบีอัยยูบ และทรงขจัดความทุกข์ระทมรวมถึงโรคภัยไข้เจ็บของท่านให้หมดไป",
     "theme_ms": "Allah memperkenankan doa Nabi Ayub a.s. serta menyembuhkan penyakit dan kesusahan yang menimpa baginda."
   },
   {
@@ -7532,7 +7532,7 @@
     "title_th": "การวิงวอนขอต่อสิ่งอื่นนอกจากอัลลอฮฺ",
     "title_ms": "Golongan yang Menyembah Selain Allah",
     "theme_en": "People invoke other deities besides Allah, without knowledge and guidance",
-    "theme_th": "บรรดาผู้คนที่วิงวอนขอต่อพระเจ้าอื่นนอกเหนือจากอัลลอฮฺ โดยปราศจากความรู้และทางนำ",
+    "theme_th": "บรรดามนุษย์ที่วิงวอนขอต่อพระเจ้าอื่นนอกเหนือจากอัลลอฮฺ โดยปราศจากความรู้และทางนำ",
     "theme_ms": "Golongan yang menyembah tuhan-tuhan selain Allah tanpa sebarang ilmu dan petunjuk hidayah"
   },
   {
@@ -7676,7 +7676,7 @@
     "title_th": "ชัยฏอนได้แทรกแซงความปรารถนา",
     "title_ms": "Gangguan Syaitan terhadap Keinginan Para Rasul",
     "theme_en": "Shaitan tempered with the wishes of all Rasools but Allah abrogated such interjection and On the Day of Judgement Allah Himself shall be the Judge for all",
-    "theme_th": "ชัยฏอนได้แทรกแซงความปรารถนาของบรรดาร่อซูลทุกคน แต่อัลลอฮฺทรงเพิกถอนการแทรกแซงดังกล่าว และในวันพิพากษาอัลลอฮฺจะทรงเป็นผู้ตัดสินสำหรับทุกคนด้วยพระองค์เอง",
+    "theme_th": "ชัยฏอนได้แทรกแซงความปรารถนาของบรรดารอซูลทุกคน แต่อัลลอฮฺทรงเพิกถอนการแทรกแซงดังกล่าว และในวันพิพากษาอัลลอฮฺจะทรงเป็นผู้ตัดสินสำหรับทุกคนด้วยพระองค์เอง",
     "theme_ms": "Syaitan mencampurkan gangguan dalam niat atau bacaan para rasul, namun Allah membatalkan gangguan tersebut, dan pada Hari Kiamat Allah sendiri akan menjadi Hakim bagi sekalian makhluk."
   },
   {
@@ -7760,7 +7760,7 @@
     "title_th": "ขั้นตอนการบังเกิดของมนุษย์",
     "title_ms": "Peringkat Penciptaan Insan",
     "theme_en": "Stages of human creation",
-    "theme_th": "ขั้นตอนต่างๆ ในการสร้างสรรค์มนุษย์จากดินสู่วันฟื้นคืนชีพ",
+    "theme_th": "ขั้นตอนต่าง ๆ ในการสร้างสรรค์มนุษย์จากดินสู่วันฟื้นคืนชีพ",
     "theme_ms": "Proses kejadian dan peringkat-peringkat penciptaan manusia dari air mani hingga hari kebangkitan"
   },
   {
@@ -7769,7 +7769,7 @@
     "ayah_to": 22,
     "total_ayahs": 6,
     "title_en": "Allah has made the heavens",
-    "title_th": "ความโปรดปรานต่างๆ ที่อัลลอฮฺทรงประทานแก่สรรพมนุษย์",
+    "title_th": "ความโปรดปรานต่าง ๆ ที่อัลลอฮฺทรงประทานแก่สรรพมนุษย์",
     "title_ms": "Bukti Kekuasaan dan Nikmat Pemberian Allah",
     "theme_en": "Allah has made the heavens, vegetation, trees and Animals for the benefit of human beings",
     "theme_th": "อัลลอฮฺทรงสร้างชั้นฟ้า พืชพรรณ ต้นไม้ และปศุสัตว์ เพื่อเป็นประโยชน์และความโปรดปรานแก่ปวงมนุษย์",
@@ -7781,10 +7781,10 @@
     "ayah_to": 30,
     "total_ayahs": 8,
     "title_en": "Prophet Nuh was sent to",
-    "title_th": "เรื่องราวนบีนูห์และการลงทัณฑ์น้ำท่วมใหญ่",
+    "title_th": "เรื่องราวนบีนูฮฺและการลงทัณฑ์น้ำท่วมใหญ่",
     "title_ms": "Kisah Dakwah Nabi Nuh a.s. dan Banjir Besar",
     "theme_en": "Prophet Nuh was sent to guide his people, they disbelieved him, as a result Allah drowned all disbelievers in great flood",
-    "theme_th": "การส่งนบีนูห์ไปเผยแผ่สัจธรรมแก่กลุ่มชนของท่าน พวกเขาปฏิเสธ พระองค์จึงทรงให้พวกเขาทั้งหมดจมน้ำตายในเหตุการณ์น้ำท่วมใหญ่",
+    "theme_th": "การส่งนบีนูฮฺไปเผยแผ่สัจธรรมแก่กลุ่มชนของท่าน พวกเขาปฏิเสธ พระองค์จึงทรงให้พวกเขาทั้งหมดจมน้ำตายในเหตุการณ์น้ำท่วมใหญ่",
     "theme_ms": "Kisah Nabi Nuh a.s. diutuskan kepada kaumnya, penolakan mereka, serta kesudahan mereka yang ditenggelamkan dalam banjir besar"
   },
   {
@@ -7793,10 +7793,10 @@
     "ayah_to": 32,
     "total_ayahs": 2,
     "title_en": "After prophet Nuh",
-    "title_th": "ยุคสมัยหลังจากนบีนูห์",
+    "title_th": "ยุคสมัยหลังจากนบีนูฮฺ",
     "title_ms": "Umat-Umat Selepas Zaman Nabi Nuh a.s.",
     "theme_en": "After prophet Nuh, Allah sent Hud to guide his people",
-    "theme_th": "การกำเนิดประชาชาติอื่นๆ หลังจากยุคของนบีนูห์",
+    "theme_th": "การกำเนิดประชาชาติอื่น ๆ หลังจากยุคของนบีนูฮฺ",
     "theme_ms": "Kemunculan generasi-generasi baharu selepas zaman Nabi Nuh a.s. yang turut membangkang para rasul"
   },
   {
@@ -7808,7 +7808,7 @@
     "title_th": "พวกเขาเรียกนบีฮูด",
     "title_ms": "Penolakan terhadap Nabi Hud",
     "theme_en": "They called Hud and imposter; as a result Allah destroyed them all in a mighty blast and After Hud Allah sent Rasools to other people, those people also denied and faced a similar punishment",
-    "theme_th": "พวกเขาเรียกนบีฮูดว่าเป็นผู้กล่าวเท็จ ผลลัพธ์คืออัลลอฮฺทรงทำลายพวกเขาทั้งหมดด้วยเสียงคำรามอันกึกก้อง และหลังจากนบีฮูด อัลลอฮฺทรงส่งบรรดาร่อซูลไปยังกลุ่มชนอื่น ๆ ซึ่งกลุ่มชนเหล่านั้นก็ปฏิเสธเช่นกันและเผชิญกับการลงโทษที่คล้ายคลึงกัน",
+    "theme_th": "พวกเขาเรียกนบีฮูดว่าเป็นผู้กล่าวเท็จ ผลลัพธ์คืออัลลอฮฺทรงทำลายพวกเขาทั้งหมดด้วยเสียงคำรามอันกึกก้อง และหลังจากนบีฮูด อัลลอฮฺทรงส่งบรรดารอซูลไปยังกลุ่มชนอื่น ๆ ซึ่งกลุ่มชนเหล่านั้นก็ปฏิเสธเช่นกันและเผชิญกับการลงโทษที่คล้ายคลึงกัน",
     "theme_ms": "Mereka menuduh Nabi Hud sebagai seorang penipu; akibatnya Allah membinasakan mereka semua dengan letupan suara yang dahsyat, dan selepas Nabi Hud, Allah mengutus para rasul kepada umat-umat yang lain yang turut mendustakan serta menghadapi balasan azab yang serupa."
   },
   {
@@ -7817,10 +7817,10 @@
     "ayah_to": 50,
     "total_ayahs": 6,
     "title_en": "Musa was sent to Fir'on",
-    "title_th": "นบีมูซาถูกส่งไปยังฟิรเอาน์",
+    "title_th": "นบีมูซาถูกส่งไปยังฟิรเอานฺ",
     "title_ms": "Utusan Nabi Musa a.s. kepada Firaun",
     "theme_en": "Musa was sent to Fir'on and his chiefs; they also disbelieved and faced destruction",
-    "theme_th": "นบีมูซาถูกส่งไปพร้อมกับโองการทั้งหลายไปยังฟิรเอาน์และบรรดาหัวหน้าของเขา แต่พวกเขาปฏิเสธศรัทธาและต้องประสบกับความพินาศ",
+    "theme_th": "นบีมูซาถูกส่งไปพร้อมกับโองการทั้งหลายไปยังฟิรเอานฺและบรรดาหัวหน้าของเขา แต่พวกเขาปฏิเสธศรัทธาและต้องประสบกับความพินาศ",
     "theme_ms": "Nabi Musa a.s. dan saudaranya Harun diutus kepada Firaun dan pembesar-pembesarnya; namun mereka angkuh dan mendustakan kebenaran lalu dibinasakan."
   },
   {
@@ -7829,7 +7829,7 @@
     "ayah_to": 61,
     "total_ayahs": 11,
     "title_en": "Allah has said",
-    "title_th": "อัลลอฮฺทรงตรัสว่า",
+    "title_th": "พระดำรัสของอัลลอฮฺต่อบรรดารอซูลและความเป็นหนึ่งเดียวของประชาชาติ",
     "title_ms": "Firman Allah tentang Kesatuan Agama",
     "theme_en": "Allah has said, \"In fact, your religion is one religion; I am your Rabb, so fear Me alone\"",
     "theme_th": "อัลลอฮฺทรงตรัสว่า \"แท้จริงแล้ว ศาสนาของพวกเจ้าคือศาสนาเดียวกัน และเราคือพระผู้อภิบาลของพวกเจ้า ดังนั้น จงยำเกรงต่อเราแต่เพียงผู้เดียว\"",
@@ -8081,10 +8081,10 @@
     "ayah_to": 50,
     "total_ayahs": 5,
     "title_en": "Claim to be the believers",
-    "title_th": "ท่าทีของบรรดาผู้กลับกลอกเมื่อถูกเรียกร้องมาสู่อัลลอฮฺและร่อซูล",
+    "title_th": "ท่าทีของบรรดาผู้กลับกลอกเมื่อถูกเรียกร้องมาสู่อัลลอฮฺและรอซูล",
     "title_ms": "Sikap Golongan Munafik terhadap Hukum Allah",
     "theme_en": "Those who claim to be the believers but do not demonstrate their belief through actions are not true believers",
-    "theme_th": "ท่าทีของบรรดาผู้กลับกลอกและผู้ปฏิเสธเมื่อพวกเขาถูกเรียกร้องให้อัลลอฮฺและร่อซูลตัดสินข้อพิพาทระหว่างพวกเขา",
+    "theme_th": "ท่าทีของบรรดาผู้กลับกลอกและผู้ปฏิเสธเมื่อพวกเขาถูกเรียกร้องให้อัลลอฮฺและรอซูลตัดสินข้อพิพาทระหว่างพวกเขา",
     "theme_ms": "Sikap golongan munafik yang enggan mematuhi keputusan hukum Allah dan Rasul-Nya apabila mereka diajak kepada kebenaran."
   },
   {
@@ -8093,10 +8093,10 @@
     "ayah_to": 57,
     "total_ayahs": 7,
     "title_en": "True believers are those who",
-    "title_th": "บรรดาผู้ศรัทธาที่แท้จริงคือผู้ที่",
+    "title_th": "คุณลักษณะของบรรดาผู้ศรัทธาที่แท้จริง",
     "title_ms": "Ciri-ciri Orang-orang yang Beriman Sejati",
     "theme_en": "True believers are those who, when called towards Allah and His Rasool, say, \"We hear and we obey\"",
-    "theme_th": "บรรดาผู้ศรัทธาที่แท้จริงคือผู้ที่เมื่อถูกเรียเชิญชวนไปสู่อัลลอฮฺและศาสนทูตของพระองค์ พวกเขากล่าวว่า \"พวกเราได้ยินแล้วและพวกเราเชื่อฟัง\"",
+    "theme_th": "บรรดาผู้ศรัทธาที่แท้จริงคือผู้ที่เมื่อถูกเชิญชวนไปสู่อัลลอฮฺและรอซูลของพระองค์ พวกเขากล่าวว่า \"พวกเราได้ยินแล้วและพวกเราเชื่อฟัง\"",
     "theme_ms": "Orang-orang yang beriman sejati adalah mereka yang apabila diperuat kepada Allah dan Rasul-Nya, berkata, \"Kami dengar dan kami taat.\""
   },
   {
@@ -8141,10 +8141,10 @@
     "ayah_to": 9,
     "total_ayahs": 9,
     "title_en": "Blessed is Allah Who revealed",
-    "title_th": "ความจำริญมีแด่อัลลอฮฺผู้ทรงประทาน",
+    "title_th": "ความจำเริญมีแด่อัลลอฮฺผู้ทรงประทาน",
     "title_ms": "Maha Suci Allah yang Menurunkan Al-Quran",
     "theme_en": "Blessed is Allah Who revealed this Al-Quran, the criterion to distinguish right from wrong and Wrongdoers are those who reject the truth and disbelieve a Rasool be cause he is a human being",
-    "theme_th": "ความจำริญมีแด่อัลลอฮฺผู้ทรงประทานอัลกุรอานนี้ ซึ่งเป็นเครื่องจำแนกความจริงออกจากความเท็จ และบรรดาผู้อธรรมคือผู้ที่ปฏิเสธความจริงและปฏิเสธศาสนทูตเนื่องจากเขาเป็นมนุษย์คนหนึ่ง",
+    "theme_th": "ความจำเริญมีแด่อัลลอฮฺผู้ทรงประทานอัลกุรอานนี้ ซึ่งเป็นเครื่องจำแนกความจริงออกจากความเท็จ และบรรดาผู้อธรรมคือผู้ที่ปฏิเสธความจริงและปฏิเสธรอซูลเนื่องจากเขาเป็นมนุษย์คนหนึ่ง",
     "theme_ms": "Maha Suci Allah yang menurunkan Al-Quran ini, sebagai pembeza yang memisahkan antara yang benar dan yang batil, manakala orang-orang yang zalim ialah mereka yang menolak kebenaran dan mengingkari seorang Rasul semata-mata kerana dia adalah seorang manusia."
   },
   {
@@ -8156,7 +8156,7 @@
     "title_th": "การปฏิเสธวันอวสาน",
     "title_ms": "Mendustakan Hari Kiamat",
     "theme_en": "Those who deny the Hour and life after death will be cast in the blazing fire",
-    "theme_th": "บรรดาผู้ที่ปฏิเสธวันอวสานและชีวิตหลังความตายจะถูกโยนลงในขุมนรกอันลุกโชน",
+    "theme_th": "บรรดาผู้ที่ปฏิเสธวันอวสานและชีวิตหลังความตายจะถูกโยนลงในไฟนรกอันลุกโชน",
     "theme_ms": "Orang-orang yang mendustakan hari kiamat dan kehidupan sesudah mati akan dilemparkan ke dalam api neraka yang menyala-nyala"
   },
   {
@@ -8213,7 +8213,7 @@
     "ayah_to": 44,
     "total_ayahs": 10,
     "title_en": "All nations",
-    "title_th": "ประชาชาติต่างๆ ที่ปฏิเสธศาสนทูต",
+    "title_th": "ประชาชาติต่าง ๆ ที่ปฏิเสธรอซูล",
     "title_ms": "Kesemua Umat Terdahulu",
     "theme_en": "All nations which rejected Allah's revelations and His Rasools were utterly destroyed and Those who have taken their desires as their gods are nothing but animals",
     "theme_th": "ทุกประชาชาติที่ปฏิเสธโองการของอัลลอฮฺและบรรดารอซูลของพระองค์ ได้ถูกทำลายล้างอย่างราบคาบ และบรรดาผู้ที่ยึดถืออารมณ์ใฝ่ต่ำเป็นพระเจ้าของตนนั้นเปรียบเสมือนปศุสัตว์ ยิ่งกว่านั้นพวกเขายังหลงผิดยิ่งกว่า",
@@ -8276,7 +8276,7 @@
     "title_th": "การแต่งตั้งนบีมูซาเป็นรอซูล",
     "title_ms": "Utusan Nabi Musa a.s. sebagai Rasul",
     "theme_en": "Assignment of Musa as a Rasool and his dialogue with Fir'on and Miracles of Prophet Musa",
-    "theme_th": "การแต่งตั้งนบีมูซาเป็นรอซูล บทสนทนาระหว่างท่านกับฟิรเอาน์ และปาฏิหาริย์ต่างๆ ของนบีมูซา",
+    "theme_th": "การแต่งตั้งนบีมูซาเป็นรอซูล บทสนทนาระหว่างท่านกับฟิรเอานฺ และปาฏิหาริย์ต่าง ๆ ของนบีมูซา",
     "theme_ms": "Pelantikan Nabi Musa a.s. sebagai Rasul, dialognya dengan Firaun serta mukjizat-mukjizat baginda"
   },
   {
@@ -8285,10 +8285,10 @@
     "ayah_to": 51,
     "total_ayahs": 18,
     "title_en": "Fir'on took Prophet Musa's miracles",
-    "title_th": "ฟิรเอาน์กล่าวหาปาฏิหาริย์ของนบีมูซาว่าเป็นเวทมนตร์",
+    "title_th": "ฟิรเอานฺกล่าวหาปาฏิหาริย์ของนบีมูซาว่าเป็นเวทมนตร์",
     "title_ms": "Firaun Menganggap Mukjizat Nabi Musa sebagai Sihir",
     "theme_en": "Fir'on took Prophet Musa's miracles as magic and summoned the magicians to compete and After witnessing a miracle, all the magicians embraced Islam",
-    "theme_th": "ฟิรเอาน์กล่าวหาว่าปาฏิหาริย์ของนบีมูซาเป็นกลมายากล และได้เกณฑ์บรรดานักมายากลมาแข่งขัน และภายหลังจากได้เห็นประจักษ์พยานอันยิ่งใหญ่ บรรดานักมายากลจึงได้น้อมรับอิสลามในทันที",
+    "theme_th": "ฟิรเอานฺกล่าวหาว่าปาฏิหาริย์ของนบีมูซาเป็นกลมายากล และได้เกณฑ์บรรดานักมายากลมาแข่งขัน และภายหลังจากได้เห็นประจักษ์พยานอันยิ่งใหญ่ บรรดานักมายากลจึงได้น้อมรับอิสลามในทันที",
     "theme_ms": "Firaun menganggap mukjizat Nabi Musa sebagai sihir dan memanggil ahli-ahli sihir untuk bertanding, lalu setelah menyaksikan mukjizat tersebut, kesemua ahli sihir beriman dan memeluk agama Islam."
   },
   {
@@ -8300,7 +8300,7 @@
     "title_th": "การช่วยเหลือลูกหลานอิสราเอลให้รอดพ้น",
     "title_ms": "Penyelamatan Bani Israil",
     "theme_en": "Deliverance of the Children of Israel and the destruction of Fir'on and his chiefs",
-    "theme_th": "การช่วยเหลือลูกหลานอิสราเอลให้รอดพ้น และความพินาศของฟิรเอาน์พร้อมบริวาร",
+    "theme_th": "การช่วยเหลือลูกหลานอิสราเอลให้รอดพ้น และความพินาศของฟิรเอานฺพร้อมบริวาร",
     "theme_ms": "Penyelamatan Bani Israil dan kemusnahan Firaun serta bala tentaranya"
   },
   {
@@ -8321,10 +8321,10 @@
     "ayah_to": 122,
     "total_ayahs": 18,
     "title_en": "Prophet Nuh",
-    "title_th": "เรื่องราวนบีนูห์",
+    "title_th": "เรื่องราวนบีนูฮฺ",
     "title_ms": "Kisah Nabi Nuh a.s.",
     "theme_en": "Story of Prophet Nuh, his dialogue with his people, they disbelieved and as a result faced destruction",
-    "theme_th": "เรื่องราวนบีนูห์ การสนทนาระหว่างท่านกับประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
+    "theme_th": "เรื่องราวนบีนูฮฺ การสนทนาระหว่างท่านกับประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
     "theme_ms": "Kisah Nabi Nuh a.s., dialog baginda dengan kaumnya yang mendustakan dakwahnya, lalu mereka menghadapi kehancuran"
   },
   {
@@ -8345,10 +8345,10 @@
     "ayah_to": 159,
     "total_ayahs": 19,
     "title_en": "Prophet Saleh",
-    "title_th": "เรื่องราวนบีศอลิห์",
+    "title_th": "เรื่องราวนบีศอลิหฺ",
     "title_ms": "Kisah Nabi Saleh a.s.",
     "theme_en": "Story of Prophet Saleh, his address to his people, they disbelieved and as a result faced destruction",
-    "theme_th": "เรื่องราวนบีศอลิห์ คำปราศรัยของท่านต่อประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
+    "theme_th": "เรื่องราวนบีศอลิหฺ คำปราศรัยของท่านต่อประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
     "theme_ms": "Kisah Nabi Saleh a.s., seruan baginda kepada kaumnya yang mendustakan kebenaran, lalu mereka menemui kehancuran"
   },
   {
@@ -8369,10 +8369,10 @@
     "ayah_to": 191,
     "total_ayahs": 16,
     "title_en": "Prophet Shu'aib",
-    "title_th": "เรื่องราวนบีชุอัยบ์",
+    "title_th": "เรื่องราวนบีชุอัยบฺ",
     "title_ms": "Kisah Nabi Syu'aib a.s.",
     "theme_en": "Story of Prophet Shu'aib, his address to his people, they disbelieved and as a result faced destruction",
-    "theme_th": "เรื่องราวนบีชุอัยบ์ คำปราศรัยของท่านต่อประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
+    "theme_th": "เรื่องราวนบีชุอัยบฺ คำปราศรัยของท่านต่อประชาชาติของท่าน ซึ่งพวกเขาได้ปฏิเสธศรัทธาและประสบกับความพินาศเป็นผลลัพธ์",
     "theme_ms": "Kisah Nabi Syu'aib a.s., seruan baginda kepada kaumnya yang mendustakan agama Allah, lalu mereka menghadapi kebinasaan"
   },
   {
@@ -8432,7 +8432,7 @@
     "title_th": "การคัดเลือกนบีมูซาให้เป็นรอซูล",
     "title_ms": "Pemilihan Nabi Musa a.s. sebagai Rasul",
     "theme_en": "Story of Prophet Musa's selection as a Rasool and Nine signs were shown to Fir'on but he still disbelieved and incurred Allah's punishment",
-    "theme_th": "เรื่องราวการคัดเลือกนบีมูซาให้เป็นรอซูล และสัญญาณมหัศจรรย์เก้าประการที่ถูกแสดงแก่ฟิรเอาน์ แต่เขาก็ยังคงปฏิเสธศรัทธาและประสบกับการลงทัณฑ์ของอัลลอฮฺ",
+    "theme_th": "เรื่องราวการคัดเลือกนบีมูซาให้เป็นรอซูล และสัญญาณมหัศจรรย์เก้าประการที่ถูกแสดงแก่ฟิรเอานฺ แต่เขาก็ยังคงปฏิเสธศรัทธาและประสบกับการลงทัณฑ์ของอัลลอฮฺ",
     "theme_ms": "Kisah pemilihan Nabi Musa a.s. sebagai Rasul serta sembilan mukjizat yang ditunjukkan kepada Firaun, namun dia tetap ingkar (golongan kafir) lalu ditimpa azab Allah."
   },
   {
@@ -8441,10 +8441,10 @@
     "ayah_to": 19,
     "total_ayahs": 5,
     "title_en": "Prophet Sulaiman",
-    "title_th": "เรื่องราวนบีสุไลมาน",
+    "title_th": "เรื่องราวนบีสุลัยมาน",
     "title_ms": "Kisah Nabi Sulaiman a.s.",
     "theme_en": "Story of Prophet Sulaiman, to whom Allah gave rule over jinns, men, birds and winds",
-    "theme_th": "เรื่องราวของนบีสุไลมาน ผู้ซึ่งอัลลอฮฺทรงประทานอำนาจการปกครองเหนือเหล่าญิน มนุษย์ นก และสายลม",
+    "theme_th": "เรื่องราวของนบีสุลัยมาน ผู้ซึ่งอัลลอฮฺทรงประทานอำนาจการปกครองเหนือเหล่าญิน มนุษย์ นก และสายลม",
     "theme_ms": "Kisah Nabi Sulaiman a.s. yang dikurniakan oleh Allah kekuasaan ke atas golongan jin, manusia, burung, dan angin."
   },
   {
@@ -8453,10 +8453,10 @@
     "ayah_to": 31,
     "total_ayahs": 12,
     "title_en": "The hoopoe brought him the",
-    "title_th": "นกฮูดฮูดนำข่าวและสสารจากราชินีแห่งสะบะอ์มา",
+    "title_th": "นกฮูดฮูดนำข่าวและสสารจากราชินีแห่งสะบะอฺมา",
     "title_ms": "Burung Hud-hud membawa berita kepada Nabi Sulaiman a.s.",
     "theme_en": "The hoopoe brought him the news about the Queen of Sheba and Letter from King Sulaiman to the Queen of Sheba",
-    "theme_th": "นกฮูดฮูดนำข่าวคราวเกี่ยวกับราชินีแห่งสะบะอ์ และสาส์นจากนบีสุไลมานไปถึงราชินีแห่งสะบะอ์",
+    "theme_th": "นกฮูดฮูดนำข่าวคราวเกี่ยวกับราชินีแห่งสะบะอฺ และสาส์นจากนบีสุลัยมานไปถึงราชินีแห่งสะบะอฺ",
     "theme_ms": "Burung Hud-hud menyampaikan berita mengenai Ratu Syeba serta warkah daripada Nabi Sulaiman a.s. kepada Ratu Syeba."
   },
   {
@@ -8465,10 +8465,10 @@
     "ayah_to": 37,
     "total_ayahs": 6,
     "title_en": "Communications between Queen of Sheba",
-    "title_th": "การสื่อสารระหว่างราชินีแห่งสะบะอ์และนบีสุไลมาน",
+    "title_th": "การสื่อสารระหว่างราชินีแห่งสะบะอฺและนบีสุลัยมาน",
     "title_ms": "Perbincangan dan Perutusan Ratu Syeba",
     "theme_en": "Communications between Queen of Sheba and Sulaiman",
-    "theme_th": "การสื่อสารระหว่างราชินีแห่งสะบะอ์และนบีสุไลมาน",
+    "theme_th": "การสื่อสารระหว่างราชินีแห่งสะบะอฺและนบีสุลัยมาน",
     "theme_ms": "Interaksi dan perutusan antara Ratu Syeba dengan Nabi Sulaiman a.s."
   },
   {
@@ -8480,7 +8480,7 @@
     "title_th": "ชายผู้มีความรู้จากคัมภีร์นำบัลลังก์มาถวาย",
     "title_ms": "Individu yang Memiliki Ilmu daripada Kitab",
     "theme_en": "A man who had the 'Knowledge of the Book' brought Throne of the Queen to king Sulaiman in twinkling of and eye and Queen of Sheba and her people embraced Islam",
-    "theme_th": "ชายผู้มีความรู้จากคัมภีร์ได้นำบัลลังก์ของราชินีมาถวายนบีสุไลมานในชั่วพริบตาเดียว และราชินีแห่งสะบะอ์พร้อมด้วยประชาชนของนางได้น้อมรับอิสลาม",
+    "theme_th": "ชายผู้มีความรู้จากคัมภีร์ได้นำบัลลังก์ของราชินีมาถวายนบีสุลัยมานในชั่วพริบตาเดียว และราชินีแห่งสะบะอฺพร้อมด้วยประชาชนของนางได้น้อมรับอิสลาม",
     "theme_ms": "Seorang lelaki yang mempunyai ilmu daripada Kitab telah membawa takhta Ratu Syeba kepada Nabi Sulaiman dalam sekelip mata, lalu Ratu Syeba berserta kaumnya memeluk agama Islam."
   },
   {
@@ -8489,10 +8489,10 @@
     "ayah_to": 53,
     "total_ayahs": 9,
     "title_en": "Prophet Saleh",
-    "title_th": "เรื่องราวนบีศอลิห์",
+    "title_th": "เรื่องราวนบีศอลิหฺ",
     "title_ms": "Kisah Nabi Saleh",
     "theme_en": "Story of Prophet Saleh and his address to his people and Saleh's people plotted to kill him but Allah saved him and destroyed the disbelievers",
-    "theme_th": "เรื่องราวของนบีศอลิห์และการตักเตือนชนกลุ่มของเขา เมื่อพวกพ้องของเขาพากันวางแผนลอบสังหารเขา แต่อัลลอฮฺทรงช่วยชีวิตเขาไว้และทรงทำลายล้างบรรดาผู้ปฏิเสธศรัทธาจนหมดสิ้น",
+    "theme_th": "เรื่องราวของนบีศอลิหฺและการตักเตือนชนกลุ่มของเขา เมื่อพวกพ้องของเขาพากันวางแผนลอบสังหารเขา แต่อัลลอฮฺทรงช่วยชีวิตเขาไว้และทรงทำลายล้างบรรดาผู้ปฏิเสธศรัทธาจนหมดสิ้น",
     "theme_ms": "Kisah Nabi Saleh serta seruannya kepada kaumnya, perancangan jahat kaumnya untuk membunuh baginda, namun Allah menyelamatkan baginda dan membinasakan golongan yang mengingkari kebenaran."
   },
   {
@@ -8516,7 +8516,7 @@
     "title_th": "การสรรเสริญแด่อัลลอฮฺ",
     "title_ms": "Segala Pujian bagi Allah",
     "theme_en": "Praise to Allah and peace be on His Rasools",
-    "theme_th": "การสรรเสริญเป็นสิทธิ์ของอัลลอฮฺ และความสันติสุขจงมีแด่บรรดาศาสนทูตของพระองค์",
+    "theme_th": "การสรรเสริญเป็นสิทธิ์ของอัลลอฮฺ และความสันติสุขจงมีแด่บรรดารอซูลของพระองค์",
     "theme_ms": "Segala puji bagi Allah serta kesejahteraan ke atas para rasul-Nya."
   },
   {
@@ -8540,7 +8540,7 @@
     "title_th": "บรรดาผู้ปฏิเสธศรัทธากล่าวเคลือบแคลงในอำนาจการสร้างสรรค์ของอัลลอฮฺ",
     "title_ms": "Golongan Kafir Meragui Kekuasaan Penciptaan Allah",
     "theme_en": "Disbelievers doubt Allah's power of creation and Al-Quran clarifies those matters in which the Israelites differ and A sign from the signs of doomsday",
-    "theme_th": "บรรดาผู้ปฏิเสธศรัทธากล่าวเคลือบแคลงในอำนาจการสร้างสรรค์ของอัลลอฮฺ และคัมภีร์อัลกุรอานได้ทรงอธิบายประเด็นที่วงศ์วานอิสรออีลมีความเห็นขัดแย้งกัน ตลอดจนสัญญาณหนึ่งจากบรรดาสัญญาณแห่งวันกิยามะฮฺ",
+    "theme_th": "บรรดาผู้ปฏิเสธศรัทธากล่าวเคลือบแคลงในอำนาจการสร้างสรรค์ของอัลลอฮฺ และคัมภีร์อัลกุรอานได้อธิบายประเด็นที่วงศ์วานอิสรออีลมีความเห็นขัดแย้งกัน ตลอดจนสัญญาณหนึ่งจากสัญญาณทั้งหลายแห่งวันกิยามะฮฺ",
     "theme_ms": "Golongan kafir meragui kekuasaan Allah dalam penciptaan, manakala Al-Quran menjelaskan pelbagai perkara yang diperselisihkan oleh Bani Israil serta menerangkan sebahagian daripada tanda-tanda Hari Kiamat."
   },
   {
@@ -8585,10 +8585,10 @@
     "ayah_to": 13,
     "total_ayahs": 10,
     "title_en": "Fir'on plotted to kill the",
-    "title_th": "ฟิรเอาน์วางแผนสังหารทารกชาย",
+    "title_th": "ฟิรเอานฺวางแผนสังหารทารกชาย",
     "title_ms": "Komplot Firaun Membunuh Bayi Lelaki Bani Israil",
     "theme_en": "Fir'on plotted to kill the sons of the Israelites to save his kingship, while Allah planned to bring up one of them in Fir'on's own household",
-    "theme_th": "ฟิรเอาน์วางแผนสังหารทารกชายแห่งวงศ์วานอิสรออีลเพื่อรักษาอำนาจของตน ขณะที่อัลลอฮฺทรงกำหนดให้ทารกคนหนึ่งเติบโตขึ้นในราชสำนักของฟิรเอาน์เอง",
+    "theme_th": "ฟิรเอานฺวางแผนสังหารทารกชายแห่งวงศ์วานอิสรออีลเพื่อรักษาอำนาจของตน ขณะที่อัลลอฮฺทรงกำหนดให้ทารกคนหนึ่งเติบโตขึ้นในราชสำนักของฟิรเอานฺเอง",
     "theme_ms": "Firaun merancang untuk membunuh anak-anak lelaki Bani Israil demi mempertahankan kekuasaannya, namun Allah mentakdirkan salah seorang daripada mereka dibesarkan di istana Firaun sendiri."
   },
   {
@@ -8600,7 +8600,7 @@
     "title_th": "วัยหนุ่มของนบีมูซาและการเดินทางสู่มัดยัน",
     "title_ms": "Masa Muda Nabi Musa a.s. dan Hijrah ke Madyan",
     "theme_en": "Musa's youth, his folly of killing a man, and his escape from Fir'on's retribution",
-    "theme_th": "วัยหนุ่มของนบีมูซา ความพลั้งพลาดในการสังหารชายคนหนึ่งโดยไม่เจตนา และการหลบหนีจากการตามล่าของฟิรเอาน์",
+    "theme_th": "วัยหนุ่มของนบีมูซา ความพลั้งพลาดในการสังหารชายคนหนึ่งโดยไม่เจตนา และการหลบหนีจากการตามล่าของฟิรเอานฺ",
     "theme_ms": "Masa muda Nabi Musa a.s., insiden terbunuhnya seorang lelaki tanpa sengaja, serta pelariannya daripada buruan Firaun ke Madyan."
   },
   {
@@ -8624,7 +8624,7 @@
     "title_th": "การเดินทางมาถึงภูเขาฏูร์",
     "title_ms": "Ketibaan Nabi Musa a.s. di Gunung Tursina",
     "theme_en": "His arrival at Mount Tur, seeing a fire, conversation with Allah, and his appointment as a Rasool to Fir'on and his chiefs",
-    "theme_th": "การเดินทางมาถึงภูเขาฏูร์ การมองเห็นเปลวไฟ การสนทนากับอัลลอฮฺ และการแต่งตั้งให้เป็นรอซูลไปหาฟิรเอาน์และเหล่าบริวาร",
+    "theme_th": "การเดินทางมาถึงภูเขาฏูร์ การมองเห็นเปลวไฟ การสนทนากับอัลลอฮฺ และการแต่งตั้งให้เป็นรอซูลไปหาฟิรเอานฺและเหล่าบริวาร",
     "theme_ms": "Ketibaan baginda di Gunung Tursina, melihat cahaya api, perbualan dengan Allah, serta pelantikan baginda sebagai Rasul kepada Firaun dan pembesar-pembesarnya."
   },
   {
@@ -8633,10 +8633,10 @@
     "ayah_to": 42,
     "total_ayahs": 7,
     "title_en": "Fir'on",
-    "title_th": "ฟิรเอาน์และบริวารปฏิเสธศรัทธา",
+    "title_th": "ฟิรเอานฺและบริวารปฏิเสธศรัทธา",
     "title_ms": "Keingkaran Firaun dan Pembesarnya",
     "theme_en": "Fir'on and his chiefs disbelieved; as result Allah destroyed them but saved the Children of Israel",
-    "theme_th": "ฟิรเอาน์และเหล่าบริวารปฏิเสธศรัทธา ส่งผลให้อัลลอฮฺทรงทำลายล้างพวกเขาแต่ทรงช่วยวงศ์วานอิสรออีลให้รอดพ้น",
+    "theme_th": "ฟิรเอานฺและเหล่าบริวารปฏิเสธศรัทธา ส่งผลให้อัลลอฮฺทรงทำลายล้างพวกเขาแต่ทรงช่วยวงศ์วานอิสรออีลให้รอดพ้น",
     "theme_ms": "Firaun dan pembesar-pembesarnya bersikap kufur, lalu Allah membinasakan mereka dan menyelamatkan Bani Israil."
   },
   {
@@ -8753,10 +8753,10 @@
     "ayah_to": 22,
     "total_ayahs": 9,
     "title_en": "Nuh admonished his people not",
-    "title_th": "นบีนูห์ตักเตือนประชาชาติของท่าน",
+    "title_th": "นบีนูฮฺตักเตือนประชาชาติของท่าน",
     "title_ms": "Dakwah Nabi Nuh dan Nabi Ibrahim",
     "theme_en": "Nuh admonished his people not to commit shirk for 950 years Likewise, Ibrahim admonished his people not to commit shirk",
-    "theme_th": "นบีนูห์ได้ตักเตือนประชาชาติของท่านไม่ให้ทำชิริกเป็นเวลา 950 ปี เช่นเดียวกับนบีอิบรอฮีมที่ได้ตักเตือนประชาชาติของท่านเช่นกัน",
+    "theme_th": "นบีนูฮฺได้ตักเตือนประชาชาติของท่านไม่ให้ทำชิริกเป็นเวลา 950 ปี เช่นเดียวกับนบีอิบรอฮีมที่ได้ตักเตือนประชาชาติของท่านเช่นกัน",
     "theme_ms": "Nabi Nuh a.s. memperingatkan kaumnya agar tidak melakukan perbuatan syirik selama 950 tahun, begitu juga Nabi Ibrahim a.s. berpesan kepada kaumnya."
   },
   {
@@ -8801,10 +8801,10 @@
     "ayah_to": 40,
     "total_ayahs": 5,
     "title_en": "Likewise the Nations of 'Ad",
-    "title_th": "ชะตากรรมของกลุ่มชนอ๊าดและอื่นๆ",
+    "title_th": "ชะตากรรมของกลุ่มชนอ๊าดและอื่น ๆ",
     "title_ms": "Kebinasaan Kaum 'Ad dan Tsamud",
     "theme_en": "Likewise the Nations of 'Ad, Thamud, Madyan and Fir'on rejected the Rasools of Allah, which resulted in their destruction",
-    "theme_th": "ในทำนองเดียวกัน กลุ่มชนอ๊าด ษะมูด มัดยัน และฟิรเอาน์ ต่างปฏิเสธบรรดารอซูลของอัลลอฮฺ ซึ่งนำไปสู่ความพินาศของพวกเขา",
+    "theme_th": "ในทำนองเดียวกัน กลุ่มชนอ๊าด ษะมูด มัดยัน และฟิรเอานฺ ต่างปฏิเสธบรรดารอซูลของอัลลอฮฺ ซึ่งนำไปสู่ความพินาศของพวกเขา",
     "theme_ms": "Begitu juga kaum 'Ad, Tsamud, Madyan dan Firaun mendustakan rasul-rasul Allah yang mengakibatkan kebinasaan mereka."
   },
   {
@@ -8885,7 +8885,7 @@
     "ayah_to": 27,
     "total_ayahs": 8,
     "title_en": "Creation of Man",
-    "title_th": "การสร้างมนุษย์และสัญญาณต่างๆ ของอัลลอฮฺ",
+    "title_th": "การสร้างมนุษย์และสัญญาณต่าง ๆ ของอัลลอฮฺ",
     "title_ms": "Penciptaan Manusia dan Tanda-tanda Kekuasaan Allah",
     "theme_en": "Creation of Man, his consort, heavens, earth, language, colors, sleep, quest for work, lightening, rain and growth of vegetation are all from the signs of Allah",
     "theme_th": "การสร้างมนุษย์ คู่ครอง ชั้นฟ้าทั้งหลาย แผ่นดิน ภาษา สีผิว การนอนหลับ การแสวงหาความโปรดปราน สายฟ้า ฝน และการเจริญเติบโตของพืชพรรณ ล้วนเป็นสัญญาณอันบ่งบอกถึงอำนาจของอัลลอฮฺ",
@@ -8900,7 +8900,7 @@
     "title_th": "ผู้ละเมิดถูกชี้นำด้วยอารมณ์ใฝ่ต่ำ",
     "title_ms": "Orang Zalim Mengikut Hawa Nafsu",
     "theme_en": "Wrongdoers are led by their own appetites without real knowledge and  True faith and the nature of sects",
-    "theme_th": "บรรดาผู้อธรรมถูกชี้นำด้วยความใคร่ของตนเองโดยปราศจากความรู้ที่ถูกต้อง พร้อมทั้งกล่าวถึงศรัทธาที่แท้จริงและธรรมชาติของกลุ่มนิกายต่างๆ",
+    "theme_th": "บรรดาผู้อธรรมถูกชี้นำด้วยความใคร่ของตนเองโดยปราศจากความรู้ที่ถูกต้อง พร้อมทั้งกล่าวถึงศรัทธาที่แท้จริงและธรรมชาติของกลุ่มนิกายต่าง ๆ",
     "theme_ms": "Orang-orang yang zalim mengikut hawa nafsu mereka tanpa berpandukan ilmu, serta penjelasan mengenai agama yang benar dan sifat perpecahan."
   },
   {
@@ -8912,7 +8912,7 @@
     "title_th": "พฤติกรรมของมนุษย์เมื่อประสบภัยพิบัติ",
     "title_ms": "Sikap Manusia Ketika Ditimpa Musibah",
     "theme_en": "When and affliction befalls people they call upon Allah, but when He relieves them, lo! They start committing shirk",
-    "theme_th": "เมื่อความทุกข์ยากประสบแก่ผู้คนพวกเขาก็จะวิงวอนขอต่ออัลลอฮฺ แต่ครั้นเมื่อพระองค์ทรงปลดเปลื้องความทุกข์นั้น พวกเขากลับตั้งภาคี (ทำชิริก)",
+    "theme_th": "เมื่อความทุกข์ยากประสบแก่มนุษย์พวกเขาก็จะวิงวอนขอต่ออัลลอฮฺ แต่ครั้นเมื่อพระองค์ทรงปลดเปลื้องความทุกข์นั้น พวกเขากลับตั้งภาคี (ทำชิริก)",
     "theme_ms": "Apabila manusia ditimpa kesusahan, mereka berdoa kepada Allah, tetapi apabila Dia melimpahkan rahmat-Nya, tiba-tiba sebahagian daripada mereka melakukan perbuatan syirik."
   },
   {
@@ -9053,7 +9053,7 @@
     "ayah_to": 11,
     "total_ayahs": 11,
     "title_en": "AL-Quran is beyond all doubts",
-    "title_th": "อัลกุรอานคือคัมภีร์ที่ปราศจากความเคลือบแคลงสงสัยใดๆ",
+    "title_th": "อัลกุรอานคือคัมภีร์ที่ปราศจากความเคลือบแคลงสงสัยใด ๆ",
     "title_ms": "Al-Quran Kitab yang Tiada Keraguan",
     "theme_en": "AL-Quran is beyond all doubts, revealed to Muhammad, so that he may warn those people to whom no Warner has come before",
     "theme_th": "อัลกุรอานถูกประทานลงมาแก่ท่านนบีมุฮัมมัด (ซ.ล.) อย่างปราศจากข้อสงสัย เพื่อให้ท่านตักเตือนกลุ่มชนที่ยังไม่เคยมีผู้ตักเตือนใดมา ก่อนหน้าท่าน",
@@ -9068,7 +9068,7 @@
     "title_th": "ในวันฟื้นคืนชีพ",
     "title_ms": "Keadaan Orang Kafir pada Hari Kiamat",
     "theme_en": "On the Day of Judgement the unbelievers shall believe but that belief will be of no benefit to them",
-    "theme_th": "ในวันฟื้นคืนชีพ บรรดาผู้ปฏิเสธศรัทธาจะน้อมยอมจำนน แต่การศรัทธานั้นจะไม่เกิดประโยชน์ใดๆ แก่พวกเขาอีกต่อไป",
+    "theme_th": "ในวันฟื้นคืนชีพ บรรดาผู้ปฏิเสธศรัทธาจะน้อมยอมจำนน แต่การศรัทธานั้นจะไม่เกิดประโยชน์ใด ๆ แก่พวกเขาอีกต่อไป",
     "theme_ms": "Keadaan golongan kafir pada Hari Kiamat apabila mereka menyesal, namun iman pada ketika itu tidak lagi berguna bagi mereka."
   },
   {
@@ -9092,7 +9092,7 @@
     "title_th": "อัลกุรอานและคัมภีร์ที่เคยถูกประทานลงมาก่อนหน้า",
     "title_ms": "Kebenaran Al-Quran dan Kitab Taurat",
     "theme_en": "AL-Quran is the similar Book as the Book which was given to Prophet Musa",
-    "theme_th": "อัลกุรอานมีความสอดคล้องและยืนยันคัมภีร์ที่เคยถูกประทานแก่ ศาสดามูซา",
+    "theme_th": "อัลกุรอานมีความสอดคล้องและยืนยันคัมภีร์ที่เคยถูกประทานแก่ นบีมูซา",
     "theme_ms": "Penegasan bahawa Al-Quran adalah kesinambungan daripada Kitab yang telah diberikan kepada Nabi Musa a.s."
   },
   {
@@ -9173,10 +9173,10 @@
     "ayah_to": 24,
     "total_ayahs": 4,
     "title_en": "The Life of Rasool Allah",
-    "title_th": "แบบอย่างอันงดงามในชีวประวัติของท่านร่อซูล",
+    "title_th": "แบบอย่างอันงดงามในชีวประวัติของท่านรอซูล",
     "title_ms": "Rasulullah s.a.w. sebagai Teladan Terbaik",
     "theme_en": "The Life of Rasool Allah (Muhammad) is the best Model for you",
-    "theme_th": "แบบอย่างอันดีงามในท่านร่อซูลุ้ลลอฮฺ (ท่านนบีมุฮัมมัด ซ.ล.) สำหรับผู้ที่หวังความโปรดปรานจากอัลลอฮฺ",
+    "theme_th": "แบบอย่างอันดีงามในท่านรอซูลุ้ลลอฮฺ (ท่านนบีมุฮัมมัด ซ.ล.) สำหรับผู้ที่หวังความโปรดปรานจากอัลลอฮฺ",
     "theme_ms": "Peribadi dan kehidupan Baginda Nabi Muhammad s.a.w. adalah contoh ikutan yang terbaik bagi orang beriman."
   },
   {
@@ -9221,10 +9221,10 @@
     "ayah_to": 36,
     "total_ayahs": 2,
     "title_en": "It is not fitting for",
-    "title_th": "ความเหมาะสมของผู้ศรัทธาต่อคำตัดสินของอัลลอฮฺและร่อซูล",
+    "title_th": "ความเหมาะสมของผู้ศรัทธาต่อคำตัดสินของอัลลอฮฺและรอซูล",
     "title_ms": "Kepatuhan Mutlak kepada Allah dan Rasul",
     "theme_en": "It is not fitting for believers to have option in what has been decided by Allah and His Rasool",
-    "theme_th": "ไม่เป็นการสมควรสำหรับผู้ศรัทธาทั้งชายและหญิงที่จะมีทางเลือกอื่นใด เมื่ออัลลอฮฺและร่อซูลของพระองค์ได้ตัดสินกิจการใดแล้ว",
+    "theme_th": "ไม่เป็นการสมควรสำหรับผู้ศรัทธาทั้งชายและหญิงที่จะมีทางเลือกอื่นใด เมื่ออัลลอฮฺและรอซูลของพระองค์ได้ตัดสินกิจการใดแล้ว",
     "theme_ms": "Kewajipan orang beriman agar taat dan tidak mempunyai pilihan sendiri apabila Allah dan Rasul-Nya telah menetapkan sesuatu hukum."
   },
   {
@@ -9236,7 +9236,7 @@
     "title_th": "อัลลอฮฺทรงบัญชาให้ท่านนบีมุฮัมมัดแต่งงาน",
     "title_ms": "Allah memerintahkan Nabi Muhammad SAW agar",
     "theme_en": "Allah commanded Prophet Muhammad to marry the divorced wife of his adopted son Zaid and Muhammad is not the father of any of your men but a Rasool and Seal of the Prophethood",
-    "theme_th": "อัลลอฮฺทรงบัญชาให้ท่านนบีมุฮัมมัดอภิเษกสมรสกับภรรยาที่หย่าร้างของซัยด์ บุตรบุญธรรมของท่าน และท่านนบีมุฮัมมัดไม่ได้เป็นบิดาของชายใดในหมู่พวกท่าน แต่วันเป็นร่อซูลและเป็นมหาศาสดาคนสุดท้าย",
+    "theme_th": "อัลลอฮฺทรงบัญชาให้ท่านนบีมุฮัมมัดอภิเษกสมรสกับภรรยาที่หย่าร้างของซัยด์ บุตรบุญธรรมของท่าน และท่านนบีมุฮัมมัดไม่ได้เป็นบิดาของชายใดในหมู่พวกท่าน แต่ท่านเป็นรอซูลและเป็นนบีท่านสุดท้าย",
     "theme_ms": "Allah memerintahkan Nabi Muhammad SAW berkahwin dengan bekas isteri anak angkat Baginda iaitu Zaid, dan penegasan bahawa Muhammad bukanlah bapa kepada sesiapa dalam kalangan lelaki kamu, tetapi Baginda adalah Rasulullah dan Penutup Para Nabi."
   },
   {
@@ -9245,7 +9245,7 @@
     "ayah_to": 48,
     "total_ayahs": 8,
     "title_en": "Prophet is sent as a",
-    "title_th": "หน้าที่และบทบาทของท่านนบีในฐานะร่อซูลผู้แจ้งข่าวดีและตักเตือน",
+    "title_th": "หน้าที่และบทบาทของท่านนบีในฐานะรอซูลผู้แจ้งข่าวดีและตักเตือน",
     "title_ms": "Perutusan Nabi sebagai Pembawa Berita Gembira",
     "theme_en": "Prophet is sent as a bearer of good news, a Warner and a lamp spreading light",
     "theme_th": "ท่านนบีถูกส่งมาในฐานะพยาน ผู้แจ้งข่าวดี ผู้ตักเตือน ผู้เชิญชวนสู่อัลลอฮฺด้วยอนุมัติของพระองค์ และเป็นดั่งดวงประทีปที่ส่องสว่าง",
@@ -9272,7 +9272,7 @@
     "title_th": "ห้ามเข้าบ้านโดยไม่ได้รับอนุญาต",
     "title_ms": "Jangan memasuki rumah-rumah",
     "theme_en": "Do not enter the houses of the Prophet without permission, and if invited do not seek long conversation and Do not marry Rasool's wives after his death",
-    "theme_th": "อย่าเข้าไปในบ้านของท่านนบีโดยไม่ได้รับอนุญาต และหากได้รับเชิญก็อย่าอยู่สนทนายาวนานจนเกินไป พร้อมทั้งข้อห้ามในการแต่งงานกับบรรดาภริยาของท่านร่อซูลหลังจากการเสียชีวิตของท่าน",
+    "theme_th": "อย่าเข้าไปในบ้านของท่านนบีโดยไม่ได้รับอนุญาต และหากได้รับเชิญก็อย่าอยู่สนทนายาวนานจนเกินไป พร้อมทั้งข้อห้ามในการแต่งงานกับบรรดาภริยาของท่านรอซูลหลังจากการเสียชีวิตของท่าน",
     "theme_ms": "Janganlah kamu memasuki rumah-rumah Nabi tanpa keizinan, dan sekiranya dijemput maka janganlah kamu memperpanjangkan perbualan, serta larangan mengahwini isteri-isteri Rasulullah selepas kewafatan Baginda."
   },
   {
@@ -9317,10 +9317,10 @@
     "ayah_to": 68,
     "total_ayahs": 6,
     "title_en": "In Hell the unbelievers shall",
-    "title_th": "ชะตากรรมของบรรดาผู้ปฏิเสธศรัทธาในนรก",
+    "title_th": "ชะตากรรมของบรรดาผู้ปฏิเสธศรัทธาในไฟนรก",
     "title_ms": "Keadaan orang-orang kafir di dalam neraka",
     "theme_en": "In Hell the unbelievers shall ask double punishment for their leaders",
-    "theme_th": "ในนรกบรรดาผู้ปฏิเสธศรัทธาจะร้องขอการลงโทษเป็นสองเท่าแก่บรรดาผู้นำของพวกเขา",
+    "theme_th": "ในไฟนรกบรรดาผู้ปฏิเสธศรัทธาจะร้องขอการลงโทษเป็นสองเท่าแก่บรรดาผู้นำของพวกเขา",
     "theme_ms": "Di dalam neraka, orang-orang kafir memohon agar pemimpin mereka diseksa dua kali ganda"
   },
   {
@@ -9332,7 +9332,7 @@
     "title_th": "โอ้บรรดาผู้ศรัทธา! จงยำเกรงอัลลอฮฺ",
     "title_ms": "Wahai orang-orang yang beriman! Bertakwalah kepada Allah",
     "theme_en": "O Believers! Fear Allah and always say the right thing and Heavens, Earth and Mountains refuse to take Allah's Trust but the Man took it",
-    "theme_th": "โอ้บรรดาผู้ศรัทธา! จงยำเกรงอัลลอฮฺและกล่าวถ้อยคำที่เที่ยงตรง และชั้นฟ้าทั้งหลาย แผ่นดิน และภูเขาต่างปฏิเสธที่จะแบกรับภาระหน้าที่อันไว้วางใจ แต่อมนุษย์กลับแบกรับมันไว้",
+    "theme_th": "โอ้บรรดาผู้ศรัทธา! จงยำเกรงอัลลอฮฺและกล่าวถ้อยคำที่เที่ยงตรง และชั้นฟ้าทั้งหลาย แผ่นดิน และภูเขาต่างปฏิเสธที่จะแบกรับภาระหน้าที่อันไว้วางใจ แต่มนุษย์กลับแบกรับมันไว้",
     "theme_ms": "Wahai orang-orang yang beriman! Bertakwalah kepada Allah serta bertuturlah dengan perkataan yang benar; langit, bumi, dan gunung-ganang enggan memikul amanah Allah tetapi manusia sanggup memikulnya"
   },
   {
@@ -9344,7 +9344,7 @@
     "title_th": "วันอวสานจะมาถึงอย่างแน่นอน",
     "title_ms": "Hari Kiamat pasti akan berlaku",
     "theme_en": "The Hour is surely going to come and the Day of Judgement shall be established to reward the believers and punish those who discredit Allah's revelations",
-    "theme_th": "วันอวสานจะมาถึงอย่างแน่นอน และวันกิยามะฮฺจะถูกสถาปนาขึ้นเพื่อตอบแทนบรรดาผู้ศรัทธาและลงโทษบรรดาผู้ปฏิเสธโองการต่างๆ ของอัลลอฮฺ",
+    "theme_th": "วันอวสานจะมาถึงอย่างแน่นอน และวันกิยามะฮฺจะถูกสถาปนาขึ้นเพื่อตอบแทนบรรดาผู้ศรัทธาและลงโทษบรรดาผู้ปฏิเสธโองการต่าง ๆ ของอัลลอฮฺ",
     "theme_ms": "Hari Kiamat pasti akan berlaku dan Hari Kebangkitan akan ditegakkan untuk membalas orang-orang yang beriman serta menyeksa golongan yang mengingkari ayat-ayat keterangan Allah."
   },
   {
@@ -9368,7 +9368,7 @@
     "title_th": "ภูเขาและนกร่วมสรรเสริญ",
     "title_ms": "Gunung-ganang",
     "theme_en": "Mountains and birds use to sing Allah's Rhymes with Prophet Dawood and Allah subjected the winds and Jinns to Prophet Sulaiman and Claim of people that Jinns know the unseen is wrong",
-    "theme_th": "ภูเขาและนกร่วมแซ่ซ้องสรรเสริญอัลลอฮฺกับนบีดาวูด และอัลลอฮฺทรงบันดาลให้ลมและหมู่ญินอยู่ใต้อาณัติของนบีสุไลมาน พร้อมทั้งคำกล่าวอ้างของมนุษย์ที่ว่าญินรู้สิ่งเร้นลับนั้นไม่เป็นความจริง",
+    "theme_th": "ภูเขาและนกร่วมแซ่ซ้องสรรเสริญอัลลอฮฺกับนบีดาวูด และอัลลอฮฺทรงบันดาลให้ลมและหมู่ญินอยู่ใต้อาณัติของนบีสุลัยมาน พร้อมทั้งคำกล่าวอ้างของมนุษย์ที่ว่าญินรู้สิ่งเร้นลับนั้นไม่เป็นความจริง",
     "theme_ms": "Gunung-ganang dan burung-burung sentiasa bertasbih memuji Allah bersama Nabi Daud, serta Allah menundukkan angin dan jin kepada Nabi Sulaiman, di samping penafian dakwaan manusia bahawa golongan jin mengetahui perkara ghaib."
   },
   {
@@ -9389,10 +9389,10 @@
     "ayah_to": 30,
     "total_ayahs": 9,
     "title_en": "No intercession before Allah can",
-    "title_th": "ไม่มีการชำระหรือการให้ความช่วยเหลือใดๆต่อหน้าอัลลอฮฺ",
+    "title_th": "ไม่มีการชำระหรือการให้ความช่วยเหลือใด ๆ ต่อหน้าอัลลอฮฺ",
     "title_ms": "Tiada syafaat di sisi Allah kecuali dengan izin-Nya",
     "theme_en": "No intercession before Allah can avail any one except for   whom He permits it and Prophet Muhammad is sent for the entire mankind",
-    "theme_th": "การขอความช่วยเหลือใดๆ ต่อหน้าอัลลอฮฺจะไม่เกิดประโยชน์แก่ผู้ใดเว้นแต่ผู้ที่พระองค์ทรงอนุญาต และท่านนบีมุฮัมมัด (ซ.ล.) ถูกส่งมาเพื่อมนุษยชาติทั้งหมด",
+    "theme_th": "การขอความช่วยเหลือใด ๆ ต่อหน้าอัลลอฮฺจะไม่เกิดประโยชน์แก่ผู้ใดเว้นแต่ผู้ที่พระองค์ทรงอนุญาต และท่านนบีมุฮัมมัด (ซ.ล.) ถูกส่งมาเพื่อมนุษยชาติทั้งหมด",
     "theme_ms": "Syafaat di sisi Allah tidak berguna melainkan bagi sesiapa yang diizinkan-Nya, dan Nabi Muhammad s.a.w. diutuskan untuk seluruh umat manusia"
   },
   {
@@ -9452,7 +9452,7 @@
     "title_th": "ความโปรดปรานจากอัลลอฮฺและศัตรูที่แท้จริงของมนุษย์",
     "title_ms": "Tiada sesiapa yang dapat menahan atau memberi rahmat selain Allah",
     "theme_en": "None can withhold or award blessings besides Allah and Shaitan is your enemy, so take him as your enemy",
-    "theme_th": "ไม่มีผู้ใดสามารถยับยั้งหรือประทานความโปรดปรานใดๆ นอกจากอัลลอฮฺ และชัยฎอนคือศัตรูของพวกท่าน ดังนั้นจงถือว่ามันเป็นศัตรูเถิด",
+    "theme_th": "ไม่มีผู้ใดสามารถยับยั้งหรือประทานความโปรดปรานใด ๆ นอกจากอัลลอฮฺ และชัยฎอนคือศัตรูของพวกท่าน ดังนั้นจงถือว่ามันเป็นศัตรูเถิด",
     "theme_ms": "Tiada sesiapapun yang dapat menahan rahmat Allah atau mengurniakannya selain Dia, dan syaitan adalah musuh ketat, maka jadikanlah ia musuh"
   },
   {
@@ -9488,7 +9488,7 @@
     "title_th": "อัลลอฮฺทรงสร้างสายน้ำและสรรพสิ่ง",
     "title_ms": "Allah telah menciptakan air",
     "theme_en": "Allah has created water, day, night, sun and moon for man's benefit and Deities besides Allah can neither hear, nor response nor yet own even a thread of a date-stone",
-    "theme_th": "อัลลอฮฺทรงสร้างน้ำ กลางวัน กลางคืน ดวงอาทิตย์ และดวงจันทร์เพื่อประโยชน์สุขของมนุษย์ และพระเจ้าอื่นๆ นอกจากอัลลอฮฺไม่สามารถได้ยิน ตอบรับ หรือแม้แต่ครอบครองเยื่อหุ้มเมล็ดอินทผลัมได้เลย",
+    "theme_th": "อัลลอฮฺทรงสร้างน้ำ กลางวัน กลางคืน ดวงอาทิตย์ และดวงจันทร์เพื่อประโยชน์สุขของมนุษย์ และพระเจ้าอื่น ๆ นอกจากอัลลอฮฺไม่สามารถได้ยิน ตอบรับ หรือแม้แต่ครอบครองเยื่อหุ้มเมล็ดอินทผลัมได้เลย",
     "theme_ms": "Allah telah menciptakan air, siang, malam, matahari, dan bulan demi kemaslahatan manusia, manakala sembahan-sembahan selain Allah tidak dapat mendengar, menyahut, mahupun memiliki walaupun sekeping kulit biji kurma."
   },
   {
@@ -9560,7 +9560,7 @@
     "title_th": "การประทานอัลกุรอานและการตักเตือนผู้ยำเกรง",
     "title_ms": "Al-Quran diturunkan oleh Tuhan Yang Maha Mengasihani",
     "theme_en": "AL-Quran is revealed by the Allah to warn people and Prophet is told that he could warn only those people who have the fear of Allah",
-    "theme_th": "อัลกุรอานถูกประทานลงมาจากพระผู้อภิบาลผู้ทรงเมตตาเสมอเพื่อตักเตือนผู้คน และท่านนบีจะตักเตือนได้เฉพาะผู้ที่ยำเกรงต่อพระองค์เท่านั้น",
+    "theme_th": "อัลกุรอานถูกประทานลงมาจากพระผู้อภิบาลผู้ทรงเมตตาเสมอเพื่อตักเตือนมนุษย์ และท่านนบีจะตักเตือนได้เฉพาะผู้ที่ยำเกรงต่อพระองค์เท่านั้น",
     "theme_ms": "Al-Quran diturunkan oleh Allah Yang Maha Bijaksana untuk memberi amaran kepada kaum yang bertaubat dan takut kepada peringatan"
   },
   {
@@ -9593,10 +9593,10 @@
     "ayah_to": 36,
     "total_ayahs": 4,
     "title_en": "Allah has created all things",
-    "title_th": "สัญญาณแห่งการทรงสร้างสรรพสิ่งเป็นคู่ๆ",
+    "title_th": "สัญญาณแห่งการทรงสร้างสรรพสิ่งเป็นคู่ ๆ",
     "title_ms": "Bukti kekuasaan Allah menciptakan pelbagai kejadian berpasangan",
     "theme_en": "Allah has created all things in pair",
-    "theme_th": "และสัญญาณอันชัดเจนคือแผ่นดินที่ตายแล้วที่เราทำให้มันมีชีวิต และอัลลอฮฺทรงสร้างทุกสิ่งเป็นคู่ๆ",
+    "theme_th": "และสัญญาณอันชัดเจนคือแผ่นดินที่ตายแล้วที่เราทำให้มันมีชีวิต และอัลลอฮฺทรงสร้างทุกสิ่งเป็นคู่ ๆ",
     "theme_ms": "Allah Maha Suci yang telah menciptakan kesemua makhluk berpasang-pasangan, dari bumi dan diri manusia sendiri"
   },
   {
@@ -9641,10 +9641,10 @@
     "ayah_to": 58,
     "total_ayahs": 4,
     "title_en": "Allah's greeting to the residents",
-    "title_th": "การทักทายของอัลลอฮฺต่อชาวสวรรค์",
+    "title_th": "การทักทายของอัลลอฮฺต่อชาวสวนสวรรค์",
     "title_ms": "Salam Allah kepada penghuni syurga",
     "theme_en": "Allah's greeting to the residents of Paradise",
-    "theme_th": "คำกล่าวต้อนรับและการทักทายจากอัลลอฮฺที่มีต่อชาวสวรรค์",
+    "theme_th": "คำกล่าวต้อนรับและการทักทายจากอัลลอฮฺที่มีต่อชาวสวนสวรรค์",
     "theme_ms": "Ucapan salam Allah kepada para penghuni Syurga"
   },
   {
@@ -9725,10 +9725,10 @@
     "ayah_to": 61,
     "total_ayahs": 22,
     "title_en": "A scene from the scenes",
-    "title_th": "ภาพความสุขของชาวสวรรค์",
+    "title_th": "ภาพความสุขของชาวสวนสวรรค์",
     "title_ms": "Satu pemandangan daripada pemandangan",
     "theme_en": "A scene from the scenes of Paradise and And example of conversation from a resident of Paradise",
-    "theme_th": "ภาพบรรยากาศส่วนหนึ่งจากสวนสวรรค์ และตัวอย่างบทสนทนาของชาวสวรรค์",
+    "theme_th": "ภาพบรรยากาศส่วนหนึ่งจากสวนสวรรค์ และตัวอย่างบทสนทนาของชาวสวนสวรรค์",
     "theme_ms": "Satu pemandangan daripada pemandangan di Syurga dan contoh perbualan daripada seorang penduduk Syurga"
   },
   {
@@ -9737,10 +9737,10 @@
     "ayah_to": 74,
     "total_ayahs": 13,
     "title_en": "A scene from the scenes",
-    "title_th": "ภาพความน่าสะพรึงกลัวของนรกญะฮันนัม",
+    "title_th": "ภาพความน่าสะพรึงกลัวของญะฮันนัม",
     "title_ms": "Pemandangan Seksaan Neraka",
     "theme_en": "A scene from the scenes of Hell",
-    "theme_th": "ภาพบรรยากาศส่วนหนึ่งจากขุมนรก",
+    "theme_th": "ภาพบรรยากาศส่วนหนึ่งจากไฟนรก",
     "theme_ms": "Pemandangan daripada kedahsyatan azab Neraka"
   },
   {
@@ -9749,10 +9749,10 @@
     "ayah_to": 82,
     "total_ayahs": 8,
     "title_en": "Prophet Nuh prayed",
-    "title_th": "คำวิงวอนของนพีนูห์",
+    "title_th": "คำวิงวอนของนบีนูฮฺ",
     "title_ms": "Doa Nabi Nuh a.s.",
     "theme_en": "Prophet Nuh prayed and Allah respond to his prayers",
-    "theme_th": "นบีนูห์ได้วิงวอนขอต่ออัลลอฮฺ และพระองค์ทรงตอบรับคำวิงวอนนั้น",
+    "theme_th": "นบีนูฮฺได้วิงวอนขอต่ออัลลอฮฺ และพระองค์ทรงตอบรับคำวิงวอนนั้น",
     "theme_ms": "Doa Nabi Nuh a.s. dan bagaimana Allah mengabulkan permohonannya"
   },
   {
@@ -9893,10 +9893,10 @@
     "ayah_to": 40,
     "total_ayahs": 11,
     "title_en": "Sulaiman's inspection of steeds to",
-    "title_th": "การตรวจม้าศึกของนบีสุไลมาน",
+    "title_th": "การตรวจม้าศึกของนบีสุลัยมาน",
     "title_ms": "Pemeriksaan Nabi Sulaiman terhadap kuda",
     "theme_en": "Story of Sulaiman's inspection of steeds to be used in Jihad and  Prophet Sulaiman's prayer of granting him a kingdom, similar of which may not be granted to any one else",
-    "theme_th": "เรื่องราวของนบีสุไลมานกับการตรวจม้าศึกที่จะใช้ในหนทางของอัลลอฮฺ และดุอาอ์ของนบีสุไลมานที่ขอให้อัลลอฮฺประทานอาณาจักรซึ่งไม่มีผู้ใดได้รับเช่นนั้นหลังจากท่าน",
+    "theme_th": "เรื่องราวของนบีสุลัยมานกับการตรวจม้าศึกที่จะใช้ในหนทางของอัลลอฮฺ และดุอาอ์ของนบีสุลัยมานที่ขอให้อัลลอฮฺประทานอาณาจักรซึ่งไม่มีผู้ใดได้รับเช่นนั้นหลังจากท่าน",
     "theme_ms": "Kisah pemeriksaan Nabi Sulaiman terhadap kuda-kuda pilihan yang akan digunakan untuk jihad, serta doa Nabi Sulaiman memohon kurniaan sebuah kerajaan yang tidak akan layak dimiliki oleh sesiapapun selepas Baginda."
   },
   {
@@ -9905,10 +9905,10 @@
     "ayah_to": 48,
     "total_ayahs": 8,
     "title_en": "Ayub (Job)",
-    "title_th": "นบีอัยยู้บ (อ.ล.)",
+    "title_th": "นบีอัยยูบ (อ.ล.)",
     "title_ms": "Kisah Nabi Ayub a.s.",
     "theme_en": "Story of Ayub (Job), his sickness and relief",
-    "theme_th": "เรื่องราวของนบีอัยยู้บ (อ.ล.) ความเจ็บป่วย และการที่พระองค์ทรงบรรเทาทุกข์ให้แก่เขา",
+    "theme_th": "เรื่องราวของนบีอัยยูบ (อ.ล.) ความเจ็บป่วย และการที่พระองค์ทรงบรรเทาทุกข์ให้แก่เขา",
     "theme_ms": "Kisah Nabi Ayub a.s., ujian kesakitan yang menimpanya serta nikmat kesembuhan yang dikurniakan oleh Allah."
   },
   {
@@ -9920,7 +9920,7 @@
     "title_th": "อัลกุรอานคือข้อเตือนใจ",
     "title_ms": "Al-Quran Sebagai Peringatan",
     "theme_en": "AL-Quran is but a reminder about the reward of Paradise and punishment of the hellfire",
-    "theme_th": "อัลกุรอานเป็นเพียงข้อเตือนใจเกี่ยวกับผลบุญตอบแทนแห่งสวนสรวงสวรรค์และการลงโทษในไฟนรก",
+    "theme_th": "อัลกุรอานเป็นเพียงข้อเตือนใจเกี่ยวกับผลบุญตอบแทนแห่งสวนสวรรค์และการลงโทษในไฟนรก",
     "theme_ms": "Al-Quran tidak lain hanyalah peringatan tentang ganjaran nikmat syurga dan azab siksa api neraka."
   },
   {
@@ -9932,7 +9932,7 @@
     "title_th": "ภารกิจของบรรดารอซูล",
     "title_ms": "Misi Para Rasul",
     "theme_en": "The mission of the Rasools' is to warn people and declare that there is no divinity except Allah",
-    "theme_th": "ภารกิจของบรรดารอซูลคือการตักเตือนผู้คนและประกาศว่าไม่มีพระเจ้าอื่นใดนอกจากอัลลอฮฺ",
+    "theme_th": "ภารกิจของบรรดารอซูลคือการตักเตือนมนุษย์และประกาศว่าไม่มีพระเจ้าอื่นใดนอกจากอัลลอฮฺ",
     "theme_ms": "Misi utama para rasul adalah memberi amaran kepada manusia serta menegaskan bahawa tiada Tuhan melainkan Allah Yang Maha Esa."
   },
   {
@@ -9992,7 +9992,7 @@
     "title_th": "อัลกุรอานมีความสอดคล้องกลมกลืน",
     "title_ms": "Keselarasan dan Kesinambungan Ayat-ayat Al-Quran",
     "theme_en": "AL-Quran is consistent in its verses yet repeats its teachings in different ways and Allah has cited every kind of parable in AL-Quran so that people may learn a lesson",
-    "theme_th": "โองการต่างๆ ของอัลกุรอานมีความสอดคล้องกลมกลืนกัน ทั้งยังทรงทวนซ้ำคำสอนในหลากหลายรูปแบบ และอัลลอฮฺทรงยกอุทาหรณ์ทุกรูปแบบไว้ในอัลกุรอาน เพื่อว่าผู้คนจะได้ตระหนักและเรียนรู้บทเรียน",
+    "theme_th": "โองการต่าง ๆ ของอัลกุรอานมีความสอดคล้องกลมกลืนกัน ทั้งยังทรงทวนซ้ำคำสอนในหลากหลายรูปแบบ และอัลลอฮฺทรงยกอุทาหรณ์ทุกรูปแบบไว้ในอัลกุรอาน เพื่อว่ามนุษย์จะได้ตระหนักและเรียนรู้บทเรียน",
     "theme_ms": "Al-Quran mempunyai ayat-ayat yang selaras dan saling menguatkan, namun mengulangi ajaran-ajarannya dalam pelbagai cara, serta Allah mengemukakan pelbagai bentuk perumpamaan di dalam Al-Quran agar manusia mengambil iktibar."
   },
   {
@@ -10013,7 +10013,7 @@
     "ayah_to": 46,
     "total_ayahs": 5,
     "title_en": "Recall the souls of people",
-    "title_th": "อัลลอฮฺทรงรับดวงวิญญาณของผู้คน",
+    "title_th": "อัลลอฮฺทรงรับดวงวิญญาณของมนุษย์",
     "title_ms": "Kekuasaan Allah Memegang Roh Manusia",
     "theme_en": "It is Allah Who recall the souls of people upon their death and of the living people during their sleep",
     "theme_th": "อัลลอฮฺคือผู้ทรงรับดวงวิญญาณทั้งหลายเมื่อถึงคราวสิ้นชีวิต และดวงวิญญาณของผู้ที่ยังไม่ตายในยามที่พวกเขานอนหลับ",
@@ -10064,7 +10064,7 @@
     "title_th": "ชะตากรรมหลังการพิพากษาของบรรดาผู้ปฏิเสธศรัทธา",
     "title_ms": "Kesudahan Golongan Kafir dan Mukmin",
     "theme_en": "After Judgement unbelievers will driven to Hell and the righteous will be led to Paradise",
-    "theme_th": "ภายหลังการพิพากษา บรรดาผู้ปฏิเสธศรัทธาจะถูกต้อนไปสู่นรก และบรรดาผู้ยำเกรงจะถูกนำทางไปสู่สวนสรวงสวรรค์",
+    "theme_th": "ภายหลังการพิพากษา บรรดาผู้ปฏิเสธศรัทธาจะถูกต้อนไปสู่ไฟนรก และบรรดาผู้ยำเกรงจะถูกนำทางไปสู่สวนสวรรค์",
     "theme_ms": "Selepas proses pengadilan, golongan kafir dihalau ke dalam neraka manakala orang-orang yang bertakwa diiringi menuju ke syurga."
   },
   {
@@ -10076,7 +10076,7 @@
     "title_th": "ไม่มีผู้ใดโต้เถียงโองการของอัลลอฮฺนอกจากผู้ปฏิเสธศรัทธา",
     "title_ms": "Tiada Sesiapa yang Membantah Ayat-ayat Allah",
     "theme_en": "No one disputes the revelations of Allah except the kafirs (unbelievers) and The angels who bear the Throne of Allah pray for those who repent and follow the Right Way",
-    "theme_th": "ไม่มีผู้ใดโต้เถียงในโองการทั้งหลายของอัลลอฮฺเว้นแต่บรรดาผู้ปฏิเสธศรัทธา และบรรดามะลาอิกะฮฺผู้ทรงแบกบัลลังก์ต่างขออภัยโทษให้แก่บรรดาผู้ที่สำนึกผิดและปฏิบัติตามทางนำที่ถูกต้อง",
+    "theme_th": "ไม่มีผู้ใดโต้เถียงในโองการทั้งหลายของอัลลอฮฺเว้นแต่บรรดาผู้ปฏิเสธศรัทธา และบรรดามลาอิกะฮฺผู้แบกบัลลังก์ต่างขออภัยโทษให้แก่บรรดาผู้ที่สำนึกผิดและปฏิบัติตามทางนำที่ถูกต้อง",
     "theme_ms": "Tiada sesiapa yang membantah ayat-ayat Allah melainkan orang-orang kafir, dan para malaikat yang memikul Arasy Allah memohon keampunan bagi mereka yang bertaubat serta mengikut jalan yang benar."
   },
   {
@@ -10109,10 +10109,10 @@
     "ayah_to": 27,
     "total_ayahs": 5,
     "title_en": "Prophet Musa was sent to Fir'on",
-    "title_th": "การส่งนบีมูซาไปยังฟิรเอาน์",
+    "title_th": "การส่งนบีมูซาไปยังฟิรเอานฺ",
     "title_ms": "Kisah Nabi Musa a.s. Diutus kepada Firaun",
     "theme_en": "Prophet Musa was sent to Fir'on, Haman and Qarun and Fir'on intended to kill Prophet Musa",
-    "theme_th": "นบีมูซาถูกส่งไปหาฟิรเอาน์ ฮามาน และกอรูน แต่ฟิรเอาน์กลับคิดปองร้ายจะฆ่านบีมูซา",
+    "theme_th": "นบีมูซาถูกส่งไปหาฟิรเอานฺ ฮามาน และกอรูน แต่ฟิรเอานฺกลับคิดปองร้ายจะฆ่านบีมูซา",
     "theme_ms": "Nabi Musa a.s. diutuskan kepada Firaun, Haman, dan Qarun, namun Firaun berniat jahat untuk membunuh Baginda."
   },
   {
@@ -10121,10 +10121,10 @@
     "ayah_to": 37,
     "total_ayahs": 10,
     "title_en": "And excellent speech of one",
-    "title_th": "คำพูดอันทรงคุณค่าของผู้ศรัทธาแห่งวงศ์วานฟิรเอาน์",
+    "title_th": "คำพูดอันทรงคุณค่าของผู้ศรัทธาแห่งวงศ์วานฟิรเอานฺ",
     "title_ms": "Belaan Lelaki Mukmin dari Keluarga Firaun",
     "theme_en": "And excellent speech of one of the relatives of Fir'on in the favor of Prophet Musa",
-    "theme_th": "ถ้อยคำอันทรงภูมิปัญญาของชายผู้ศรัทธาจากวงศ์วานของฟิรเอาน์ในการปกป้องนบีมูซา",
+    "theme_th": "ถ้อยคำอันทรงภูมิปัญญาของชายผู้ศรัทธาจากวงศ์วานของฟิรเอานฺในการปกป้องนบีมูซา",
     "theme_ms": "Ketegasan dan hujah bernas seorang lelaki beriman dari keluarga Firaun yang mempertahankan Nabi Musa a.s."
   },
   {
@@ -10136,7 +10136,7 @@
     "title_th": "อัลลอฮฺทรงปกป้องผู้ศรัทธา",
     "title_ms": "Allah Menyelamatkan Orang Mukmin",
     "theme_en": "Allah saved that believer from the plots of Fir'on and destroyed the people of Fir'on, now they are presented before the fire of Hell morning and evening (punishment of the graves)",
-    "theme_th": "อัลลอฮฺทรงช่วยให้ผู้ศรัทธาคนนั้นรอดพ้นจากแผนการชั่วร้ายของฟิรเอาน์ และทรงทำลายล้างบริวารของฟิรเอาน์ บัดนี้พวกเขานำมาเสนอต่อหน้าไฟนรกทั้งยามเช้าและยามเย็น ซึ่งเป็นการลงทัณฑ์ในหลุมฝังศพ",
+    "theme_th": "อัลลอฮฺทรงช่วยให้ผู้ศรัทธาคนนั้นรอดพ้นจากแผนการชั่วร้ายของฟิรเอานฺ และทรงทำลายล้างบริวารของฟิรเอานฺ บัดนี้พวกเขานำมาเสนอต่อหน้าไฟนรกทั้งยามเช้าและยามเย็น ซึ่งเป็นการลงทัณฑ์ในหลุมฝังศพ",
     "theme_ms": "Allah menyelamatkan hamba yang beriman itu daripada tipu daya Firaun dan membinasakan kaum Firaun, serta kini mereka dihadapkan ke neraka pada waktu pagi dan petang (sebagai seksaan kubur)."
   },
   {
@@ -10172,7 +10172,7 @@
     "title_th": "สิทธิ์ในการได้รับการเคารพสักการะเป็นของอัลลอฮฺผู้ทรงสร้าง",
     "title_ms": "Hanya Allah yang Berhak Disembah",
     "theme_en": "No one has the right to be worshipped except Allah, the Creator and the Rabb of the worlds",
-    "theme_th": "ไม่มีผู้ใดมีสิทธิ์ได้รับการเคารพสักการะใดๆ นอกจากอัลลอฮฺ ผู้ทรงสร้างและพระผู้อภิบาลแห่งสากลโลก",
+    "theme_th": "ไม่มีผู้ใดมีสิทธิ์ได้รับการเคารพสักการะใด ๆ นอกจากอัลลอฮฺ ผู้ทรงสร้างและพระผู้อภิบาลแห่งสากลโลก",
     "theme_ms": "Tiada Tuhan yang berhak disembah melainkan Allah, Pencipta sekalian alam dan Tuhan Pemelihara semesta."
   },
   {
@@ -10196,7 +10196,7 @@
     "title_th": "ปศุสัตว์คือสัญญาณเตือนสติ",
     "title_ms": "Binatang Ternak sebagai Tanda Kekuasaan Allah",
     "theme_en": "Cattle are the signs of Allah for the people of understanding and Belief after seeing the scourge of Allah is of no avail to the disbelievers",
-    "theme_th": "ปศุสัตว์คือสัญญาณอันบ่งบอกถึงพระอานุภาพของอัลลอฮฺสำหรับผู้มีปัญญา และการศรัทธาหลังจากที่ได้เห็นการลงทัณฑ์ของอัลลอฮฺย่อมไม่อาจอำนวยประโยชน์ใดๆ แก่บรรดาผู้ปฏิเสธศรัทธา",
+    "theme_th": "ปศุสัตว์คือสัญญาณอันบ่งบอกถึงพระอานุภาพของอัลลอฮฺสำหรับผู้มีปัญญา และการศรัทธาหลังจากที่ได้เห็นการลงทัณฑ์ของอัลลอฮฺย่อมไม่อาจอำนวยประโยชน์ใด ๆ แก่บรรดาผู้ปฏิเสธศรัทธา",
     "theme_ms": "Binatang ternak adalah tanda-tanda kekuasaan Allah bagi kaum yang berakal, dan iman seseorang setelah melihat azab Allah tidak berguna lagi kepada orang-orang kafir."
   },
   {
@@ -10256,7 +10256,7 @@
     "title_th": "การปฏิเสธการฟังอัลกุรอาน",
     "title_ms": "Keengganan Mendengar Al-Quran",
     "theme_en": "Those who do not listen to Al-Quran shall be sternly punished   and those who listen to those who say our God is Allah and then stay firm on it, angels are assigned for their protection",
-    "theme_th": "บรรดาผู้ที่ไม่ยอมรับฟังอัลกุรอานจะได้รับการลงโทษอย่างรุนแรง และผู้ที่ประกาศว่าพระผู้อภิบาลของเราคืออัลลอฮฺแล้วยืนหยัดแน่วแน่บนแนวทางนั้น เหล่ามะลาอิกะฮฺจะลงมาปกป้องคุ้มครองพวกเขา",
+    "theme_th": "บรรดาผู้ที่ไม่ยอมรับฟังอัลกุรอานจะได้รับการลงโทษอย่างรุนแรง และผู้ที่ประกาศว่าพระผู้อภิบาลของพวกเราคืออัลลอฮฺแล้วยืนหยัดแน่วแน่บนแนวทางนั้น เหล่ามลาอิกะฮฺจะลงมาปกป้องคุ้มครองพวกเขา",
     "theme_ms": "Mereka yang tidak mahu mendengar Al-Quran akan dikenakan azab yang pedih, manakala mereka yang mengakui Tuhan kami ialah Allah kemudian tetap istiqamah di atas jalan itu, para malaikat akan turun mengawasi dan melindungi mereka."
   },
   {
@@ -10268,7 +10268,7 @@
     "title_th": "ถ้อยคำที่ดีที่สุด",
     "title_ms": "Sebaik-baik Perkataan",
     "theme_en": "The best in speech is the one who calls people towards Allah, do good deeds and say, \"I am a Muslim\" And Example of Allah's signs and Nothing is said to Muhammad which was not said to the prior Prophets and AL-Quran is a guide and healing for the believers",
-    "theme_th": "ถ้อยคำที่ดีที่สุดคือถ้อยคำของผู้ที่เรียกร้องผู้คนไปสู่อัลลอฮฺ ประกอบคุณความดี และกล่าวว่า \"แท้จริงฉันคือคนหนึ่งในบรรดาผู้สวามิภักดิ์\" และอัลกุรอานคือทางนำและการบำบัดรักษาสำหรับบรรดาผู้ศรัทธา",
+    "theme_th": "ถ้อยคำที่ดีที่สุดคือถ้อยคำของผู้ที่เรียกร้องมนุษย์ไปสู่อัลลอฮฺ ประกอบคุณความดี และกล่าวว่า \"แท้จริงฉันคือคนหนึ่งในบรรดาผู้สวามิภักดิ์\" และอัลกุรอานคือทางนำและการบำบัดรักษาสำหรับบรรดาผู้ศรัทธา",
     "theme_ms": "Sebaik-baik perkataan ialah ucapan orang yang menyeru manusia kepada Allah, beramal soleh, dan berkata: \"Sesungguhnya aku adalah dari golongan Muslimin.\" Serta perumpamaan tanda-tanda Allah, tiada apa yang dikatakan kepada Nabi Muhammad melainkan telah dikatakan kepada nabi-nabi terdahulu, dan Al-Quran adalah petunjuk serta penawar bagi orang-orang yang beriman."
   },
   {
@@ -10277,7 +10277,7 @@
     "ayah_to": 46,
     "total_ayahs": 2,
     "title_en": "The Book given to Prophet",
-    "title_th": "คัมภีร์ที่ถูกประทานแก่ศาสดา",
+    "title_th": "คัมภีร์ที่ถูกประทานแก่นบีมูซา",
     "title_ms": "Kitab yang diberikan kepada Nabi",
     "theme_en": "The Book given to Prophet Musa was similar to AL-Quran",
     "theme_th": "คัมภีร์ที่ถูกประทานแก่ท่านนบีมูซามีลักษณะคล้ายคลึงกับอัลกุรอาน",
@@ -10328,7 +10328,7 @@
     "title_th": "ศาสนาอิสลามคือดีนอันเป็นหนึ่งเดียว",
     "title_ms": "Islam Adalah Cara Hidup (Deen) yang Sama",
     "theme_en": "Islam is the same Deen (way of life) which was enjoined on Nuh, Ibrahim, Musa (Moses) and Isa (Jesus) They were all ordered to establish Deen-al-Islam and do not create division (sects) in it",
-    "theme_th": "อิสลามคือดีนหรือวิถีชีวิตอันเป็นหนึ่งเดียว ซึ่งได้ทรงบัญชาไว้แก่ นูห์, นบีอิบรอฮีม, นบีมูซา และนบีอีซา โดยทั้งหมดถูกบัญชาให้ดำรงไว้ซึ่งดีนอิสลามและอย่าแตกแยกเป็นนิกายต่างๆ ในศาสนา",
+    "theme_th": "อิสลามคือดีนหรือวิถีชีวิตอันเป็นหนึ่งเดียว ซึ่งได้ทรงบัญชาไว้แก่ นูฮฺ, นบีอิบรอฮีม, นบีมูซา และนบีอีซา โดยทั้งหมดถูกบัญชาให้ดำรงไว้ซึ่งดีนอิสลามและอย่าแตกแยกเป็นนิกายต่าง ๆ ในศาสนา",
     "theme_ms": "Islam adalah satu cara hidup (Deen) yang sama yang telah diwasiatkan kepada Nabi Nuh, Nabi Ibrahim, Nabi Musa, dan Nabi Isa. Kesemua mereka diarahkan supaya menegakkan agama Islam dan janganlah berpecah-belah padanya."
   },
   {
@@ -10457,10 +10457,10 @@
     "ayah_to": 56,
     "total_ayahs": 11,
     "title_en": "Prophet Musa was sent to Fir'on",
-    "title_th": "นบีมูซากับฟิรเอาน์",
+    "title_th": "นบีมูซากับฟิรเอานฺ",
     "title_ms": "Nabi Musa a.s. diutuskan kepada Firaun",
     "theme_en": "Prophet Musa was sent to Fir'on and his chiefs with signs but they ridicule him and the signs as a result Allah drowned them all",
-    "theme_th": "นบีมูซาถูกส่งไปพร้อมกับสัญญาณมหัศจรรย์ยังฟิรเอาน์และเหล่าบริวาร แต่พวกเขาปฏิเสธเยาะเย้ย ท้ายที่สุดอัลลอฮฺจึงทรงลงโทษให้จมน้ำตายทั้งหมด",
+    "theme_th": "นบีมูซาถูกส่งไปพร้อมกับสัญญาณมหัศจรรย์ยังฟิรเอานฺและเหล่าบริวาร แต่พวกเขาปฏิเสธเยาะเย้ย ท้ายที่สุดอัลลอฮฺจึงทรงลงโทษให้จมน้ำตายทั้งหมด",
     "theme_ms": "Nabi Musa a.s. diutuskan kepada Firaun dan pembesarnya dengan membawa mukjizat, namun mereka mendustakannya lalu Allah menenggelamkan mereka."
   },
   {
@@ -10529,10 +10529,10 @@
     "ayah_to": 50,
     "total_ayahs": 8,
     "title_en": "Food and drink for the",
-    "title_th": "อาหารและเครื่องดื่มสำหรับ",
+    "title_th": "อาหารและเครื่องดื่มสำหรับชาวไฟนรก",
     "title_ms": "Makanan dan Minuman Ahli Neraka",
     "theme_en": "Food and drink for the sinners in hell",
-    "theme_th": "อาหารและเครื่องดื่มสำหรับบรรดาผู้กระทำความผิดในนรก",
+    "theme_th": "อาหารและเครื่องดื่มสำหรับบรรดาผู้กระทำความผิดในไฟนรก",
     "theme_ms": "Makanan dan minuman bagi orang-orang yang berdosa di dalam neraka"
   },
   {
@@ -10541,7 +10541,7 @@
     "ayah_to": 59,
     "total_ayahs": 9,
     "title_en": "Food and entertainment for the",
-    "title_th": "อาหารและความสำราญสำหรับ",
+    "title_th": "ความผาสุกและความสำราญสำหรับชาวสวนสวรรค์",
     "title_ms": "Nikmat dan Hiburan Ahli Syurga",
     "theme_en": "Food and entertainment for the righteous in paradise",
     "theme_th": "อาหารและความสำราญสำหรับบรรดาผู้ยำเกรงในสวนสวรรค์",
@@ -10568,7 +10568,7 @@
     "title_th": "อัลลอฮฺทรงน้อมนำท้องทะเล",
     "title_ms": "Allah menundukkan lautan",
     "theme_en": "Allah has subjected the seas and all that is between the heavens and the earth for human beings and  Israelites made sects in their religion after the knowledge has come to them through Torah",
-    "theme_th": "อัลลอฮฺทรงน้อมนำท้องทะเลและทุกสิ่งที่อยู่ระหว่างชั้นฟ้าทั้งหลายและแผ่นดินให้เป็นประโยชน์แก่มนุษย์ และวงศ์วานอิสราเอลได้แตกแยกออกเป็นนิกายต่าง ๆ ในศาสนาของพวกเขาหลังจากที่มีความรู้มาหาพวกเขาแล้วผ่านคัมภีร์เตารอต",
+    "theme_th": "อัลลอฮฺทรงน้อมนำท้องทะเลและทุกสิ่งที่อยู่ระหว่างชั้นฟ้าทั้งหลายและแผ่นดินให้เป็นประโยชน์แก่มนุษย์ และวงศ์วานอิสรออีลได้แตกแยกออกเป็นนิกายต่าง ๆ ในศาสนาของพวกเขาหลังจากที่มีความรู้มาหาพวกเขาแล้วผ่านคัมภีร์เตารอต",
     "theme_ms": "Allah telah menundukkan lautan serta segala yang ada di antara langit dan bumi untuk kegunaan manusia, manakala kaum Bani Israil pula berpecah kepada pelbagai golongan dalam urusan agama mereka setelah datangnya ilmu pengetahuan kepada mereka melalui Kitab Taurat."
   },
   {
@@ -10673,10 +10673,10 @@
     "ayah_to": 28,
     "total_ayahs": 2,
     "title_en": "No deity can save people",
-    "title_th": "ไม่มีพระเจ้าองค์ใดช่วยผู้คนได้",
+    "title_th": "ไม่มีพระเจ้าองค์ใดช่วยมนุษย์ได้",
     "title_ms": "Tiada Sembahan yang Dapat Menyelamatkan",
     "theme_en": "No deity can save people from the wrath of Allah",
-    "theme_th": "ไม่มีพระเจ้าองค์ใดสามารถช่วยเหลือผู้คนให้พ้นจากกริ้วของอัลลอฮฺได้",
+    "theme_th": "ไม่มีพระเจ้าองค์ใดสามารถช่วยเหลือมนุษย์ให้พ้นจากกริ้วของอัลลอฮฺได้",
     "theme_ms": "Tiada sesembahan yang dapat menyelamatkan manusia daripada azab Allah"
   },
   {
@@ -10760,7 +10760,7 @@
     "title_th": "สวนสวรรค์",
     "title_ms": "Perumpamaan Syurga dan Neraka",
     "theme_en": "Parable of paradise and hell",
-    "theme_th": "อุปมานิทัศน์ของสวนสวรรค์และนรก",
+    "theme_th": "อุปมานิทัศน์ของสวนสวรรค์และไฟนรก",
     "theme_ms": "Perbandingan sifat syurga yang dijanjikan kepada orang bertakwa dengan azab neraka"
   },
   {
@@ -10925,10 +10925,10 @@
     "ayah_to": 29,
     "total_ayahs": 14,
     "title_en": "Allah has assigned two angels",
-    "title_th": "อัลลอฮฺทรงมอบหมายมะลาอิกะฮฺสององค์",
+    "title_th": "อัลลอฮฺทรงมอบหมายมลาอิกะฮฺสององค์",
     "title_ms": "Allah menugaskan dua Malaikat",
     "theme_en": "Allah has assigned two angels to each person for noting down each single word that he utters and  Every stubborn disbeliever will be thrown into hell",
-    "theme_th": "อัลลอฮฺทรงมอบหมายมะลาอิกะฮฺสององค์ให้แก่แต่ละคนเพื่อคอยบันทึกทุกถ้อยคำที่เขาเปล่งออกมา และบรรดาผู้ปฏิเสธศรัทธาที่ดื้อรั้นทุกคนจะถูกโยนลงสู่ไฟนรก",
+    "theme_th": "อัลลอฮฺทรงมอบหมายมลาอิกะฮฺสององค์ให้แก่แต่ละคนเพื่อคอยบันทึกทุกถ้อยคำที่เขาเปล่งออกมา และบรรดาผู้ปฏิเสธศรัทธาที่ดื้อรั้นทุกคนจะถูกโยนลงสู่ไฟนรก",
     "theme_ms": "Allah telah menugaskan dua Malaikat kepada setiap insan untuk mencatat setiap patah perkataan yang diucapkannya, dan setiap golongan yang mengingkari kebenaran lagi degil akan dicampakkan ke dalam Api Neraka."
   },
   {
@@ -11000,7 +11000,7 @@
     "title_th": "บทเรียนจากบรรดาประชาชาติในอดีต",
     "title_ms": "Iktibar Daripada Umat Terdahulu",
     "theme_en": "There is a lesson in the stories of Fir'on, A'd, Thamud and people of Nuh",
-    "theme_th": "มีบทเรียนอันล้ำค่าในเรื่องราวของฟิรเอาน์, กลุ่มชนอ๊าด, ษะมูด และกลุ่มชนของนบีนูห์",
+    "theme_th": "มีบทเรียนอันล้ำค่าในเรื่องราวของฟิรเอานฺ, กลุ่มชนอ๊าด, ษะมูด และกลุ่มชนของนบีนูฮฺ",
     "theme_ms": "Terdapat pengajaran berguna melalui kisah Firaun, kaum Aad, Tsamud, dan kaum Nabi Nuh a.s."
   },
   {
@@ -11048,7 +11048,7 @@
     "title_th": "เหตุการณ์การรับวะฮียฺครั้งแรก",
     "title_ms": "Peristiwa Turunnya Wahyu Pertama",
     "theme_en": "Scene of the 1st Revelation, brought by angel Gabriel to Prophet Muhammad and Allah gave him a tour of heavens, paradise and other great signs",
-    "theme_th": "ฉากเหตุการณ์การรับวะฮียฺครั้งแรก ซึ่งนำมาโดยมะลาอิกะฮฺญิบรีลถึงนบีมุฮัมมัด และอัลลอฮฺทรงให้ท่านได้ชมสรวงสวรรค์และสัญญาณอันยิ่งใหญ่อื่นๆ",
+    "theme_th": "ฉากเหตุการณ์การรับวะฮียฺครั้งแรก ซึ่งนำมาโดยมลาอิกะฮฺญิบรีลถึงนบีมุฮัมมัด และอัลลอฮฺทรงให้ท่านได้ชมสวนสวรรค์และสัญญาณอันยิ่งใหญ่อื่น ๆ",
     "theme_ms": "Peristiwa turunnya wahyu pertama yang dibawa oleh Malaikat Jibril kepada Nabi Muhammad, serta Allah memperlihatkan kepada baginda perjalanan menembusi langit, Syurga, dan tanda-tanda kebesaran yang agung."
   },
   {
@@ -11060,7 +11060,7 @@
     "title_th": "อัลลัต อัลอุซซา และมะนาต เทพเจ้าจอมปลอม",
     "title_ms": "Penolakan Sembahan Berhala Lat, Uzza dan Manat",
     "theme_en": "Lat, Uzza and Manat (goddesses of Arabs) are nothing but names invented by pagan Arabs",
-    "theme_th": "อัลลัต อัลอุซซา และมะนาต (บรรดาเทพีของชาวอาหรับยุคญาฮิลียะฮฺ) เป็นเพียงชื่อที่พวกเขาและบรรพบุรุษตั้งขึ้นเองโดยไม่มีหลักฐานใดๆ",
+    "theme_th": "อัลลัต อัลอุซซา และมะนาต (บรรดาเทพีของชาวอาหรับยุคญาฮิลียะฮฺ) เป็นเพียงชื่อที่พวกเขาและบรรพบุรุษตั้งขึ้นเองโดยไม่มีหลักฐานใด ๆ",
     "theme_ms": "Berhala al-Lat, al-Uzza, dan Manat hanyalah nama-nama ciptaan kosong kaum musyrikin Arab"
   },
   {
@@ -11108,7 +11108,7 @@
     "title_th": "อัลกุรอานถูกทำให้ง่ายต่อการรำลึกตักเตือน",
     "title_ms": "Kami telah menjadikan Al-Quran",
     "theme_en": "We have made the Quran easy to understand the admonition, so is there any who would take the admonition?",
-    "theme_th": "เราได้ทรงทำให้อัลกุรอานง่ายต่อการรำลึกตักเตือน แล้วมีผู้ใดบ้างที่จะรับการตักเตือน?",
+    "theme_th": "เราได้ทำให้อัลกุรอานง่ายต่อการรำลึกตักเตือน แล้วมีผู้ใดบ้างที่จะรับการตักเตือน?",
     "theme_ms": "Kami telah mempermudahkan Al-Quran untuk diambil peringatan daripadanya, maka adakah sesiapa yang mahu mengambil peringatan?"
   },
   {
@@ -11300,7 +11300,7 @@
     "title_th": "สรรพสิ่งย่อมพินาศสูญสลาย",
     "title_ms": "Segala yang ada akan binasa",
     "theme_en": "All that exist will perish except Allah, Who is busy in heavy tasks all the time",
-    "theme_th": "สรรพสิ่งทั้งปวงย่อมพินาศสูญสลาย เว้นแต่วรกายของอัลลอฮฺ ผู้ทรงบริหารจัดการกิจการทั้งหลายในทุกๆ ช่วงเวลา",
+    "theme_th": "สรรพสิ่งทั้งปวงย่อมพินาศสูญสลาย เว้นแต่วรกายของอัลลอฮฺ ผู้ทรงบริหารจัดการกิจการทั้งหลายในทุก ๆ ช่วงเวลา",
     "theme_ms": "Segala yang ada di muka bumi ini akan binasa melainkan Zat Allah, yang sentiasa menguruskan urusan makhluk-Nya pada setiap masa."
   },
   {
@@ -11312,7 +11312,7 @@
     "title_th": "ไม่มีผู้ใดสามารถหลบหนีไปได้",
     "title_ms": "Tiada sesiapa yang dapat melarikan diri",
     "theme_en": "No one can run away from the jurisdiction of Allah and Sinners will be punished in hell",
-    "theme_th": "ไม่มีผู้ใดสามารถหลบหนีจากขอบเขตอำนาจของอัลลอฮฺไปได้ และบรรดาผู้ทำบาปจะถูกลงทัณฑ์ในนรกญะฮันนัม",
+    "theme_th": "ไม่มีผู้ใดสามารถหลบหนีจากขอบเขตอำนาจของอัลลอฮฺไปได้ และบรรดาผู้ทำบาปจะถูกลงทัณฑ์ในญะฮันนัม",
     "theme_ms": "Tiada sesiapa pun yang dapat melarikan diri daripada kekuasaan Allah, dan orang-orang yang berdosa akan diazab di dalam neraka."
   },
   {
@@ -11324,7 +11324,7 @@
     "title_th": "การตอบแทนแก่บรรดาผู้ยำเกรง",
     "title_ms": "Ganjaran bagi orang-orang yang bertakwa",
     "theme_en": "Righteous will be rewarded in paradise with lush gardens, springs, fruits, bashful virgins and much more",
-    "theme_th": "บรรดาผู้ยำเกรงจะได้รับผลตอบแทนในสวนสวรรค์อันรื่นรมย์ พร้อมด้วยพฤกษาชาติอันเขียวชอุ่ม ตาพุ ผลไม้ นารีสวรรค์ผู้สงวนตัว และความโปรดปรานอื่นๆ อีกมากมาย",
+    "theme_th": "บรรดาผู้ยำเกรงจะได้รับผลตอบแทนในสวนสวรรค์อันรื่นรมย์ พร้อมด้วยพฤกษาชาติอันเขียวชอุ่ม ตาพุ ผลไม้ หญิงสาวแห่งสวนสวรรค์ผู้สงวนตัว และความโปรดปรานอื่น ๆ อีกมากมาย",
     "theme_ms": "Orang-orang yang bertakwa akan dikurniakan ganjaran di dalam syurga yang penuh dengan taman-taman, mata air, buah-buahan, bidadari yang menjaga pandangan dan pelbagai nikmat yang lain."
   },
   {
@@ -11537,7 +11537,7 @@
     "ayah_to": 73,
     "total_ayahs": 1,
     "title_en": "Ayah theme - Download Quran",
-    "title_th": "ความโปรดปรานแห่งสวรรค์",
+    "title_th": "ความโปรดปรานแห่งสวนสวรรค์",
     "title_ms": "Nikmat Di Dalam Syurga",
     "theme_en": "Ayah theme - Download Quran Ayah Theme Data",
     "theme_th": "การย้ำเตือนถึงความโปรดปรานอันยิ่งใหญ่ในสวนสวรรค์",
@@ -11549,10 +11549,10 @@
     "ayah_to": 74,
     "total_ayahs": 1,
     "title_en": "Ayah theme - Download Quran",
-    "title_th": "ความบริสุทธิ์ของนางฟ้าสวรรค์",
+    "title_th": "ความบริสุทธิ์ของหญิงพรหมจรรย์แห่งสวนสวรรค์",
     "title_ms": "Kesucian Bidadari Syurga",
     "theme_en": "Ayah theme - Download Quran Ayah Theme Data",
-    "theme_th": "ความบริสุทธิ์ผุดผ่องของนางฟ้าที่ไม่มีมนุษย์หรือิญญาณใดแตะต้องมาก่อน",
+    "theme_th": "ความบริสุทธิ์ผุดผ่องของนางฟ้าที่ไม่มีมนุษย์หรือญินใดแตะต้องมาก่อน",
     "theme_ms": "Kesucian para bidadari yang belum pernah disentuh oleh manusia mahupun jin sebelumnya."
   },
   {
@@ -11705,10 +11705,10 @@
     "ayah_to": 29,
     "total_ayahs": 4,
     "title_en": "Prophets Nuh",
-    "title_th": "นบีนูห์ นบีอิบรอฮีม และนบีอีซา",
+    "title_th": "นบีนูฮฺ นบีอิบรอฮีม และนบีอีซา",
     "title_ms": "Nabi Nuh a.s., Nabi Ibrahim a.s. dan Nabi Isa a.s.",
     "theme_en": "Prophets Nuh, Ibrahim and Isa (Jesus) were sent for the guidance to the Right Path, as for the monasticism, people instituted it themselves",
-    "theme_th": "นบีนูห์ นบีอิบรอฮีม และนบีอีซา ถูกส่งมาพร้อมกับทางนำสู่เส้นทางที่เที่ยงตรง ส่วนเรื่องการนักบวชสันโดษนั้น มนุษย์ได้อุตริบัญญัติขึ้นมาเอง",
+    "theme_th": "นบีนูฮฺ นบีอิบรอฮีม และนบีอีซา ถูกส่งมาพร้อมกับทางนำสู่เส้นทางที่เที่ยงตรง ส่วนเรื่องการนักบวชสันโดษนั้น มนุษย์ได้อุตริบัญญัติขึ้นมาเอง",
     "theme_ms": "Nabi Nuh a.s., Nabi Ibrahim a.s. dan Nabi Isa a.s. diutus untuk membawa petunjuk ke jalan yang benar, manakala cara hidup kerahiban diciptakan oleh manusia sendiri."
   },
   {
@@ -11744,7 +11744,7 @@
     "title_th": "การห้ามผูกมิตรกับผู้ที่อยู่ภายใต้ความกริ้วของอัลลอฮฺ",
     "title_ms": "Larangan Berkasih Sayang dengan Golongan yang Dimurkai Allah",
     "theme_en": "Those who befriend those who are under the wrath of Allah will be severely punished and True believers do not befriend those who oppose Allah and His Rasool",
-    "theme_th": "บรรดาผู้ที่ผูกมิตรกับกลุ่มชนที่อยู่ภายใต้ความกริ้วของอัลลอฮฺจะได้รับการลงทัณฑ์อย่างรุนแรง และบรรดาผู้ศรัทธาที่แท้จริงจะไม่ผูกมิตรกับผู้ที่ต่อต้านอัลลอฮฺและร่อซูลของพระองค์",
+    "theme_th": "บรรดาผู้ที่ผูกมิตรกับกลุ่มชนที่อยู่ภายใต้ความกริ้วของอัลลอฮฺจะได้รับการลงทัณฑ์อย่างรุนแรง และบรรดาผู้ศรัทธาที่แท้จริงจะไม่ผูกมิตรกับผู้ที่ต่อต้านอัลลอฮฺและรอซูลของพระองค์",
     "theme_ms": "Sesiapa yang berkasih sayang dengan kaum yang dimurkai Allah akan dikenakan azab yang pedih, dan orang-orang yang beriman sejati tidak akan menjadikan musuh Allah dan Rasul-Nya sebagai teman rapat."
   },
   {
@@ -11900,7 +11900,7 @@
     "title_th": "โอ้บรรดาผู้ศรัทธา",
     "title_ms": "Wahai Orang-orang yang Beriman",
     "theme_en": "O believers, do not say something that you don't do and Prophet Isa (Jesus) gave a good news of a Rasool coming after him whose name is Ahmed (Muhammad)",
-    "theme_th": "โอ้บรรดาผู้ศรัทธาเอ๋ย พวกท่านอย่ากล่าวในสิ่งที่พวกท่านไม่ปฏิบัติ และนบีอีซา (อะลัยฮิสลาม) ได้แจ้งข่าวดีถึงร่อซูลที่จะมาหลังจากท่าน ซึ่งมีนามว่า อะห์มัด (มุฮัมมัด)",
+    "theme_th": "โอ้บรรดาผู้ศรัทธาเอ๋ย พวกท่านอย่ากล่าวในสิ่งที่พวกท่านไม่ปฏิบัติ และนบีอีซา (อะลัยฮิสลาม) ได้แจ้งข่าวดีถึงรอซูลที่จะมาหลังจากท่าน ซึ่งมีนามว่า อะห์มัด (มุฮัมมัด)",
     "theme_ms": "Wahai orang-orang yang beriman, janganlah kamu memperkatakan apa yang kamu tidak lakukan, dan Nabi Isa menyampaikan khabar gembira tentang kedatangan seorang Rasul selepas baginda yang bernama Ahmad (Nabi Muhammad)."
   },
   {
@@ -11921,7 +11921,7 @@
     "ayah_to": 4,
     "total_ayahs": 4,
     "title_en": "Allah appointed Muhammad as a Rasool",
-    "title_th": "การแต่งตั้งนบีมุฮัมมัดเป็นร่อซูลผู้มีเกียรติ",
+    "title_th": "การแต่งตั้งนบีมุฮัมมัดเป็นรอซูลผู้มีเกียรติ",
     "title_ms": "Perutusan Nabi Muhammad s.a.w. sebagai Rasul",
     "theme_en": "Allah appointed Muhammad as a Rasool",
     "theme_th": "สรรพสิ่งในชั้นฟ้าและแผ่นดินแซ่ซ้องสรรเสริญอัลลอฮฺ และพระองค์ทรงแต่งตั้งนบีมุฮัมมัดขึ้นท่ามกลางชาวอาหรับที่มิได้รู้หนังสือ",
@@ -11993,10 +11993,10 @@
     "ayah_to": 18,
     "total_ayahs": 8,
     "title_en": "No affliction can ever befall",
-    "title_th": "ไม่มีเคราะห์กรรมใดๆ จะประสบ",
+    "title_th": "ไม่มีเคราะห์กรรมใด ๆ จะประสบ",
     "title_ms": "Segala Musibah Berlaku dengan Izin Allah",
     "theme_en": "No affliction can ever befall except by the leave of Allah and Among your wives and children there are some who are your enemies, be aware of them",
-    "theme_th": "ไม่มีเคราะห์กรรมใดๆ จะประสบได้เว้นแต่ด้วยการอนุมัติของอัลลอฮฺ และในบรรดาภรรยาและลูกๆ ของพวกท่านนั้นมีบางคนที่เป็นศัตรูของพวกท่าน ดังนั้นพึงระวังพวกเขาเถิด",
+    "theme_th": "ไม่มีเคราะห์กรรมใด ๆ จะประสบได้เว้นแต่ด้วยการอนุมัติของอัลลอฮฺ และในบรรดาภรรยาและลูก ๆ ของพวกท่านนั้นมีบางคนที่เป็นศัตรูของพวกท่าน ดังนั้นพึงระวังพวกเขาเถิด",
     "theme_ms": "Tidak ada sebarang musibah yang menimpa melainkan dengan izin Allah, dan sesungguhnya di antara isteri-isteri dan anak-anak kamu ada yang menjadi musuh bagi kamu, maka berhati-hatilah terhadap mereka."
   },
   {
@@ -12053,10 +12053,10 @@
     "ayah_to": 14,
     "total_ayahs": 14,
     "title_en": "Dwellers of Paradise and Hell",
-    "title_th": "ชาวสวนสวรรค์และไฟนรก",
+    "title_th": "ชาวสวนสวรรค์และชาวไฟนรก",
     "title_ms": "Kerajaan Alam Semesta Milik Allah",
     "theme_en": "Kingdom of the universe belong to Allah and Lower heaven is decorated with the lamps (stars) and Conversation between the dwellers of hell and her guards",
-    "theme_th": "อำนาจแห่งเอกภพเป็นกรรมสิทธิ์ของอัลลอฮฺ และชั้นฟ้าต่ำสุดได้รับการประดับประดาด้วยดวงประทีป (ดวงดาว) และการสนทนาระหว่างชาวไฟนรกและบรรดายามเฝ้านรก",
+    "theme_th": "อำนาจแห่งเอกภพเป็นกรรมสิทธิ์ของอัลลอฮฺ และชั้นฟ้าต่ำสุดได้รับการประดับประดาด้วยดวงประทีป (ดวงดาว) และการสนทนาระหว่างชาวไฟนรกและบรรดายามเฝ้าไฟนรก",
     "theme_ms": "Kerajaan alam semesta adalah milik Allah, langit dunia dihiasi dengan pelita-pelita bintang, serta perbualan yang berlaku antara penghuni api Neraka dengan malaikat penjaga Neraka."
   },
   {
@@ -12152,7 +12152,7 @@
     "title_th": "อัลกุรอานคือพระวจนะของอัลลอฮฺ",
     "title_ms": "Al-Quran adalah Kalam Allah",
     "theme_en": "Al-Quran is the word of Allah and not of the Prophet, and is a reminder for those who fear Allah (God)",
-    "theme_th": "อัลกุรอานคือพระวจนะของอัลลอฮฺ หาใช่คำกล่าวของศาสดาไม่ และเป็นข้อเตือนใจสำหรับบรรดาผู้ยำเกรง",
+    "theme_th": "อัลกุรอานคือพระวจนะของอัลลอฮฺ หาใช่คำกล่าวของท่านนบีเองไม่ และเป็นข้อเตือนใจสำหรับบรรดาผู้ยำเกรง",
     "theme_ms": "Al-Quran adalah kalam Allah yang disampaikan melalui Rasul, bukannya karangan manusia, serta menjadi peringatan bagi orang-orang yang bertakwa."
   },
   {
@@ -12173,7 +12173,7 @@
     "ayah_to": 44,
     "total_ayahs": 9,
     "title_en": "Paradise is not for the disbelievers",
-    "title_th": "สวรรค์มิใช่สำหรับผู้ปฏิเสธศรัทธา",
+    "title_th": "สวนสวรรค์มิใช่สำหรับผู้ปฏิเสธศรัทธา",
     "title_ms": "Syurga Bukan untuk Orang-orang Kafir",
     "theme_en": "Paradise is not for the disbelievers and Disbelievers will have downcast eyes and countenances distorted with shame",
     "theme_th": "สวนสวรรค์มิใช่สำหรับบรรดาผู้ปฏิเสธศรัทธา ซึ่งในวันนั้นพวกเขากลับมีสายตาอันทอดต่ำและใบหน้าที่ปกคลุมด้วยความอับอาย",
@@ -12233,10 +12233,10 @@
     "ayah_to": 28,
     "total_ayahs": 9,
     "title_en": "Rasools do not have the",
-    "title_th": "ขอบเขตอำนาจของบรรดาเราะซูล",
+    "title_th": "ขอบเขตอำนาจของบรรดารอซูล",
     "title_ms": "Para Rasul Tidak Memiliki Kuasa",
     "theme_en": "Rasools do not have the power to harm or benefit anyone, his mission is just to convey Allah's message and Only Allah knows the unseen, He reveals it to whom He chooses from",
-    "theme_th": "บรรดาเราะซูลไม่มีอำนาจในการให้คุณหรือให้โทษแก่ผู้ใด หน้าที่ของท่านมีเพียงการเผยแผ่สาสน์ของอัลลอฮฺเท่านั้น และมีเพียงอัลลอฮฺที่ทรงรู้สิ่งเร้นลับ พระองค์ทรงเปิดเผยมันแก่ผู้ที่พระองค์ทรงประสงค์จากบรรดาศาสนทูตของพระองค์",
+    "theme_th": "บรรดารอซูลไม่มีอำนาจในการให้คุณหรือให้โทษแก่ผู้ใด หน้าที่ของท่านมีเพียงการเผยแผ่สาสน์ของอัลลอฮฺเท่านั้น และมีเพียงอัลลอฮฺที่ทรงรู้สิ่งเร้นลับ พระองค์ทรงเปิดเผยมันแก่ผู้ที่พระองค์ทรงประสงค์จากบรรดารอซูลของพระองค์",
     "theme_ms": "Para rasul tidak berkuasa mendatangkan mudarat atau manfaat kepada sesiapa pun, tugas mereka hanyalah menyampaikan risalah Allah dan hanya Allah yang Maha Mengetahui perkara ghaib, serta Dia menyatakan perkara ghaib tersebut kepada sesiapa yang diredhai-Nya daripada kalangan rasul."
   },
   {
@@ -12377,7 +12377,7 @@
     "ayah_to": 28,
     "total_ayahs": 28,
     "title_en": "Allah swears in the name",
-    "title_th": "อัลลอฮฺทรงสาบานด้วยสิ่งต่างๆ",
+    "title_th": "อัลลอฮฺทรงสาบานด้วยสิ่งต่าง ๆ",
     "title_ms": "Sumpah Allah Atas Nama Pelbagai Kejadian",
     "theme_en": "Allah swears in the name of life giving winds, rain and angels that the day of judgement will be established and Woe on that day to the disbelievers!",
     "theme_th": "อัลลอฮฺทรงสาบานด้วยลมที่พัดพาชีวิต สายฝน และเหล่ามลาอิกะฮฺว่าวันกิยามะฮฺจะเกิดขึ้นอย่างแน่นอน และความวิบัติในวันนั้นจงมีแด่บรรดาผู้ปฏิเสธศรัทธา",
@@ -12392,7 +12392,7 @@
     "title_th": "ชะตากรรมของบรรดาผู้ปฏิเสธศรัทธาในวันนั้น",
     "title_ms": "Nasib Golongan Kafir pada Hari Kiamat",
     "theme_en": "On that day, The disbelievers will be asked to walk towards hell which they used to deny",
-    "theme_th": "ในวันนั้น บรรดาผู้ปฏิเสธศรัทธาจะถูกต้อนให้ไปสู่ขุมนรกที่พวกเขาเคยปฏิเสธมาตลอด",
+    "theme_th": "ในวันนั้น บรรดาผู้ปฏิเสธศรัทธาจะถูกต้อนให้ไปสู่ไฟนรกที่พวกเขาเคยปฏิเสธมาตลอด",
     "theme_ms": "Pada hari itu, orang-orang kafir akan diarah menghala ke arah neraka yang dahulunya mereka dustakan"
   },
   {
@@ -12488,7 +12488,7 @@
     "title_th": "การตอบแทนและการลงโทษในวันพิพากษา",
     "title_ms": "Balasan Azab dan Ganjaran Pahala",
     "theme_en": "Punishment and reward on the day of judgement",
-    "theme_th": "การลงโทษในนรกและการตอบแทนสรวงสวรรค์ในวันพิพากษา",
+    "theme_th": "การลงโทษในไฟนรกและการตอบแทนสวนสวรรค์ในวันพิพากษา",
     "theme_ms": "Balasan siksaan neraka dan kenikmatan syurga pada hari kiamat"
   },
   {
@@ -12572,7 +12572,7 @@
     "title_th": "บรรดาผู้ฉ้อโกงจะถูกเรียกมาสอบสวน",
     "title_ms": "Golongan Yang Curang Dalam Sukatan Akan Dihisab",
     "theme_en": "Defrauders will be called to account and punished while the righteous will be rewarded with soft couches, choicest wine and special spring water",
-    "theme_th": "บรรดาผู้ฉ้อโกงตาชั่งจะถูกเรียกมาสอบสวนและรับโทษ ในขณะที่บรรดาผู้ทรงคุณธรรมจะได้รับรางวัลเป็นตั่งบัลลังก์อันนุ่มสบาย เครื่องดื่มอันบริสุทธิ์ และตาน้ำพุพิเศษแห่งสวรรค์",
+    "theme_th": "บรรดาผู้ฉ้อโกงตาชั่งจะถูกเรียกมาสอบสวนและรับโทษ ในขณะที่บรรดาผู้ทรงคุณธรรมจะได้รับรางวัลเป็นตั่งบัลลังก์อันนุ่มสบาย เครื่องดื่มอันบริสุทธิ์ และตาน้ำพุพิเศษแห่งสวนสวรรค์",
     "theme_ms": "Golongan yang curang dalam sukatan dan timbangan akan dihisab dan diazab, manakala orang-orang yang soleh akan diberi balasan dengan tempat duduk yang empuk, minuman pilihan serta air mata air yang istimewa."
   },
   {
@@ -12605,10 +12605,10 @@
     "ayah_to": 25,
     "total_ayahs": 6,
     "title_en": "People are asked to believe",
-    "title_th": "เรียกร้องให้ผู้คนศรัทธา",
+    "title_th": "เรียกร้องให้มนุษย์ศรัทธา",
     "title_ms": "Seruan Kepada Manusia Agar Beriman",
     "theme_en": "People are asked to believe while they have time",
-    "theme_th": "เรียกร้องให้ผู้คนหันมาศรัทธาในขณะที่พวกเขายังมีเวลา",
+    "theme_th": "เรียกร้องให้มนุษย์หันมาศรัทธาในขณะที่พวกเขายังมีเวลา",
     "theme_ms": "Orang ramai diminta beriman dan percaya kepada Allah selagi mereka mempunyai masa dan peluang"
   },
   {
@@ -12632,7 +12632,7 @@
     "title_th": "เหนือทุกดวงวิญญาณมีผู้พิทักษ์",
     "title_ms": "Setiap Jiwa Dijaga Oleh Malaikat Pengawal",
     "theme_en": "Over each soul there is and appointed guardian angel and Al-Quran is a decisive word of Allah",
-    "theme_th": "เหนือทุกดวงวิญญาณมีมะลาอิกะฮฺผู้พิทักษ์คอยดูแล และอัลกุรอานคือวจนะอันเด็ดขาดของอัลลอฮฺ",
+    "theme_th": "เหนือทุกดวงวิญญาณมีมลาอิกะฮฺผู้พิทักษ์คอยดูแล และอัลกุรอานคือวจนะอันเด็ดขาดของอัลลอฮฺ",
     "theme_ms": "Setiap jiwa dikawal dan dijaga oleh malaikat pengawal, dan Al-Quran merupakan Kalam Allah yang memutuskan antara hak dan batil"
   },
   {
@@ -12680,7 +12680,7 @@
     "title_th": "บทเรียนเตือนใจผ่านชนรุ่นก่อน",
     "title_ms": "Pengajaran Melalui Kisah Umat Terdahulu",
     "theme_en": "Admonition for social welfare through the examples of prior nations",
-    "theme_th": "การตักเตือนเรื่องคุณธรรมทางสังคมผ่านเรื่องราวตัวอย่างของประชาชาติต่างๆ ในอดีต",
+    "theme_th": "การตักเตือนเรื่องคุณธรรมทางสังคมผ่านเรื่องราวตัวอย่างของประชาชาติต่าง ๆ ในอดีต",
     "theme_ms": "Nasihat dan pengajaran melalui kisah-kisah kebinasaan umat-umat terdahulu yang mengingkari perintah Allah"
   },
   {
@@ -12800,7 +12800,7 @@
     "title_th": "จงอ่านด้วยพระนามแห่งอัลลอฮฺ",
     "title_ms": "Bacalah Dengan Menyebut Nama Allah",
     "theme_en": "Read in the name of Allah, Who created man and taught him by the pen and Those who forbid from the worship of Allah will be dragged to hell by their forelock",
-    "theme_th": "จงอ่านด้วยพระนามของอัลลอฮฺ ผู้ทรงบังเกิดมนุษย์และสอนด้วยปากกา และบรรดาผู้ขัดขวางการเคารพสักการะอัลลอฮฺจะถูกลากลงสู่นรกด้วยปอยผมที่หน้าผากของพวกเขา",
+    "theme_th": "จงอ่านด้วยพระนามของอัลลอฮฺ ผู้ทรงบังเกิดมนุษย์และสอนด้วยปากกา และบรรดาผู้ขัดขวางการเคารพสักการะอัลลอฮฺจะถูกลากลงสู่ไฟนรกด้วยปอยผมที่หน้าผากของพวกเขา",
     "theme_ms": "Bacalah dengan menyebut nama Allah, Tuhan yang menciptakan manusia dan mengajarnya dengan pena, serta mereka yang menghalang daripada ibadah kepada Allah akan ditarik ke dalam neraka dengan ubun-ubun mereka."
   },
   {
@@ -12824,7 +12824,7 @@
     "title_th": "ชาวคัมภีร์มิได้แตกแยกกัน",
     "title_ms": "Ahli Kitab Berpecah Belah",
     "theme_en": "People of the Book did not get divided into sets until after receiving the guidance and People of the Book were also commanded to establish Salah and pay Zakah",
-    "theme_th": "บรรดาชาวคัมภีร์มิได้แตกแยกออกเป็นนิกายต่างๆ จนกระทั่งหลังจากที่พวกเขาได้รับทางนำแล้ว และพวกเขาก็ถูกบัญชาให้ดำรงไว้ซึ่งการละหมาดและจ่ายซะกาต",
+    "theme_th": "บรรดาชาวคัมภีร์มิได้แตกแยกออกเป็นนิกายต่าง ๆ จนกระทั่งหลังจากที่พวกเขาได้รับทางนำแล้ว และพวกเขาก็ถูกบัญชาให้ดำรงไว้ซึ่งการละหมาดและจ่ายซะกาต",
     "theme_ms": "Ahli Kitab tidak berpecah belah melainkan setelah datang kepada mereka petunjuk, dan Ahli Kitab juga diperintahkan supaya mendirikan solat serta menunaikan zakat."
   },
   {
