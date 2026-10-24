@@ -28,6 +28,7 @@ class VoiceRecitationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     // 1. If a verse skip was detected, show the high-priority Alert Banner
     if (tracker.skippedFromAyah != null && tracker.skippedToAyah != null) {
@@ -78,7 +79,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Ayah Skipped?',
+                        isThai ? 'อ่านข้ามอายะฮฺ?' : 'Ayah Skipped?',
                         style: textTheme.titleSmall?.copyWith(
                           color: colorScheme.onErrorContainer,
                           fontWeight: FontWeight.bold,
@@ -86,7 +87,9 @@ class VoiceRecitationBanner extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Expected Verse $fromAyah, but heard Verse $toAyah.',
+                        isThai
+                            ? 'คาดหวังอายะฮฺที่ $fromAyah แต่ตรวจพบอายะฮฺที่ $toAyah'
+                            : 'Expected Verse $fromAyah, but heard Verse $toAyah.',
                         style: textTheme.bodySmall?.copyWith(
                           color: colorScheme.onErrorContainer.withValues(alpha: 0.85),
                         ),
@@ -98,7 +101,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                   icon: Icon(Icons.close_rounded, color: colorScheme.onErrorContainer, size: 20),
                   onPressed: onDismissAlert,
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Stay on Verse $fromAyah',
+                  tooltip: isThai ? 'อยู่ที่อายะฮฺ $fromAyah' : 'Stay on Verse $fromAyah',
                 ),
               ],
             ),
@@ -116,7 +119,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                     }
                   },
                   icon: const Icon(Icons.replay_rounded, size: 16),
-                  label: Text('Stay on Verse $fromAyah'),
+                  label: Text(isThai ? 'อยู่ที่อายะฮฺ $fromAyah' : 'Stay on Verse $fromAyah'),
                   style: FilledButton.styleFrom(
                     backgroundColor: colorScheme.surface,
                     foregroundColor: colorScheme.onSurface,
@@ -129,7 +132,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => onAcceptSkip!(fromAyah, toAyah),
                     icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                    label: Text('Jump to V$toAyah'),
+                    label: Text(isThai ? 'ข้ามไปอายะฮฺ $toAyah' : 'Jump to V$toAyah'),
                     style: TextButton.styleFrom(
                       foregroundColor: colorScheme.error,
                       visualDensity: VisualDensity.compact,
@@ -168,7 +171,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Voice Tracking Error',
+                    isThai ? 'เกิดข้อผิดพลาดในการฟังเสียง' : 'Voice Tracking Error',
                     style: textTheme.labelLarge?.copyWith(
                       color: colorScheme.onErrorContainer,
                       fontWeight: FontWeight.bold,
@@ -188,7 +191,7 @@ class VoiceRecitationBanner extends StatelessWidget {
               icon: Icon(Icons.close_rounded, color: colorScheme.onErrorContainer, size: 20),
               onPressed: onDismissAlert,
               visualDensity: VisualDensity.compact,
-              tooltip: 'Dismiss',
+              tooltip: isThai ? 'ปิด' : 'Dismiss',
             ),
           ],
         ),
@@ -208,25 +211,29 @@ class VoiceRecitationBanner extends StatelessWidget {
     if (!isListening) {
       statusColor = colorScheme.onSurfaceVariant;
       statusIcon = Icons.mic_off_rounded;
-      statusText = 'Voice Tracking Paused';
-      statusSubtext = 'Tap mic to resume on-device listening';
+      statusText = isThai ? 'พักการฟังเสียง' : 'Voice Tracking Paused';
+      statusSubtext = isThai ? 'แตะไอคอนไมค์เพื่อเปิดการฟังเสียงต่อ' : 'Tap mic to resume on-device listening';
     } else if (isProcessing) {
       statusColor = colorScheme.secondary;
       statusIcon = Icons.sync_rounded;
-      statusText = 'Analyzing Recitation...';
-      statusSubtext = 'FastConformer CTC neural engine running';
+      statusText = isThai ? 'กำลังประมวลผลเสียงอ่าน...' : 'Analyzing Recitation...';
+      statusSubtext = tracker.lastRecognizedText != null && tracker.lastRecognizedText!.isNotEmpty
+          ? tracker.lastRecognizedText!
+          : (isThai ? 'ระบบปัญญาประดิษฐ์กำลังวิเคราะห์เสียง' : 'FastConformer CTC neural engine running');
     } else if (isMatched) {
       statusColor = Colors.teal;
       statusIcon = Icons.check_circle_rounded;
-      statusText = 'Verse ${tracker.lastMatchedAyah} Matched!';
-      statusSubtext = tracker.lastRecognizedText != null
+      statusText = isThai ? 'อายะฮฺ ${tracker.lastMatchedAyah} ถูกต้อง!' : 'Verse ${tracker.lastMatchedAyah} Matched!';
+      statusSubtext = tracker.lastRecognizedText != null && tracker.lastRecognizedText!.isNotEmpty
           ? tracker.lastRecognizedText!
-          : 'Revealing verse on screen...';
+          : (isThai ? 'แสดงอายะฮฺบนหน้าจอ...' : 'Revealing verse on screen...');
     } else {
       statusColor = colorScheme.primary;
       statusIcon = Icons.mic_rounded;
-      statusText = 'Listening for Verse ${tracker.currentExpectedAyah}';
-      statusSubtext = 'Recite the verse to reveal it automatically';
+      statusText = isThai ? 'กำลังฟังอายะฮฺที่ ${tracker.currentExpectedAyah}' : 'Listening for Verse ${tracker.currentExpectedAyah}';
+      statusSubtext = tracker.lastRecognizedText != null && tracker.lastRecognizedText!.isNotEmpty
+          ? tracker.lastRecognizedText!
+          : (isThai ? 'อ่านอายะฮฺนี้เพื่อตรวจจับและแสดงผลอัตโนมัติ' : 'Recite the verse to reveal it automatically');
     }
 
     return AnimatedContainer(
@@ -309,8 +316,8 @@ class VoiceRecitationBanner extends StatelessWidget {
               ),
               label: Text(
                 isCurrentVerseHinted
-                    ? 'V${tracker.currentExpectedAyah} Skip >'
-                    : 'V${tracker.currentExpectedAyah} Hint',
+                    ? (isThai ? 'ข้ามอายะฮฺ >' : 'V${tracker.currentExpectedAyah} Skip >')
+                    : (isThai ? 'ใบ้คำแรก' : 'V${tracker.currentExpectedAyah} Hint'),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: isCurrentVerseHinted
@@ -342,8 +349,8 @@ class VoiceRecitationBanner extends StatelessWidget {
               onLongPress: () => showSensitivitySheet(context, tracker),
               child: Tooltip(
                 message: isListening
-                    ? 'Tap to pause, hold for sensitivity'
-                    : 'Tap to resume, hold for sensitivity',
+                    ? (isThai ? 'แตะเพื่อพัก, กดค้างเพื่อตั้งค่าความแม่นยำ' : 'Tap to pause, hold for sensitivity')
+                    : (isThai ? 'แตะเพื่อฟังต่อ, กดค้างเพื่อตั้งค่าความแม่นยำ' : 'Tap to resume, hold for sensitivity'),
                 child: Padding(
                   padding: const EdgeInsets.all(8),
                   child: Icon(
@@ -368,6 +375,7 @@ class VoiceRecitationBanner extends StatelessWidget {
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
 
     showModalBottomSheet<void>(
       context: context,
@@ -400,7 +408,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                     Icon(Icons.tune_rounded, color: colorScheme.primary, size: 22),
                     const SizedBox(width: 10),
                     Text(
-                      'Voice Tracking Precision',
+                      isThai ? 'ความแม่นยำในการตรวจจับเสียง' : 'Voice Tracking Precision',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -409,16 +417,20 @@ class VoiceRecitationBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Select the detection sensitivity that matches your recitation pace and style.',
+                  isThai
+                      ? 'เลือกระดับความแม่นยำที่เหมาะกับจังหวะและสไตล์การอ่านของคุณ'
+                      : 'Select the detection sensitivity that matches your recitation pace and style.',
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 16),
                 _SensitivityOptionTile(
-                  title: 'Quick Recap',
+                  title: isThai ? 'ท่องจำรวดเร็ว (ฮัดร์)' : 'Quick Recap',
                   arabicTitle: 'Hadr · حدر',
-                  description: 'Forgiving match for rapid review & whispered recitation.',
+                  description: isThai
+                      ? 'ตรวจจับแบบยืดหยุ่น สำหรับทบทวนเร็ว หรืออ่านออกเสียงเบา'
+                      : 'Forgiving match for rapid review & whispered recitation.',
                   icon: Icons.bolt_rounded,
                   iconColor: Colors.amber.shade700,
                   isSelected: tracker.sensitivity == RecitationSensitivity.quickRecap,
@@ -433,9 +445,11 @@ class VoiceRecitationBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _SensitivityOptionTile(
-                  title: 'Balanced',
+                  title: isThai ? 'มาตรฐานสมดุล (ตัดวีร์)' : 'Balanced',
                   arabicTitle: 'Tadweer · تدوير',
-                  description: 'Smart adaptive tracking for regular memorization (recommended).',
+                  description: isThai
+                      ? 'การตรวจจับอัจฉริยะแบบปรับตัว สำหรับการท่องจำทั่วไป (แนะนำ)'
+                      : 'Smart adaptive tracking for regular memorization (recommended).',
                   icon: Icons.balance_rounded,
                   iconColor: colorScheme.primary,
                   isSelected: tracker.sensitivity == RecitationSensitivity.balanced,
@@ -450,9 +464,11 @@ class VoiceRecitationBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _SensitivityOptionTile(
-                  title: 'Strict Exam',
+                  title: isThai ? 'ทดสอบเข้มงวด (ตะฮฺกีก)' : 'Strict Exam',
                   arabicTitle: 'Tahqeeq · تحقيق',
-                  description: 'High precision testing, requires clear articulation and verse endings.',
+                  description: isThai
+                      ? 'การทดสอบความแม่นยำสูง ต้องออกเสียงชัดเจนและครบถ้วนจนจบอายะฮฺ'
+                      : 'High precision testing, requires clear articulation and verse endings.',
                   icon: Icons.verified_rounded,
                   iconColor: Colors.teal,
                   isSelected: tracker.sensitivity == RecitationSensitivity.strict,
@@ -511,7 +527,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'Adaptive Noise Filter',
+                                    isThai ? 'ตัวกรองเสียงรบกวนรอบข้าง' : 'Adaptive Noise Filter',
                                     style: textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: colorScheme.onSurface,
@@ -519,7 +535,9 @@ class VoiceRecitationBanner extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Adapts pause detection to fans & AC without clipping voice or Madd.',
+                                    isThai
+                                        ? 'ปรับลดเสียงพัดลมหรือแอร์อัตโนมัติ โดยไม่ตัดทอนเสียงอ่านหรือเสียงมัดด์'
+                                        : 'Adapts pause detection to fans & AC without clipping voice or Madd.',
                                     style: textTheme.bodySmall?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                       fontSize: 12,

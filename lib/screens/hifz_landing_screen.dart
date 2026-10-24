@@ -20,7 +20,6 @@ import 'hifz_settings_screen.dart';
 import 'hifz_memorize_screen.dart';
 import 'hifz_guide_screen.dart';
 import 'hifz_wizard_setup_screen.dart';
-import 'hifz_review_setup_screen.dart';
 
 class HifzLandingScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -106,12 +105,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   Future<void> _openReview() async {
-    await Navigator.push<(ReviewGranularity, ReviewTargetParams, ActiveSessionSnapshot?)>(
+    if (!mounted) return;
+
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => HifzReviewSetupScreen(
+        builder: (_) => HifzWizardSetupScreen(
           quranRepository: widget.quranRepository,
           foundationRepository: widget.foundationRepository,
+          initialMode: HifzSessionType.review,
+          initialStep: 1,
         ),
       ),
     );
@@ -144,10 +147,14 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            HifzMasteryListScreen(quranRepository: widget.quranRepository),
+        builder: (_) => HifzMasteryListScreen(
+          quranRepository: widget.quranRepository,
+          foundationRepository: widget.foundationRepository,
+        ),
       ),
-    );
+    ).then((_) {
+      if (mounted) _loadStats();
+    });
   }
 
   void _openGuide() {
@@ -402,13 +409,13 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     icon: Icons.menu_book_rounded,
                     accentColor: colorScheme.primary,
                     title: 'New Verses (Takrar)',
-                    titleThai: 'ท่องจำอายะห์ใหม่ (Takrar)',
+                    titleThai: 'ท่องจำอายะฮฺใหม่ (Takrar)',
                     subtitle: isThai
-                        ? 'ท่องจำอายะห์ใหม่ด้วยวิธีตัครอร (Takrar) — สลับเปิดเผย 10x และซ่อน 5x เพื่อสร้างภาพจำลงสมอง'
+                        ? 'ท่องจำอายะฮฺใหม่ด้วยวิธีตัครอร (Takrar) — สลับเปิดเผย 10x และซ่อน 5x เพื่อสร้างภาพจำลงสมอง'
                         : 'Memorize new verses with the Takrar repetition method — 10x visible & 5x hidden active recall.',
                     badge: null,
                     tags: isThai
-                        ? ['วงจรตัครอร 10V + 5H', 'แบ่งย่อยอายะห์ตามวักฟ์', 'เชื่อมโยงลำดับ']
+                        ? ['วงจรตัครอร 10V + 5H', 'แบ่งย่อยอายะฮฺตามวักฟ์', 'เชื่อมโยงลำดับ']
                         : ['10V + 5H Takrar Cycle', 'Waqf Chunking', 'Sequence Linking'],
                     colorScheme: colorScheme,
                     textTheme: textTheme,
@@ -518,7 +525,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     ),
                     Text(
                       isThai
-                          ? 'ฝึกฝนอายะห์ใหม่ & รักษาการท่องจำด้วยการทบทวน'
+                          ? 'ฝึกฝนอายะฮฺใหม่ & รักษาการท่องจำด้วยการทบทวน'
                           : 'Master new verses & protect retention with review',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,

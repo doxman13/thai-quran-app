@@ -536,6 +536,16 @@ class RecitationEngine {
                 return;
               }
 
+              // Emit real-time acoustic transcript feedback for active listening
+              if (_isListening && activeText.isNotEmpty) {
+                _onEvent?.call(RecitationStatusEvent(
+                  status: RecitationStatus.processing,
+                  audioLevel: 0.0,
+                  currentExpectedAyah: _expectedAyah,
+                  partialTranscript: activeText,
+                ));
+              }
+
               // Cascading match loop: continuously match consecutive verses in the active window (Wasl / continuous recitation)
               while (_expectedAyah <= _endAyah && activeTokens.isNotEmpty) {
                 final match = _matcher!.matchSlidingWindow(

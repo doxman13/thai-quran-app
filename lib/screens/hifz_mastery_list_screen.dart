@@ -4,12 +4,18 @@
 // Reads from HifzRepository to display all 114 Surahs with status badges.
 // Zero business logic — all reads go through HifzRepository.
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
+import '../data/offline_surah_names.dart';
+import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
+import '../providers/settings_provider.dart';
+import 'hifz_wizard_setup_screen.dart';
 
 // Juz-to-Surah ranges (standard 30 Juz divisions)
 const _juzSurahStarts = <int>[
@@ -32,10 +38,12 @@ enum _FilterMode { all, mastered, inProgress, juz29And30 }
 
 class HifzMasteryListScreen extends StatefulWidget {
   final QuranRepository quranRepository;
+  final QuranFoundationRepository? foundationRepository;
 
   const HifzMasteryListScreen({
     super.key,
     required this.quranRepository,
+    this.foundationRepository,
   });
 
   @override
@@ -47,6 +55,9 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
   Map<int, SurahCompletionRecord> _completionMap = {};
   bool _loading = true;
   _FilterMode _filterMode = _FilterMode.all;
+
+  QuranFoundationRepository get _foundationRepository =>
+      widget.foundationRepository ?? QuranFoundationRepository();
 
   @override
   void initState() {
@@ -260,6 +271,276 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
           record: record,
           colorScheme: colorScheme,
           textTheme: textTheme,
+          onTap: () => _showSurahActionSheet(context, surahNum),
+        );
+      },
+    );
+  }
+
+  void _showSurahActionSheet(BuildContext context, int surahNum) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
+    final record = _completionMap[surahNum];
+    final isCompleted = record?.newVersesCompleted == true;
+    final reviewCount = record?.reviewCount ?? 0;
+    final hasPartial = !isCompleted && (reviewCount > 0);
+    final surahTh = offlineSurahNamesTh[surahNum.toString()] ?? widget.quranRepository.getSurahName(surahNum.toString());
+    final surahEn = offlineSurahNamesEn[surahNum.toString()] ?? widget.quranRepository.getSurahName(surahNum.toString());
+    final verseCount = qcf.getVerseCount(surahNum);
+    final juz = _juzOfSurah(surahNum);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Header Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$surahNum',
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              surahTh,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$surahEn · $verseCount ${isThai ? 'อายะฮฺ' : 'verses'} · Juz $juz',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        String.fromCharCode(0xe000 + surahNum),
+                        style: const TextStyle(
+                          fontFamily: 'QcfSurahName',
+                          fontSize: 36,
+                          color: Color(0xFF1B5E20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Status Badge Row
+                Row(
+                  children: [
+                    if (isCompleted)
+                      _Badge(isThai ? 'ท่องจำสำเร็จแล้ว' : 'COMPLETED', const Color(0xFF4CAF50))
+                    else if (hasPartial)
+                      _Badge(isThai ? 'กำลังท่องจำ' : 'IN PROGRESS', const Color(0xFFFFA726))
+                    else
+                      _Badge(isThai ? 'ยังไม่ได้เริ่ม' : 'NOT STARTED', colorScheme.onSurfaceVariant),
+                    if (reviewCount > 0) ...[
+                      const SizedBox(width: 8),
+                      _Badge(
+                        isThai ? 'ทบทวนแล้ว $reviewCount ครั้ง' : 'REVIEWED ×$reviewCount',
+                        const Color(0xFF2196F3),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Option 1: Memorize New Verses
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  tileColor: colorScheme.surfaceContainerLow,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.menu_book_rounded, color: colorScheme.primary, size: 22),
+                  ),
+                  title: Text(
+                    isThai ? 'ท่องจำอายะฮฺใหม่ (Takrar)' : 'Memorize New Verses',
+                    style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isThai
+                        ? 'อายะฮฺ 1–${math.min(5, verseCount)} · เจาะลึก 15 รอบ'
+                        : 'Verses 1–${math.min(5, verseCount)} · 15 Repetitions',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HifzWizardSetupScreen(
+                          quranRepository: widget.quranRepository,
+                          foundationRepository: _foundationRepository,
+                          initialMode: HifzSessionType.newVerses,
+                          initialSurah: surahNum,
+                          initialStartVerse: 1,
+                          initialEndVerse: math.min(5, verseCount),
+                          initialRepeatStart: 1,
+                          initialStep: 1,
+                        ),
+                      ),
+                    ).then((_) {
+                      if (mounted) _load();
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Option 2: Review this Surah
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  tileColor: colorScheme.surfaceContainerLow,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.replay_circle_filled_rounded, color: colorScheme.tertiary, size: 22),
+                  ),
+                  title: Text(
+                    isThai ? 'ทบทวนซูเราะฮฺนี้ (Review)' : 'Review This Surah',
+                    style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isThai
+                        ? 'อายะฮฺ 1–$verseCount (ทั้งซูเราะฮฺ) · ตรวจจับด้วยเสียง'
+                        : 'Verses 1–$verseCount (Full Surah) · Voice verified',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HifzWizardSetupScreen(
+                          quranRepository: widget.quranRepository,
+                          foundationRepository: _foundationRepository,
+                          initialMode: HifzSessionType.review,
+                          initialSurah: surahNum,
+                          initialStartSurah: surahNum,
+                          initialEndSurah: surahNum,
+                          initialStartVerse: 1,
+                          initialEndVerse: verseCount,
+                          initialStep: 1,
+                        ),
+                      ),
+                    ).then((_) {
+                      if (mounted) _load();
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Option 3: Custom Wizard Setup
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  tileColor: colorScheme.surfaceContainerLow,
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.tune_rounded, color: colorScheme.onSurfaceVariant, size: 22),
+                  ),
+                  title: Text(
+                    isThai ? 'เปิดวิซาร์ดตั้งค่าแบบกำหนดเอง' : 'Custom Wizard Setup',
+                    style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isThai
+                        ? 'เลือกช่วงอายะฮฺ หรือหน้ามุศฮัฟตามต้องการ'
+                        : 'Customize verse range, chunking, and goals',
+                    style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HifzWizardSetupScreen(
+                          quranRepository: widget.quranRepository,
+                          foundationRepository: _foundationRepository,
+                          initialSurah: surahNum,
+                          initialStep: 0,
+                        ),
+                      ),
+                    ).then((_) {
+                      if (mounted) _load();
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -311,6 +592,7 @@ class _SurahMasteryCard extends StatelessWidget {
   final SurahCompletionRecord? record;
   final ColorScheme colorScheme;
   final TextTheme textTheme;
+  final VoidCallback? onTap;
 
   const _SurahMasteryCard({
     required this.surahNumber,
@@ -320,6 +602,7 @@ class _SurahMasteryCard extends StatelessWidget {
     required this.record,
     required this.colorScheme,
     required this.textTheme,
+    this.onTap,
   });
 
   @override
@@ -338,76 +621,89 @@ class _SurahMasteryCard extends StatelessWidget {
       tileColor = const Color(0xFFFFA726).withValues(alpha: 0.04);
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        color: tileColor ?? colorScheme.surfaceContainerLow,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            // Surah number medallion
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '$surahNumber',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Name + meta
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    surahName,
-                    style: textTheme.bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: tileColor ?? colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Surah number medallion
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$verseCount verses · Juz $juz',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$surahNumber',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
                     ),
                   ),
-                ],
-              ),
-            ),
-            // Badges
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (isCompleted)
-                  _Badge('COMPLETED', const Color(0xFF4CAF50))
-                else if (hasPartial)
-                  _Badge('IN PROGRESS', const Color(0xFFFFA726))
-                else
-                  _Badge('NOT STARTED', colorScheme.onSurfaceVariant),
-                if (reviewCount > 0) ...[
-                  const SizedBox(height: 4),
-                  _Badge(
-                    'REVIEWED ×$reviewCount',
-                    const Color(0xFF2196F3),
+                ),
+                const SizedBox(width: 12),
+                // Name + meta
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        surahName,
+                        style: textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$verseCount verses · Juz $juz',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+                // Badges
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (isCompleted)
+                      _Badge('COMPLETED', const Color(0xFF4CAF50))
+                    else if (hasPartial)
+                      _Badge('IN PROGRESS', const Color(0xFFFFA726))
+                    else
+                      _Badge('NOT STARTED', colorScheme.onSurfaceVariant),
+                    if (reviewCount > 0) ...[
+                      const SizedBox(height: 4),
+                      _Badge(
+                        'REVIEWED ×$reviewCount',
+                        const Color(0xFF2196F3),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  size: 20,
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

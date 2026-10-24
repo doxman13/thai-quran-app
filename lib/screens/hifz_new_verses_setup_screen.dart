@@ -373,6 +373,8 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
               _startVerse = start;
               _endVerse = end;
               _repeatStart = repeat;
+              _page = getMedinaMushafPageNumber(surah, start);
+              _initFromPage(_page);
             }),
           ),
           _ByPageTab(
@@ -391,6 +393,10 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
               _pageStart = start;
               _pageEnd = end;
               _pageRepeatStart = repeat;
+              _surah = surah;
+              _startVerse = start;
+              _endVerse = end;
+              _repeatStart = repeat;
             }),
           ),
         ],
@@ -609,12 +615,12 @@ class _BySurahTabState extends State<_BySurahTab> {
         const SizedBox(height: 20),
         SurahSelectorTile(
           surahNumber: _surah,
-          label: isThai ? 'ซูเราะฮ์' : 'Surah',
+          label: isThai ? 'ซูเราะฮฺ' : 'Surah',
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
               selectedSurah: _surah,
-              title: isThai ? 'เลือกซูเราะฮ์ที่ต้องการท่องจำ' : 'Select Surah to Memorize',
+              title: isThai ? 'เลือกซูเราะฮฺที่ต้องการท่องจำ' : 'Select Surah to Memorize',
             );
             if (picked != null && mounted) {
               setState(() {

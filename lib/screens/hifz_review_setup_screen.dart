@@ -380,6 +380,11 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
             onChanged: (s, e) => setState(() {
               _startSurah = s;
               _endSurah = e;
+              _versesSurah = s;
+              _versesStart = 1;
+              _versesEnd = qcf.getVerseCount(s);
+              _startPage = getMedinaMushafPageNumber(s, 1);
+              _endPage = getMedinaMushafPageNumber(e, qcf.getVerseCount(e));
             }),
           ),
           _ByVersesTab(
@@ -392,6 +397,10 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
               _versesSurah = surah;
               _versesStart = vs;
               _versesEnd = ve;
+              _startSurah = surah;
+              _endSurah = surah;
+              _startPage = getMedinaMushafPageNumber(surah, vs);
+              _endPage = getMedinaMushafPageNumber(surah, ve);
             }),
           ),
           _ByPageTab(
@@ -488,12 +497,12 @@ class _BySurahTabState extends State<_BySurahTab> {
         const SizedBox(height: 24),
         SurahSelectorTile(
           surahNumber: _start,
-          label: isThai ? 'ซูเราะฮ์เริ่มต้น' : 'Start Surah',
+          label: isThai ? 'ซูเราะฮฺเริ่มต้น' : 'Start Surah',
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
               selectedSurah: _start,
-              title: isThai ? 'เลือกซูเราะฮ์เริ่มต้น' : 'Select Start Surah',
+              title: isThai ? 'เลือกซูเราะฮฺเริ่มต้น' : 'Select Start Surah',
             );
             if (picked != null && mounted) {
               setState(() {
@@ -507,12 +516,12 @@ class _BySurahTabState extends State<_BySurahTab> {
         const SizedBox(height: 16),
         SurahSelectorTile(
           surahNumber: _end,
-          label: isThai ? 'ซูเราะฮ์สิ้นสุด' : 'End Surah',
+          label: isThai ? 'ซูเราะฮฺสิ้นสุด' : 'End Surah',
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
               selectedSurah: _end,
-              title: isThai ? 'เลือกซูเราะฮ์สิ้นสุด' : 'Select End Surah',
+              title: isThai ? 'เลือกซูเราะฮฺสิ้นสุด' : 'Select End Surah',
             );
             if (picked != null && mounted) {
               setState(() {
@@ -759,12 +768,12 @@ class _ByVersesTabState extends State<_ByVersesTab> {
         const SizedBox(height: 20),
         SurahSelectorTile(
           surahNumber: _surah,
-          label: isThai ? 'ซูเราะฮ์' : 'Surah',
+          label: isThai ? 'ซูเราะฮฺ' : 'Surah',
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
               selectedSurah: _surah,
-              title: isThai ? 'เลือกซูเราะฮ์สำหรับทบทวน' : 'Select Surah for Review',
+              title: isThai ? 'เลือกซูเราะฮฺสำหรับทบทวน' : 'Select Surah for Review',
             );
             if (picked != null && mounted) {
               setState(() {
@@ -782,7 +791,7 @@ class _ByVersesTabState extends State<_ByVersesTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
+                label: isThai ? 'อายะฮฺเริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_totalVerses, (i) => i + 1),
                 itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',

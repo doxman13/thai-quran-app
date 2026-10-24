@@ -58,11 +58,13 @@ class RecitationStatusEvent extends RecitationEvent {
   final RecitationStatus status;
   final double audioLevel; // 0.0 to 1.0 for mic visualizer
   final int currentExpectedAyah;
+  final String? partialTranscript;
 
   const RecitationStatusEvent({
     required this.status,
     this.audioLevel = 0.0,
     required this.currentExpectedAyah,
+    this.partialTranscript,
   });
 }
 

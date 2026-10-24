@@ -229,6 +229,12 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       _status = event.status;
       _audioLevel = event.audioLevel;
       _currentExpectedAyah = event.currentExpectedAyah;
+      if (event.partialTranscript != null && event.partialTranscript!.isNotEmpty) {
+        _lastRecognizedText = event.partialTranscript;
+        _startInactivityTimer(); // Voice transcript arrived: reset inactivity timer!
+      } else if (event.audioLevel > 0.08) {
+        _startInactivityTimer(); // Voice audio activity detected: reset inactivity timer!
+      }
       notifyListeners();
     } else if (event is RecitationMatchedEvent) {
       _lastMatchedAyah = event.ayah;
