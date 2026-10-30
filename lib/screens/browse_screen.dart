@@ -244,10 +244,7 @@ class BrowseScreenState extends State<BrowseScreen> {
           count: widget.repository.getSurahVerses(id.toString()).length,
         ),
     ].where((surah) {
-      return query.isEmpty ||
-          surah.id.contains(query) ||
-          surah.name.toLowerCase().contains(query) ||
-          surah.arabic.contains(query);
+      return matchesSurahQuery(surah.id, query);
     }).toList();
 
     final juz = [
@@ -262,14 +259,11 @@ class BrowseScreenState extends State<BrowseScreen> {
           startAyah: BrowseScreenState._juzStarts[index][1].toString(),
         ),
     ].where((item) {
-      final name = widget.repository
-          .getSurahName(item.startSurah)
-          .toLowerCase();
       return query.isEmpty ||
           item.id.toString().contains(query) ||
           'juz ${item.id}'.contains(query) ||
           'ญุซอ์ ${item.id}'.contains(query) ||
-          name.contains(query);
+          matchesSurahQuery(item.startSurah, query);
     }).toList();
 
     final cleanQuery = query.replaceAll(RegExp(r'\D'), '');
@@ -680,7 +674,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          '$versesCount อายะฮ์',
+                                          '$versesCount อายะฮฺ',
                                           style: GoogleFonts.notoSansThai(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -843,7 +837,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                                           ),
                                           child: Text(
                                             context.read<SettingsProvider>().languageCode == 'th'
-                                                ? 'ซูเราะฮ์ ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})'
+                                                ? 'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})'
                                                 : 'Surah ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})',
                                             style: TextStyle(
                                               fontSize: 11,

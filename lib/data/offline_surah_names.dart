@@ -200,7 +200,7 @@ const Map<String, String> offlineSurahNamesTh = {
   "80": "อะบะสะ",
   "81": "อัตตักวีร",
   "82": "อัลอินฟิฏอร",
-  "83": "อัลมุเฏ็ฟฟิฟีน",
+  "83": "อัลมุฏ็อฟฟิฟีน",
   "84": "อัลอินชิกอก",
   "85": "อัลบุรูจญ์",
   "86": "อัตฏอริก",
@@ -350,3 +350,145 @@ const Map<String, String> offlineSurahNamesAr = {
   "113": "الفَلَق",
   "114": "النَّاس"
 };
+
+final RegExp _arabicDiacriticsAndTatweel = RegExp(
+  r'[\u0640\u064B-\u065F\u0670\u06D6-\u06ED]',
+);
+final RegExp _arabicAlifVariants = RegExp(r'[إأآٱ]');
+final RegExp _nonAlphaNumLatin = RegExp(r"[^a-z0-9]");
+final RegExp _repeatedConsonants = RegExp(r'([a-z])\1+');
+
+/// Normalizes an English transliterated Surah name or query for fuzzy matching.
+/// For example:
+/// - "Al-Jinn" -> "aljin" and "jin"
+/// - "Ya-Sin" / "Yaseen" -> "yasin"
+/// - "Al-Fatihah" / "Fatiha" -> "fatiha"
+String _normalizeLatinSurahQuery(String input) {
+  var s = input.toLowerCase().trim();
+  // Strip optional "surah " prefix
+  if (s.startsWith('surah ')) {
+    s = s.substring(6).trim();
+  } else if (s.startsWith('sura ')) {
+    s = s.substring(5).trim();
+  }
+  // Remove hyphens, apostrophes, spaces, punctuation
+  s = s.replaceAll(_nonAlphaNumLatin, '');
+  // Normalize common vowel transliteration variants
+  s = s
+      .replaceAll('ee', 'i')
+      .replaceAll('oo', 'u')
+      .replaceAll('uu', 'u')
+      .replaceAll('aa', 'a');
+  // Strip trailing silent 'h' after 'a' (e.g. fatihah -> fatiha, baqarah -> baqara)
+  if (s.length > 3 && s.endsWith('ah')) {
+    s = s.substring(0, s.length - 1);
+  }
+  // Collapse double letters (e.g. jinn -> jin, muzzammil -> muzamil)
+  s = s.replaceAllMapped(_repeatedConsonants, (m) => m.group(1)!);
+  return s;
+}
+
+/// Strips the Arabic definite article prefix (al-, an-, ar-, as-, ash-, at-, adh-, az-)
+/// from a normalized Latin string if present.
+String _stripLatinArticlePrefix(String normalized) {
+  const prefixes = [
+    'ash',
+    'adh',
+    'al',
+    'an',
+    'ar',
+    'as',
+    'at',
+    'az',
+    'ad',
+  ];
+  for (final p in prefixes) {
+    if (normalized.length > p.length + 1 && normalized.startsWith(p)) {
+      return normalized.substring(p.length);
+    }
+  }
+  return normalized;
+}
+
+/// Normalizes Thai Surah name or query (removes spaces, hyphens, pinthu, and optional prefixes).
+String _normalizeThaiSurahQuery(String input) {
+  var s = input
+      .trim()
+      .replaceAll('ซูเราะฮ์', '')
+      .replaceAll('ซูเราะฮฺ', '')
+      .replaceAll('สูเราะฮ์', '')
+      .replaceAll('สูเราะฮฺ', '')
+      .replaceAll(RegExp(r'[\s\-\u0E3A]'), '');
+  return s;
+}
+
+/// Normalizes Arabic Surah name or query (strips tashkeel/tatweel and unifies hamza/taa marbutah).
+String _normalizeArabicSurahQuery(String input) {
+  return input
+      .replaceAll(_arabicDiacriticsAndTatweel, '')
+      .replaceAll(_arabicAlifVariants, 'ا')
+      .replaceAll('ى', 'ي')
+      .replaceAll('ة', 'ه')
+      .replaceAll('سورة', '')
+      .replaceAll('سوره', '')
+      .replaceAll(RegExp(r'\s+'), '')
+      .trim();
+}
+
+/// Checks whether Surah [surahId] ("1".."114") matches [rawQuery] across:
+/// - Surah number (e.g. "72")
+/// - English name & fuzzy transliteration (e.g. "Jin", "Al-Jinn", "Yaseen", "Kahf", "Baqara")
+/// - Thai name (with or without "อัล" / pinthu, e.g. "ญิน", "อัลญิน", "กะฮฟ")
+/// - Arabic name (with or without tashkeel, e.g. "الجن", "جن", "الكهف")
+bool matchesSurahQuery(String surahId, String rawQuery) {
+  final q = rawQuery.trim();
+  if (q.isEmpty) return true;
+
+  final qLower = q.toLowerCase();
+  if (surahId.contains(qLower)) return true;
+
+  final en = offlineSurahNamesEn[surahId] ?? '';
+  final th = offlineSurahNamesTh[surahId] ?? '';
+  final ar = offlineSurahNamesAr[surahId] ?? '';
+
+  // 1. Direct case-insensitive substring check across all 3 languages
+  if (en.toLowerCase().contains(qLower) ||
+      th.toLowerCase().contains(qLower) ||
+      ar.contains(q)) {
+    return true;
+  }
+
+  // 2. Normalized Latin / Transliteration fuzzy check (e.g. "jin" -> "Al-Jinn")
+  final qLatin = _normalizeLatinSurahQuery(qLower);
+  if (qLatin.isNotEmpty) {
+    final enNorm = _normalizeLatinSurahQuery(en);
+    final enStem = _stripLatinArticlePrefix(enNorm);
+    final qStem = _stripLatinArticlePrefix(qLatin);
+    if (enNorm.contains(qLatin) ||
+        enStem.contains(qLatin) ||
+        (qStem.length >= 2 && (enNorm.contains(qStem) || enStem.contains(qStem)))) {
+      return true;
+    }
+  }
+
+  // 3. Normalized Thai check (e.g. "ญิน" or "อัลญิน" without pinthu/spaces)
+  final qThai = _normalizeThaiSurahQuery(q);
+  if (qThai.isNotEmpty) {
+    final thNorm = _normalizeThaiSurahQuery(th);
+    if (thNorm.contains(qThai)) {
+      return true;
+    }
+  }
+
+  // 4. Normalized Arabic check (without tashkeel/diacritics)
+  final qAr = _normalizeArabicSurahQuery(q);
+  if (qAr.isNotEmpty) {
+    final arNorm = _normalizeArabicSurahQuery(ar);
+    if (arNorm.contains(qAr)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+

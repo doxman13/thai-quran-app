@@ -416,6 +416,30 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _queueProfileSync(updated, delay: Duration.zero);
   }
 
+  Future<void> restoreProfile(String profileId) async {
+    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    if (index == -1 || _profiles[index].isFreeRead) return;
+    if (!canCreateProfile) {
+      throw const QuranFoundationException(
+        'Only 5 active Mushaf profiles are allowed.',
+      );
+    }
+    final updated = _profiles[index].copyWith(
+      isArchived: false,
+      updatedAt: DateTime.now(),
+    );
+    _profiles[index] = updated;
+    await _save();
+    notifyListeners();
+    _queueProfileSync(updated, delay: Duration.zero);
+  }
+
+  List<MushafProfile> get archivedCustomProfiles =>
+      _profiles
+          .where((profile) => !profile.isFreeRead && profile.isArchived)
+          .toList()
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
   bool isPageBookmarked(int mushafId, int pageNumber) {
     return _pageBookmarks.any(
       (bookmark) =>

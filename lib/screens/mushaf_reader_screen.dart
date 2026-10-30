@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import '../data/medina_mushaf_pages.dart';
+import '../data/offline_surah_names.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/quran_foundation_repository.dart';
@@ -3557,11 +3558,7 @@ class _SurahSelectorSheetState extends State<_SurahSelectorSheet> {
     final surahs = List.generate(114, (index) => index + 1).where((
       surahNumber,
     ) {
-      final name = widget.quranRepository
-          .getSurahName(surahNumber.toString())
-          .toLowerCase();
-      return name.contains(_query.toLowerCase()) ||
-          surahNumber.toString().contains(_query);
+      return matchesSurahQuery(surahNumber.toString(), _query);
     }).toList();
 
     return Container(

@@ -26,10 +26,12 @@ class _UnifiedItem {
 class BookmarksScreen extends StatefulWidget {
   final QuranRepository repository;
   final VoidCallback? onBackToHome;
+  final int initialTab;
   const BookmarksScreen({
     super.key,
     required this.repository,
     this.onBackToHome,
+    this.initialTab = 0,
   });
 
   @override
@@ -40,7 +42,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
   static const int _displayLimit = 3;
-  int _selectedMenuIndex = 0;
+  late int _selectedMenuIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMenuIndex = widget.initialTab.clamp(0, 2);
+  }
 
   Future<void> _openReading({
     required String surahId,
@@ -1261,7 +1269,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      isThai ? 'แตะเพื่อเปิดอ่านอายะฮ์' : 'Tap to read verse',
+                      isThai ? 'แตะเพื่อเปิดอ่านอายะฮฺ' : 'Tap to read verse',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         color: colorScheme.primary,
@@ -1400,7 +1408,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           const SizedBox(height: 4),
                           Text(
                             isThai
-                                ? 'คุณสามารถเพิ่มบันทึกในอายะฮ์ต่าง ๆ ขณะอ่านอัลกุรอาน'
+                                ? 'คุณสามารถเพิ่มบันทึกในอายะฮฺต่าง ๆ ขณะอ่านอัลกุรอาน'
                                 : 'You can add notes to any verse while reading the Quran.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.notoSansThai(

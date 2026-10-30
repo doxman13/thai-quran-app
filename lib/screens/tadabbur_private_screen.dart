@@ -431,7 +431,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                       );
                       await _loadNotes();
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -457,7 +457,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                       );
                       await _loadNotes();
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(

@@ -62,6 +62,7 @@ class RecitationEngine {
   static const int _minSpeechSamples = 12000; // 0.75s minimum to run inference
   static const int _maxSpeechSamples = 56000; // 3.5s maximum before forcing inference
   static const int _silenceFramesNeeded = 3; // ~180-220ms silence to catch quick natural pauses/breaths
+  static const int _searchSilenceFramesNeeded = 8; // ~500ms silence in voice search before finalizing
 
   final List<double> _speechBuffer = [];
   final List<int> _accumulatedTokens = [];
@@ -449,13 +450,18 @@ class RecitationEngine {
           _speechBuffer.addAll(samples);
         }
 
+        final silenceTarget =
+            _isSearchMode ? _searchSilenceFramesNeeded : _silenceFramesNeeded;
+
         // Trigger inference when silence after speech is detected
-        if (_trailingSilenceCount >= _silenceFramesNeeded &&
+        if (_trailingSilenceCount >= silenceTarget &&
             _speechBuffer.length >= _minSpeechSamples &&
             !_isInferring) {
           _speechActive = false;
           _triggerInference();
         }
+      } else if (_isSearchMode) {
+        _onSearchAudioLevel?.call(0.0);
       }
     }
   }
@@ -531,8 +537,25 @@ class RecitationEngine {
               debugPrint('[RecitationEngine] Active tokens: ${activeTokens.length}, text: "$activeText"');
 
               if (_isSearchMode) {
+                final cleanText = activeText.trim();
+                // Ignore short 1-token or single-character ambient noise bursts
+                if (decoded.length < 2 && cleanText.length < 3) {
+                  debugPrint(
+                    '[RecitationEngine] Search mode: ignoring short noise burst ($decoded -> "$cleanText")',
+                  );
+                  return;
+                }
                 final results = _matcher!.searchVerses(activeTokens, limit: 5);
-                _onSearchResults?.call(results, activeText);
+                final cb = _onSearchResults;
+                if (results.isNotEmpty) {
+                  // Lock the search result and stop the microphone so background noise
+                  // cannot overwrite the recognized text or refresh results.
+                  await stopListening();
+                  cb?.call(results, cleanText);
+                } else {
+                  // Keep accumulated tokens if user is still mid-recitation, or report only if no prior match
+                  cb?.call(results, cleanText);
+                }
                 return;
               }
 

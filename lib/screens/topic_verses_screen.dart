@@ -147,7 +147,7 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'ซูเราะฮ์ $verseKey',
+                                  'ซูเราะฮฺ $verseKey',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,

@@ -102,8 +102,24 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
         },
         onResults: (results, text) async {
           if (!mounted) return;
+          // If we already have valid search results locked in and a trailing empty/noise
+          // chunk arrives, do not overwrite the existing recognized text or results.
+          if (results.isEmpty && _searchResults.isNotEmpty) {
+            return;
+          }
+
+          // Stop listening once we receive a valid match so background noise
+          // never resets or refreshes the results until the user taps the mic again.
+          if (results.isNotEmpty) {
+            await _engine.stopListening();
+          }
+
+          if (!mounted) return;
           setState(() {
-            _isListening = false;
+            if (results.isNotEmpty) {
+              _isListening = false;
+              _audioLevel = 0.0;
+            }
             _isProcessing = true;
             _recognizedText = text;
             _searchResults = results;

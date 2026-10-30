@@ -138,6 +138,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       _loadThemeSections(),
       _loadSurahObjectives(),
     ]);
+    if (!mounted) return;
 
     if (widget.initialSurah != null) {
       _loadSurah(
@@ -169,6 +170,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       while (!provider.isInitialized) {
         await Future.delayed(const Duration(milliseconds: 50));
       }
+      if (!mounted) return;
       _loadSurah(provider.currentSurahId, jumpToIndex: provider.lastVerseIndex);
     }
   }
@@ -1639,12 +1641,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   fontWeight: FontWeight.w800,
                   fontSize: 15,
                 ),
-                hint: Text(settings.languageCode == 'th' ? 'อายะฮ์' : 'Ayah', style: GoogleFonts.notoSansThai(fontSize: 15)),
+                hint: Text(settings.languageCode == 'th' ? 'อายะฮฺ' : 'Ayah', style: GoogleFonts.notoSansThai(fontSize: 15)),
                 items: List.generate(
                   verses.length,
                   (index) => DropdownMenuItem(
                     value: index,
-                    child: Text('${verses[index].id}'),
+                    child: Text(verses[index].id),
                   ),
                 ),
                 onChanged: (index) {

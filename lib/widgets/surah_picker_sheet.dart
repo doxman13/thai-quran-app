@@ -69,13 +69,8 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
 
     if (_query.isEmpty) return baseList;
 
-    final q = _query.toLowerCase().trim();
     return baseList.where((s) {
-      final sStr = s.toString();
-      final en = (offlineSurahNamesEn[sStr] ?? '').toLowerCase();
-      final ar = offlineSurahNamesAr[sStr] ?? '';
-      final th = (offlineSurahNamesTh[sStr] ?? '').toLowerCase();
-      return sStr == q || en.contains(q) || ar.contains(q) || th.contains(q);
+      return matchesSurahQuery(s.toString(), _query);
     }).toList();
   }
 
@@ -114,7 +109,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
             child: Row(
               children: [
                 Text(
-                  widget.title ?? (isThai ? 'เลือกสูเราะฮ์' : 'Select Surah'),
+                  widget.title ?? (isThai ? 'เลือกซูเราะฮฺ' : 'Select Surah'),
                   style: textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface,
@@ -149,7 +144,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                 textAlignVertical: TextAlignVertical.center,
                 decoration: InputDecoration(
                   hintText: isThai
-                      ? 'ค้นหาชื่อหรือหมายเลขสูเราะฮ์...'
+                      ? 'ค้นหาชื่อหรือหมายเลขซูเราะฮฺ...'
                       : 'Search Surah name or number...',
                   hintStyle: textTheme.bodyMedium?.copyWith(
                     color: colorScheme.onSurfaceVariant,
@@ -184,7 +179,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                 const SizedBox(width: 8),
                 _buildFilterChip(1, isThai ? 'ญุซอ์ 30 (78–114)' : 'Juz 30 (78–114)', colorScheme),
                 const SizedBox(width: 8),
-                _buildFilterChip(2, isThai ? 'สูเราะฮ์ยอดนิยม' : 'Popular Surahs', colorScheme),
+                _buildFilterChip(2, isThai ? 'ซูเราะฮฺยอดนิยม' : 'Popular Surahs', colorScheme),
               ],
             ),
           ),
@@ -202,7 +197,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                             size: 44, color: colorScheme.outline),
                         const SizedBox(height: 8),
                         Text(
-                          isThai ? 'ไม่พบสูเราะฮ์ที่ค้นหา' : 'No Surah found',
+                          isThai ? 'ไม่พบซูเราะฮฺที่ค้นหา' : 'No Surah found',
                           style: textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),

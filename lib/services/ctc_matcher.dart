@@ -332,6 +332,21 @@ class CtcMatcher {
     ).$1;
   }
 
+  /// Checks whether the tail of [sub] matches the ending tokens of [target] (last word / end of ayah).
+  static bool _tokenSliceReachesTargetEnd(List<int> sub, List<int> target) {
+    if (target.isEmpty) return true;
+    if (sub.isEmpty) return false;
+
+    // Compare the trailing tokens of sub against the trailing tokens of target (last word)
+    final tailLen = math.min(target.length, math.max(2, math.min(5, target.length ~/ 3)));
+    final targetTail = target.sublist(target.length - tailLen);
+    final subTailLen = math.min(sub.length, tailLen + 3);
+    final subTail = sub.sublist(sub.length - subTailLen);
+
+    final lcsTail = longestCommonSubsequence(subTail, targetTail);
+    return lcsTail >= math.max(1, (tailLen * 0.6).ceil());
+  }
+
   /// Finds the best matching prefix/subslice of [candidate] for [target].
   AlignmentResult findBestAlignment(
     List<int> candidate,
@@ -362,9 +377,7 @@ class CtcMatcher {
       final prec = l / end;
       final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
 
-      final reachesEnd = target.isNotEmpty &&
-          (sub.contains(target.last) ||
-              (target.length >= 2 && sub.contains(target[target.length - 2])));
+      final reachesEnd = _tokenSliceReachesTargetEnd(sub, target);
 
       if (rec >= recallThreshold && f1 > bestScore && f1 >= scoreThreshold && reachesEnd) {
         bestScore = f1;
@@ -384,9 +397,7 @@ class CtcMatcher {
         final prec = l / sub.length;
         final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
 
-        final reachesEnd = target.isNotEmpty &&
-            (sub.contains(target.last) ||
-                (target.length >= 2 && sub.contains(target[target.length - 2])));
+        final reachesEnd = _tokenSliceReachesTargetEnd(sub, target);
 
         if (rec >= recallThreshold && f1 > bestScore && f1 >= scoreThreshold && reachesEnd) {
           bestScore = f1;
@@ -403,9 +414,7 @@ class CtcMatcher {
       final rec = l / tLen;
       final prec = l / candidate.length;
       final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
-      final reachesEnd = target.isNotEmpty &&
-          (candidate.contains(target.last) ||
-              (target.length >= 2 && candidate.contains(target[target.length - 2])));
+      final reachesEnd = _tokenSliceReachesTargetEnd(candidate, target);
       return AlignmentResult(
         score: reachesEnd ? f1 : 0.0,
         recall: reachesEnd ? rec : 0.0,
@@ -590,27 +599,41 @@ class CtcMatcher {
     int bestEnd = candidateTokens.length;
     int bestWordsConsumed = 0;
 
-    // 1. Evaluate Token Variants
-    final tokenVariants = getTargetVariants(surah, ayah);
-    for (final variant in tokenVariants) {
-      final align = findBestAlignment(
-        candidateTokens,
-        variant,
-        recallThreshold: effectiveRecall,
-        scoreThreshold: effectiveScore,
-      );
-      if (align.recall >= effectiveRecall && align.score > bestScore) {
-        bestScore = align.score;
-        bestRecall = align.recall;
-        bestPrecision = align.precision;
-        bestEnd = align.endIndex;
+    // 1. Evaluate Token Variants (only if text variants also confirm the last word was reached when text is available)
+    final candText = candidateText ?? tokensToText(candidateTokens);
+    final textVariants = getTargetTextVariants(surah, ayah);
+    bool lastWordVerifiedByText = textVariants.isEmpty || candText.isEmpty;
+    if (candText.isNotEmpty && textVariants.isNotEmpty) {
+      final candWords = normalizeArabic(candText).split(' ').where((w) => w.isNotEmpty).toList();
+      for (final tv in textVariants) {
+        final targetWords = tv.split(' ').where((w) => w.isNotEmpty).toList();
+        if (checkReachesEndOfVerse(candWords, targetWords, sensitivity: sensitivity)) {
+          lastWordVerifiedByText = true;
+          break;
+        }
+      }
+    }
+
+    if (lastWordVerifiedByText) {
+      final tokenVariants = getTargetVariants(surah, ayah);
+      for (final variant in tokenVariants) {
+        final align = findBestAlignment(
+          candidateTokens,
+          variant,
+          recallThreshold: effectiveRecall,
+          scoreThreshold: effectiveScore,
+        );
+        if (align.recall >= effectiveRecall && align.score > bestScore) {
+          bestScore = align.score;
+          bestRecall = align.recall;
+          bestPrecision = align.precision;
+          bestEnd = align.endIndex;
+        }
       }
     }
 
     // 2. Evaluate Text Variants
-    final candText = candidateText ?? tokensToText(candidateTokens);
     if (candText.isNotEmpty) {
-      final textVariants = getTargetTextVariants(surah, ayah);
       for (final textVariant in textVariants) {
         final align = findBestTextAlignment(
           candText,

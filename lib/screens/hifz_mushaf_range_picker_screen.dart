@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import '../data/medina_mushaf_pages.dart';
+import '../data/offline_surah_names.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
@@ -208,11 +209,7 @@ class _HifzMushafRangePickerScreenState
         return StatefulBuilder(
           builder: (context, setModalState) {
             final filteredSurahs = List.generate(114, (i) => i + 1).where((s) {
-              if (query.trim().isEmpty) return true;
-              final name = widget.quranRepository.getSurahName(s.toString()).toLowerCase();
-              final numStr = s.toString();
-              final q = query.trim().toLowerCase();
-              return name.contains(q) || numStr.contains(q);
+              return matchesSurahQuery(s.toString(), query);
             }).toList();
 
             return DraggableScrollableSheet(
