@@ -14,6 +14,7 @@ import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../data/tadabbur_repository.dart';
+import '../database/hifz_repository.dart';
 import '../models/mushaf_models.dart';
 import '../models/tadabbur_note.dart';
 import '../providers/local_reading_provider.dart';
@@ -194,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _navIndex = 0;
   bool _isInit = false;
   bool _initFailed = false;
+  bool _isManualSyncing = false;
 
   // Featured verse state
   late int _featuredVerseIndex;
@@ -291,28 +293,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _triggerAutoSync() async {
-    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
-    if (supabaseProv.isLoggedIn && supabaseProv.user != null) {
-      final userId = supabaseProv.user!.id;
-      final settings = Provider.of<SettingsProvider>(context, listen: false);
-      final reading = Provider.of<LocalReadingProvider>(context, listen: false);
-      final mushaf = Provider.of<MushafReadingProvider>(context, listen: false);
-      final notes = Provider.of<NotesProvider>(context, listen: false);
-      final stats = Provider.of<StatsProvider>(context, listen: false);
+    try {
+      await _syncAllUserData();
+    } catch (e) {
+      debugPrint('Auto sync failed: $e');
+    }
+  }
 
-      await reading.flushPendingProfileSyncs();
-      await reading.flushPendingRecentReadingSync();
-      await reading.flushPendingReadingStateSync();
-      await mushaf.flushPendingProfileSyncs();
-      await mushaf.flushPendingRecentReadingSync();
-      await stats.flushPendingSave();
-      await settings.syncWithSupabase(userId);
-      await notes.syncWithSupabase();
-      await reading.syncBookmarksAndProfilesWithSupabase(userId);
-      await reading.syncReadingStateWithSupabase(userId);
-      await mushaf.syncWithSupabase(userId);
-      await stats.syncWithSupabase(userId);
-      await _saveQuickLinks();
+  Future<bool> _syncAllUserData() async {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn || supabaseProv.user == null) {
+      return false;
+    }
+
+    final userId = supabaseProv.user!.id;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final reading = Provider.of<LocalReadingProvider>(context, listen: false);
+    final mushaf = Provider.of<MushafReadingProvider>(context, listen: false);
+    final notes = Provider.of<NotesProvider>(context, listen: false);
+    final stats = Provider.of<StatsProvider>(context, listen: false);
+    final hifz = HifzRepository();
+
+    await reading.flushPendingProfileSyncs();
+    await reading.flushPendingRecentReadingSync();
+    await reading.flushPendingReadingStateSync();
+    await mushaf.flushPendingProfileSyncs();
+    await mushaf.flushPendingRecentReadingSync();
+    await stats.flushPendingSave();
+    await settings.syncWithSupabase(userId);
+    await notes.syncWithSupabase();
+    await reading.syncBookmarksAndProfilesWithSupabase(userId);
+    await reading.syncReadingStateWithSupabase(userId);
+    await mushaf.syncWithSupabase(userId);
+    await stats.syncWithSupabase(userId);
+    await hifz.syncWithSupabase(userId);
+    await hifz.syncHistoryWithSupabase();
+    await _saveQuickLinks();
+    return true;
+  }
+
+  Future<void> _handleManualSync() async {
+    if (_isManualSyncing) return;
+
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isThai
+                  ? 'กรุณาเข้าสู่ระบบเพื่อซิงค์ข้อมูล'
+                  : 'Sign in to sync your data.',
+            ),
+          ),
+        );
+      return;
+    }
+
+    setState(() => _isManualSyncing = true);
+    try {
+      await _syncAllUserData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isThai
+                  ? 'ซิงค์ข้อมูลกับคลาวด์สำเร็จแล้ว'
+                  : 'All data synced with the cloud.',
+            ),
+          ),
+        );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isThai ? 'ซิงค์ข้อมูลไม่สำเร็จ: $e' : 'Sync failed: $e',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _isManualSyncing = false);
+      }
     }
   }
 
@@ -1055,6 +1125,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final readingProvider = context.watch<LocalReadingProvider>();
     final mushafReadingProvider = context.watch<MushafReadingProvider>();
     final statsProvider = context.watch<StatsProvider>();
+    final supabaseProvider = context.watch<SupabaseProvider>();
     final isThai = settings.languageCode == 'th';
 
     if (!_isInit) {
@@ -1156,6 +1227,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
           actions: [
+            if (supabaseProvider.isLoggedIn)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: _isManualSyncing
+                    ? (isThai ? 'กำลังซิงค์ข้อมูล...' : 'Syncing data...')
+                    : (isThai ? 'ซิงค์ข้อมูลตอนนี้' : 'Sync now'),
+                onPressed: _isManualSyncing ? null : _handleManualSync,
+                icon: _isManualSyncing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.cloud_sync_outlined),
+              ),
             IconButton(
               icon: const Icon(Icons.search_rounded),
               tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
