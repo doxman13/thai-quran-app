@@ -2740,6 +2740,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
 
     return PageView.builder(
+      key: const ValueKey('hifz_review_mushaf_pager'),
       controller: _reviewPageController,
       reverse: true,
       onPageChanged: (index) {
@@ -3540,6 +3541,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     return _isMushafView
         ? PageView.builder(
+            key: const ValueKey('hifz_new_verses_mushaf_pager'),
             controller: _newVersesPageController,
             reverse: true,
             itemCount: 604,
@@ -4227,6 +4229,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final surah = provider.surahNumber;
     final start = _selectedStartVerse;
     final end = _selectedEndVerse;
+    final targetPage = getMedinaMushafPageNumber(surah, start);
 
     provider.initReviewRoutine(
       ReviewGranularity.byVerses,
@@ -4238,8 +4241,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
 
     setState(() {
-      _selectedPage = getMedinaMushafPageNumber(surah, start);
-      _currentPage = _selectedPage;
+      _selectedPage = targetPage;
+      _currentPage = targetPage;
       _reviewPageOffset = 0;
       _voiceRevealedVerses.clear();
       _weakOrAssistedVerses.clear();
@@ -4247,7 +4250,20 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       _hintedVerse = null;
     });
 
-    _animateToMushafPage(_selectedPage);
+    // The review pager replaces the New Verses pager in the same widget slot.
+    // Wait until it is mounted, then reset it to the review range's base page.
+    // Without this, the new pager can inherit the old scroll position and
+    // resolve to clamped page 1 instead of the requested range.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_isMushafView) {
+        if (_reviewPageController.hasClients) {
+          _reviewPageController.jumpToPage(10000);
+        }
+      } else {
+        _scrollToVerse(surah, start, animate: false);
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
