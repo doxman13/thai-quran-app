@@ -1534,9 +1534,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (verseRecent != null) {
       final sId = verseRecent.verse.surahId;
       final vId = verseRecent.verse.verseId;
-      final surahName = isThai
-          ? (offlineSurahNamesTh[sId] ?? widget.repository.getSurahName(sId))
-          : (offlineSurahNamesEn[sId] ?? widget.repository.getSurahName(sId));
+      final surahName = surahDisplayName(sId, isThai: isThai);
       final profile = verseRecent.profileId != null
           ? localReading.profileById(verseRecent.profileId!)
           : null;
@@ -1550,9 +1548,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ? '${isThai ? 'เป้าหมาย' : 'Goal'}: ${profile.name}'
           : (isThai ? 'โหมดอ่านอิสระ (ซูเราะฮฺที่ $sId:$vId)' : 'Surah $sId:$vId');
     } else {
-      final firstSurah = isThai
-          ? (offlineSurahNamesTh['1'] ?? 'อัลฟาติหะฮฺ')
-          : (offlineSurahNamesEn['1'] ?? 'Al-Fatihah');
+      final firstSurah = surahDisplayName('1', isThai: isThai);
       modeBadge = isThai ? 'เริ่มต้นอ่านอัลกุรอาน' : 'Start Reading Quran';
       mainTitle = isThai ? '$firstSurah • อายะฮฺที่ 1' : '$firstSurah • Ayah 1';
       subDetail = isThai
@@ -1839,11 +1835,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             final total = (endIdx - startIdx + 1).clamp(1, 6236);
             final done = (currIdx - startIdx + 1).clamp(0, total);
             final progress = (done / total).clamp(0.0, 1.0);
-            final sName = isThai
-                ? (offlineSurahNamesTh[profile.furthestUnread.surahId] ??
-                    'ซูเราะฮฺ ${profile.furthestUnread.surahId}')
-                : (offlineSurahNamesEn[profile.furthestUnread.surahId] ??
-                    'Surah ${profile.furthestUnread.surahId}');
+            final sName = surahDisplayName(
+              profile.furthestUnread.surahId,
+              isThai: isThai,
+            );
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -2057,11 +2052,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             itemBuilder: (context, index) {
               final link = _quickLinks[index];
               final sId = link.surahNumber.toString();
-              final surahName = isThai
-                  ? (offlineSurahNamesTh[sId] ??
-                      widget.repository.getSurahName(sId))
-                  : (offlineSurahNamesEn[sId] ??
-                      widget.repository.getSurahName(sId));
+              final surahName = surahDisplayName(sId, isThai: isThai);
 
               return Material(
                 color: colorScheme.surfaceContainerLow,
@@ -2186,11 +2177,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           final colors = settings.getAppColors();
           final isThai = settings.languageCode == 'th';
           final sId = link.surahNumber.toString();
-          final surahName = isThai
-              ? (offlineSurahNamesTh[sId] ??
-                  widget.repository.getSurahName(sId))
-              : (offlineSurahNamesEn[sId] ??
-                  widget.repository.getSurahName(sId));
+          final surahName = surahDisplayName(sId, isThai: isThai);
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             child: Column(
@@ -2296,9 +2283,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     items: List.generate(114, (i) {
                       final sNum = i + 1;
                       final sStr = sNum.toString();
-                      final name = isThai
-                          ? '$sNum. ${offlineSurahNamesTh[sStr] ?? sStr}'
-                          : '$sNum. ${offlineSurahNamesEn[sStr] ?? sStr}';
+                      final name =
+                          '$sNum. ${surahDisplayName(sStr, isThai: isThai)}';
                       return DropdownMenuItem(
                         value: sNum,
                         child: Text(name),
@@ -2364,9 +2350,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final sStr = seed.surahId.toString();
     final vStr = seed.verseId.toString();
     final verseObj = widget.repository.getVerse(sStr, vStr);
-    final surahName = isThai
-        ? (offlineSurahNamesTh[sStr] ?? widget.repository.getSurahName(sStr))
-        : (offlineSurahNamesEn[sStr] ?? widget.repository.getSurahName(sStr));
+    final surahName = surahDisplayName(sStr, isThai: isThai);
     final translationText = verseObj != null
         ? resolveVerseTranslationText(
             context: context,
@@ -2668,11 +2652,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           )
         else
           ..._communityPreview.map((note) {
-            final surahName = isThai
-                ? (offlineSurahNamesTh[note.surahId] ??
-                    'ซูเราะฮฺ ${note.surahId}')
-                : (offlineSurahNamesEn[note.surahId] ??
-                    'Surah ${note.surahId}');
+            final surahName = surahDisplayName(
+              note.surahId,
+              isThai: isThai,
+            );
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(

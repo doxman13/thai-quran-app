@@ -234,11 +234,15 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                     itemBuilder: (context, index) {
                       final surahNumber = filtered[index];
                       final sKey = surahNumber.toString();
-                      final enName = offlineSurahNamesEn[sKey] ?? 'Surah $surahNumber';
+                      final names = surahNamePair(sKey);
                       final arName = offlineSurahNamesAr[sKey] ?? '';
-                      final thName = offlineSurahNamesTh[sKey] ?? '';
                       final totalVerses = qcf.getVerseCount(surahNumber);
                       final isSelected = surahNumber == widget.selectedSurah;
+                      // Lead with the language the UI is set to.
+                      final titleName = isThai ? names.th : names.en;
+                      final otherName = isThai ? names.en : names.th;
+                      final secondaryName =
+                          otherName == titleName ? '' : otherName;
 
                       return Material(
                         color: isSelected
@@ -283,16 +287,16 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        enName,
+                                        titleName,
                                         style: textTheme.titleMedium?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: colorScheme.onSurface,
                                         ),
                                       ),
                                       Text(
-                                        isThai && thName.isNotEmpty
-                                            ? '$thName · $totalVerses อายะห์'
-                                            : '$totalVerses verses',
+                                        secondaryName.isEmpty
+                                            ? '$totalVerses ${isThai ? 'อายะห์' : 'verses'}'
+                                            : '$secondaryName · $totalVerses ${isThai ? 'อายะห์' : 'verses'}',
                                         style: textTheme.bodySmall?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
                                         ),
@@ -376,11 +380,14 @@ class SurahSelectorTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final isThai = context.watch<SettingsProvider>().languageCode == 'th';
     final sKey = surahNumber.toString();
-    final enName = offlineSurahNamesEn[sKey] ?? 'Surah $surahNumber';
+    final names = surahNamePair(sKey);
     final arName = offlineSurahNamesAr[sKey] ?? '';
-    final thName = offlineSurahNamesTh[sKey] ?? '';
     final totalVerses = qcf.getVerseCount(surahNumber);
     final showSteppers = onPrevious != null || onNext != null;
+    // Lead with the language the UI is set to.
+    final titleName = isThai ? names.th : names.en;
+    final otherName = isThai ? names.en : names.th;
+    final secondaryName = otherName == titleName ? '' : otherName;
 
     final card = Material(
       color: colorScheme.surfaceContainerLow,
@@ -420,16 +427,16 @@ class SurahSelectorTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      enName,
+                      titleName,
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
                       ),
                     ),
                     Text(
-                      isThai && thName.isNotEmpty
-                          ? '$thName · $totalVerses อายะห์'
-                          : '$totalVerses verses',
+                      secondaryName.isEmpty
+                          ? '$totalVerses ${isThai ? 'อายะห์' : 'verses'}'
+                          : '$secondaryName · $totalVerses ${isThai ? 'อายะห์' : 'verses'}',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),

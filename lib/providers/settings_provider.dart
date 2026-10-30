@@ -464,7 +464,9 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   void _syncGlobalState() {
-    QuranRepository.globalIsThaiName = effectiveLanguageCode == 'th';
+    // Surah names are UI chrome, so they follow the app language, not the
+    // language of the active primary translation.
+    QuranRepository.globalIsThaiName = _languageCode == 'th';
   }
 
   Future<void> _markSettingsChanged(SharedPreferences prefs) async {

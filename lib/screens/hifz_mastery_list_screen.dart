@@ -15,6 +15,7 @@ import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/surah_mastery_card.dart';
 import 'hifz_wizard_setup_screen.dart';
 
 // Juz-to-Surah ranges (standard 30 Juz divisions)
@@ -84,15 +85,13 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
     final all = List.generate(114, (i) => i + 1);
     switch (_filterMode) {
       case _FilterMode.mastered:
-        return all.where((s) {
-          final r = _completionMap[s];
-          return r != null && r.newVersesCompleted;
-        }).toList();
+        return all
+            .where((s) => SurahMasteryCard.isMasteredRecord(_completionMap[s]))
+            .toList();
       case _FilterMode.inProgress:
-        return all.where((s) {
-          final r = _completionMap[s];
-          return r != null && !r.newVersesCompleted && r.reviewCount > 0;
-        }).toList();
+        return all
+            .where((s) => SurahMasteryCard.isInProgressRecord(_completionMap[s]))
+            .toList();
       case _FilterMode.juz29And30:
         return all.where((s) => _juzOfSurah(s) >= 29).toList();
       case _FilterMode.all:
@@ -104,6 +103,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     return Scaffold(
       appBar: AppBar(
@@ -136,7 +136,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                   )
                 : RefreshIndicator(
                     onRefresh: _load,
-                    child: _buildSurahList(colorScheme, textTheme),
+                    child: _buildSurahList(colorScheme, textTheme, isThai),
                   ),
           ),
         ],
@@ -185,7 +185,9 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
 
   Widget _buildStatsSummary(ColorScheme colorScheme, TextTheme textTheme) {
     final total = 114;
-    final mastered = _completionMap.values.where((r) => r.newVersesCompleted).length;
+    final mastered = _completionMap.values
+        .where(SurahMasteryCard.isMasteredRecord)
+        .length;
     final reviewed = _completionMap.values.where((r) => r.reviewCount > 0).length;
     final totalReviews = _completionMap.values.fold(0, (sum, r) => sum + r.reviewCount);
 
@@ -228,7 +230,11 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
     );
   }
 
-  Widget _buildSurahList(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildSurahList(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isThai,
+  ) {
     final surahs = _filteredSurahs;
     if (surahs.isEmpty) {
       return Center(
@@ -259,18 +265,20 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       itemBuilder: (context, index) {
         final surahNum = surahs[index];
         final record = _completionMap[surahNum];
-        final surahName = widget.quranRepository.getSurahName(surahNum.toString());
+        final surahName = surahDisplayName(
+          surahNum.toString(),
+          isThai: isThai,
+        );
         final verseCount = qcf.getVerseCount(surahNum);
         final juz = _juzOfSurah(surahNum);
 
-        return _SurahMasteryCard(
+        return SurahMasteryCard(
           surahNumber: surahNum,
           surahName: surahName,
           verseCount: verseCount,
           juz: juz,
           record: record,
-          colorScheme: colorScheme,
-          textTheme: textTheme,
+          isThai: isThai,
           onTap: () => _showSurahActionSheet(context, surahNum),
         );
       },
@@ -282,11 +290,13 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
     final textTheme = Theme.of(context).textTheme;
     final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
     final record = _completionMap[surahNum];
-    final isCompleted = record?.newVersesCompleted == true;
+    final isMastered = SurahMasteryCard.isMasteredRecord(record);
+    final isInProgress = SurahMasteryCard.isInProgressRecord(record);
     final reviewCount = record?.reviewCount ?? 0;
-    final hasPartial = !isCompleted && (reviewCount > 0);
-    final surahTh = offlineSurahNamesTh[surahNum.toString()] ?? widget.quranRepository.getSurahName(surahNum.toString());
-    final surahEn = offlineSurahNamesEn[surahNum.toString()] ?? widget.quranRepository.getSurahName(surahNum.toString());
+    final names = surahNamePair(surahNum.toString());
+    final primaryName = isThai ? names.th : names.en;
+    final otherName = isThai ? names.en : names.th;
+    final secondaryName = otherName == primaryName ? '' : otherName;
     final verseCount = qcf.getVerseCount(surahNum);
     final juz = _juzOfSurah(surahNum);
 
@@ -351,14 +361,14 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              surahTh,
+                              primaryName,
                               style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '$surahEn · $verseCount ${isThai ? 'อายะฮฺ' : 'verses'} · Juz $juz',
+                              '${secondaryName.isEmpty ? '' : '$secondaryName · '}$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} · Juz $juz',
                               style: textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
@@ -382,10 +392,10 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                 // Status Badge Row
                 Row(
                   children: [
-                    if (isCompleted)
-                      _Badge(isThai ? 'ท่องจำสำเร็จแล้ว' : 'COMPLETED', const Color(0xFF4CAF50))
-                    else if (hasPartial)
-                      _Badge(isThai ? 'กำลังท่องจำ' : 'IN PROGRESS', const Color(0xFFFFA726))
+                    if (isMastered)
+                      _Badge(isThai ? 'จำขึ้นใจแล้ว' : 'MASTERED', const Color(0xFF15803D))
+                    else if (isInProgress)
+                      _Badge(isThai ? 'กำลังท่อง' : 'IN PROGRESS', const Color(0xFFFFA726))
                     else
                       _Badge(isThai ? 'ยังไม่ได้เริ่ม' : 'NOT STARTED', colorScheme.onSurfaceVariant),
                     if (reviewCount > 0) ...[
@@ -580,132 +590,6 @@ class _StatPill extends StatelessWidget {
             style:
                 textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
       ],
-    );
-  }
-}
-
-class _SurahMasteryCard extends StatelessWidget {
-  final int surahNumber;
-  final String surahName;
-  final int verseCount;
-  final int juz;
-  final SurahCompletionRecord? record;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
-  final VoidCallback? onTap;
-
-  const _SurahMasteryCard({
-    required this.surahNumber,
-    required this.surahName,
-    required this.verseCount,
-    required this.juz,
-    required this.record,
-    required this.colorScheme,
-    required this.textTheme,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isCompleted = record?.newVersesCompleted == true;
-    final reviewCount = record?.reviewCount ?? 0;
-    final hasPartial = !isCompleted && (reviewCount > 0);
-
-    Color borderColor = colorScheme.outlineVariant.withValues(alpha: 0.3);
-    Color? tileColor;
-    if (isCompleted) {
-      borderColor = const Color(0xFF4CAF50).withValues(alpha: 0.6);
-      tileColor = const Color(0xFF4CAF50).withValues(alpha: 0.05);
-    } else if (hasPartial) {
-      borderColor = const Color(0xFFFFA726).withValues(alpha: 0.6);
-      tileColor = const Color(0xFFFFA726).withValues(alpha: 0.04);
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: tileColor ?? colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                // Surah number medallion
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$surahNumber',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Name + meta
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        surahName,
-                        style: textTheme.bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$verseCount verses · Juz $juz',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Badges
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (isCompleted)
-                      _Badge('COMPLETED', const Color(0xFF4CAF50))
-                    else if (hasPartial)
-                      _Badge('IN PROGRESS', const Color(0xFFFFA726))
-                    else
-                      _Badge('NOT STARTED', colorScheme.onSurfaceVariant),
-                    if (reviewCount > 0) ...[
-                      const SizedBox(height: 4),
-                      _Badge(
-                        'REVIEWED ×$reviewCount',
-                        const Color(0xFF2196F3),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -21,6 +21,7 @@ import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/surah_mastery_card.dart';
 import 'hifz_guide_screen.dart';
 import 'hifz_history_screen.dart';
 import 'hifz_memorize_screen.dart';
@@ -549,25 +550,20 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                   itemBuilder: (context, index) {
                     final surahNum = filteredSurahs[index];
                     final record = _completionMap[surahNum];
-                    final surahName = isThai
-                        ? (offlineSurahNamesTh[surahNum.toString()] ??
-                            widget.quranRepository
-                                .getSurahName(surahNum.toString()))
-                        : (offlineSurahNamesEn[surahNum.toString()] ??
-                            widget.quranRepository
-                                .getSurahName(surahNum.toString()));
+                    final surahName = surahDisplayName(
+                      surahNum.toString(),
+                      isThai: isThai,
+                    );
                     final verseCount = qcf.getVerseCount(surahNum);
                     final juz = _juzOfSurah(surahNum);
 
-                    return _EmbeddedSurahMasteryCard(
+                    return SurahMasteryCard(
                       surahNumber: surahNum,
                       surahName: surahName,
                       verseCount: verseCount,
                       juz: juz,
                       record: record,
                       isThai: isThai,
-                      colorScheme: colorScheme,
-                      textTheme: textTheme,
                       onTap: () => _showSurahActionSheet(context, surahNum),
                     );
                   },
@@ -681,9 +677,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       final start = snap.nvStartVerse ?? 1;
       final end = snap.nvEndVerse ?? 1;
       final task = snap.currentStepIndex + 1;
-      final surahName = isThai
-          ? (offlineSurahNamesTh[surah.toString()] ?? 'ซูเราะฮฺ $surah')
-          : (offlineSurahNamesEn[surah.toString()] ?? 'Surah $surah');
+      final surahName = surahDisplayName(surah.toString(), isThai: isThai);
       return isThai
           ? '$surahName ($surah:$start-$end) • ขั้นที่ $task'
           : '$surahName ($surah:$start-$end) • Step $task';
@@ -935,10 +929,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     final record = _completionMap[surahNum];
     final isCompleted = record?.newVersesCompleted == true;
     final reviewCount = record?.reviewCount ?? 0;
-    final surahTh = offlineSurahNamesTh[surahNum.toString()] ??
-        widget.quranRepository.getSurahName(surahNum.toString());
-    final surahEn = offlineSurahNamesEn[surahNum.toString()] ??
-        widget.quranRepository.getSurahName(surahNum.toString());
+    final names = surahNamePair(surahNum.toString());
     final verseCount = qcf.getVerseCount(surahNum);
     final juz = _juzOfSurah(surahNum);
 
@@ -988,7 +979,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isThai ? surahTh : surahEn,
+                            isThai ? names.th : names.en,
                             style: GoogleFonts.notoSansThai(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
@@ -1164,132 +1155,3 @@ class _CompactInfoCard extends StatelessWidget {
   }
 }
 
-class _EmbeddedSurahMasteryCard extends StatelessWidget {
-  final int surahNumber;
-  final String surahName;
-  final int verseCount;
-  final int juz;
-  final SurahCompletionRecord? record;
-  final bool isThai;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
-  final VoidCallback onTap;
-
-  const _EmbeddedSurahMasteryCard({
-    required this.surahNumber,
-    required this.surahName,
-    required this.verseCount,
-    required this.juz,
-    required this.record,
-    required this.isThai,
-    required this.colorScheme,
-    required this.textTheme,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isMastered =
-        record?.newVersesCompleted == true && (record?.reviewCount ?? 0) >= 3;
-    final isInProgress = !isMastered &&
-        (record?.newVersesCompleted == true || (record?.reviewCount ?? 0) > 0);
-    final reviewCount = record?.reviewCount ?? 0;
-
-    final Color statusColor = isMastered
-        ? const Color(0xFF15803D)
-        : (isInProgress ? const Color(0xFFB45309) : colorScheme.onSurfaceVariant);
-
-    final String statusLabel = isMastered
-        ? (isThai ? 'จำขึ้นใจแล้ว' : 'Mastered')
-        : (isInProgress
-            ? (isThai ? 'กำลังท่อง' : 'In Progress')
-            : (isThai ? 'เริ่มท่อง' : 'Start'));
-
-    return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isMastered
-                  ? const Color(0xFF15803D).withValues(alpha: 0.4)
-                  : (isInProgress
-                      ? const Color(0xFFD97706).withValues(alpha: 0.4)
-                      : colorScheme.outlineVariant.withValues(alpha: 0.3)),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '$surahNumber',
-                  style: textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      surahName,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'ญุซอ์' : 'Juz'} $juz${reviewCount > 0 ? ' • ${isThai ? 'ทบทวน $reviewCount รอบ' : 'Reviewed ×$reviewCount'}' : ''}',
-                      style: textTheme.bodySmall?.copyWith(
-                        fontSize: 11.5,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

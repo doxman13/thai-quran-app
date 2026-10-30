@@ -643,8 +643,10 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
 
   Widget _buildReviewStep2RangeSelection(
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
-    final surahTh = offlineSurahNamesTh[_surah.toString()] ?? '';
-    final surahEn = offlineSurahNamesEn[_surah.toString()] ?? '';
+    final names = surahNamePair(_surah.toString());
+    final cardName = isThai ? names.th : names.en;
+    final otherName = isThai ? names.en : names.th;
+    final cardSubName = otherName == cardName ? '' : otherName;
     final verseCount = _endVerse - _startVerse + 1;
 
     return ListView(
@@ -899,14 +901,16 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          surahTh,
+                          cardName,
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onSurface,
                           ),
                         ),
                         Text(
-                          '$surahEn · $_totalVersesInSurah ${isThai ? 'อายะห์' : 'verses'}',
+                          cardSubName.isEmpty
+                              ? '$_totalVersesInSurah ${isThai ? 'อายะห์' : 'verses'}'
+                              : '$cardSubName · $_totalVersesInSurah ${isThai ? 'อายะห์' : 'verses'}',
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1164,8 +1168,10 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
 
   Widget _buildNewVersesStep2RangeSelection(
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
-    final surahTh = offlineSurahNamesTh[_surah.toString()] ?? '';
-    final surahEn = offlineSurahNamesEn[_surah.toString()] ?? '';
+    final names = surahNamePair(_surah.toString());
+    final cardName = isThai ? names.th : names.en;
+    final otherName = isThai ? names.en : names.th;
+    final cardSubName = otherName == cardName ? '' : otherName;
     final verseCount = _endVerse - _startVerse + 1;
 
     return ListView(
@@ -1293,14 +1299,16 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          surahTh,
+                          cardName,
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.onSurface,
                           ),
                         ),
                         Text(
-                          '$surahEn · $_totalVersesInSurah ${isThai ? 'อายะฮฺ' : 'verses'}',
+                          cardSubName.isEmpty
+                              ? '$_totalVersesInSurah ${isThai ? 'อายะฮฺ' : 'verses'}'
+                              : '$cardSubName · $_totalVersesInSurah ${isThai ? 'อายะฮฺ' : 'verses'}',
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1494,7 +1502,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${offlineSurahNamesTh[_pageSurah.toString()] ?? ''} (อายะฮฺ $_pageStart – $_pageEnd)',
+                  '${surahDisplayName(_pageSurah.toString(), isThai: isThai)} (${isThai ? 'อายะฮฺ' : 'verses'} $_pageStart – $_pageEnd)',
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.bold,
@@ -1696,7 +1704,10 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     final finalStart = _isSurahScope ? _startVerse : _pageStart;
     final finalEnd = _isSurahScope ? _endVerse : _pageEnd;
     final count = finalEnd - finalStart + 1;
-    final surahName = offlineSurahNamesTh[finalSurah.toString()] ?? 'ซูเราะฮ์ $finalSurah';
+    final surahName = surahDisplayName(
+      finalSurah.toString(),
+      isThai: isThai,
+    );
 
     final String planTitle;
     final String planSubtitle;
@@ -1711,8 +1722,14 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     } else {
       if (_reviewScopeIndex == 0) {
         final totalSurahs = (_reviewEndSurah - _reviewStartSurah + 1).clamp(1, 114);
-        final sStartName = offlineSurahNamesTh[_reviewStartSurah.toString()] ?? 'ซูเราะฮ์ $_reviewStartSurah';
-        final sEndName = offlineSurahNamesTh[_reviewEndSurah.toString()] ?? 'ซูเราะฮ์ $_reviewEndSurah';
+        final sStartName = surahDisplayName(
+          _reviewStartSurah.toString(),
+          isThai: isThai,
+        );
+        final sEndName = surahDisplayName(
+          _reviewEndSurah.toString(),
+          isThai: isThai,
+        );
         planTitle = _reviewStartSurah == _reviewEndSurah
             ? sStartName
             : '$sStartName – $sEndName';

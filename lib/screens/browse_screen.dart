@@ -239,7 +239,7 @@ class BrowseScreenState extends State<BrowseScreen> {
       for (var id = 1; id <= 114; id++)
         (
           id: id.toString(),
-          name: widget.repository.getSurahName(id.toString()),
+          name: surahDisplayName(id.toString(), isThai: isThai),
           arabic: offlineSurahNamesAr[id.toString()] ?? '',
           count: widget.repository.getSurahVerses(id.toString()).length,
         ),

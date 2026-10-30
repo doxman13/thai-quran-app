@@ -492,3 +492,25 @@ bool matchesSurahQuery(String surahId, String rawQuery) {
   return false;
 }
 
+/// Resolves a Surah display name in the requested UI language.
+///
+/// Falls back to the other language map and finally to a generic label, so
+/// callers never need to handle missing entries themselves. This is the single
+/// source of truth used by Browse, the Hifz lists and the Surah pickers.
+String surahDisplayName(String surahId, {required bool isThai}) {
+  final thai = offlineSurahNamesTh[surahId];
+  final english = offlineSurahNamesEn[surahId];
+  if (isThai) {
+    return thai ?? english ?? 'ซูเราะฮฺ $surahId';
+  }
+  return english ?? thai ?? 'Surah $surahId';
+}
+
+/// Returns both localized Surah names. Each side falls back to the other one so
+/// the pair is always usable for a primary + secondary display.
+({String th, String en}) surahNamePair(String surahId) {
+  final english = offlineSurahNamesEn[surahId] ?? 'Surah $surahId';
+  final thai = offlineSurahNamesTh[surahId] ?? english;
+  return (th: thai, en: english);
+}
+

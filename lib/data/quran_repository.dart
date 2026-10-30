@@ -15,6 +15,10 @@ class QuranRepository {
   Map<String, dynamic>? _tafsirDataId;
   Map<String, String> _offlineArabicData = {};
   
+  /// Legacy default used by [getSurahName] when no explicit language is
+  /// passed. SettingsProvider keeps it in sync with the UI language; new code
+  /// should prefer passing `isThai` or the pure helpers in
+  /// `offline_surah_names.dart`.
   static bool globalIsThaiName = true;
   final Map<String, String> surahNames = {};
 
@@ -147,10 +151,7 @@ class QuranRepository {
 
   String getSurahName(String surahId, {bool? isThai}) {
     final useThai = isThai ?? globalIsThaiName;
-    final name = useThai
-        ? offlineSurahNamesTh[surahId]
-        : offlineSurahNamesEn[surahId];
-    return '$surahId. ${name ?? 'Surah $surahId'}';
+    return '$surahId. ${surahDisplayName(surahId, isThai: useThai)}';
   }
 
   // Gets the verses for a specific Surah
