@@ -198,6 +198,39 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     }
   }
 
+  void _applyReviewStartSurah(int picked) {
+    setState(() {
+      _reviewStartSurah = picked;
+      if (_reviewEndSurah < _reviewStartSurah) {
+        _reviewEndSurah = _reviewStartSurah;
+      }
+      _surah = picked;
+      final total = qcf.getVerseCount(picked);
+      _startVerse = 1;
+      _endVerse = total;
+      _reviewStartPage = getMedinaMushafPageNumber(_reviewStartSurah, 1);
+      _reviewEndPage = getMedinaMushafPageNumber(
+        _reviewEndSurah,
+        qcf.getVerseCount(_reviewEndSurah),
+      );
+      _page = _reviewStartPage;
+      _initFromPage(_page);
+    });
+  }
+
+  void _applyReviewEndSurah(int picked) {
+    setState(() {
+      _reviewEndSurah = picked;
+      if (_reviewEndSurah < _reviewStartSurah) {
+        _reviewStartSurah = _reviewEndSurah;
+      }
+      _reviewEndPage = getMedinaMushafPageNumber(
+        _reviewEndSurah,
+        qcf.getVerseCount(_reviewEndSurah),
+      );
+    });
+  }
+
   void _syncSurahSelection(int newSurah, {int? startVerse, int? endVerse, bool forNewVerses = true}) {
     final total = qcf.getVerseCount(newSurah);
     final sVerse = (startVerse ?? 1).clamp(1, total);
@@ -672,6 +705,12 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           SurahSelectorTile(
             surahNumber: _reviewStartSurah,
             label: isThai ? 'ซูเราะฮฺเริ่มต้น' : 'Start Surah',
+            onPrevious: _reviewStartSurah > 1
+                ? () => _applyReviewStartSurah(_reviewStartSurah - 1)
+                : null,
+            onNext: _reviewStartSurah < 114
+                ? () => _applyReviewStartSurah(_reviewStartSurah + 1)
+                : null,
             onTap: () async {
               final picked = await SurahPickerSheet.show(
                 context,
@@ -679,18 +718,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                 title: isThai ? 'เลือกซูเราะฮฺเริ่มต้น' : 'Select Start Surah',
               );
               if (picked != null && mounted) {
-                setState(() {
-                  _reviewStartSurah = picked;
-                  if (_reviewEndSurah < _reviewStartSurah) _reviewEndSurah = _reviewStartSurah;
-                  _surah = picked;
-                  final total = qcf.getVerseCount(picked);
-                  _startVerse = 1;
-                  _endVerse = total;
-                  _reviewStartPage = getMedinaMushafPageNumber(_reviewStartSurah, 1);
-                  _reviewEndPage = getMedinaMushafPageNumber(_reviewEndSurah, qcf.getVerseCount(_reviewEndSurah));
-                  _page = _reviewStartPage;
-                  _initFromPage(_page);
-                });
+                _applyReviewStartSurah(picked);
               }
             },
           ),
@@ -698,6 +726,12 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           SurahSelectorTile(
             surahNumber: _reviewEndSurah,
             label: isThai ? 'ซูเราะฮฺสิ้นสุด' : 'End Surah',
+            onPrevious: _reviewEndSurah > 1
+                ? () => _applyReviewEndSurah(_reviewEndSurah - 1)
+                : null,
+            onNext: _reviewEndSurah < 114
+                ? () => _applyReviewEndSurah(_reviewEndSurah + 1)
+                : null,
             onTap: () async {
               final picked = await SurahPickerSheet.show(
                 context,
@@ -705,11 +739,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                 title: isThai ? 'เลือกซูเราะฮฺสิ้นสุด' : 'Select End Surah',
               );
               if (picked != null && mounted) {
-                setState(() {
-                  _reviewEndSurah = picked;
-                  if (_reviewEndSurah < _reviewStartSurah) _reviewStartSurah = _reviewEndSurah;
-                  _reviewEndPage = getMedinaMushafPageNumber(_reviewEndSurah, qcf.getVerseCount(_reviewEndSurah));
-                });
+                _applyReviewEndSurah(picked);
               }
             },
           ),
@@ -797,6 +827,33 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           ),
         ] else if (_reviewScopeIndex == 1) ...[
           // Surah Card with Calligraphy + Verse RangeSlider
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SurahStepButton(
+                icon: Icons.chevron_left_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺก่อนหน้า' : 'Previous Surah',
+                onPressed: _surah > 1
+                    ? () => _syncSurahSelection(
+                          _surah - 1,
+                          forNewVerses: false,
+                        )
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              SurahStepButton(
+                icon: Icons.chevron_right_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺถัดไป' : 'Next Surah',
+                onPressed: _surah < 114
+                    ? () => _syncSurahSelection(
+                          _surah + 1,
+                          forNewVerses: false,
+                        )
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           InkWell(
             onTap: () async {
               final picked = await SurahPickerSheet.show(
@@ -1161,6 +1218,33 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
 
         if (_isSurahScope) ...[
           // Surah Card with Official QcfSurahName Calligraphy
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SurahStepButton(
+                icon: Icons.chevron_left_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺก่อนหน้า' : 'Previous Surah',
+                onPressed: _surah > 1
+                    ? () => _syncSurahSelection(
+                          _surah - 1,
+                          forNewVerses: true,
+                        )
+                    : null,
+              ),
+              const SizedBox(width: 4),
+              SurahStepButton(
+                icon: Icons.chevron_right_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺถัดไป' : 'Next Surah',
+                onPressed: _surah < 114
+                    ? () => _syncSurahSelection(
+                          _surah + 1,
+                          forNewVerses: true,
+                        )
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           InkWell(
             onTap: () async {
               final picked = await SurahPickerSheet.show(

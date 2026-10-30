@@ -117,10 +117,10 @@
 - [x] **Web Drawer & Browse Auto-Scroll**:
   - Drawer auto-scrolls to the current Surah on opening in both `'verse'` and `'surah'` tabs in [`SurahReader.tsx`](file:///H:/gits/thai-quran-web/src/components/SurahReader.tsx) and [`src/app/mushaf/[profileId]/page.tsx`](file:///H:/gits/thai-quran-web/src/app/mushaf/[profileId]/page.tsx).
   - [`BrowsePage.tsx`](file:///H:/gits/thai-quran-web/src/components/redesign/BrowsePage.tsx) persists and auto-restores scroll position and adds Juz 30 / Popular chips.
-- [ ] **Pending for `thai-quran-app` (To Resume)**:
-  - [ ] Add `ScrollController` in [`SurahPickerSheet`](file:///H:/gits/thai-quran-app/lib/widgets/surah_picker_sheet.dart) to automatically scroll to `widget.selectedSurah` upon opening.
-  - [ ] Update [`HifzMushafRangePickerScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_mushaf_range_picker_screen.dart) with 2-step `_selectionStep` (0 = Start, 1 = End) so the first tap sets Start directly without requiring "Reset", and use `SurahPickerSheet` instead of the local raw list.
-  - [ ] Add adjacent Surah stepper buttons (`←` / `→`) on Surah cards in [`HifzWizardSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_wizard_setup_screen.dart), [`HifzNewVersesSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_new_verses_setup_screen.dart), and [`HifzReviewSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_review_setup_screen.dart).
+- [x] **App Alignment (Done)**:
+  - [x] [`SurahPickerSheet`](file:///H:/gits/thai-quran-app/lib/widgets/surah_picker_sheet.dart) now uses an `ItemScrollController` (`ScrollablePositionedList`) to center `widget.selectedSurah` on open.
+  - [x] [`HifzMushafRangePickerScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_mushaf_range_picker_screen.dart) now has an interactive 2-step `_selectionStep` (0 = Start, 1 = End) with a tappable Start/End pill bar; the first tap sets a new Start without needing "Reset", and the local raw Surah list was replaced with `SurahPickerSheet`.
+  - [x] Adjacent Surah stepper buttons (`←` / `→`) added to the Surah cards in [`HifzWizardSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_wizard_setup_screen.dart), [`HifzNewVersesSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_new_verses_setup_screen.dart), and [`HifzReviewSetupScreen`](file:///H:/gits/thai-quran-app/lib/screens/hifz_review_setup_screen.dart) via the shared `SurahSelectorTile` / `SurahStepButton`.
 
 ---
 

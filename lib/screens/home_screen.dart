@@ -179,16 +179,25 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  static const String _legacyQuickLinksKey = 'custom_quick_links';
+  static const String _quickLinksKeyPrefix = 'custom_quick_links_v2_';
+  static const String _quickLinksDeletedKeyPrefix =
+      'custom_quick_links_deleted_v2_';
+  static const String _quickLinksSyncedAtKeyPrefix =
+      'custom_quick_links_synced_at_v2_';
+
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
   final TadabburRepository _tadabburRepository = TadabburRepository();
 
   int _navIndex = 0;
   bool _isInit = false;
+  bool _initFailed = false;
 
   // Featured verse state
   late int _featuredVerseIndex;
+  int _featuredDayOfYear = 0;
   bool _showFeaturedTafsir = false;
   Future<String>? _featuredArabicFuture;
 
@@ -200,15 +209,16 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CustomQuickLink> _quickLinks = [];
   StreamSubscription<AuthState>? _quickLinkAuthSubscription;
   String? _quickLinksLoadedForUser;
+  int _quickLinksRevision = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _isInit = widget.repositoryReady;
-    final dayOfYear = DateTime.now()
-        .difference(DateTime(DateTime.now().year, 1, 1))
-        .inDays;
-    _featuredVerseIndex = dayOfYear % _curatedFeaturedVerses.length;
+    _featuredDayOfYear = _dayOfYearNow();
+    _featuredVerseIndex =
+        _featuredDayOfYear % _curatedFeaturedVerses.length;
     _refreshFeaturedArabic();
     _loadQuickLinks();
     _loadCommunityPreview();
@@ -242,7 +252,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadCommunityPreview() async {
     try {
-      final notes = await _tadabburRepository.fetchCommunityNotes('0', '0');
+      final notes = await _tadabburRepository.fetchCommunityNotes(
+        '0',
+        '0',
+        limit: 2,
+      );
       if (!mounted) return;
       setState(() {
         _communityPreview = notes.take(2).toList();
@@ -257,10 +271,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initApp() async {
-    await widget.repository.init();
+    try {
+      await widget.repository.init();
+    } catch (e) {
+      debugPrint('Unable to initialize Quran repository: $e');
+      if (mounted) {
+        setState(() => _initFailed = true);
+      }
+      return;
+    }
     if (mounted) {
       setState(() {
         _isInit = true;
+        _initFailed = false;
         _refreshFeaturedArabic();
       });
       unawaited(_triggerAutoSync());
@@ -293,32 +316,116 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadQuickLinks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? linksJson = prefs.getString('custom_quick_links');
-    List<CustomQuickLink> links;
-    if (linksJson != null) {
-      final List<dynamic> decoded = jsonDecode(linksJson);
-      links = decoded
-          .map((e) => CustomQuickLink.fromJson(e as Map<String, dynamic>))
+  String _quickLinksScope(String? userId) => userId ?? 'guest';
+
+  String _quickLinksStorageKey(String scope) =>
+      '$_quickLinksKeyPrefix$scope';
+
+  String _quickLinksDeletedKey(String scope) =>
+      '$_quickLinksDeletedKeyPrefix$scope';
+
+  String _quickLinksSyncedAtKey(String scope) =>
+      '$_quickLinksSyncedAtKeyPrefix$scope';
+
+  List<CustomQuickLink> _decodeQuickLinks(String? raw) {
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final List<dynamic> decoded = jsonDecode(raw);
+      return decoded
+          .whereType<Map>()
+          .map(
+            (e) => CustomQuickLink.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList();
+    } catch (e) {
+      debugPrint('Error decoding quick links: $e');
+      return [];
+    }
+  }
+
+  Future<void> _persistQuickLinks(
+    SharedPreferences prefs,
+    String scope,
+    List<CustomQuickLink> links,
+  ) async {
+    final normalized = _normalizeQuickLinks(links);
+    await prefs.setString(
+      _quickLinksStorageKey(scope),
+      jsonEncode(normalized.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<Set<String>> _loadDeletedQuickLinkIds(
+    SharedPreferences prefs,
+    String scope,
+  ) async {
+    final raw = prefs.getString(_quickLinksDeletedKey(scope));
+    if (raw == null || raw.isEmpty) return <String>{};
+    try {
+      return (jsonDecode(raw) as List<dynamic>)
+          .map((e) => e.toString())
+          .toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> _saveDeletedQuickLinkIds(
+    SharedPreferences prefs,
+    String scope,
+    Set<String> ids,
+  ) async {
+    if (ids.isEmpty) {
+      await prefs.remove(_quickLinksDeletedKey(scope));
     } else {
-      links = _defaultQuickLinks();
+      await prefs.setString(
+        _quickLinksDeletedKey(scope),
+        jsonEncode(ids.toList()),
+      );
+    }
+  }
+
+  Future<void> _loadQuickLinks() async {
+    final revision = _quickLinksRevision;
+    final prefs = await SharedPreferences.getInstance();
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final scope = _quickLinksScope(userId);
+
+    List<CustomQuickLink> links;
+    if (prefs.containsKey(_quickLinksStorageKey(scope))) {
+      links = _decodeQuickLinks(prefs.getString(_quickLinksStorageKey(scope)));
+    } else if (userId == null) {
+      // One-time migration of the old unscoped key. Only the guest scope keeps
+      // a local copy; signed-in accounts are restored from Supabase so that
+      // another account's links can never be adopted.
+      links = _decodeQuickLinks(prefs.getString(_legacyQuickLinksKey));
+    } else {
+      links = const [];
+    }
+    // The legacy blob was never account-scoped; drop it so it cannot leak into
+    // another account that signs in on this device later.
+    if (prefs.containsKey(_legacyQuickLinksKey)) {
+      await prefs.remove(_legacyQuickLinksKey);
     }
 
     links = _normalizeQuickLinks(links);
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
-      links = await _syncQuickLinksWithSupabase(userId, links);
+      links = await _syncQuickLinksWithSupabase(userId, scope, links);
+    }
+
+    // A local edit (or an account switch) landed while this load was in
+    // flight — keep the newer state instead of overwriting it.
+    if (!mounted ||
+        revision != _quickLinksRevision ||
+        Supabase.instance.client.auth.currentUser?.id != userId) {
+      return;
     }
     _quickLinksLoadedForUser = userId;
-
-    if (!mounted) return;
     setState(() {
       _quickLinks = links;
     });
-    await _saveQuickLinks(syncRemote: userId == null);
+    await _persistQuickLinks(prefs, scope, links);
   }
 
   List<CustomQuickLink> _defaultQuickLinks() => [
@@ -363,23 +470,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _saveQuickLinks({bool syncRemote = true}) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    // The account changed while a reload is in flight; never write one
+    // account's list into another scope.
+    if (_quickLinksLoadedForUser != null &&
+        userId != _quickLinksLoadedForUser) {
+      return;
+    }
+    _quickLinksRevision++;
     _quickLinks = _normalizeQuickLinks(_quickLinks);
     final prefs = await SharedPreferences.getInstance();
-    final String encoded = jsonEncode(
-      _quickLinks.map((e) => e.toJson()).toList(),
-    );
-    await prefs.setString('custom_quick_links', encoded);
+    final scope = _quickLinksScope(userId);
+    await _persistQuickLinks(prefs, scope, _quickLinks);
 
-    if (!syncRemote) return;
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-    await _syncQuickLinksWithSupabase(userId, _quickLinks);
+    if (!syncRemote || userId == null) return;
+    final merged = await _syncQuickLinksWithSupabase(
+      userId,
+      scope,
+      _quickLinks,
+    );
+    if (!mounted ||
+        Supabase.instance.client.auth.currentUser?.id != userId) {
+      return;
+    }
+    setState(() {
+      _quickLinks = merged;
+    });
+    await _persistQuickLinks(prefs, scope, merged);
   }
 
   Future<List<CustomQuickLink>> _syncQuickLinksWithSupabase(
     String userId,
+    String scope,
     List<CustomQuickLink> localLinks,
   ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final deletedIds = await _loadDeletedQuickLinkIds(prefs, scope);
+    final lastSyncedAt = DateTime.tryParse(
+      prefs.getString(_quickLinksSyncedAtKey(scope)) ?? '',
+    );
+
     try {
       final client = Supabase.instance.client;
       final remoteRows = await client
@@ -390,12 +520,45 @@ class _HomeScreenState extends State<HomeScreen> {
       final remoteLinks = List<Map<String, dynamic>>.from(
         remoteRows,
       ).map(CustomQuickLink.fromSupabase).toList();
+      final remoteById = <String, CustomQuickLink>{
+        for (final link in remoteLinks) link.id: link,
+      };
+
+      // Finish deletions that were queued while offline or failed earlier.
+      for (final id in deletedIds.toList()) {
+        if (!remoteById.containsKey(id)) continue;
+        try {
+          await client
+              .from('custom_quick_links')
+              .delete()
+              .eq('user_id', userId)
+              .eq('id', id);
+          deletedIds.remove(id);
+        } catch (e) {
+          debugPrint('Error deleting quick link $id from Supabase: $e');
+        }
+      }
+      await _saveDeletedQuickLinkIds(prefs, scope, deletedIds);
 
       final mergedById = <String, CustomQuickLink>{};
       for (final link in _normalizeQuickLinks(localLinks)) {
+        if (deletedIds.contains(link.id)) continue;
+        if (link.isLocked) {
+          mergedById[link.id] = link;
+          continue;
+        }
+        final remote = remoteById[link.id];
+        // Already synced before but missing on the server means it was deleted
+        // from another device — don't resurrect it.
+        if (remote == null &&
+            lastSyncedAt != null &&
+            !link.updatedAt.isAfter(lastSyncedAt)) {
+          continue;
+        }
         mergedById[link.id] = link;
       }
       for (final remote in remoteLinks) {
+        if (deletedIds.contains(remote.id)) continue;
         final local = mergedById[remote.id];
         if (local == null || remote.updatedAt.isAfter(local.updatedAt)) {
           mergedById[remote.id] = remote;
@@ -404,17 +567,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final merged = mergedById.values.toList();
       final customLinks = merged.where((link) => !link.isLocked).toList();
+      var pushedAll = true;
       for (var index = 0; index < customLinks.length; index++) {
         final link = customLinks[index];
-        await client.from('custom_quick_links').upsert({
-          'id': link.id,
-          'user_id': userId,
-          'surah_number': link.surahNumber,
-          'label': link.label,
-          'sort_order': index,
-          'created_at': link.createdAt.toIso8601String(),
-          'updated_at': link.updatedAt.toIso8601String(),
-        }, onConflict: 'id,user_id');
+        try {
+          await client.from('custom_quick_links').upsert({
+            'id': link.id,
+            'user_id': userId,
+            'surah_number': link.surahNumber,
+            'label': link.label,
+            'sort_order': index,
+            'created_at': link.createdAt.toIso8601String(),
+            'updated_at': link.updatedAt.toIso8601String(),
+          }, onConflict: 'id,user_id');
+        } catch (e) {
+          pushedAll = false;
+          debugPrint('Error saving quick link ${link.id} to Supabase: $e');
+        }
+      }
+      if (pushedAll) {
+        await prefs.setString(
+          _quickLinksSyncedAtKey(scope),
+          DateTime.now().toIso8601String(),
+        );
       }
 
       return merged;
@@ -425,24 +600,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteQuickLink(CustomQuickLink link) async {
-    setState(() => _quickLinks.removeWhere((item) => item.id == link.id));
-    await _saveQuickLinks(syncRemote: false);
-
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    // Account changed while a reload is in flight — let the reload win.
+    if (_quickLinksLoadedForUser != null &&
+        userId != _quickLinksLoadedForUser) {
+      return;
+    }
+    _quickLinksRevision++;
+    setState(() => _quickLinks.removeWhere((item) => item.id == link.id));
+
+    final prefs = await SharedPreferences.getInstance();
+    final scope = _quickLinksScope(userId);
+    await _persistQuickLinks(prefs, scope, _quickLinks);
+
     if (userId == null) return;
+
+    final deletedIds = await _loadDeletedQuickLinkIds(prefs, scope);
+    deletedIds.add(link.id);
+    await _saveDeletedQuickLinkIds(prefs, scope, deletedIds);
+
     try {
       await Supabase.instance.client
           .from('custom_quick_links')
           .delete()
           .eq('user_id', userId)
           .eq('id', link.id);
+      deletedIds.remove(link.id);
+      await _saveDeletedQuickLinkIds(prefs, scope, deletedIds);
     } catch (e) {
       debugPrint('Error deleting quick link from Supabase: $e');
     }
   }
 
+  int _dayOfYearNow() {
+    final now = DateTime.now();
+    return now.difference(DateTime(now.year, 1, 1)).inDays;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed) return;
+    // Roll the featured verse over when the app resumes on a new day.
+    final dayOfYear = _dayOfYearNow();
+    if (dayOfYear == _featuredDayOfYear) return;
+    _featuredDayOfYear = dayOfYear;
+    setState(() {
+      _featuredVerseIndex = dayOfYear % _curatedFeaturedVerses.length;
+      _showFeaturedTafsir = false;
+      _refreshFeaturedArabic();
+    });
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _quickLinkAuthSubscription?.cancel();
     super.dispose();
   }
@@ -561,7 +773,9 @@ class _HomeScreenState extends State<HomeScreen> {
             fallbackProfileId != null &&
             !saveToFreeReadOnly) {
           final fallback = localReading.profileById(fallbackProfileId);
-          if (fallback != null && !isFreeReadProfile(fallback)) {
+          if (fallback != null &&
+              !isFreeReadProfile(fallback) &&
+              !fallback.isArchived) {
             profile = fallback;
           }
         }
@@ -608,6 +822,10 @@ class _HomeScreenState extends State<HomeScreen> {
     ({VerseRef verse, String? profileId, DateTime at})? latest;
 
     for (final reading in provider.recentReadings) {
+      final readingProfile = reading.profileId == null
+          ? null
+          : provider.profileById(reading.profileId!);
+      if (readingProfile != null && readingProfile.isArchived) continue;
       final normalizedReadAt = _normalizeDate(reading.readAt);
       if (latest == null || normalizedReadAt.isAfter(latest.at)) {
         latest = (
@@ -699,9 +917,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (verseRecent != null) {
-      final profile = verseRecent.profileId == null
+      final resolved = verseRecent.profileId == null
           ? null
           : localReading.profileById(verseRecent.profileId!);
+      // Never reactivate an archived goal through the Continue card.
+      final profile =
+          resolved != null && !resolved.isArchived ? resolved : null;
       if (profile != null) {
         await localReading.setActiveProfile(profile.id);
       }
@@ -840,7 +1061,42 @@ class _HomeScreenState extends State<HomeScreen> {
       return Scaffold(
         body: SafeArea(
           child: Center(
-            child: CircularProgressIndicator(color: colorScheme.primary),
+            child: _initFailed
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 44,
+                          color: colorScheme.error,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          isThai
+                              ? 'ไม่สามารถโหลดข้อมูลอัลกุรอานได้'
+                              : 'Unable to load Quran data',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: () {
+                            setState(() => _initFailed = false);
+                            _initApp();
+                          },
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(isThai ? 'ลองใหม่' : 'Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : CircularProgressIndicator(color: colorScheme.primary),
           ),
         ),
       );

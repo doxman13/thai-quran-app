@@ -486,6 +486,17 @@ class _BySurahTabState extends State<_BySurahTab> {
 
   void _notify() => widget.onChanged(_surah, _start, _end, _repeat);
 
+  void _applySurah(int picked) {
+    setState(() {
+      _surah = picked;
+      final total = qcf.getVerseCount(picked);
+      _start = 1;
+      _repeat = 1;
+      _end = total > 3 ? 3 : total;
+    });
+    _notify();
+  }
+
   Future<void> _openVisualPicker() async {
     final result = await Navigator.push<HifzMushafRangePickerResult>(
       context,
@@ -616,6 +627,8 @@ class _BySurahTabState extends State<_BySurahTab> {
         SurahSelectorTile(
           surahNumber: _surah,
           label: isThai ? 'ซูเราะฮฺ' : 'Surah',
+          onPrevious: _surah > 1 ? () => _applySurah(_surah - 1) : null,
+          onNext: _surah < 114 ? () => _applySurah(_surah + 1) : null,
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
@@ -623,14 +636,7 @@ class _BySurahTabState extends State<_BySurahTab> {
               title: isThai ? 'เลือกซูเราะฮฺที่ต้องการท่องจำ' : 'Select Surah to Memorize',
             );
             if (picked != null && mounted) {
-              setState(() {
-                _surah = picked;
-                final total = qcf.getVerseCount(picked);
-                _start = 1;
-                _repeat = 1;
-                _end = total > 3 ? 3 : total;
-              });
-              _notify();
+              _applySurah(picked);
             }
           },
         ),

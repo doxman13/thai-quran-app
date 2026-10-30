@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data/offline_surah_names.dart';
 import '../providers/settings_provider.dart';
@@ -45,10 +46,29 @@ class SurahPickerSheet extends StatefulWidget {
 
 class _SurahPickerSheetState extends State<SurahPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
+  final ItemScrollController _itemScrollController = ItemScrollController();
   String _query = '';
   int _activeFilterIndex = 0; // 0: All, 1: Juz 30, 2: Popular (67, 36, 18, 56)
 
   static const List<int> _popularSurahs = [1, 18, 36, 55, 56, 67, 78, 112, 113, 114];
+
+  @override
+  void initState() {
+    super.initState();
+    // Center the currently selected Surah when the sheet opens so the user
+    // does not have to scroll all the way from Surah 1.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final index = _filterSurahs().indexOf(widget.selectedSurah);
+      if (index < 0) return;
+      _itemScrollController.scrollTo(
+        index: index,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -205,7 +225,8 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                       ],
                     ),
                   )
-                : ListView.separated(
+                : ScrollablePositionedList.separated(
+                    itemScrollController: _itemScrollController,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     itemCount: filtered.length,
@@ -337,12 +358,16 @@ class SurahSelectorTile extends StatelessWidget {
   final int surahNumber;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
 
   const SurahSelectorTile({
     super.key,
     required this.surahNumber,
     required this.label,
     required this.onTap,
+    this.onPrevious,
+    this.onNext,
   });
 
   @override
@@ -355,94 +380,149 @@ class SurahSelectorTile extends StatelessWidget {
     final arName = offlineSurahNamesAr[sKey] ?? '';
     final thName = offlineSurahNamesTh[sKey] ?? '';
     final totalVerses = qcf.getVerseCount(surahNumber);
+    final showSteppers = onPrevious != null || onNext != null;
+
+    final card = Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$surahNumber',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      enName,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      isThai && thName.isNotEmpty
+                          ? '$thName · $totalVerses อายะห์'
+                          : '$totalVerses verses',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                arName,
+                style: GoogleFonts.amiri(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.primary,
+                ),
+                textDirection: TextDirection.rtl,
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_drop_down_rounded,
+                color: colorScheme.onSurfaceVariant,
+                size: 28,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: textTheme.labelLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Material(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$surahNumber',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          enName,
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          isThai && thName.isNotEmpty
-                              ? '$thName · $totalVerses อายะห์'
-                              : '$totalVerses verses',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    arName,
-                    style: GoogleFonts.amiri(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                    textDirection: TextDirection.rtl,
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_drop_down_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                    size: 28,
-                  ),
-                ],
-              ),
             ),
-          ),
+            if (showSteppers) ...[
+              SurahStepButton(
+                icon: Icons.chevron_left_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺก่อนหน้า' : 'Previous Surah',
+                onPressed: onPrevious,
+              ),
+              const SizedBox(width: 4),
+              SurahStepButton(
+                icon: Icons.chevron_right_rounded,
+                tooltip: isThai ? 'ซูเราะฮฺถัดไป' : 'Next Surah',
+                onPressed: onNext,
+              ),
+            ],
+          ],
         ),
+        const SizedBox(height: 6),
+        card,
       ],
+    );
+  }
+}
+
+/// Compact bordered chevron button used next to Surah selector cards.
+class SurahStepButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const SurahStepButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton.outlined(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 18),
+      style: IconButton.styleFrom(
+        minimumSize: const Size(38, 38),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
     );
   }
 }

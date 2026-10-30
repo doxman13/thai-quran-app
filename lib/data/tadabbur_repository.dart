@@ -31,7 +31,11 @@ class TadabburRepository {
   /// Fetch public community notes — matches web fetchPublicTadabburFeed:
   /// includes ALL public notes (including the logged-in user's own),
   /// joins tadabbur_likes to compute user_liked, ordered newest first.
-  Future<List<TadabburNote>> fetchCommunityNotes(String surahId, String verseId) async {
+  Future<List<TadabburNote>> fetchCommunityNotes(
+    String surahId,
+    String verseId, {
+    int? limit,
+  }) async {
     try {
       final user = _client.auth.currentUser;
 
@@ -46,8 +50,10 @@ class TadabburRepository {
       if (verseId != '0') {
         query = query.eq('verse_id', verseId);
       }
-
-      final response = await query.order('created_at', ascending: false);
+      final ordered = query.order('created_at', ascending: false);
+      final response = limit != null && limit > 0
+          ? await ordered.limit(limit)
+          : await ordered;
       final List<dynamic> data = response as List<dynamic>;
 
       return data.map((row) {

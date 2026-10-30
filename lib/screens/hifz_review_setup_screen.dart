@@ -478,6 +478,22 @@ class _BySurahTabState extends State<_BySurahTab> {
 
   void _notify() => widget.onChanged(_start, _end);
 
+  void _applyStartSurah(int picked) {
+    setState(() {
+      _start = picked;
+      if (_end < _start) _end = _start;
+    });
+    _notify();
+  }
+
+  void _applyEndSurah(int picked) {
+    setState(() {
+      _end = picked;
+      if (_end < _start) _start = _end;
+    });
+    _notify();
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -498,6 +514,8 @@ class _BySurahTabState extends State<_BySurahTab> {
         SurahSelectorTile(
           surahNumber: _start,
           label: isThai ? 'ซูเราะฮฺเริ่มต้น' : 'Start Surah',
+          onPrevious: _start > 1 ? () => _applyStartSurah(_start - 1) : null,
+          onNext: _start < 114 ? () => _applyStartSurah(_start + 1) : null,
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
@@ -505,11 +523,7 @@ class _BySurahTabState extends State<_BySurahTab> {
               title: isThai ? 'เลือกซูเราะฮฺเริ่มต้น' : 'Select Start Surah',
             );
             if (picked != null && mounted) {
-              setState(() {
-                _start = picked;
-                if (_end < _start) _end = _start;
-              });
-              _notify();
+              _applyStartSurah(picked);
             }
           },
         ),
@@ -517,6 +531,8 @@ class _BySurahTabState extends State<_BySurahTab> {
         SurahSelectorTile(
           surahNumber: _end,
           label: isThai ? 'ซูเราะฮฺสิ้นสุด' : 'End Surah',
+          onPrevious: _end > 1 ? () => _applyEndSurah(_end - 1) : null,
+          onNext: _end < 114 ? () => _applyEndSurah(_end + 1) : null,
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
@@ -524,11 +540,7 @@ class _BySurahTabState extends State<_BySurahTab> {
               title: isThai ? 'เลือกซูเราะฮฺสิ้นสุด' : 'Select End Surah',
             );
             if (picked != null && mounted) {
-              setState(() {
-                _end = picked;
-                if (_end < _start) _start = _end;
-              });
-              _notify();
+              _applyEndSurah(picked);
             }
           },
         ),
@@ -644,6 +656,16 @@ class _ByVersesTabState extends State<_ByVersesTab> {
   }
 
   void _notify() => widget.onChanged(_surah, _start, _end);
+
+  void _applySurah(int picked) {
+    setState(() {
+      _surah = picked;
+      final total = qcf.getVerseCount(picked);
+      _start = 1;
+      _end = total > 6 ? 6 : total;
+    });
+    _notify();
+  }
 
   int get _totalVerses => qcf.getVerseCount(_surah);
 
@@ -769,6 +791,8 @@ class _ByVersesTabState extends State<_ByVersesTab> {
         SurahSelectorTile(
           surahNumber: _surah,
           label: isThai ? 'ซูเราะฮฺ' : 'Surah',
+          onPrevious: _surah > 1 ? () => _applySurah(_surah - 1) : null,
+          onNext: _surah < 114 ? () => _applySurah(_surah + 1) : null,
           onTap: () async {
             final picked = await SurahPickerSheet.show(
               context,
@@ -776,13 +800,7 @@ class _ByVersesTabState extends State<_ByVersesTab> {
               title: isThai ? 'เลือกซูเราะฮฺสำหรับทบทวน' : 'Select Surah for Review',
             );
             if (picked != null && mounted) {
-              setState(() {
-                _surah = picked;
-                final total = qcf.getVerseCount(picked);
-                _start = 1;
-                _end = total > 6 ? 6 : total;
-              });
-              _notify();
+              _applySurah(picked);
             }
           },
         ),

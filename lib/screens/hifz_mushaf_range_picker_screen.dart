@@ -7,9 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import '../data/medina_mushaf_pages.dart';
-import '../data/offline_surah_names.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
@@ -18,6 +16,7 @@ import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import '../widgets/mushaf_page_skeleton.dart';
+import '../widgets/surah_picker_sheet.dart';
 
 /// Result returned from the visual range picker.
 class HifzMushafRangePickerResult {
@@ -63,6 +62,8 @@ class _HifzMushafRangePickerScreenState
   late int _selectedSurah;
   int? _startVerse;
   int? _endVerse;
+  // 0 = next tap picks the Start verse, 1 = next tap picks the End verse.
+  int _selectionStep = 0;
   Set<String> _highlightedVerseKeys = {};
   bool _isBarCollapsed = false;
   late final PageController _pageController;
@@ -117,48 +118,26 @@ class _HifzMushafRangePickerScreenState
     if (surah == null || verse == null) return;
 
     setState(() {
-      if (_startVerse == null) {
-        // Step 1: Set start verse
+      if (_selectionStep == 0 ||
+          _startVerse == null ||
+          surah != _selectedSurah) {
+        // Step 1: the first tap always sets a brand-new Start verse, so no
+        // "Reset" press is needed even when the screen opened with a range.
         _selectedSurah = surah;
         _startVerse = verse;
-        _endVerse = null;
+        _endVerse = verse;
+        _selectionStep = 1;
         HapticFeedback.lightImpact();
-      } else if (_endVerse == null) {
-        // Step 2: Set end verse
-        if (surah != _selectedSurah) {
-          _selectedSurah = surah;
-          _startVerse = verse;
-          _endVerse = null;
-          HapticFeedback.lightImpact();
-        } else {
-          if (verse >= _startVerse!) {
-            _endVerse = verse;
-          } else {
-            _endVerse = _startVerse;
-            _startVerse = verse;
-          }
-          HapticFeedback.mediumImpact();
-        }
       } else {
-        // Step 3: Range already set, smart adjust or change
-        if (surah != _selectedSurah) {
-          _selectedSurah = surah;
-          _startVerse = verse;
-          _endVerse = null;
-          HapticFeedback.lightImpact();
+        // Step 2: set the End verse (auto-sort if tapped before the start).
+        if (verse >= _startVerse!) {
+          _endVerse = verse;
         } else {
-          if (verse > _endVerse!) {
-            _endVerse = verse;
-          } else if (verse < _startVerse!) {
-            _startVerse = verse;
-          } else if (verse == _startVerse! && verse == _endVerse!) {
-            _startVerse = null;
-            _endVerse = null;
-          } else {
-            _endVerse = verse;
-          }
-          HapticFeedback.lightImpact();
+          _endVerse = _startVerse;
+          _startVerse = verse;
         }
+        _selectionStep = 0;
+        HapticFeedback.mediumImpact();
       }
       _updateHighlightedKeys();
     });
@@ -168,6 +147,7 @@ class _HifzMushafRangePickerScreenState
     setState(() {
       _startVerse = null;
       _endVerse = null;
+      _selectionStep = 0;
       _highlightedVerseKeys = {};
     });
     HapticFeedback.selectionClick();
@@ -192,138 +172,28 @@ class _HifzMushafRangePickerScreenState
     );
   }
 
-  void _showSurahSelector() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+  Future<void> _showSurahSelector() async {
     final isThai = context.read<SettingsProvider>().languageCode == 'th';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        String query = '';
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filteredSurahs = List.generate(114, (i) => i + 1).where((s) {
-              return matchesSurahQuery(s.toString(), query);
-            }).toList();
-
-            return DraggableScrollableSheet(
-              initialChildSize: 0.75,
-              minChildSize: 0.4,
-              maxChildSize: 0.9,
-              expand: false,
-              builder: (_, scrollController) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Text(
-                        isThai ? 'เลือกซูเราะฮ์' : 'Select Surah',
-                        style: textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        decoration: InputDecoration(
-                          hintText: isThai
-                              ? 'ค้นหาชื่อซูเราะฮ์ หรือหมายเลข...'
-                              : 'Search surah name or number...',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerLow,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: (val) {
-                          setModalState(() => query = val);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: ListView.separated(
-                          controller: scrollController,
-                          itemCount: filteredSurahs.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, idx) {
-                            final surahNum = filteredSurahs[idx];
-                            final name = widget.quranRepository
-                                .getSurahName(surahNum.toString());
-                            final totalVerses = qcf.getVerseCount(surahNum);
-                            final startPage = getMedinaMushafPageNumber(surahNum, 1);
-                            final isCurrent = surahNum == _selectedSurah;
-
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: isCurrent
-                                    ? colorScheme.primary
-                                    : colorScheme.surfaceContainerHigh,
-                                foregroundColor: isCurrent
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurface,
-                                child: Text(
-                                  '$surahNum',
-                                  style: textTheme.bodySmall
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              title: Text(
-                                name,
-                                style: textTheme.bodyLarge?.copyWith(
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: isCurrent ? colorScheme.primary : null,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '$totalVerses ${isThai ? 'อายะห์' : 'verses'} · ${isThai ? 'หน้า' : 'Page'} $startPage',
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                setState(() {
-                                  _selectedSurah = surahNum;
-                                  _currentPage = startPage;
-                                });
-                                if (_pageController.hasClients) {
-                                  _pageController.jumpToPage(startPage - 1);
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+    final picked = await SurahPickerSheet.show(
+      context,
+      selectedSurah: _selectedSurah,
+      title: isThai ? 'เลือกซูเราะฮ์' : 'Select Surah',
     );
+    if (picked == null || !mounted) return;
+
+    final startPage = getMedinaMushafPageNumber(picked, 1);
+    setState(() {
+      _selectedSurah = picked;
+      _currentPage = startPage;
+      // A range from the previous Surah is no longer meaningful.
+      _startVerse = null;
+      _endVerse = null;
+      _selectionStep = 0;
+      _highlightedVerseKeys = {};
+    });
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(startPage - 1);
+    }
   }
 
   void _showPageJumpDialog() {
@@ -642,6 +512,8 @@ class _HifzMushafRangePickerScreenState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildStepSelector(colorScheme, textTheme, isThai),
+        const SizedBox(height: 12),
         if (!hasSelection) ...[
           Row(
             children: [
@@ -765,6 +637,103 @@ class _HifzMushafRangePickerScreenState
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildStepSelector(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isThai,
+  ) {
+    final endEnabled = _startVerse != null;
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStepPill(
+            colorScheme: colorScheme,
+            textTheme: textTheme,
+            active: _selectionStep == 0,
+            enabled: true,
+            icon: Icons.trip_origin_rounded,
+            label: isThai ? '1. จุดเริ่มต้น' : '1. Start',
+            onTap: () => setState(() => _selectionStep = 0),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildStepPill(
+            colorScheme: colorScheme,
+            textTheme: textTheme,
+            active: _selectionStep == 1,
+            enabled: endEnabled,
+            icon: Icons.adjust_rounded,
+            label: isThai ? '2. จุดสิ้นสุด' : '2. End',
+            onTap: endEnabled
+                ? () => setState(() => _selectionStep = 1)
+                : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepPill({
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+    required bool active,
+    required bool enabled,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+  }) {
+    final highlighted = active && enabled;
+    final foreground = !enabled
+        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+        : highlighted
+            ? colorScheme.onPrimaryContainer
+            : colorScheme.onSurfaceVariant;
+    return Material(
+      color: highlighted
+          ? colorScheme.primaryContainer.withValues(alpha: 0.6)
+          : colorScheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: highlighted
+                  ? colorScheme.primary.withValues(alpha: 0.6)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: highlighted ? colorScheme.primary : foreground,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
