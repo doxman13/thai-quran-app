@@ -639,3 +639,21 @@ List<Map<String, int>> getMedinaMushafPageData(int page) {
   if (page < 1 || page > medinaMushafPages.length) return const [];
   return medinaMushafPages[page - 1];
 }
+
+/// Returns the *first* Surah segment covered by [page].
+///
+/// A Mushaf page can straddle two Surahs (for example page 106 contains
+/// 4:176 and 5:1-2). Hifz sessions and verse-range editors operate on a single
+/// Surah, so callers must not combine `items.first['start']` with
+/// `items.last['end']` — that produces an impossible range.
+({int surah, int start, int end})? getMedinaMushafPageStartSegment(int page) {
+  final items = getMedinaMushafPageData(page);
+  if (items.isEmpty) return null;
+  final first = items.first;
+  final surah = first['surah'];
+  final start = first['start'];
+  final end = first['end'];
+  if (surah == null || start == null || end == null) return null;
+  if (start < 1 || end < start) return null;
+  return (surah: surah, start: start, end: end);
+}

@@ -99,20 +99,25 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     _currentStep = widget.initialStep.clamp(0, 2);
     _selectedMode = widget.initialMode ?? HifzSessionType.newVerses;
 
-    _surah = widget.initialSurah ?? 67; // Default Al-Mulk
+    _surah = (widget.initialSurah ?? 67).clamp(1, 114); // Default Al-Mulk
     final total = qcf.getVerseCount(_surah);
-    _startVerse = widget.initialStartVerse ?? 1;
-    _endVerse = widget.initialEndVerse ?? (_startVerse + 4).clamp(1, total);
-    _repeatStart = widget.initialRepeatStart ?? 1;
-    if (_repeatStart > _startVerse) _repeatStart = _startVerse;
+    _startVerse = (widget.initialStartVerse ?? 1).clamp(1, total);
+    _endVerse = (widget.initialEndVerse ?? (_startVerse + 4))
+        .clamp(_startVerse, total);
+    _repeatStart = (widget.initialRepeatStart ?? 1).clamp(1, _startVerse);
 
-    _page = widget.initialPage ?? getMedinaMushafPageNumber(_surah, _startVerse);
+    _page = (widget.initialPage ??
+            getMedinaMushafPageNumber(_surah, _startVerse))
+        .clamp(1, 604);
     _initFromPage(_page);
 
-    _reviewStartSurah = widget.initialStartSurah ?? widget.initialSurah ?? 67;
-    _reviewEndSurah = widget.initialEndSurah ?? _reviewStartSurah;
-    _reviewStartPage = widget.initialStartPage ?? _page;
-    _reviewEndPage = widget.initialEndPage ?? _reviewStartPage;
+    _reviewStartSurah =
+        (widget.initialStartSurah ?? widget.initialSurah ?? 67).clamp(1, 114);
+    _reviewEndSurah = (widget.initialEndSurah ?? _reviewStartSurah)
+        .clamp(_reviewStartSurah, 114);
+    _reviewStartPage = (widget.initialStartPage ?? _page).clamp(1, 604);
+    _reviewEndPage = (widget.initialEndPage ?? _reviewStartPage)
+        .clamp(_reviewStartPage, 604);
 
     if (widget.initialMode == HifzSessionType.review) {
       if (widget.initialStartPage != null) {
@@ -129,11 +134,11 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   }
 
   void _initFromPage(int page) {
-    final items = getMedinaMushafPageData(page);
-    if (items.isNotEmpty) {
-      _pageSurah = items.first['surah']!;
-      _pageStart = items.first['start']!;
-      _pageEnd = items.last['end']!;
+    final segment = getMedinaMushafPageStartSegment(page);
+    if (segment != null) {
+      _pageSurah = segment.surah;
+      _pageStart = segment.start;
+      _pageEnd = segment.end;
       if (_repeatStart > _pageStart) _repeatStart = _pageStart;
     }
   }

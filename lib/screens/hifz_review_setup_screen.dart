@@ -82,18 +82,21 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
     _tabController = TabController(length: 3, vsync: this, initialIndex: tab);
 
     if (widget.initialStartSurah != null) {
-      _startSurah = widget.initialStartSurah!;
-      _endSurah = widget.initialEndSurah ?? widget.initialStartSurah!;
+      _startSurah = widget.initialStartSurah!.clamp(1, 114);
+      _endSurah = (widget.initialEndSurah ?? _startSurah)
+          .clamp(_startSurah, 114);
     }
     if (widget.initialVersesSurah != null) {
-      _versesSurah = widget.initialVersesSurah!;
-      _versesStart = widget.initialVersesStart ?? 1;
-      _versesEnd = widget.initialVersesEnd ??
-          (_versesStart + 9).clamp(1, qcf.getVerseCount(_versesSurah));
+      _versesSurah = widget.initialVersesSurah!.clamp(1, 114);
+      final total = qcf.getVerseCount(_versesSurah);
+      _versesStart = (widget.initialVersesStart ?? 1).clamp(1, total);
+      _versesEnd = (widget.initialVersesEnd ?? (_versesStart + 9))
+          .clamp(_versesStart, total);
     }
     if (widget.initialStartPage != null) {
-      _startPage = widget.initialStartPage!;
-      _endPage = widget.initialEndPage ?? widget.initialStartPage!;
+      _startPage = widget.initialStartPage!.clamp(1, 604);
+      _endPage = (widget.initialEndPage ?? _startPage)
+          .clamp(_startPage, 604);
     }
 
     _loadLastSetup();
@@ -242,15 +245,20 @@ class _HifzReviewSetupScreenState extends State<HifzReviewSetupScreen>
       _tabController.index = tabIndex.clamp(0, 2);
 
       if (tabIndex == 0) {
-        _startSurah = (data['startSurah'] as int?) ?? 67;
-        _endSurah = (data['endSurah'] as int?) ?? 67;
+        _startSurah = ((data['startSurah'] as int?) ?? 67).clamp(1, 114);
+        _endSurah = ((data['endSurah'] as int?) ?? _startSurah)
+            .clamp(_startSurah, 114);
       } else if (tabIndex == 1) {
-        _versesSurah = (data['versesSurah'] as int?) ?? 67;
-        _versesStart = (data['versesStart'] as int?) ?? 1;
-        _versesEnd = (data['versesEnd'] as int?) ?? 10;
+        _versesSurah = ((data['versesSurah'] as int?) ?? 67).clamp(1, 114);
+        final total = qcf.getVerseCount(_versesSurah);
+        _versesStart = ((data['versesStart'] as int?) ?? 1).clamp(1, total);
+        _versesEnd = ((data['versesEnd'] as int?) ?? (_versesStart + 9))
+            .clamp(_versesStart, total);
       } else {
-        _startPage = (data['startPage'] as int?) ?? _startPage;
-        _endPage = (data['endPage'] as int?) ?? _endPage;
+        _startPage = ((data['startPage'] as int?) ?? _startPage)
+            .clamp(1, 604);
+        _endPage = ((data['endPage'] as int?) ?? _startPage)
+            .clamp(_startPage, 604);
       }
 
       setState(() {});
@@ -1059,6 +1067,11 @@ class _LabeledDropdown<T> extends StatelessWidget {
             style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
+          key: ValueKey(
+            '$label|$value|${items.length}|'
+            '${items.isEmpty ? '' : items.first}|'
+            '${items.isEmpty ? '' : items.last}',
+          ),
           // ignore: deprecated_member_use
           value: value,
           isExpanded: true,

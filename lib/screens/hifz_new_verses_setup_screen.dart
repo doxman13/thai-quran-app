@@ -98,11 +98,12 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
       initialIndex: widget.initialIsSurahMode ? 0 : 1,
     );
 
-    _surah = widget.initialSurah;
-    _startVerse = widget.initialStartVerse;
-    _endVerse = widget.initialEndVerse;
-    _repeatStart = widget.initialRepeatStart;
-    _page = widget.initialPage;
+    _surah = widget.initialSurah.clamp(1, 114);
+    final totalVerses = qcf.getVerseCount(_surah);
+    _startVerse = widget.initialStartVerse.clamp(1, totalVerses);
+    _endVerse = widget.initialEndVerse.clamp(_startVerse, totalVerses);
+    _repeatStart = widget.initialRepeatStart.clamp(1, _startVerse);
+    _page = widget.initialPage.clamp(1, 604);
     _chunkLongVerses = widget.initialChunkLongVerses;
 
     _loadChunkPreference();
@@ -255,11 +256,11 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
   }
 
   void _initFromPage(int page) {
-    final pageItems = getMedinaMushafPageData(page);
-    if (pageItems.isNotEmpty) {
-      _pageSurah = pageItems.first['surah']!;
-      _pageStart = pageItems.first['start']!;
-      _pageEnd = pageItems.last['end']!;
+    final segment = getMedinaMushafPageStartSegment(page);
+    if (segment != null) {
+      _pageSurah = segment.surah;
+      _pageStart = segment.start;
+      _pageEnd = segment.end;
       _pageRepeatStart = _pageStart;
     }
   }
@@ -457,13 +458,18 @@ class _BySurahTabState extends State<_BySurahTab> {
   late int _end;
   late int _repeat;
 
+  void _resetFromWidget() {
+    _surah = widget.surah.clamp(1, 114);
+    final total = qcf.getVerseCount(_surah);
+    _start = widget.startVerse.clamp(1, total);
+    _end = widget.endVerse.clamp(_start, total);
+    _repeat = widget.repeatStart.clamp(1, _start);
+  }
+
   @override
   void initState() {
     super.initState();
-    _surah = widget.surah;
-    _start = widget.startVerse;
-    _end = widget.endVerse;
-    _repeat = widget.repeatStart;
+    _resetFromWidget();
   }
 
   @override
@@ -473,12 +479,7 @@ class _BySurahTabState extends State<_BySurahTab> {
         oldWidget.startVerse != widget.startVerse ||
         oldWidget.endVerse != widget.endVerse ||
         oldWidget.repeatStart != widget.repeatStart) {
-      setState(() {
-        _surah = widget.surah;
-        _start = widget.startVerse;
-        _end = widget.endVerse;
-        _repeat = widget.repeatStart;
-      });
+      setState(_resetFromWidget);
     }
   }
 
@@ -762,14 +763,19 @@ class _ByPageTabState extends State<_ByPageTab> {
   late int _end;
   late int _repeat;
 
+  void _resetFromWidget() {
+    _page = widget.page.clamp(1, 604);
+    _pageSurah = widget.pageSurah.clamp(1, 114);
+    final total = qcf.getVerseCount(_pageSurah);
+    _start = widget.pageStart.clamp(1, total);
+    _end = widget.pageEnd.clamp(_start, total);
+    _repeat = widget.pageRepeatStart.clamp(1, _start);
+  }
+
   @override
   void initState() {
     super.initState();
-    _page = widget.page;
-    _pageSurah = widget.pageSurah;
-    _start = widget.pageStart;
-    _end = widget.pageEnd;
-    _repeat = widget.pageRepeatStart;
+    _resetFromWidget();
   }
 
   @override
@@ -780,25 +786,19 @@ class _ByPageTabState extends State<_ByPageTab> {
         oldWidget.pageStart != widget.pageStart ||
         oldWidget.pageEnd != widget.pageEnd ||
         oldWidget.pageRepeatStart != widget.pageRepeatStart) {
-      setState(() {
-        _page = widget.page;
-        _pageSurah = widget.pageSurah;
-        _start = widget.pageStart;
-        _end = widget.pageEnd;
-        _repeat = widget.pageRepeatStart;
-      });
+      setState(_resetFromWidget);
     }
   }
 
   void _notify() => widget.onChanged(_page, _pageSurah, _start, _end, _repeat);
 
   void _loadPage(int page) {
-    final items = getMedinaMushafPageData(page);
-    if (items.isNotEmpty) {
+    final segment = getMedinaMushafPageStartSegment(page);
+    if (segment != null) {
       _page = page;
-      _pageSurah = items.first['surah']!;
-      _start = items.first['start']!;
-      _end = items.last['end']!;
+      _pageSurah = segment.surah;
+      _start = segment.start;
+      _end = segment.end;
       _repeat = _start;
     }
   }
@@ -835,10 +835,11 @@ class _ByPageTabState extends State<_ByPageTab> {
   void _applyRangePreset(int count) {
     setState(() {
       if (count == -1) {
-        final items = getMedinaMushafPageData(_page);
-        if (items.isNotEmpty) {
-          _start = items.first['start']!;
-          _end = items.last['end']!;
+        final segment = getMedinaMushafPageStartSegment(_page);
+        if (segment != null) {
+          _pageSurah = segment.surah;
+          _start = segment.start;
+          _end = segment.end;
           _repeat = _start;
         }
       } else {
@@ -1073,6 +1074,13 @@ class _LabeledDropdown<T> extends StatelessWidget {
             style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
+          // FormField keeps its own state; re-key when the value or item range
+          // changes so dependent lists never retain an out-of-range value.
+          key: ValueKey(
+            '$label|$value|${items.length}|'
+            '${items.isEmpty ? '' : items.first}|'
+            '${items.isEmpty ? '' : items.last}',
+          ),
           // ignore: deprecated_member_use
           value: value,
           isExpanded: true,

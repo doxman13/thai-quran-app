@@ -230,6 +230,21 @@ class BrowseScreenState extends State<BrowseScreen> {
     final isThai = settings.languageCode == 'th';
     final query = _searchController.text.toLowerCase();
     final isSearching = query.isNotEmpty;
+    final exactNumericQuery = RegExp(r'^\d+$').hasMatch(query.trim())
+        ? int.tryParse(query.trim())
+        : null;
+    final exactJuz = exactNumericQuery != null &&
+            exactNumericQuery >= 1 &&
+            exactNumericQuery <= 30
+        ? exactNumericQuery
+        : null;
+    final exactPage = exactNumericQuery != null &&
+            exactNumericQuery >= 1 &&
+            exactNumericQuery <= 604
+        ? exactNumericQuery
+        : null;
+    final exactJuzStart =
+        exactJuz == null ? null : BrowseScreenState._juzStarts[exactJuz - 1];
     final completedSurahs = _completedSurahs(
       context.watch<LocalReadingProvider>(),
     );
@@ -529,7 +544,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _TabButton(
-                        label: 'หัวข้อ',
+                        label: isThai ? 'หัวข้อ' : 'Topics',
                         selected: _mode == 'topic',
                         colors: widget.colors,
                         onTap: () => _setMode('topic'),
@@ -589,6 +604,52 @@ class BrowseScreenState extends State<BrowseScreen> {
                             completed: completedSurahs.contains(surah.id),
                             onTap: () => widget.onOpen(surah.id, '1'),
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      // Exact Juz match (numeric search)
+                      if (exactJuz != null && exactJuzStart != null) ...[
+                        Text(
+                          context.tr('juz'),
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _SimpleLinkRow(
+                          colors: widget.colors,
+                          index: '$exactJuz',
+                          title: '${context.tr('juz')} $exactJuz',
+                          subtitle: widget.repository
+                              .getSurahName(exactJuzStart[0].toString())
+                              .replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                          icon: Icons.view_week_outlined,
+                          onTap: () => widget.onOpen(
+                            exactJuzStart[0].toString(),
+                            exactJuzStart[1].toString(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      // Exact Mushaf page match (numeric search)
+                      if (exactPage != null) ...[
+                        Text(
+                          context.tr('page'),
+                          style: textTheme.labelLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _SimpleLinkRow(
+                          colors: widget.colors,
+                          index: '$exactPage',
+                          title: '${context.tr('page')} $exactPage',
+                          subtitle:
+                              isThai ? 'เปิดหน้ามุศหัฟ' : 'Open Mushaf page',
+                          icon: Icons.auto_stories_outlined,
+                          onTap: () => widget.onOpenPage(exactPage),
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -915,7 +976,14 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (surahs.isEmpty && _topicSearchResults.isEmpty && verseMatches.isEmpty && (_apiSearchResult == null || _apiSearchResult!.items.isEmpty) && !_isApiSearching)
+                      if (surahs.isEmpty &&
+                          _topicSearchResults.isEmpty &&
+                          verseMatches.isEmpty &&
+                          exactJuz == null &&
+                          exactPage == null &&
+                          (_apiSearchResult == null ||
+                              _apiSearchResult!.items.isEmpty) &&
+                          !_isApiSearching)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 48),
                           child: Center(

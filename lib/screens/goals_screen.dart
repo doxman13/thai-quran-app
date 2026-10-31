@@ -422,7 +422,16 @@ class _GoalsScreenState extends State<GoalsScreen> {
         initialPreset?.targetSurah ??
         '114';
     String meaningTargetVerse = editingMeaningProfile?.target?.verseId ?? '6';
+    // Derive the Ayah count from the stored range when editing, so opening
+    // "By Ayahs" does not silently change 286 to 50.
     int meaningAyatCount = 50;
+    if (editingMeaningProfile != null) {
+      final span = verseSpanInclusive(
+        editingMeaningProfile.start,
+        editingMeaningProfile.target,
+      );
+      if (span > 0) meaningAyatCount = span.clamp(1, 300);
+    }
 
     // Mushaf fields
     final int mushafId =
@@ -1508,6 +1517,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }) {
     final safeVal = value.clamp(min, max);
     return DropdownButtonFormField<int>(
+      // FormField keeps its own state and does not react to a changed
+      // initialValue. Re-key when the value or range changes so dependent
+      // dropdowns refresh instead of asserting on an out-of-range old value.
+      key: ValueKey('goal-int-$label-$safeVal-$min-$max'),
       initialValue: safeVal,
       isExpanded: true,
       decoration: InputDecoration(
@@ -1546,6 +1559,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }) {
     final parsed = (int.tryParse(value) ?? minSurah).clamp(minSurah, 114);
     return DropdownButtonFormField<String>(
+      key: ValueKey('goal-surah-$label-$parsed-$minSurah'),
       initialValue: parsed.toString(),
       isExpanded: true,
       decoration: InputDecoration(
@@ -1596,6 +1610,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final archivedMushaf = mushafProv.archivedCustomProfiles;
 
     final totalActive = meaningGoals.length + mushafGoals.length;
+
+    // The archived drawer should respect the active All/Meaning/Mushaf filter.
+    final visibleArchivedMeaning = _filterTab == GoalFilterTab.mushaf
+        ? const <LocalReadingProfile>[]
+        : archivedMeaning;
+    final visibleArchivedMushaf = _filterTab == GoalFilterTab.meaning
+        ? const <MushafProfile>[]
+        : archivedMushaf;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -2012,12 +2034,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 ],
 
                 // 5. Archived Goals Drawer
-                if (archivedMeaning.isNotEmpty ||
-                    archivedMushaf.isNotEmpty) ...[
+                if (visibleArchivedMeaning.isNotEmpty ||
+                    visibleArchivedMushaf.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _buildArchivedGoalsCard(
-                    archivedMeaning: archivedMeaning,
-                    archivedMushaf: archivedMushaf,
+                    archivedMeaning: visibleArchivedMeaning,
+                    archivedMushaf: visibleArchivedMushaf,
                     readingProv: readingProv,
                     mushafProv: mushafProv,
                     isThai: isThai,
@@ -2290,7 +2312,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: (progress.percent / 100).clamp(0.03, 1.0),
+              value: (progress.percent / 100).clamp(0.0, 1.0),
               minHeight: 8,
               backgroundColor: colors.surfaceMuted,
               valueColor: AlwaysStoppedAnimation<Color>(emerald),
@@ -2384,7 +2406,11 @@ class _GoalsScreenState extends State<GoalsScreen> {
           const SizedBox(height: 12),
 
           // Actions Footer
-          Row(
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            runSpacing: 8,
             children: [
               TextButton.icon(
                 onPressed: () => _showUnifiedGoalModal(
@@ -2420,7 +2446,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   ),
                 ),
               ),
-              const Spacer(),
               FilledButton.icon(
                 onPressed: () => _openMeaningGoal(profile),
                 style: FilledButton.styleFrom(
@@ -2513,7 +2538,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: (progress.percent / 100).clamp(0.03, 1.0),
+              value: (progress.percent / 100).clamp(0.0, 1.0),
               minHeight: 8,
               backgroundColor: colors.surfaceMuted,
               valueColor: const AlwaysStoppedAnimation<Color>(amber),
@@ -2605,7 +2630,11 @@ class _GoalsScreenState extends State<GoalsScreen> {
           const SizedBox(height: 12),
 
           // Actions Footer
-          Row(
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            runSpacing: 8,
             children: [
               TextButton.icon(
                 onPressed: () => _showUnifiedGoalModal(
@@ -2641,7 +2670,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   ),
                 ),
               ),
-              const Spacer(),
               FilledButton.icon(
                 onPressed: () => _openMushafGoal(profile),
                 style: FilledButton.styleFrom(

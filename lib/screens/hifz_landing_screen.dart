@@ -104,12 +104,10 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     if (!mounted) return;
     setState(() {
       _completionMap = map;
-      _masteredCount = records
-          .where((r) => r.newVersesCompleted && r.reviewCount >= 3)
-          .length;
-      _inProgressCount = records
-          .where((r) => r.newVersesCompleted || r.reviewCount > 0)
-          .length;
+      _masteredCount =
+          records.where(SurahMasteryCard.isMasteredRecord).length;
+      _inProgressCount =
+          records.where(SurahMasteryCard.isInProgressRecord).length;
       _activeSessionSnapshot = activeSession;
       _hasActiveSession = activeSession != null;
       _loading = false;
@@ -238,14 +236,12 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   List<int> _getFilteredSurahs(bool isThai) {
     final all = List.generate(114, (i) => i + 1);
     final byFilter = switch (_filterMode) {
-      _MasteryFilter.mastered => all.where((s) {
-          final r = _completionMap[s];
-          return r != null && r.newVersesCompleted && r.reviewCount >= 3;
-        }).toList(),
-      _MasteryFilter.inProgress => all.where((s) {
-          final r = _completionMap[s];
-          return r != null && (r.newVersesCompleted || r.reviewCount > 0);
-        }).toList(),
+      _MasteryFilter.mastered => all
+          .where((s) => SurahMasteryCard.isMasteredRecord(_completionMap[s]))
+          .toList(),
+      _MasteryFilter.inProgress => all
+          .where((s) => SurahMasteryCard.isInProgressRecord(_completionMap[s]))
+          .toList(),
       _MasteryFilter.juz29And30 =>
         all.where((s) => _juzOfSurah(s) >= 29).toList(),
       _MasteryFilter.all => all,
@@ -927,11 +923,18 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
         Provider.of<SettingsProvider>(context, listen: false).languageCode ==
             'th';
     final record = _completionMap[surahNum];
-    final isCompleted = record?.newVersesCompleted == true;
+    final isMastered = SurahMasteryCard.isMasteredRecord(record);
+    final isInProgress = SurahMasteryCard.isInProgressRecord(record);
     final reviewCount = record?.reviewCount ?? 0;
     final names = surahNamePair(surahNum.toString());
     final verseCount = qcf.getVerseCount(surahNum);
     final juz = _juzOfSurah(surahNum);
+    final statusColor = isMastered
+        ? const Color(0xFF15803D)
+        : const Color(0xFFB45309);
+    final statusLabel = isMastered
+        ? (isThai ? 'จำขึ้นใจแล้ว' : 'Mastered')
+        : (isThai ? 'กำลังท่อง' : 'In Progress');
 
     showModalBottomSheet<void>(
       context: context,
@@ -994,22 +997,22 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                         ],
                       ),
                     ),
-                    if (isCompleted)
+                    if (isMastered || isInProgress)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF15803D).withValues(alpha: 0.12),
+                          color: statusColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          isThai ? 'สำเร็จแล้ว' : 'Completed',
-                          style: const TextStyle(
+                          statusLabel,
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF15803D),
+                            color: statusColor,
                           ),
                         ),
                       ),

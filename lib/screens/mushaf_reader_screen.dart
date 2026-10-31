@@ -133,7 +133,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   void initState() {
     super.initState();
     final profile = _getProfile();
-    _pageNumber = widget.initialPage ?? profile?.currentPage ?? 1;
+    final requestedPage = widget.initialPage ?? profile?.currentPage ?? 1;
+    _pageNumber = profile == null
+        ? requestedPage.clamp(1, 604)
+        : _clampInt(requestedPage, profile.startPage, profile.targetPage);
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
@@ -198,8 +201,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialPage != null &&
         widget.initialPage != oldWidget.initialPage) {
-      _pageNumber = widget.initialPage!;
       final profile = _getProfile();
+      _pageNumber = profile == null
+          ? widget.initialPage!.clamp(1, 604)
+          : _clampInt(
+              widget.initialPage!,
+              profile.startPage,
+              profile.targetPage,
+            );
       final index = _pageToIndex(profile, _pageNumber);
       if (_pageController.hasClients) {
         _pageController.jumpToPage(index);

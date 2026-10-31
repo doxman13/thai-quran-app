@@ -76,10 +76,34 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   bool get isLoaded => _isLoaded;
-  List<MushafProfile> get profiles => List.unmodifiable(_profiles);
+
+  /// Current account scope. Free-read profiles created for a signed-in user
+  /// carry that user's id; guest/free-read legacy data stays under `local`.
+  String get currentUserId {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id ?? 'local';
+    } catch (_) {
+      return 'local';
+    }
+  }
+
+  bool _isProfileVisible(MushafProfile profile) {
+    if (profile.isFreeRead) {
+      return profile.userId == currentUserId || profile.userId == 'local';
+    }
+    return profile.userId == currentUserId;
+  }
+
+  List<MushafProfile> get profiles =>
+      List.unmodifiable(_profiles.where(_isProfileVisible));
   List<MushafProfile> get activeCustomProfiles =>
       _profiles
-          .where((profile) => !profile.isFreeRead && !profile.isArchived)
+          .where(
+            (profile) =>
+                !profile.isFreeRead &&
+                !profile.isArchived &&
+                profile.userId == currentUserId,
+          )
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   List<MushafPageBookmark> get pageBookmarks =>
@@ -96,23 +120,42 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   MushafProfile? profileById(String? id) {
     if (id == null) return null;
     for (final profile in _profiles) {
-      if (profile.id == id) return profile;
+      if (profile.id == id && _isProfileVisible(profile)) return profile;
     }
     return null;
   }
 
+  /// Index of a profile that belongs to the active account. Free-read profile
+  /// ids can be duplicated across account scopes, so filtering by visibility
+  /// matters for mutations.
+  int _visibleProfileIndex(String profileId) => _profiles.indexWhere(
+    (profile) => profile.id == profileId && _isProfileVisible(profile),
+  );
+
   MushafProfile freeReadProfileForMushaf(int mushafId) {
-    final existing = _profiles.where((profile) {
-      return profile.isFreeRead && profile.mushafId == mushafId;
-    }).firstOrNull;
+    final candidates = _profiles.where((profile) {
+      return profile.isFreeRead &&
+          profile.mushafId == mushafId &&
+          (profile.userId == currentUserId || profile.userId == 'local');
+    }).toList();
+    // Prefer the current account's profile over the shared legacy one.
+    candidates.sort((a, b) {
+      final aIsCurrent = a.userId == currentUserId ? 0 : 1;
+      final bIsCurrent = b.userId == currentUserId ? 0 : 1;
+      return aIsCurrent.compareTo(bIsCurrent);
+    });
+    final existing = candidates.firstOrNull;
     if (existing != null) {
-      if (existing.name != 'Just Read') {
-        final index = _profiles.indexWhere(
-          (profile) => profile.id == existing.id,
-        );
+      // First signed-in use adopts the shared guest free-read profile so later
+      // accounts cannot see this account's reading position.
+      final shouldAdopt =
+          existing.userId == 'local' && currentUserId != 'local';
+      if (existing.name != 'Just Read' || shouldAdopt) {
+        final index = _profiles.indexOf(existing);
         if (index != -1) {
           final updated = existing.copyWith(
             name: 'Just Read',
+            userId: shouldAdopt ? currentUserId : null,
             updatedAt: DateTime.now(),
           );
           _profiles[index] = updated;
@@ -127,7 +170,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final type = mushafTypeById(mushafId);
     final profile = MushafProfile(
       id: 'mushaf-free-$mushafId',
-      userId: 'local',
+      userId: currentUserId,
       name: 'Just Read',
       slug: mushafFreeReadSlug,
       mushafId: mushafId,
@@ -178,10 +221,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           ..clear()
           ..addAll(_decodeStringSet(decoded['deletedVerseBookmarkKeys']));
         _recentReadings = _deduplicateRecent(
-          _decodeList(
-            decoded['recentReadings'],
-            MushafRecentReading.fromJson,
-          ),
+          _decodeList(decoded['recentReadings'], MushafRecentReading.fromJson),
         );
         _activeProfileId = decoded['activeProfileId']?.toString();
         final displayMushafId =
@@ -261,7 +301,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String profileId,
     required int pageNumber,
   }) async {
-    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    final index = _visibleProfileIndex(profileId);
     if (index == -1) return;
     final profile = _profiles[index];
     final page = _clampInt(pageNumber, profile.startPage, profile.targetPage);
@@ -281,7 +321,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> updateProfile(String profileId, {required String name}) async {
-    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    final index = _visibleProfileIndex(profileId);
     if (index == -1) return;
     final profile = _profiles[index];
     final updated = profile.copyWith(name: name, updatedAt: DateTime.now());
@@ -299,7 +339,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     required int targetPage,
     bool resetProgress = false,
   }) async {
-    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    final index = _visibleProfileIndex(profileId);
     if (index == -1) return;
     final profile = _profiles[index];
     if (profile.isFreeRead) return;
@@ -401,7 +441,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> archiveProfile(String profileId) async {
-    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    final index = _visibleProfileIndex(profileId);
     if (index == -1 || _profiles[index].isFreeRead) return;
     final updated = _profiles[index].copyWith(
       isArchived: true,
@@ -417,7 +457,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> restoreProfile(String profileId) async {
-    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    final index = _visibleProfileIndex(profileId);
     if (index == -1 || _profiles[index].isFreeRead) return;
     if (!canCreateProfile) {
       throw const QuranFoundationException(
@@ -436,7 +476,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   List<MushafProfile> get archivedCustomProfiles =>
       _profiles
-          .where((profile) => !profile.isFreeRead && profile.isArchived)
+          .where(
+            (profile) =>
+                !profile.isFreeRead &&
+                profile.isArchived &&
+                profile.userId == currentUserId,
+          )
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
@@ -576,14 +621,15 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final byKey = <String, MushafProfile>{};
     for (final profile in profiles) {
       if (profile.isFreeRead) {
-        final key = 'free_read_${profile.mushafId}';
+        final key = 'free_read_${profile.userId}_${profile.mushafId}';
         final existing = byKey[key];
         if (existing == null || profile.updatedAt.isAfter(existing.updatedAt)) {
           byKey[key] = profile;
         }
         continue;
       }
-      final key = 'custom_${profile.slug}_${profile.mushafId}';
+      final key =
+          'custom_${profile.userId}_${profile.slug}_${profile.mushafId}';
       final existing = byKey[key];
       if (existing == null) {
         byKey[key] = profile;
@@ -628,10 +674,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           reading.mushafId == profile.mushafId &&
           (profile.isFreeRead
               ? (reading.profileId == profile.id ||
-                  reading.profileId == null ||
-                  reading.profileId!.startsWith('mushaf-free') ||
-                  reading.pageNumber == page)
-              : (reading.profileId == profile.id || reading.pageNumber == page)),
+                    reading.profileId == null ||
+                    reading.profileId!.startsWith('mushaf-free') ||
+                    reading.pageNumber == page)
+              : (reading.profileId == profile.id ||
+                    reading.pageNumber == page)),
     );
     final recent = MushafRecentReading(
       mushafId: profile.mushafId,

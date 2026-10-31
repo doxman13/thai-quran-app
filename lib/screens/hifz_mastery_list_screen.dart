@@ -109,13 +109,13 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       appBar: AppBar(
         centerTitle: true,
         title: Text(
-          'Hifz Mastery',
+          isThai ? 'คลังความจำฮิฟซ์' : 'Hifz Mastery',
           style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh',
+            tooltip: isThai ? 'รีเฟรช' : 'Refresh',
             onPressed: _load,
           ),
         ],
@@ -123,9 +123,9 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       body: Column(
         children: [
           // --- Filter chips ---
-          _buildFilterBar(colorScheme, textTheme),
+          _buildFilterBar(colorScheme, textTheme, isThai),
           // --- Stats summary ---
-          _buildStatsSummary(colorScheme, textTheme),
+          _buildStatsSummary(colorScheme, textTheme, isThai),
           // --- Surah list ---
           Expanded(
             child: _loading
@@ -144,7 +144,11 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
     );
   }
 
-  Widget _buildFilterBar(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildFilterBar(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isThai,
+  ) {
     return Container(
       color: colorScheme.surfaceContainerLow,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -154,10 +158,11 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
           spacing: 8,
           children: _FilterMode.values.map((mode) {
             final label = switch (mode) {
-              _FilterMode.all => 'All (114)',
-              _FilterMode.mastered => 'Mastered',
-              _FilterMode.inProgress => 'In Progress',
-              _FilterMode.juz29And30 => "Juz' 29 & 30",
+              _FilterMode.all => isThai ? 'ทั้งหมด (114)' : 'All (114)',
+              _FilterMode.mastered => isThai ? 'จำขึ้นใจแล้ว' : 'Mastered',
+              _FilterMode.inProgress => isThai ? 'กำลังท่อง' : 'In Progress',
+              _FilterMode.juz29And30 =>
+                isThai ? 'ญุซอ์ 29 & 30' : "Juz' 29 & 30",
             };
             final selected = _filterMode == mode;
             return FilterChip(
@@ -183,7 +188,11 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
     );
   }
 
-  Widget _buildStatsSummary(ColorScheme colorScheme, TextTheme textTheme) {
+  Widget _buildStatsSummary(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isThai,
+  ) {
     final total = 114;
     final mastered = _completionMap.values
         .where(SurahMasteryCard.isMasteredRecord)
@@ -205,21 +214,21 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _StatPill(
-            label: 'Mastered',
+            label: isThai ? 'จำขึ้นใจแล้ว' : 'Mastered',
             value: '$mastered / $total',
             icon: Icons.verified_rounded,
             colorScheme: colorScheme,
             textTheme: textTheme,
           ),
           _StatPill(
-            label: 'Reviewed',
+            label: isThai ? 'ทบทวนแล้ว' : 'Reviewed',
             value: '$reviewed',
             icon: Icons.replay_rounded,
             colorScheme: colorScheme,
             textTheme: textTheme,
           ),
           _StatPill(
-            label: 'Total Reviews',
+            label: isThai ? 'ทบทวนทั้งหมด' : 'Total Reviews',
             value: '$totalReviews',
             icon: Icons.bar_chart_rounded,
             colorScheme: colorScheme,

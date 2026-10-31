@@ -16,6 +16,41 @@ bool isShortcutProfile(LocalReadingProfile profile) {
       profile.slug.startsWith('shortcut_');
 }
 
+/// Orders two Quran verse references by Surah, then by Ayah.
+int compareQuranVerseRefs(VerseRef left, VerseRef right) {
+  final leftSurah = int.tryParse(left.surahId) ?? 0;
+  final rightSurah = int.tryParse(right.surahId) ?? 0;
+  if (leftSurah != rightSurah) return leftSurah.compareTo(rightSurah);
+
+  final leftVerse = int.tryParse(left.verseId) ?? 0;
+  final rightVerse = int.tryParse(right.verseId) ?? 0;
+  return leftVerse.compareTo(rightVerse);
+}
+
+/// Keeps [ref] inside the (inclusive) reading range.
+///
+/// Editing a goal must not wipe progress. If the old position is still inside
+/// the new range we keep it; if it is before the new start we move to the
+/// start; if it is past the new target we clamp to the target so the goal is
+/// treated as complete instead of being reset.
+VerseRef constrainVerseRefToRange(
+  VerseRef ref, {
+  required VerseRef start,
+  VerseRef? target,
+}) {
+  if (compareQuranVerseRefs(ref, start) < 0) return start;
+  if (target != null && compareQuranVerseRefs(ref, target) > 0) return target;
+  return ref;
+}
+
+/// Inclusive number of Ayahs covered by a goal range, or 0 when it has no
+/// explicit target.
+int verseSpanInclusive(VerseRef start, VerseRef? target) {
+  if (target == null) return 0;
+  final span = absoluteVerseIndex(target) - absoluteVerseIndex(start) + 1;
+  return span > 0 ? span : 0;
+}
+
 class StorageException implements Exception {
   final String message;
   const StorageException(this.message);
@@ -614,15 +649,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     return true;
   }
 
-  int _compareVerseRefs(VerseRef left, VerseRef right) {
-    final leftSurah = int.tryParse(left.surahId) ?? 0;
-    final rightSurah = int.tryParse(right.surahId) ?? 0;
-    if (leftSurah != rightSurah) return leftSurah.compareTo(rightSurah);
-
-    final leftVerse = int.tryParse(left.verseId) ?? 0;
-    final rightVerse = int.tryParse(right.verseId) ?? 0;
-    return leftVerse.compareTo(rightVerse);
-  }
+  int _compareVerseRefs(VerseRef left, VerseRef right) =>
+      compareQuranVerseRefs(left, right);
 
   LocalReadingProvider() {
     WidgetsBinding.instance.addObserver(this);
@@ -1433,6 +1461,20 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
     if (profile == null || isFreeReadProfile(profile)) return;
 
+    // Renaming or re-scoping a goal must not erase reading progress. Keep the
+    // old position when it still falls inside the edited range; otherwise
+    // clamp it to the nearest edge (start/target).
+    final nextCurrent = constrainVerseRefToRange(
+      profile.current,
+      start: start,
+      target: target,
+    );
+    final nextLastViewed = constrainVerseRefToRange(
+      profile.lastViewed,
+      start: start,
+      target: target,
+    );
+
     final updated = profile.copyWith(
       name: name,
       planMode: planMode,
@@ -1441,7 +1483,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       start: start,
       target: target,
       clearTarget: target == null,
-      current: start,
+      current: nextCurrent,
+      lastViewed: nextLastViewed,
       updatedAt: DateTime.now(),
     );
 
