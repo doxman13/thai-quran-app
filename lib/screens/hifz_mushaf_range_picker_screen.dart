@@ -177,7 +177,7 @@ class _HifzMushafRangePickerScreenState
     final picked = await SurahPickerSheet.show(
       context,
       selectedSurah: _selectedSurah,
-      title: isThai ? 'เลือกซูเราะฮ์' : 'Select Surah',
+      title: isThai ? 'เลือกซูเราะฮฺ' : 'Select Surah',
     );
     if (picked == null || !mounted) return;
 
@@ -315,7 +315,8 @@ class _HifzMushafRangePickerScreenState
                                     isDark: Theme.of(context).brightness ==
                                         Brightness.dark,
                                   ),
-                                  showSurahFrame: true,
+                                  showSurahFrame:
+                                      !surahsWithFrameOnPreviousPage.contains(sid),
                                   showBismillahText: true,
                                 ),
                               MushafLine(
@@ -336,6 +337,19 @@ class _HifzMushafRangePickerScreenState
                                 onVerseLongPress: (_) {},
                               ),
                             ],
+                            if (surahFrameOnPageBottom[mushafPage.pageNumber] !=
+                                null)
+                              QcfSurahHeader(
+                                surahNumber: int.tryParse(surahFrameOnPageBottom[
+                                        mushafPage.pageNumber]!) ??
+                                    0,
+                                colors: AppTheme.colors(
+                                  isDark: Theme.of(context).brightness ==
+                                      Brightness.dark,
+                                ),
+                                showSurahFrame: true,
+                                showBismillahText: false,
+                              ),
                           ],
                         ),
                       ),
@@ -458,9 +472,9 @@ class _HifzMushafRangePickerScreenState
           Expanded(
             child: Text(
               hasSelection
-                  ? '$surahName ${isRangeComplete ? '$minV–$maxV ($verseCount ${isThai ? 'อายะห์' : 'ayat'})' : '${isThai ? 'เริ่ม' : 'Start'} $minV'}'
+                  ? '$surahName ${isRangeComplete ? '$minV–$maxV ($verseCount ${isThai ? 'อายะฮฺ' : 'ayat'})' : '${isThai ? 'เริ่ม' : 'Start'} $minV'}'
                   : (isThai
-                      ? 'แตะเลือกอายะห์บนหน้ามุศฮัฟ'
+                      ? 'แตะเลือกอายะฮฺบนหน้ามุศหัฟ'
                       : 'Tap verses on page to select'),
               style: textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
@@ -526,7 +540,7 @@ class _HifzMushafRangePickerScreenState
                   children: [
                     Text(
                       isThai
-                          ? 'แตะอายะห์เพื่อกำหนดจุดเริ่มต้น'
+                          ? 'แตะอายะฮฺเพื่อกำหนดจุดเริ่มต้น'
                           : 'Tap an ayah to set range start',
                       style: textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -534,7 +548,7 @@ class _HifzMushafRangePickerScreenState
                     ),
                     Text(
                       isThai
-                          ? 'ปัดซ้าย-ขวาเพื่อเปิดหน้า หรือเปลี่ยนซูเราะฮ์ด้านบน'
+                          ? 'ปัดซ้าย-ขวาเพื่อเปิดหน้า หรือเปลี่ยนซูเราะฮฺด้านบน'
                           : 'Swipe left/right to browse, or jump to surah above',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -580,8 +594,8 @@ class _HifzMushafRangePickerScreenState
                     ),
                     Text(
                       isRangeComplete
-                          ? '${isThai ? 'อายะห์' : 'Ayat'} $minV – $maxV ($verseCount ${isThai ? 'อายะห์' : 'verses'} · ${isThai ? 'หน้า' : 'P.'} $startPage${startPage != endPage ? '–$endPage' : ''})'
-                          : '${isThai ? 'อายะห์เริ่ม' : 'Start Ayah'}: $minV · ${isThai ? 'แตะอายะห์สิ้นสุด' : 'Tap ending ayah'}',
+                          ? '${isThai ? 'อายะฮฺ' : 'Ayat'} $minV – $maxV ($verseCount ${isThai ? 'อายะฮฺ' : 'verses'} · ${isThai ? 'หน้า' : 'P.'} $startPage${startPage != endPage ? '–$endPage' : ''})'
+                          : '${isThai ? 'อายะฮฺเริ่ม' : 'Start Ayah'}: $minV · ${isThai ? 'แตะอายะฮฺสิ้นสุด' : 'Tap ending ayah'}',
                       style: textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: colorScheme.onSurface,
@@ -622,7 +636,7 @@ class _HifzMushafRangePickerScreenState
                     isRangeComplete
                         ? (isThai ? 'ยืนยันช่วงนี้' : 'Confirm Range')
                         : (isThai
-                            ? 'เลือก 1 อายะห์นี้'
+                            ? 'เลือก 1 อายะฮฺนี้'
                             : 'Select Single Ayah'),
                   ),
                   style: FilledButton.styleFrom(
@@ -725,7 +739,7 @@ class _HifzMushafRangePickerScreenState
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: foreground,
                   ),
                 ),

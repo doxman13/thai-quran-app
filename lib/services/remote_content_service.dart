@@ -94,7 +94,7 @@ class RemoteContentService {
           compareVersions(bundledVersion, localCachedVersion) >= 0) {
         await _cache.deleteContent(contentKey);
         await prefs.setString('$_versionPrefix$contentKey', bundledVersion);
-        return rootBundle.loadString(bundledAssetPath);
+        return await rootBundle.loadString(bundledAssetPath);
       }
 
       // If cached version is strictly newer than bundled asset, read OTA cache

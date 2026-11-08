@@ -65,19 +65,37 @@ class HifzWizardSetupScreen extends StatefulWidget {
 class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   late int _currentStep;
   late HifzSessionType _selectedMode;
+  bool _isNewVerses = true;
 
-  // By Surah state (New Verses & Review By Verses)
-  late int _surah;
-  late int _startVerse;
-  late int _endVerse;
+  // New Verses & shared Surah/Verse/Page state
+  // 0 = By Surah, 1 = By Page
+  int _nvScopeIndex = 0;
+  late int _nvSurah;
+  late int _nvStartVerse;
+  late int _nvEndVerse;
+  late int _nvStartPage;
+  late int _nvEndPage;
   int _repeatStart = 1;
 
-  // By Page state (New Verses)
-  bool _isSurahScope = true;
-  late int _page;
   int _pageSurah = 1;
   int _pageStart = 1;
   int _pageEnd = 3;
+
+  // Compatibility accessors used across Step 2 & Step 3 UI
+  bool get _isSurahScope => _nvScopeIndex == 0;
+  set _isSurahScope(bool value) => _nvScopeIndex = value ? 0 : 1;
+
+  int get _surah => _nvSurah;
+  set _surah(int value) => _nvSurah = value;
+
+  int get _startVerse => _nvStartVerse;
+  set _startVerse(int value) => _nvStartVerse = value;
+
+  int get _endVerse => _nvEndVerse;
+  set _endVerse(int value) => _nvEndVerse = value;
+
+  int get _page => _nvStartPage;
+  set _page(int value) => _nvStartPage = value;
 
   // Review Mode multi-surah & multi-page range state
   // 0 = By Surah Range (multi-surah), 1 = By Verses, 2 = By Page Range
@@ -98,21 +116,26 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     super.initState();
     _currentStep = widget.initialStep.clamp(0, 2);
     _selectedMode = widget.initialMode ?? HifzSessionType.newVerses;
+    _isNewVerses = _selectedMode == HifzSessionType.newVerses;
 
-    _surah = widget.initialSurah ?? 67; // Default Al-Mulk
-    final total = qcf.getVerseCount(_surah);
-    _startVerse = widget.initialStartVerse ?? 1;
-    _endVerse = widget.initialEndVerse ?? (_startVerse + 4).clamp(1, total);
+    _nvSurah = widget.initialSurah ?? widget.initialStartSurah ?? 67; // Default Al-Mulk
+    final total = qcf.getVerseCount(_nvSurah);
+    _nvStartVerse = (widget.initialStartVerse ?? 1).clamp(1, total);
+    _nvEndVerse = (widget.initialEndVerse ?? (_nvStartVerse + 4)).clamp(_nvStartVerse, total);
     _repeatStart = widget.initialRepeatStart ?? 1;
-    if (_repeatStart > _startVerse) _repeatStart = _startVerse;
+    if (_repeatStart > _nvStartVerse) _repeatStart = _nvStartVerse;
 
-    _page = widget.initialPage ?? getMedinaMushafPageNumber(_surah, _startVerse);
-    _initFromPage(_page);
+    _nvStartPage = widget.initialPage ??
+        widget.initialStartPage ??
+        getMedinaMushafPageNumber(_nvSurah, _nvStartVerse);
+    _nvEndPage = widget.initialEndPage ??
+        getMedinaMushafPageNumber(_nvSurah, _nvEndVerse);
+    _initFromPage(_nvStartPage);
 
-    _reviewStartSurah = widget.initialStartSurah ?? widget.initialSurah ?? 67;
+    _reviewStartSurah = widget.initialStartSurah ?? _nvSurah;
     _reviewEndSurah = widget.initialEndSurah ?? _reviewStartSurah;
-    _reviewStartPage = widget.initialStartPage ?? _page;
-    _reviewEndPage = widget.initialEndPage ?? _reviewStartPage;
+    _reviewStartPage = widget.initialStartPage ?? _nvStartPage;
+    _reviewEndPage = widget.initialEndPage ?? _nvEndPage;
 
     if (widget.initialMode == HifzSessionType.review) {
       if (widget.initialStartPage != null) {
@@ -138,14 +161,122 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     }
   }
 
+  Future<void> _persistWizardSelection() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hifz_wizard_is_new_verses', _isNewVerses);
+    await prefs.setInt('hifz_wizard_nv_scope_index', _nvScopeIndex);
+    await prefs.setInt('hifz_nv_surah', _nvSurah);
+    await prefs.setInt('hifz_nv_start_verse', _nvStartVerse);
+    await prefs.setInt('hifz_nv_end_verse', _nvEndVerse);
+    await prefs.setInt('hifz_nv_start_page', _nvStartPage);
+    await prefs.setInt('hifz_nv_end_page', _nvEndPage);
+    await prefs.setInt('hifz_nv_page', _nvStartPage);
+    await prefs.setBool('hifz_nv_is_surah_mode', _isSurahScope);
+    await prefs.setInt('hifz_nv_repeat_start', _repeatStart);
+    await prefs.setInt('hifz_review_scope_index', _reviewScopeIndex);
+    await prefs.setInt('hifz_review_start_surah', _reviewStartSurah);
+    await prefs.setInt('hifz_review_end_surah', _reviewEndSurah);
+    await prefs.setInt('hifz_review_start_page', _reviewStartPage);
+    await prefs.setInt('hifz_review_end_page', _reviewEndPage);
+    await prefs.setBool('hifz_chunk_long_verses', _chunkLongVerses);
+    await prefs.setBool('hifz_review_start_hidden', _reviewStartHidden);
+  }
+
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _chunkLongVerses = prefs.getBool('hifz_chunk_long_verses') ?? true;
+      _reviewStartHidden = prefs.getBool('hifz_review_start_hidden') ?? false;
+
+      if (widget.initialMode == null) {
+        final savedIsNew = prefs.getBool('hifz_wizard_is_new_verses');
+        if (savedIsNew != null) {
+          _isNewVerses = savedIsNew;
+          _selectedMode =
+              savedIsNew ? HifzSessionType.newVerses : HifzSessionType.review;
+        }
+      }
+
+      if (widget.initialPage == null && widget.initialSurah == null) {
+        final savedNvScope = prefs.getInt('hifz_wizard_nv_scope_index');
+        if (savedNvScope != null) {
+          _nvScopeIndex = savedNvScope.clamp(0, 1);
+        } else {
+          final savedSurahMode = prefs.getBool('hifz_nv_is_surah_mode');
+          if (savedSurahMode != null) {
+            _nvScopeIndex = savedSurahMode ? 0 : 1;
+          }
+        }
+      }
+
+      if (widget.initialSurah == null && widget.initialStartSurah == null) {
+        final savedSurah = prefs.getInt('hifz_nv_surah');
+        if (savedSurah != null) {
+          _nvSurah = savedSurah.clamp(1, 114);
+        }
+      }
+
+      final total = qcf.getVerseCount(_nvSurah);
+      if (widget.initialStartVerse == null) {
+        final savedStart = prefs.getInt('hifz_nv_start_verse');
+        if (savedStart != null) {
+          _nvStartVerse = savedStart.clamp(1, total);
+        }
+      }
+      if (widget.initialEndVerse == null) {
+        final savedEnd = prefs.getInt('hifz_nv_end_verse');
+        if (savedEnd != null) {
+          _nvEndVerse = savedEnd.clamp(_nvStartVerse, total);
+        } else {
+          _nvEndVerse = (_nvStartVerse + 4).clamp(_nvStartVerse, total);
+        }
+      }
+
+      if (widget.initialPage == null && widget.initialStartPage == null) {
+        final savedStartPage =
+            prefs.getInt('hifz_nv_start_page') ?? prefs.getInt('hifz_nv_page');
+        final savedEndPage = prefs.getInt('hifz_nv_end_page');
+        _nvStartPage = (savedStartPage ??
+                getMedinaMushafPageNumber(_nvSurah, _nvStartVerse))
+            .clamp(1, 604);
+        _nvEndPage = (savedEndPage ??
+                getMedinaMushafPageNumber(_nvSurah, _nvEndVerse))
+            .clamp(_nvStartPage, 604);
+        _initFromPage(_nvStartPage);
+      }
+
+      if (widget.initialStartSurah == null && widget.initialSurah == null) {
+        _reviewStartSurah =
+            (prefs.getInt('hifz_review_start_surah') ?? _nvSurah).clamp(1, 114);
+      }
+      if (widget.initialEndSurah == null && widget.initialSurah == null) {
+        _reviewEndSurah =
+            (prefs.getInt('hifz_review_end_surah') ?? _reviewStartSurah)
+                .clamp(_reviewStartSurah, 114);
+      }
+      if (widget.initialStartPage == null && widget.initialSurah == null) {
+        _reviewStartPage =
+            (prefs.getInt('hifz_review_start_page') ?? _nvStartPage)
+                .clamp(1, 604);
+      }
+      if (widget.initialEndPage == null && widget.initialSurah == null) {
+        _reviewEndPage =
+            (prefs.getInt('hifz_review_end_page') ?? _reviewStartPage)
+                .clamp(_reviewStartPage, 604);
+      }
+      if (widget.initialStartPage == null &&
+          widget.initialStartVerse == null &&
+          widget.initialStartSurah == null) {
+        final savedRevScope = prefs.getInt('hifz_review_scope_index');
+        if (savedRevScope != null) {
+          _reviewScopeIndex = savedRevScope.clamp(0, 2);
+        }
+      }
+
       if (widget.initialRepeatStart == null) {
         final savedRepeat = prefs.getInt('hifz_nv_repeat_start');
-        final currentStart = _isSurahScope ? _startVerse : _pageStart;
+        final currentStart = _isSurahScope ? _nvStartVerse : _pageStart;
         if (savedRepeat != null) {
           _repeatStart = savedRepeat.clamp(1, currentStart);
         }
@@ -185,6 +316,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   void _nextStep() {
     if (_currentStep < 2) {
       setState(() => _currentStep++);
+      _persistWizardSelection();
     } else {
       _launchSession();
     }
@@ -198,29 +330,89 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     }
   }
 
-  void _applyReviewStartSurah(int picked) {
+  /// Synchronizes the active Surah, verse bounds, and corresponding Mushaf pages
+  /// across both New Verses (`bySurah` / `byPage`) and Review (`bySurah` / `byVerses` / `byPage`) tabs,
+  /// and persists the updated state to [SharedPreferences].
+  void _syncActiveSurah(
+    int surahId, {
+    int? startVerse,
+    int? endVerse,
+    int? page,
+    bool? forNewVerses,
+  }) {
+    final clampedSurah = surahId.clamp(1, 114);
+    final total = qcf.getVerseCount(clampedSurah);
+    final useNewVerses =
+        forNewVerses ?? (_selectedMode == HifzSessionType.newVerses);
+    final sVerse = (startVerse ?? 1).clamp(1, total);
+    final defaultEnd = useNewVerses ? (sVerse + 4).clamp(1, total) : total;
+    final eVerse = (endVerse ?? defaultEnd).clamp(sVerse, total);
+    final startPage = page != null
+        ? page.clamp(1, 604)
+        : getMedinaMushafPageNumber(clampedSurah, sVerse);
+    final endPage = page != null
+        ? page.clamp(1, 604)
+        : getMedinaMushafPageNumber(clampedSurah, eVerse);
+
     setState(() {
-      _reviewStartSurah = picked;
+      _nvSurah = clampedSurah;
+      _nvStartVerse = sVerse;
+      _nvEndVerse = eVerse;
+      _repeatStart = 1;
+
+      _nvStartPage = startPage;
+      _nvEndPage = endPage;
+      _initFromPage(startPage);
+
+      _reviewStartSurah = clampedSurah;
+      _reviewEndSurah = clampedSurah;
+      _reviewStartPage = startPage;
+      _reviewEndPage = endPage;
+    });
+    _persistWizardSelection();
+  }
+
+  void _syncSurahSelection(
+    int newSurah, {
+    int? startVerse,
+    int? endVerse,
+    bool forNewVerses = true,
+  }) {
+    _syncActiveSurah(
+      newSurah,
+      startVerse: startVerse,
+      endVerse: endVerse,
+      forNewVerses: forNewVerses,
+    );
+  }
+
+  void _applyReviewStartSurah(int picked) {
+    final clamped = picked.clamp(1, 114);
+    setState(() {
+      _reviewStartSurah = clamped;
       if (_reviewEndSurah < _reviewStartSurah) {
         _reviewEndSurah = _reviewStartSurah;
       }
-      _surah = picked;
-      final total = qcf.getVerseCount(picked);
-      _startVerse = 1;
-      _endVerse = total;
+      _nvSurah = clamped;
+      final total = qcf.getVerseCount(clamped);
+      _nvStartVerse = 1;
+      _nvEndVerse = total;
       _reviewStartPage = getMedinaMushafPageNumber(_reviewStartSurah, 1);
       _reviewEndPage = getMedinaMushafPageNumber(
         _reviewEndSurah,
         qcf.getVerseCount(_reviewEndSurah),
       );
-      _page = _reviewStartPage;
-      _initFromPage(_page);
+      _nvStartPage = _reviewStartPage;
+      _nvEndPage = _reviewEndPage;
+      _initFromPage(_nvStartPage);
     });
+    _persistWizardSelection();
   }
 
   void _applyReviewEndSurah(int picked) {
+    final clamped = picked.clamp(1, 114);
     setState(() {
-      _reviewEndSurah = picked;
+      _reviewEndSurah = clamped;
       if (_reviewEndSurah < _reviewStartSurah) {
         _reviewStartSurah = _reviewEndSurah;
       }
@@ -228,38 +420,19 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
         _reviewEndSurah,
         qcf.getVerseCount(_reviewEndSurah),
       );
+      _nvEndPage = _reviewEndPage;
     });
-  }
-
-  void _syncSurahSelection(int newSurah, {int? startVerse, int? endVerse, bool forNewVerses = true}) {
-    final total = qcf.getVerseCount(newSurah);
-    final sVerse = (startVerse ?? 1).clamp(1, total);
-    final eVault = forNewVerses ? (sVerse + 4).clamp(1, total) : total;
-    final eVerse = (endVerse ?? eVault).clamp(sVerse, total);
-    final page = getMedinaMushafPageNumber(newSurah, sVerse);
-    final endPage = getMedinaMushafPageNumber(newSurah, eVerse);
-
-    setState(() {
-      _surah = newSurah;
-      _startVerse = sVerse;
-      _endVerse = eVerse;
-      _repeatStart = 1;
-
-      _page = page;
-      _initFromPage(page);
-
-      _reviewStartSurah = newSurah;
-      _reviewEndSurah = newSurah;
-      _reviewStartPage = page;
-      _reviewEndPage = endPage;
-    });
+    _persistWizardSelection();
   }
 
   Future<void> _openVisualPicker() async {
-    final isReviewPageScope = _selectedMode == HifzSessionType.review && _reviewScopeIndex == 2;
+    final isReviewPageScope =
+        _selectedMode == HifzSessionType.review && _reviewScopeIndex == 2;
     final curPage = isReviewPageScope
         ? _reviewStartPage
-        : (_isSurahScope ? getMedinaMushafPageNumber(_surah, _startVerse) : _page);
+        : (_isSurahScope
+            ? getMedinaMushafPageNumber(_surah, _startVerse)
+            : _page);
 
     final result = await Navigator.push<HifzMushafRangePickerResult>(
       context,
@@ -276,41 +449,46 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     );
 
     if (result != null && mounted) {
-      setState(() {
-        if (isReviewPageScope) {
+      if (isReviewPageScope) {
+        setState(() {
           _reviewStartPage = result.page;
           _reviewEndPage = result.page;
-          _page = result.page;
-          _initFromPage(_page);
-          _surah = _pageSurah;
-          _startVerse = _pageStart;
-          _endVerse = _pageEnd;
-          _reviewStartSurah = _surah;
-          _reviewEndSurah = _surah;
-        } else {
-          _surah = result.surah;
-          _startVerse = result.startVerse;
-          _endVerse = result.endVerse;
-          _page = result.page;
-          _initFromPage(_page);
-          _reviewStartSurah = _surah;
-          _reviewEndSurah = _surah;
-          _reviewStartPage = _page;
-          _reviewEndPage = getMedinaMushafPageNumber(_surah, _endVerse);
-        }
-      });
+          _nvStartPage = result.page;
+          _nvEndPage = result.page;
+          _initFromPage(_nvStartPage);
+          _nvSurah = _pageSurah;
+          _nvStartVerse = _pageStart;
+          _nvEndVerse = _pageEnd;
+          _reviewStartSurah = _nvSurah;
+          _reviewEndSurah = _nvSurah;
+        });
+        _persistWizardSelection();
+      } else {
+        _syncActiveSurah(
+          result.surah,
+          startVerse: result.startVerse,
+          endVerse: result.endVerse,
+          page: result.page,
+        );
+      }
     }
   }
 
   void _applyQuickPreset(int count) {
     setState(() {
       if (count == -1) {
-        _startVerse = 1;
-        _endVerse = _totalVersesInSurah;
+        _nvStartVerse = 1;
+        _nvEndVerse = _totalVersesInSurah;
       } else {
-        _endVerse = (_startVerse + count - 1).clamp(1, _totalVersesInSurah);
+        _nvEndVerse = (_nvStartVerse + count - 1).clamp(1, _totalVersesInSurah);
       }
+      _nvStartPage = getMedinaMushafPageNumber(_nvSurah, _nvStartVerse);
+      _nvEndPage = getMedinaMushafPageNumber(_nvSurah, _nvEndVerse);
+      _reviewStartPage = _nvStartPage;
+      _reviewEndPage = _nvEndPage;
+      _initFromPage(_nvStartPage);
     });
+    _persistWizardSelection();
   }
 
   Future<void> _launchSession() async {
@@ -543,7 +721,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
         Text(
           isThai ? 'วันนี้คุณต้องการทำอะไร?' : 'What is your goal today?',
           style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -563,13 +741,13 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           isSelected: _selectedMode == HifzSessionType.newVerses,
           icon: Icons.menu_book_rounded,
           accentColor: colorScheme.primary,
-          title: isThai ? 'ท่องจำอายะห์ใหม่ (Takrar)' : 'Memorize New Verses (Takrar)',
+          title: isThai ? 'ท่องจำอายะฮฺใหม่ (Takrar)' : 'Memorize New Verses (Takrar)',
           subtitle: isThai
-              ? 'เน้นเจาะลึกทีละอายะห์ ซ้ำ 15 รอบ (แสดง 10× + ซ่อน 5×) เพื่อปลูกฝังความจำลงสมอง แล้วเชื่อมโยงต่อเนื่อง'
+              ? 'เน้นเจาะลึกทีละอายะฮฺ ซ้ำ 15 รอบ (แสดง 10× + ซ่อน 5×) เพื่อปลูกฝังความจำลงสมอง แล้วเชื่อมโยงต่อเนื่อง'
               : 'Deep micro-learning: 15 repetitions per verse (10 visible + 5 hidden recall), followed by linked sequence.',
-          badge: isThai ? '🌟 แนะนำ 3–5 อายะห์' : '🌟 3–5 Verses Recommended',
+          badge: isThai ? '🌟 แนะนำ 3–5 อายะฮฺ' : '🌟 3–5 Verses Recommended',
           features: isThai
-              ? ['ฝึกทีละอายะห์อย่างประณีต', 'แบ่งย่อยอายะห์ยาวตามวักฟ์', 'เชื่อมต่ออายะห์เป็นชุด']
+              ? ['ฝึกทีละอายะฮฺอย่างประณีต', 'แบ่งย่อยอายะฮฺยาวตามวักฟ์', 'เชื่อมต่ออายะฮฺเป็นชุด']
               : ['Precision verse drilling', 'Waqf chunking for long verses', 'Sequence linking drills'],
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -587,11 +765,11 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           accentColor: colorScheme.tertiary,
           title: isThai ? 'ทบทวนความจำ (Muraja\'ah)' : 'Review & Test (Muraja\'ah)',
           subtitle: isThai
-              ? 'รักษาสิ่งที่เคยท่องได้แล้วไม่ให้เลือนหาย ท่องต่อเนื่องทั้งหน้าหรือทั้งซูเราะฮ์ พร้อมตรวจจับคำผิด'
+              ? 'รักษาสิ่งที่เคยท่องได้แล้วไม่ให้เลือนหาย ท่องต่อเนื่องทั้งหน้าหรือทั้งซูเราะฮฺ พร้อมตรวจจับคำผิด'
               : 'Protect what you have memorized from fading. Recite full passages with real-time speech verification.',
           badge: isThai ? '🔄 หัวใจของการฮิฟซ์ 80%' : '🔄 80% of Memorization',
           features: isThai
-              ? ['ท่องต่อเนื่องทั้งหน้า/ซูเราะฮ์', 'โหมดซ่อนตัวอักษรเพื่อทดสอบ', 'ประเมินความแม่นยำ']
+              ? ['ท่องต่อเนื่องทั้งหน้า/ซูเราะฮฺ', 'โหมดซ่อนตัวอักษรเพื่อทดสอบ', 'ประเมินความแม่นยำ']
               : ['Continuous passage recitation', 'Hidden text recall test', 'Real-time accuracy scoring'],
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -656,7 +834,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
         Text(
           isThai ? 'เลือกขอบเขตการทบทวน' : 'Select Review Scope',
           style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -909,8 +1087,8 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                         ),
                         Text(
                           cardSubName.isEmpty
-                              ? '$_totalVersesInSurah ${isThai ? 'อายะห์' : 'verses'}'
-                              : '$cardSubName · $_totalVersesInSurah ${isThai ? 'อายะห์' : 'verses'}',
+                              ? '$_totalVersesInSurah ${isThai ? 'อายะฮฺ' : 'verses'}'
+                              : '$cardSubName · $_totalVersesInSurah ${isThai ? 'อายะฮฺ' : 'verses'}',
                           style: textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -1149,7 +1327,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             onPressed: _openVisualPicker,
             icon: const Icon(Icons.auto_stories_outlined, size: 18),
             label: Text(
-              isThai ? 'เปิดดูหน้ามุศฮัฟจริง' : 'Browse Visual Mushaf',
+              isThai ? 'เปิดดูหน้ามุศหัฟจริง' : 'Browse Visual Mushaf',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
@@ -1181,14 +1359,14 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
         Text(
           isThai ? 'เลือกช่วงที่ต้องการท่อง' : 'Select Quran Portion',
           style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           isThai
-              ? 'แนะนำเลือก 3 ถึง 5 อายะห์ต่อวัน เพื่อผลลัพธ์ที่ดีที่สุด'
+              ? 'แนะนำเลือก 3 ถึง 5 อายะฮฺต่อวัน เพื่อผลลัพธ์ที่ดีที่สุด'
               : '3 to 5 verses per session are recommended for optimal retention.',
           style: textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -1207,7 +1385,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             ButtonSegment<bool>(
               value: false,
               icon: const Icon(Icons.auto_stories_rounded, size: 18),
-              label: Text(isThai ? 'ตามหน้ามุศฮัฟ' : 'By Page'),
+              label: Text(isThai ? 'ตามหน้ามุศหัฟ' : 'By Page'),
             ),
           ],
           selected: {_isSurahScope},
@@ -1430,7 +1608,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             onPressed: _openVisualPicker,
             icon: const Icon(Icons.auto_stories_outlined, size: 18),
             label: Text(
-              isThai ? 'แตะเลือกบนหน้ามุศฮัฟจริง' : 'Select on Mushaf Page',
+              isThai ? 'แตะเลือกบนหน้ามุศหัฟจริง' : 'Select on Mushaf Page',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
@@ -1456,7 +1634,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      isThai ? 'หน้ามุศฮัฟ: $_page' : 'Mushaf Page: $_page',
+                      isThai ? 'หน้ามุศหัฟ: $_page' : 'Mushaf Page: $_page',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
@@ -1520,7 +1698,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             onPressed: _openVisualPicker,
             icon: const Icon(Icons.auto_stories_outlined, size: 18),
             label: Text(
-              isThai ? 'เปิดดูหน้ามุศฮัฟจริง' : 'Browse Visual Mushaf',
+              isThai ? 'เปิดดูหน้ามุศหัฟจริง' : 'Browse Visual Mushaf',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             style: OutlinedButton.styleFrom(
@@ -1660,7 +1838,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                     backgroundColor: safeRepeat == 1 ? colorScheme.primaryContainer.withValues(alpha: 0.4) : null,
                   ),
                   child: Text(
-                    isThai ? 'จากต้น (อายะห์ 1)' : 'From Start (V1)',
+                    isThai ? 'จากต้น (อายะฮฺ 1)' : 'From Start (V1)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: safeRepeat == 1 ? FontWeight.bold : FontWeight.normal,
@@ -1678,7 +1856,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                     backgroundColor: safeRepeat == currentStart ? colorScheme.primaryContainer.withValues(alpha: 0.4) : null,
                   ),
                   child: Text(
-                    isThai ? 'เฉพาะวันนี้ (อายะห์ $currentStart)' : 'Today (V$currentStart)',
+                    isThai ? 'เฉพาะวันนี้ (อายะฮฺ $currentStart)' : 'Today (V$currentStart)',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: safeRepeat == currentStart ? FontWeight.bold : FontWeight.normal,
@@ -1716,7 +1894,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     if (isNew) {
       planTitle = '$surahName ($finalSurah:$finalStart–$finalEnd)';
       planSubtitle = isThai
-          ? 'จำนวน $count อายะห์ · ซ้ำ 15 รอบ/อายะห์ + เชื่อมโยง'
+          ? 'จำนวน $count อายะฮฺ · ซ้ำ 15 รอบ/อายะฮฺ + เชื่อมโยง'
           : '$count Verses · 15x drills per verse + linking';
       estMinutes = (count * 2.5).ceil();
     } else {
@@ -1734,14 +1912,14 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             ? sStartName
             : '$sStartName – $sEndName';
         planSubtitle = isThai
-            ? 'ทบทวนทั้งซูเราะฮ์ รวม $totalSurahs ซูเราะฮ์ (ท่องต่อเนื่องพร้อมตรวจคำผิด)'
+            ? 'ทบทวนทั้งซูเราะฮฺ รวม $totalSurahs ซูเราะฮฺ (ท่องต่อเนื่องพร้อมตรวจคำผิด)'
             : 'Reviewing $totalSurahs Surahs in sequence';
         estMinutes = (totalSurahs * 4).clamp(5, 120);
       } else if (_reviewScopeIndex == 1) {
         planTitle = '$surahName ($finalSurah:$_startVerse–$_endVerse)';
         final verseCnt = _endVerse - _startVerse + 1;
         planSubtitle = isThai
-            ? 'จำนวน $verseCnt อายะห์ (ท่องรวดเดียวพร้อมตรวจคำผิด)'
+            ? 'จำนวน $verseCnt อายะฮฺ (ท่องรวดเดียวพร้อมตรวจคำผิด)'
             : '$verseCnt Verses (Continuous recitation check)';
         estMinutes = (verseCnt * 0.8).ceil().clamp(3, 60);
       } else {
@@ -1750,7 +1928,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             ? 'หน้า $_reviewStartPage ถึง $_reviewEndPage'
             : 'Pages $_reviewStartPage to $_reviewEndPage';
         planSubtitle = isThai
-            ? 'ทบทวนตามหน้ามุศฮัฟ รวม $totalPages หน้า'
+            ? 'ทบทวนตามหน้ามุศหัฟ รวม $totalPages หน้า'
             : 'Reviewing $totalPages Mushaf pages';
         estMinutes = (totalPages * 3).clamp(5, 90);
       }
@@ -1763,7 +1941,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
         Text(
           isThai ? 'สรุปแผนการท่องจำ' : 'Session Plan Summary',
           style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -1810,7 +1988,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                     ),
                     child: Text(
                       isNew
-                          ? (isThai ? '🌟 ท่องจำอายะห์ใหม่' : '🌟 New Verses')
+                          ? (isThai ? '🌟 ท่องจำอายะฮฺใหม่' : '🌟 New Verses')
                           : (isThai ? '🔄 ทบทวนความจำ' : '🔄 Review'),
                       style: textTheme.labelSmall?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -1856,7 +2034,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                   ),
                   child: Text(
                     isThai
-                        ? '🔗 เชื่อมโยงลำดับ: อายะห์ ${_repeatStart.clamp(1, finalStart)} → $finalEnd'
+                        ? '🔗 เชื่อมโยงลำดับ: อายะฮฺ ${_repeatStart.clamp(1, finalStart)} → $finalEnd'
                         : '🔗 Sequence link: Verse ${_repeatStart.clamp(1, finalStart)} → $finalEnd',
                     style: textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -1900,7 +2078,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isThai ? 'แบ่งท่อนอายะห์ยาว' : 'Chunk Long Verses',
+                        isThai ? 'แบ่งท่อนอายะฮฺยาว' : 'Chunk Long Verses',
                         style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurface,
@@ -2234,7 +2412,7 @@ class _ResumeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isNew = snapshot.sessionType == HifzSessionType.newVerses;
     final typeLabel = isNew
-        ? (isThai ? 'ท่องจำอายะห์ใหม่' : 'New Verses')
+        ? (isThai ? 'ท่องจำอายะฮฺใหม่' : 'New Verses')
         : (isThai ? 'ทบทวนความจำ' : 'Review');
 
     return Container(

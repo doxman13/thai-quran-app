@@ -25,9 +25,13 @@ class SettingsProvider extends ChangeNotifier {
     quranTranslationMode,
   };
 
+  static const meaningModeContinuous = 'continuous';
+  static const meaningModeSingle = 'single';
+
   bool _isDarkMode = false;
   bool _keepAwake = true;
   String _readingDisplayMode = quranTranslationMode;
+  String _meaningDisplayMode = meaningModeSingle;
   double _arabicFontSize = 28.0;
   double _translationFontSize = 16.0;
   String _themeColor = 'teal';
@@ -62,6 +66,8 @@ class SettingsProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool get keepAwake => _keepAwake;
   String get readingDisplayMode => _readingDisplayMode;
+  String get readingMode => _readingDisplayMode;
+  String get meaningDisplayMode => _meaningDisplayMode;
   String get languageCode => _languageCode;
   bool get showArabicText =>
       _readingDisplayMode == quranOnlyMode ||
@@ -74,6 +80,8 @@ class SettingsProvider extends ChangeNotifier {
   String get arabicFontFamily => 'UthmanicHafs';
   double get arabicFontSize => _arabicFontSize;
   double get translationFontSize => _translationFontSize;
+  String _thaiFontFamily = 'Noto Sans Thai';
+  String get thaiFontFamily => _thaiFontFamily;
   String get themeColor => _themeColor;
   String get webHostUrl => _webHostUrl;
   HifzInputMode get hifzInputMode => _hifzInputMode;
@@ -82,6 +90,10 @@ class SettingsProvider extends ChangeNotifier {
   bool get showWordByWord => _showWordByWord;
   String _wordByWordLanguage = 'th'; // 'th', 'en', 'ms'
   String get wordByWordLanguage => _wordByWordLanguage;
+
+  // Tajweed color rules setting
+  bool _showTajweedColors = false;
+  bool get showTajweedColors => _showTajweedColors;
 
   // Footnotes display setting (default: true)
   bool _showFootnotes = true;
@@ -153,10 +165,10 @@ class SettingsProvider extends ChangeNotifier {
             ? _settingsUpdatedAt
             : DateTime.now();
         // Derive legacy booleans from slots for backward compat with old Supabase rows
+        // Note: is_dark_mode is intentionally omitted — theme mode is strictly device-local.
         await client.from('user_settings').upsert({
           'user_id': userId,
           'theme_color': _themeColor,
-          'is_dark_mode': _isDarkMode,
           'keep_awake': _keepAwake,
           'reading_display_mode': _readingDisplayMode,
           'always_show_arabic': showArabicText,
@@ -218,7 +230,7 @@ class SettingsProvider extends ChangeNotifier {
       _themeColor = _normalizeThemeColor(
         response['theme_color']?.toString() ?? _themeColor,
       );
-      _isDarkMode = response['is_dark_mode'] == true;
+      // Note: isDarkMode is strictly device-local — never overwrite from Supabase.
       _keepAwake = response['keep_awake'] ?? true;
       final remoteDisplayMode = response['reading_display_mode']?.toString();
       _readingDisplayMode =
@@ -259,9 +271,8 @@ class SettingsProvider extends ChangeNotifier {
       _secondaryTranslationId = sanitizedIds.$2;
       _syncGlobalState();
 
-      // Save to local SharedPreferences
+      // Save to local SharedPreferences (excluding device-local isDarkMode)
       await prefs.setString('themeColor', _themeColor);
-      await prefs.setBool('isDarkMode', _isDarkMode);
       await prefs.setBool('keepAwake', _keepAwake);
       await prefs.setString('readingDisplayMode', _readingDisplayMode);
       await prefs.setBool('alwaysShowArabic', showArabicText);
@@ -308,6 +319,8 @@ class SettingsProvider extends ChangeNotifier {
     _showWordByWord = prefs.getBool('showWordByWord') ?? true;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
     _showFootnotes = prefs.getBool('showFootnotes') ?? true;
+    _showTajweedColors = prefs.getBool('showTajweedColors') ?? false;
+    _thaiFontFamily = prefs.getString('thaiFontFamily') ?? 'Noto Sans Thai';
     _voiceRecitationEnabled = prefs.getBool(_voiceRecitationEnabledKey) ?? true;
     _voiceRecitationAdaptiveNoise = prefs.getBool(_voiceRecitationAdaptiveNoiseKey) ?? true;
     final savedSensitivity = prefs.getString(_voiceRecitationSensitivityKey);
@@ -325,6 +338,10 @@ class SettingsProvider extends ChangeNotifier {
       _hifzInputMode = HifzInputMode.bluetoothShutter;
     } else {
       _hifzInputMode = HifzInputMode.inAppTally;
+    }
+    final savedMeaningMode = prefs.getString('meaning_display_mode');
+    if (savedMeaningMode == meaningModeSingle || savedMeaningMode == meaningModeContinuous) {
+      _meaningDisplayMode = savedMeaningMode!;
     }
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
@@ -482,8 +499,7 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
-    await _markSettingsChanged(prefs);
-    await _syncToSupabase();
+    // Device-local setting: do not sync dark mode to Supabase
   }
 
   void toggleKeepAwake(bool value) async {
@@ -550,6 +566,15 @@ class SettingsProvider extends ChangeNotifier {
     await _syncToSupabase();
   }
 
+  void setMeaningDisplayMode(String value) async {
+    final mode = (value == meaningModeSingle) ? meaningModeSingle : meaningModeContinuous;
+    if (_meaningDisplayMode == mode) return;
+    _meaningDisplayMode = mode;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('meaning_display_mode', mode);
+  }
+
   void setArabicFontSize(double value) async {
     _arabicFontSize = value;
     notifyListeners();
@@ -602,6 +627,76 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('showFootnotes', value);
     await _markSettingsChanged(prefs);
+  }
+
+  void setShowTajweedColors(bool value) async {
+    if (_showTajweedColors == value) return;
+    _showTajweedColors = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('showTajweedColors', value);
+    await _markSettingsChanged(prefs);
+  }
+
+  void setThaiFontFamily(String value) async {
+    if (_thaiFontFamily == value) return;
+    _thaiFontFamily = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('thaiFontFamily', value);
+    await _markSettingsChanged(prefs);
+  }
+
+  /// Restores all typography, display mode, word-by-word, footnotes, keepAwake,
+  /// and translation slots to default values (matching Web's handleResetDefaults).
+  Future<void> resetToDefaults() async {
+    _arabicFontSize = 28.0;
+    _translationFontSize = 18.0;
+    _thaiFontFamily = 'Noto Sans Thai';
+    _readingDisplayMode = quranTranslationMode;
+    _showWordByWord = true;
+    _wordByWordLanguage = 'th';
+    _showTajweedColors = false;
+    _showFootnotes = true;
+    _keepAwake = true;
+    _primaryTranslationId = 'thai_v3';
+    _secondaryTranslationId = null;
+    _languageCode = 'th';
+    _hifzInputMode = HifzInputMode.inAppTally;
+    _voiceRecitationEnabled = true;
+    _voiceRecitationAdaptiveNoise = true;
+    _voiceRecitationSensitivity = RecitationSensitivity.balanced;
+
+    _syncGlobalState();
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('arabicFontSize', _arabicFontSize);
+    await prefs.setDouble('translationFontSize', _translationFontSize);
+    await prefs.setString('thaiFontFamily', _thaiFontFamily);
+    await prefs.setString('readingDisplayMode', _readingDisplayMode);
+    await prefs.setBool('alwaysShowArabic', showArabicText);
+    await prefs.setBool('alwaysShowTranslation', showTranslationText);
+    await prefs.setBool('showWordByWord', _showWordByWord);
+    await prefs.setString('wordByWordLanguage', _wordByWordLanguage);
+    await prefs.setBool('showTajweedColors', _showTajweedColors);
+    await prefs.setBool('showFootnotes', _showFootnotes);
+    await prefs.setBool('keepAwake', _keepAwake);
+    await prefs.setString('primaryTranslationId', _primaryTranslationId);
+    await prefs.remove('secondaryTranslationId');
+    await prefs.setString('languageCode', _languageCode);
+    await prefs.setString(_hifzInputModeKey, _hifzInputMode.toString());
+    await prefs.setBool(_voiceRecitationEnabledKey, _voiceRecitationEnabled);
+    await prefs.setBool(
+      _voiceRecitationAdaptiveNoiseKey,
+      _voiceRecitationAdaptiveNoise,
+    );
+    await prefs.setString(
+      _voiceRecitationSensitivityKey,
+      _voiceRecitationSensitivity.name,
+    );
+    await _markSettingsChanged(prefs);
+    await _syncToSupabase();
   }
 
   /// Core dual-slot mutation with Auto-Eviction collision logic.
@@ -715,7 +810,18 @@ class SettingsProvider extends ChangeNotifier {
 
   // Helper method to get theme colors
   MaterialColor getThemeSwatch() {
-    return Colors.teal;
+    return const MaterialColor(0xFF0E5A4A, <int, Color>{
+      50: Color(0xFFEAF2EE),
+      100: Color(0xFFD0E2DA),
+      200: Color(0xFFB7D4C7),
+      300: Color(0xFF8EBBA8),
+      400: Color(0xFF6BA68E),
+      500: Color(0xFF0E5A4A),
+      600: Color(0xFF0C5042),
+      700: Color(0xFF0A4437),
+      800: Color(0xFF08392E),
+      900: Color(0xFF05271F),
+    });
   }
 
   AppThemeColors getAppColors() {

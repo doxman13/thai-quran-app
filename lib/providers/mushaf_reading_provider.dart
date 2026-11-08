@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -704,10 +705,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     return slug;
   }
 
+  Future<void> reconcileMushafOnBoot(String userId) => syncWithSupabase(userId);
+
   Future<void> syncWithSupabase(String userId) async {
     final client = Supabase.instance.client;
     try {
-      // 1. Sync Profiles
+      // 1. Sync Profiles (fetch remote before pushing so remote progress is never blindly overwritten)
       final remoteProfilesRes = await client
           .from('mushaf_profiles')
           .select('*')
@@ -728,7 +731,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           (item) =>
               item['id'] == localP.id ||
               (item['slug'] == localP.slug &&
-                  item['mushaf_id'] == localP.mushafId),
+                  item['mushaf_id'] == localP.mushafId) ||
+              (!localP.isFreeRead && item['slug'] == localP.slug),
         );
 
         if (dbP != null) {
@@ -742,34 +746,84 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
               DateTime.fromMillisecondsSinceEpoch(0);
           final remoteIsArchived = dbP['is_archived'] == true;
+          final int remoteCurrent =
+              int.tryParse(dbP['current_page']?.toString() ?? '') ?? 1;
+          final int remoteFurthest =
+              int.tryParse(
+                (dbP['furthest_unread_page'] ?? dbP['current_page'])
+                        ?.toString() ??
+                    '',
+              ) ??
+              remoteCurrent;
+          final int remoteLastViewed =
+              int.tryParse(dbP['last_viewed_page']?.toString() ?? '') ??
+              remoteFurthest;
+
+          final int maxFurthest = math.max(
+            localP.furthestUnreadPage,
+            remoteFurthest,
+          );
+          final int maxCurrent = math.max(localP.currentPage, remoteCurrent);
+          final int maxLastViewed = math.max(
+            localP.lastViewedPage,
+            remoteLastViewed,
+          );
+          final int mergedPage = math.max(maxFurthest, maxCurrent);
+
           if (!remoteIsArchived && localP.updatedAt.isAfter(remoteUpdatedAt)) {
-            final syncedLocal = localP.copyWith(id: remoteId, userId: userId);
+            final syncedLocal = localP.copyWith(
+              id: remoteId,
+              userId: userId,
+              currentPage: mergedPage,
+              lastViewedPage: maxLastViewed,
+            );
             reconciledProfiles.add(syncedLocal);
             await _syncProfileToSupabase(syncedLocal, userId: userId);
           } else {
-            reconciledProfiles.add(
-              MushafProfile(
-                id: remoteId,
-                userId: userId,
-                name: dbP['name'],
-                slug: dbP['slug'],
-                mushafId: dbP['mushaf_id'],
-                planMode: dbP['plan_mode'],
-                startPage: dbP['start_page'],
-                targetPage: dbP['target_page'],
-                currentPage: dbP['furthest_unread_page'] ?? dbP['current_page'],
-                lastViewedPage:
-                    dbP['last_viewed_page'] ??
-                    dbP['furthest_unread_page'] ??
-                    dbP['current_page'],
-                sortOrder: dbP['sort_order'],
-                isArchived: dbP['is_archived'] ?? false,
-                createdAt:
-                    DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
-                    DateTime.now(),
-                updatedAt: remoteUpdatedAt,
-              ),
+            final mergedIsArchived = localP.isArchived && remoteIsArchived;
+            final mergedProfile = MushafProfile(
+              id: remoteId,
+              userId: userId,
+              name: localP.isFreeRead
+                  ? 'Just Read'
+                  : (dbP['name']?.toString() ?? localP.name),
+              slug: dbP['slug']?.toString() ?? localP.slug,
+              mushafId:
+                  int.tryParse(dbP['mushaf_id']?.toString() ?? '') ??
+                  localP.mushafId,
+              planMode: dbP['plan_mode']?.toString() ?? localP.planMode,
+              startPage:
+                  int.tryParse(dbP['start_page']?.toString() ?? '') ??
+                  localP.startPage,
+              targetPage:
+                  int.tryParse(dbP['target_page']?.toString() ?? '') ??
+                  localP.targetPage,
+              currentPage: mergedPage,
+              lastViewedPage: maxLastViewed,
+              sortOrder:
+                  int.tryParse(dbP['sort_order']?.toString() ?? '') ??
+                  localP.sortOrder,
+              isArchived: mergedIsArchived,
+              createdAt:
+                  DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
+                  localP.createdAt,
+              updatedAt: remoteUpdatedAt,
             );
+            reconciledProfiles.add(mergedProfile);
+
+            final bool localProgressAhead =
+                maxFurthest > remoteFurthest ||
+                maxCurrent > remoteCurrent ||
+                maxLastViewed > remoteLastViewed;
+            final bool activeStateImproved =
+                !mergedIsArchived && remoteIsArchived;
+
+            if (localProgressAhead || activeStateImproved) {
+              await _syncProfileToSupabase(
+                mergedProfile.copyWith(updatedAt: DateTime.now()),
+                userId: userId,
+              );
+            }
           }
         } else {
           final syncedLocal = localP.copyWith(userId: userId);
@@ -790,31 +844,52 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final remoteId = dbP['id'].toString();
         if (matchedRemoteIds.contains(remoteId)) continue;
 
-        reconciledProfiles.add(
-          MushafProfile(
-            id: remoteId,
-            userId: userId,
-            name: dbP['name'],
-            slug: dbP['slug'],
-            mushafId: dbP['mushaf_id'],
-            planMode: dbP['plan_mode'],
-            startPage: dbP['start_page'],
-            targetPage: dbP['target_page'],
-            currentPage: dbP['furthest_unread_page'] ?? dbP['current_page'],
-            lastViewedPage:
-                dbP['last_viewed_page'] ??
-                dbP['furthest_unread_page'] ??
-                dbP['current_page'],
-            sortOrder: dbP['sort_order'],
-            isArchived: dbP['is_archived'] ?? false,
-            createdAt:
-                DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
-                DateTime.now(),
-            updatedAt:
-                DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
-                DateTime.now(),
-          ),
+        final remoteProfile = MushafProfile(
+          id: remoteId,
+          userId: userId,
+          name: dbP['name'],
+          slug: dbP['slug'],
+          mushafId: dbP['mushaf_id'],
+          planMode: dbP['plan_mode'],
+          startPage: dbP['start_page'],
+          targetPage: dbP['target_page'],
+          currentPage: dbP['furthest_unread_page'] ?? dbP['current_page'],
+          lastViewedPage:
+              dbP['last_viewed_page'] ??
+              dbP['furthest_unread_page'] ??
+              dbP['current_page'],
+          sortOrder: dbP['sort_order'],
+          isArchived: dbP['is_archived'] ?? false,
+          createdAt:
+              DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
+              DateTime.now(),
+          updatedAt:
+              DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
+              DateTime.now(),
         );
+
+        if (!remoteProfile.isFreeRead) {
+          final existingIndex = reconciledProfiles.indexWhere(
+            (p) => !p.isFreeRead && p.slug == remoteProfile.slug,
+          );
+          if (existingIndex != -1) {
+            final existing = reconciledProfiles[existingIndex];
+            reconciledProfiles[existingIndex] = existing.copyWith(
+              currentPage: math.max(
+                existing.currentPage,
+                remoteProfile.currentPage,
+              ),
+              lastViewedPage: math.max(
+                existing.lastViewedPage,
+                remoteProfile.lastViewedPage,
+              ),
+              isArchived: existing.isArchived && remoteProfile.isArchived,
+            );
+            continue;
+          }
+        }
+
+        reconciledProfiles.add(remoteProfile);
       }
 
       _profiles = _deduplicateProfiles(reconciledProfiles);
@@ -1066,7 +1141,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       } else {
         final response = await client
             .from('mushaf_profiles')
-            .insert(upsertData)
+            .upsert(upsertData, onConflict: 'user_id,slug,mushaf_id')
             .select('id')
             .single();
         final returnedId = response['id']?.toString();

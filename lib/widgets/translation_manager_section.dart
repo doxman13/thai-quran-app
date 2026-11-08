@@ -148,7 +148,7 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
                     style: GoogleFonts.notoSansThai(
                       color: colorScheme.primary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),

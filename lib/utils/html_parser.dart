@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/footnote_service.dart';
+import '../theme/app_theme.dart';
 
 class HtmlParser {
   static List<TextSpan> parseTranslationText(
@@ -16,6 +17,12 @@ class HtmlParser {
     String? verseKey,
     String? translationId,
     bool isInteractive = true,
+    void Function(
+      int fnId,
+      String? rawOrigId,
+      FootnoteEntry? footnoteEntry,
+      String? translationId,
+    )? onFootnoteTap,
   }) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final showFootnotes = settings.showFootnotes;
@@ -69,19 +76,17 @@ class HtmlParser {
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
-    final fallbackTextColor = style.color ?? colorScheme.onSurface;
+    final appColors = context.appColors;
+    final fallbackTextColor = style.color ?? appColors.textStrong;
 
     // Ensure linkColor has high contrast in dark mode.
-    // If a caller passes Theme.of(context).primaryColor (which defaults to dark grey in dark mode if unset)
-    // or any color with low luminance on dark surfaces, use colorScheme.primary or bright emerald.
     Color effectiveLinkColor = linkColor;
     if (isDark) {
       if (effectiveLinkColor.computeLuminance() < 0.15 || effectiveLinkColor == theme.primaryColor) {
-        effectiveLinkColor = colorScheme.primary;
+        effectiveLinkColor = appColors.primary;
       }
       if (effectiveLinkColor.computeLuminance() < 0.15) {
-        effectiveLinkColor = const Color(0xFF529665);
+        effectiveLinkColor = appColors.primary;
       }
     }
 
@@ -142,14 +147,23 @@ class HtmlParser {
           recognizer: isInteractive
               ? (TapGestureRecognizer()
                 ..onTap = () {
-                  _showFootnoteModal(
-                    context,
-                    fnId: fnId,
-                    rawOrigId: rawOrigId,
-                    footnoteEntry: footnoteEntry,
-                    textColor: fallbackTextColor,
-                    translationId: translationId,
-                  );
+                  if (onFootnoteTap != null) {
+                    onFootnoteTap(
+                      fnId,
+                      rawOrigId,
+                      footnoteEntry,
+                      translationId,
+                    );
+                  } else {
+                    _showFootnoteModal(
+                      context,
+                      fnId: fnId,
+                      rawOrigId: rawOrigId,
+                      footnoteEntry: footnoteEntry,
+                      textColor: fallbackTextColor,
+                      translationId: translationId,
+                    );
+                  }
                 })
               : null,
         ),
@@ -221,22 +235,22 @@ class HtmlParser {
       editionTitle = 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ)';
     }
 
-    final parentTheme = Theme.of(context);
-    final parentColorScheme = parentTheme.colorScheme;
+    final parentColors = context.appColors;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: parentColorScheme.surface,
+      backgroundColor: parentColors.surface,
       elevation: 0,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      shape: RoundedRectangleBorder(
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
+        side: BorderSide(color: parentColors.borderSoft),
       ),
       builder: (ctx) {
-        final modalTheme = Theme.of(ctx);
-        final modalColorScheme = modalTheme.colorScheme;
-        final isDark = modalTheme.brightness == Brightness.dark;
-        final footnoteTextColor = isDark ? const Color(0xFFF1F5F9) : modalColorScheme.onSurface;
+        final modalColors = ctx.appColors;
+        final footnoteTextColor = modalColors.textStrong;
 
         Widget content;
         if (offlineText != null && offlineText.isNotEmpty) {
@@ -254,7 +268,7 @@ class HtmlParser {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Padding(
                   padding: const EdgeInsets.all(32.0),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: modalColorScheme.primary)),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: modalColors.primary)),
                 );
               }
               if (snapshot.hasError || !snapshot.hasData) {
@@ -263,7 +277,7 @@ class HtmlParser {
                   child: Center(
                     child: Text(
                       isThai ? 'โหลดเชิงอรรถล้มเหลว' : 'Failed to load footnote.',
-                      style: GoogleFonts.notoSansThai(color: modalColorScheme.onSurfaceVariant),
+                      style: GoogleFonts.notoSansThai(color: modalColors.textMuted),
                     ),
                   ),
                 );
@@ -284,7 +298,7 @@ class HtmlParser {
             child: Center(
               child: Text(
                 isThai ? 'ไม่พบข้อมูลเชิงอรรถ' : 'Footnote not found.',
-                style: GoogleFonts.notoSansThai(color: modalColorScheme.onSurfaceVariant),
+                style: GoogleFonts.notoSansThai(color: modalColors.textMuted),
               ),
             ),
           );
@@ -299,7 +313,7 @@ class HtmlParser {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: modalColorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  color: modalColors.borderSoft,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -316,9 +330,9 @@ class HtmlParser {
                           Text(
                             isThai ? 'เชิงอรรถ [$fnId]' : 'Footnote [$fnId]',
                             style: GoogleFonts.notoSansThai(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                               fontSize: 18,
-                              color: modalColorScheme.primary,
+                              color: modalColors.primary,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -326,21 +340,21 @@ class HtmlParser {
                             editionTitle,
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
-                              color: modalColorScheme.onSurfaceVariant,
+                              color: modalColors.textMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, size: 20, color: modalColorScheme.onSurfaceVariant),
+                      icon: Icon(Icons.close_rounded, size: 20, color: modalColors.textMuted),
                       onPressed: () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              Divider(height: 1, color: modalColorScheme.outlineVariant.withValues(alpha: 0.4)),
+              Divider(height: 1, color: modalColors.borderSoft),
               Flexible(child: content),
               const SizedBox(height: 16),
             ],

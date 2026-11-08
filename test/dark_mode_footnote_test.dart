@@ -12,7 +12,7 @@ void main() {
   group('Dark Mode Footnote Visibility Tests', () {
     test('Dark theme primaryColor matches teal primary token', () {
       final darkColors = AppTheme.colors(isDark: true, palette: 'teal');
-      expect(darkColors.primary, const Color(0xFF529665));
+      expect(darkColors.primary, const Color(0xFF4A9E89));
 
       final darkTheme = ThemeData(
         useMaterial3: true,

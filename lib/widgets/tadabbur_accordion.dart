@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../models/tadabbur_note.dart';
 import '../providers/notes_provider.dart';
 import '../data/tadabbur_repository.dart';
+import '../theme/app_theme.dart';
 
 class TadabburAccordion extends StatefulWidget {
   final String surahId;
@@ -105,24 +106,26 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final notesProv = Provider.of<NotesProvider>(context);
+    final colors = context.appColors;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.black26 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
-          color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+          color: colors.borderSoft,
         ),
       ),
       child: Column(
         children: [
           TabBar(
             controller: _tabController,
-            labelStyle: GoogleFonts.notoSansThai(fontWeight: FontWeight.w500, fontSize: 13),
+            labelStyle: GoogleFonts.notoSansThai(fontWeight: FontWeight.w600, fontSize: 13),
             unselectedLabelStyle: GoogleFonts.notoSansThai(fontSize: 13),
-            indicatorColor: Theme.of(context).primaryColor,
-            labelColor: isDark ? Colors.white : Colors.black87,
+            indicatorColor: colors.primary,
+            labelColor: colors.textStrong,
+            unselectedLabelColor: colors.textMuted,
             tabs: const [
               Tab(text: 'My Note'),
               Tab(text: 'Community'),
@@ -133,8 +136,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildMyNoteTab(isDark, notesProv),
-                _buildCommunityTab(isDark, notesProv),
+                _buildMyNoteTab(isDark, notesProv, colors),
+                _buildCommunityTab(isDark, notesProv, colors),
               ],
             ),
           ),
@@ -143,7 +146,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
     );
   }
 
-  Widget _buildMyNoteTab(bool isDark, NotesProvider notesProv) {
+  Widget _buildMyNoteTab(bool isDark, NotesProvider notesProv, AppThemeColors colors) {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -152,10 +155,10 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
           Expanded(
             child: TextField(
               controller: _notesController,
-              style: GoogleFonts.notoSansThai(fontSize: 14),
+              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
               decoration: InputDecoration(
                 hintText: 'Write your reflection (Tadabbur)...',
-                hintStyle: GoogleFonts.notoSansThai(fontSize: 13),
+                hintStyle: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textMuted),
                 border: const OutlineInputBorder(),
                 contentPadding: const EdgeInsets.all(10),
               ),
@@ -169,8 +172,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             children: [
               Expanded(
                 child: SwitchListTile(
-                  title: Text('Public Note', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500)),
-                  subtitle: Text('Share with community', style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey)),
+                  title: Text('Public Note', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong)),
+                  subtitle: Text('Share with community', style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted)),
                   value: _isPublic,
                   onChanged: (val) => setState(() => _isPublic = val),
                   contentPadding: EdgeInsets.zero,
@@ -180,8 +183,8 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
               if (_isPublic)
                 Expanded(
                   child: SwitchListTile(
-                    title: Text('Anonymous', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500)),
-                    subtitle: Text('Hide my name', style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey)),
+                    title: Text('Anonymous', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong)),
+                    subtitle: Text('Hide my name', style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted)),
                     value: _isAnonymous,
                     onChanged: (val) => setState(() => _isAnonymous = val),
                     contentPadding: EdgeInsets.zero,
@@ -196,17 +199,17 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             children: [
               TextButton(
                 onPressed: widget.onCancel,
-                child: Text('Cancel', style: GoogleFonts.notoSansThai(fontSize: 12)),
+                child: Text('Cancel', style: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textMuted)),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: _isSaving || _saveSuccess ? null : () => _saveNote(notesProv),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.textInverse,
                 ),
                 child: _isSaving
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: colors.textInverse))
                     : Text(
                         _saveSuccess ? 'Saved ✓' : 'Save Note',
                         style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600),
@@ -219,16 +222,16 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
     );
   }
 
-  Widget _buildCommunityTab(bool isDark, NotesProvider notesProv) {
+  Widget _buildCommunityTab(bool isDark, NotesProvider notesProv, AppThemeColors colors) {
     if (_isLoadingCommunity) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator(color: colors.primary));
     }
 
     if (_communityNotes.isEmpty) {
       return Center(
         child: Text(
           'No public notes yet. Be the first to share your reflection!',
-          style: GoogleFonts.notoSansThai(color: Colors.grey, fontSize: 13),
+          style: GoogleFonts.notoSansThai(color: colors.textMuted, fontSize: 13),
           textAlign: TextAlign.center,
         ),
       );
@@ -237,7 +240,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
     return ListView.separated(
       padding: const EdgeInsets.all(12),
       itemCount: _communityNotes.length,
-      separatorBuilder: (_, _) => Divider(color: isDark ? Colors.grey.shade800 : Colors.grey.shade200),
+      separatorBuilder: (_, _) => Divider(color: colors.borderSoft),
       itemBuilder: (context, index) {
         final note = _communityNotes[index];
         final authorName = note.isAnonymous ? 'Anonymous' : (note.userEmail?.split('@').first ?? 'Someone');
@@ -249,41 +252,37 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
               children: [
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                  backgroundColor: colors.primaryLight,
                   child: Text(
                     authorName.substring(0, 1).toUpperCase(),
-                    style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.w600, color: Theme.of(context).primaryColor),
+                    style: GoogleFonts.notoSansThai(fontSize: 10, fontWeight: FontWeight.w600, color: colors.primary),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   authorName,
-                  style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong),
                 ),
                 const Spacer(),
                 Text(
                   timeago.format(note.createdAt),
-                  style: GoogleFonts.notoSansThai(fontSize: 10, color: Colors.grey),
+                  style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               note.noteText,
-              style: GoogleFonts.notoSansThai(fontSize: 13, height: 1.5),
+              style: GoogleFonts.notoSansThai(fontSize: 13, height: 1.5, color: colors.foreground),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 InkWell(
                   onTap: () {
-                    // Optimistic toggle
-                    setState(() {
-                       // We can't mutate note.userLiked directly if it's final. Let's rebuild the note or fetch again.
-                       // For simple UI:
-                    });
+                    setState(() {});
                     notesProv.toggleLikeLocally(note, () {
-                       _fetchCommunityNotes(); // refresh to get true counts
+                       _fetchCommunityNotes();
                     });
                   },
                   child: Row(
@@ -291,12 +290,12 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
                       Icon(
                         note.userLiked ? Icons.favorite : Icons.favorite_border,
                         size: 16,
-                        color: note.userLiked ? Colors.red : Colors.grey,
+                        color: note.userLiked ? colors.danger : colors.textMuted,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${note.likesCount}',
-                        style: GoogleFonts.notoSansThai(fontSize: 11, color: Colors.grey),
+                        style: GoogleFonts.notoSansThai(fontSize: 11, color: colors.textMuted),
                       ),
                     ],
                   ),

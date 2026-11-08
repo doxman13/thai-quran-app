@@ -4,15 +4,24 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:timeago/timeago.dart' as timeago;
+
 import '../providers/supabase_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/stats_provider.dart';
+import '../models/tadabbur_note.dart';
 import '../data/quran_repository.dart';
+import '../data/quran_foundation_repository.dart';
+import '../data/offline_surah_names.dart';
+import '../data/medina_mushaf_pages.dart';
 import 'bookmarks_screen.dart';
 import 'reading_screen.dart';
+import 'mushaf_reader_screen.dart';
+import 'tadabbur_private_screen.dart';
+import 'tadabbur_community_screen.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 
@@ -46,6 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _foundationRepository = QuranFoundationRepository();
 
   bool _isSignUp = false;
   bool _obscurePassword = true;
@@ -67,48 +77,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showEditNameDialog(
     BuildContext context,
     SupabaseProvider supabaseProv,
+    AppThemeColors colors,
   ) {
     final controller = TextEditingController(text: supabaseProv.displayName);
     final dialogFormKey = GlobalKey<FormState>();
-    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: colorScheme.surface,
-          surfaceTintColor: colorScheme.surface,
+          backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.radius),
-            side: BorderSide(color: colorScheme.outline, width: 1),
+            side: BorderSide(color: colors.borderSoft, width: 1),
           ),
           title: Text(
             context.tr('edit_name'),
             style: GoogleFonts.notoSansThai(
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              color: colors.foreground,
             ),
           ),
           content: Form(
             key: dialogFormKey,
             child: TextFormField(
               controller: controller,
+              style: GoogleFonts.notoSansThai(color: colors.foreground),
               decoration: InputDecoration(
                 labelText: context.tr('name'),
+                labelStyle: GoogleFonts.notoSansThai(color: colors.textMuted),
+                filled: true,
+                fillColor: colors.surfaceMuted,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                  borderSide: BorderSide(color: colors.borderSoft),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                  borderSide: BorderSide(color: colors.borderSoft),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radius),
-                  borderSide: BorderSide(
-                    color: colorScheme.primary,
-                    width: 1.5,
-                  ),
+                  borderSide: BorderSide(color: colors.primary, width: 1.5),
                 ),
               ),
               validator: (val) {
@@ -124,18 +134,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 context.tr('cancel'),
-                style: TextStyle(
-                  color: colorScheme.primary,
+                style: GoogleFonts.notoSansThai(
+                  color: colors.textMuted,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               onPressed: () async {
@@ -162,7 +173,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 }
               },
-              child: Text(context.tr('save')),
+              child: Text(
+                context.tr('save'),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -192,11 +206,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -223,11 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -252,9 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -272,11 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _errorMessage = e.toString().replaceAll('Exception:', '').trim();
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -316,8 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await statsProv.syncWithSupabase(supabaseProv.userId);
       if (mounted) {
         setState(() {
-          _successMessage =
-              'ซิงค์ข้อมูลสำเร็จแล้ว (Sync completed successfully!)';
+          _successMessage = 'ซิงค์ข้อมูลกับคลาวด์สำเร็จเรียบร้อย';
         });
       }
     } catch (e) {
@@ -327,17 +326,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSyncing = false;
-        });
-      }
+      if (mounted) setState(() => _isSyncing = false);
     }
   }
 
   Future<void> _openReading(String surahId, String verseId) async {
-    final repository = widget.repository;
-    if (repository == null) return;
+    final repository = widget.repository ?? QuranRepository();
 
     final result = await Navigator.push(
       context,
@@ -372,9 +366,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _openMushaf(String surahId, String verseId) {
+    final sId = int.tryParse(surahId) ?? 1;
+    final vId = int.tryParse(verseId) ?? 1;
+    final pageNumber = getMedinaMushafPageNumber(sId, vId);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.repository ?? QuranRepository(),
+          foundationRepository: _foundationRepository,
+          initialPage: pageNumber,
+          initialHighlightVerseKey: '$sId:$vId',
+        ),
+      ),
+    );
+  }
+
   Future<void> _openBookmarks({int initialTab = 0}) async {
-    final repository = widget.repository;
-    if (repository == null) return;
+    final repository = widget.repository ?? QuranRepository();
 
     final result = await Navigator.push(
       context,
@@ -402,756 +413,765 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final mushafProv = Provider.of<MushafReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final statsProv = Provider.of<StatsProvider>(context);
- 
+    final colors = settings.getAppColors();
+    final isThai = settings.languageCode == 'th';
+
     if (supabaseProv.isLoggedIn &&
         (_reportsFuture == null || _fetchedUserId != supabaseProv.userId)) {
       _fetchedUserId = supabaseProv.userId;
       _reportsFuture = _fetchUserReports(supabaseProv.userId);
     }
- 
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
- 
+
+    final latestReading = readingProv.recentReadings.isNotEmpty
+        ? readingProv.recentReadings.first
+        : null;
+
+    final notesList = notesProv.personalNotes.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final publicNotesCount = notesList.where((n) => n.isPublic).length;
+    final privateNotesCount = notesList.length - publicNotesCount;
+    final activeErrorMessage = _errorMessage ?? supabaseProv.authError;
+
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: widget.isEmbedded
           ? null
           : AppBar(
+              backgroundColor: colors.background,
+              elevation: 0,
               title: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.account_circle_outlined,
-                    size: 26,
-                    color: colorScheme.primary,
+                    size: 24,
+                    color: colors.primary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Text(
-                    context.tr('reader_profile'),
-                    style: textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.primary,
-                      letterSpacing: -0.5,
+                    'พื้นที่ผู้ใช้งาน',
+                    style: GoogleFonts.notoSansThai(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: colors.foreground,
                     ),
                   ),
                 ],
               ),
-              foregroundColor: colorScheme.onSurface,
-              elevation: 0,
+              foregroundColor: colors.foreground,
             ),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_errorMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      color: colorScheme.error,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Error / Success Notice ──────────────────────────────────────
+            if (activeErrorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDE8E8),
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: const Color(0xFFF98080)),
                 ),
-              if (_successMessage != null)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radius),
-                  ),
-                  child: Text(
-                    _successMessage!,
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-
-              // ── 6 Interactive Stat Pills + Quick Library Bar (Always Visible) ──
-              _buildQuickLibraryBanner(
-                colorScheme,
-                textTheme,
-                settings,
-                readingProv,
-                mushafProv,
-                notesProv,
-              ),
-              const SizedBox(height: 16),
-              _buildProfileStatsGroup(
-                title: settings.languageCode == 'en'
-                    ? 'Reading Activity & Library'
-                    : 'สถิติการอ่านและคลังของฉัน',
-                children: [
-                  _buildStatCard(
-                    icon: Icons.local_fire_department_rounded,
-                    title: settings.languageCode == 'en'
-                        ? 'Reading Streak'
-                        : 'อ่านต่อเนื่อง',
-                    value: settings.languageCode == 'en'
-                        ? '${statsProv.streakCount} Days'
-                        : '${statsProv.streakCount} วัน',
-                    color: colorScheme.primary,
-                    onTap: widget.onOpenGoalsTab,
-                  ),
-                  _buildStatCard(
-                    icon: Icons.today_rounded,
-                    title: settings.languageCode == 'en'
-                        ? 'Read Today'
-                        : 'อ่านวันนี้',
-                    value: settings.languageCode == 'en'
-                        ? '${statsProv.todayReadCount} Ayat'
-                        : '${statsProv.todayReadCount} อายะฮฺ',
-                    color: colorScheme.primary,
-                    onTap: widget.onOpenGoalsTab,
-                  ),
-                  _buildStatCard(
-                    icon: Icons.date_range_rounded,
-                    title: settings.languageCode == 'en'
-                        ? 'This Week'
-                        : '7 วันล่าสุด',
-                    value: settings.languageCode == 'en'
-                        ? '${statsProv.weekReadCount} Ayat'
-                        : '${statsProv.weekReadCount} อายะฮฺ',
-                    color: colorScheme.primary,
-                    onTap: widget.onOpenGoalsTab,
-                  ),
-                  _buildStatCard(
-                    icon: Icons.bookmarks_rounded,
-                    title: settings.languageCode == 'en'
-                        ? 'Bookmarks'
-                        : 'บุ๊กมาร์กทั้งหมด',
-                    value:
-                        '${readingProv.bookmarks.length + mushafProv.pageBookmarks.length + mushafProv.verseBookmarks.length}',
-                    color: colorScheme.secondary,
-                    onTap: () => _openBookmarks(initialTab: 1),
-                  ),
-                  _buildStatCard(
-                    icon: Icons.favorite_rounded,
-                    title: settings.languageCode == 'en'
-                        ? 'Favourites & Notes'
-                        : 'อายะฮฺโปรด & บันทึก',
-                    value: '${notesProv.personalNotes.length}',
-                    color: colorScheme.secondary,
-                    onTap: () => _openBookmarks(initialTab: 2),
-                  ),
-                  if (supabaseProv.isLoggedIn)
-                    _buildReportsCountCard(supabaseProv)
-                  else
-                    _buildStatCard(
-                      icon: Icons.flag_rounded,
-                      title: settings.languageCode == 'en'
-                          ? 'Active Goals'
-                          : 'เป้าหมายที่กำลังอ่าน',
-                      value:
-                          '${readingProv.activeProfiles.where((p) => !isFreeReadProfile(p)).length + mushafProv.activeCustomProfiles.length}',
-                      color: colorScheme.primary,
-                      onTap: widget.onOpenGoalsTab,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 28),
-              Divider(color: colorScheme.outlineVariant, thickness: 1),
-              const SizedBox(height: 24),
-
-              if (!supabaseProv.isLoggedIn) ...[
-                // Guest Profile banner (flat row)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
-                        child: Icon(
-                          Icons.person,
-                          color: colorScheme.primary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.tr('guest_reader'),
-                              style: textTheme.labelMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              supabaseProv.displayName,
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.edit_outlined, color: colorScheme.primary, size: 20),
-                        onPressed: () =>
-                            _showEditNameDialog(context, supabaseProv),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Form Section (Flat layout, no container/card backgrounds, no borders)
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
-                          child: Icon(
-                            Icons.cloud_sync_outlined,
-                            size: 36,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        context.tr('sync_with_cloud'),
-                        style: textTheme.titleLarge?.copyWith(
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, size: 18, color: Color(0xFFC81E1E)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        activeErrorMessage,
+                        style: GoogleFonts.notoSansThai(
+                          color: const Color(0xFFC81E1E),
                           fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        context.tr('sync_desc'),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Google sign-in button (Modern layout with soft Google gradient stroke)
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(AppTheme.radius),
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF4285F4), // Google Blue
-                              Color(0xFFEA4335), // Google Red
-                              Color(0xFFFBBC05), // Google Yellow
-                              Color(0xFF34A853), // Google Green
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.shadow.withValues(alpha: 0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(1.5),
-                        child: Material(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(AppTheme.radius - 1.5),
-                          child: InkWell(
-                            onTap: _isLoading
-                                ? null
-                                : () => _handleGoogleSignIn(supabaseProv),
-                            borderRadius: BorderRadius.circular(AppTheme.radius - 1.5),
-                            child: Container(
-                              height: 53, // Adjust so total height with padding is 56px
-                              alignment: Alignment.center,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SvgPicture.string(
-                                    googleLogoSvg,
-                                    width: 24, // Bigger logo
-                                    height: 24, // Bigger logo
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    context.tr('sign_in_with_google'),
-                                    style: textTheme.titleMedium?.copyWith(
-                                      color: colorScheme.onSurface,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          const Expanded(child: Divider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            child: Text(
-                              context.tr('or'),
-                              style: TextStyle(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          const Expanded(child: Divider()),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-
-                      if (_isSignUp) ...[
-                        TextFormField(
-                          controller: _nameController,
-                          keyboardType: TextInputType.name,
-                          decoration: InputDecoration(
-                            labelText: context.tr('display_name'),
-                            prefixIcon: const Icon(Icons.person_outline),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radius,
-                              ),
-                            ),
-                          ),
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return context.tr('please_enter_display_name');
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(
-                          labelText: context.tr('email'),
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return context.tr('please_enter_email');
-                          }
-                          if (!RegExp(
-                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(val.trim())) {
-                            return context.tr('invalid_email_format');
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: context.tr('password'),
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.isEmpty) {
-                            return context.tr('please_enter_password');
-                          }
-                          if (val.length < 6) {
-                            return context.tr('password_too_short');
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.onPrimary,
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radius,
-                            ),
-                          ),
-                        ),
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                if (_isSignUp) {
-                                  _handlePasswordSignUp(supabaseProv);
-                                } else {
-                                  _handlePasswordSignIn(supabaseProv);
-                                }
-                              },
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  color: colorScheme.onPrimary,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                _isSignUp
-                                    ? context.tr('sign_up')
-                                    : context.tr('sign_in_with_email'),
-                                style: textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onPrimary,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                setState(() {
-                                  _isSignUp = !_isSignUp;
-                                  _errorMessage = null;
-                                  _successMessage = null;
-                                });
-                              },
-                        child: Text(
-                          _isSignUp
-                              ? context.tr('already_have_account')
-                              : context.tr('dont_have_account'),
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                // Logged in UI - Flat and minimalist (no cards backgrounds or border strokes)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: colorScheme.primary.withValues(
-                          alpha: 0.15,
-                        ),
-                        child: Icon(
-                          Icons.person,
-                          size: 50,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            supabaseProv.displayName,
-                            style: textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit_outlined,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            onPressed: () =>
-                                _showEditNameDialog(context, supabaseProv),
-                            constraints: const BoxConstraints(),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        supabaseProv.userEmail,
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: _isSyncing
-                              ? null
-                              : () => _handleManualSync(
-                                  supabaseProv,
-                                  settings,
-                                  readingProv,
-                                  mushafProv,
-                                  notesProv,
-                                  statsProv,
-                                ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _isSyncing
-                                    ? SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                                colorScheme.primary,
-                                              ),
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.sync,
-                                        color: colorScheme.primary,
-                                        size: 16,
-                                      ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isSyncing
-                                      ? 'กำลังซิงค์ (Syncing...)'
-                                      : 'ซิงค์กับคลาวด์แล้ว (Tap to Sync)',
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
-              if (supabaseProv.isLoggedIn) ...[
-                const SizedBox(height: 32),
-                const Divider(),
-                const SizedBox(height: 16),
-
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.error,
-                    foregroundColor: colorScheme.onError,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radius),
                     ),
-                    elevation: 0,
-                  ),
-                  onPressed: _isLoading
-                      ? null
-                      : () => _handleSignOut(supabaseProv),
-                  icon: const Icon(Icons.logout),
-                  label: _isLoading
-                      ? SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: colorScheme.onError,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Text(
-                          'ออกจากระบบ (Sign Out)',
-                          style: textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onError,
-                          ),
-                        ),
+                  ],
                 ),
-              ],
-              const SizedBox(height: 100),
+              ),
+            if (_successMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2EE),
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: const Color(0xFFB7D4C7)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 18, color: Color(0xFF0E5A4A)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _successMessage!,
+                        style: GoogleFonts.notoSansThai(
+                          color: const Color(0xFF0E5A4A),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── 1. USER IDENTITY CARD ───────────────────────────────────────
+            _buildUserIdentityCard(
+              colors,
+              supabaseProv,
+              settings,
+              readingProv,
+              mushafProv,
+              notesProv,
+              statsProv,
+            ),
+            const SizedBox(height: 16),
+
+            // ── 2. RESUME READING HERO BANNER ────────────────────────────────
+            if (latestReading != null)
+              _buildResumeReadingBanner(colors, latestReading),
+
+            // ── 3. 6 INTERACTIVE STAT PILLS ──────────────────────────────────
+            const SizedBox(height: 16),
+            _buildStatsGrid(
+              colors,
+              statsProv,
+              readingProv,
+              mushafProv,
+              notesProv,
+              supabaseProv,
+              isThai,
+            ),
+            const SizedBox(height: 20),
+
+            // ── 4. QUICK LIBRARY SHORTCUTS ───────────────────────────────────
+            _buildQuickLibraryShortcuts(
+              colors,
+              readingProv,
+              mushafProv,
+              notesProv,
+              isThai,
+            ),
+            const SizedBox(height: 20),
+
+            // ── 5. RECENT READINGS & REFLECTIONS PREVIEW ─────────────────────
+            _buildRecentAndReflectionsSection(
+              colors,
+              readingProv,
+              notesList,
+              publicNotesCount,
+              privateNotesCount,
+              isThai,
+            ),
+
+            // ── 6. PROBLEM REPORTS (Logged in) ───────────────────────────────
+            if (supabaseProv.isLoggedIn) ...[
+              const SizedBox(height: 20),
+              _buildReportsSection(supabaseProv, colors, isThai),
             ],
-          ),
+
+            const SizedBox(height: 60),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildQuickLibraryBanner(
-    ColorScheme colorScheme,
-    TextTheme textTheme,
+  Widget _buildUserIdentityCard(
+    AppThemeColors colors,
+    SupabaseProvider supabaseProv,
     SettingsProvider settings,
     LocalReadingProvider readingProv,
     MushafReadingProvider mushafProv,
     NotesProvider notesProv,
+    StatsProvider statsProv,
   ) {
-    final isThai = settings.languageCode == 'th';
-    final recentCount =
-        readingProv.recentReadings.length + mushafProv.recentReadings.length;
-    final bookmarkCount = readingProv.bookmarks.length +
-        mushafProv.pageBookmarks.length +
-        mushafProv.verseBookmarks.length;
-    final favCount = notesProv.personalNotes.length;
+    final isLoggedIn = supabaseProv.isLoggedIn;
+    final displayName = supabaseProv.displayName;
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-        ),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
       ),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.library_books_rounded,
-                  size: 18, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(
-                isThai ? 'คลังส่วนตัวของฉัน' : 'My Saved Library',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.onSurface,
+              // Avatar
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: Text(
+                    displayName.isNotEmpty
+                        ? displayName.substring(0, 1).toUpperCase()
+                        : 'U',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Mode Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isLoggedIn
+                            ? const Color(0xFFEAF2EE)
+                            : colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isLoggedIn
+                              ? const Color(0xFFB7D4C7)
+                              : colors.borderSoft,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isLoggedIn ? Icons.cloud_done : Icons.smartphone,
+                            size: 11,
+                            color: isLoggedIn
+                                ? const Color(0xFF0E5A4A)
+                                : colors.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isLoggedIn
+                                ? 'บัญชีคลาวด์ quran-th.com'
+                                : 'โหมดอ่านในเครื่อง (Local Mode)',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isLoggedIn
+                                  ? const Color(0xFF0E5A4A)
+                                  : colors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            displayName.isNotEmpty
+                                ? displayName
+                                : 'ผู้อ่านนิรนาม (Guest Reader)',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: colors.foreground,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () =>
+                              _showEditNameDialog(context, supabaseProv, colors),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.all(2),
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 15,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      isLoggedIn
+                          ? supabaseProv.userEmail
+                          : 'ข้อมูลถูกบันทึกในเครื่องนี้อย่างปลอดภัย',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: colors.borderSoft),
+          const SizedBox(height: 14),
+
+          // Actions
+          if (isLoggedIn)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSyncing
+                        ? null
+                        : () => _handleManualSync(
+                              supabaseProv,
+                              settings,
+                              readingProv,
+                              mushafProv,
+                              notesProv,
+                              statsProv,
+                            ),
+                    icon: _isSyncing
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync, size: 15),
+                    label: Text(
+                      _isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ข้อมูล',
+                      style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colors.primary,
+                      side: BorderSide(color: colors.borderSoft),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () => _handleSignOut(supabaseProv),
+                  icon: const Icon(Icons.logout, size: 15),
+                  label: Text(
+                    'ออกจากระบบ',
+                    style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFC81E1E),
+                    backgroundColor: const Color(0xFFFDE8E8),
+                    side: const BorderSide(color: Color(0xFFF98080)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            _buildGuestAuthSection(colors, supabaseProv),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuestAuthSection(
+    AppThemeColors colors,
+    SupabaseProvider supabaseProv,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            'ซิงค์ที่คั่นหน้า บันทึก และเป้าหมายการอ่านของคุณข้ามอุปกรณ์ด้วยบัญชี quran-th.com',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 12,
+              color: colors.textMuted,
+              height: 1.4,
+            ),
+          ),
+        ),
+        // Google Sign In Button (Strict Editorial Standard - No gradients, no fuzzy shadows)
+        InkWell(
+          onTap: (_isLoading || supabaseProv.isSigningIn)
+              ? null
+              : () => _handleGoogleSignIn(supabaseProv),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isLoading || supabaseProv.isSigningIn) ...[
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'กำลังเชื่อมต่อกับ Google...',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
+                  ),
+                ] else ...[
+                  SvgPicture.string(googleLogoSvg, width: 18, height: 18),
+                  const SizedBox(width: 10),
+                  Text(
+                    'ลงชื่อเข้าใช้ด้วย Google',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        Row(
+          children: [
+            Expanded(child: Divider(color: colors.borderSoft)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                'หรือใช้อีเมล',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11,
+                  color: colors.textMuted,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: colors.borderSoft)),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_isSignUp) ...[
+                TextFormField(
+                  controller: _nameController,
+                  style: GoogleFonts.notoSansThai(color: colors.foreground, fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'ชื่อที่แสดง',
+                    labelStyle: GoogleFonts.notoSansThai(color: colors.textMuted, fontSize: 12),
+                    filled: true,
+                    fillColor: colors.surfaceMuted,
+                    prefixIcon: const Icon(Icons.person_outline, size: 18),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.borderSoft),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.borderSoft),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: colors.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'กรุณาระบุชื่อที่แสดง';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                style: GoogleFonts.notoSansThai(color: colors.foreground, fontSize: 13),
+                decoration: InputDecoration(
+                  labelText: 'อีเมล',
+                  labelStyle: GoogleFonts.notoSansThai(color: colors.textMuted, fontSize: 12),
+                  filled: true,
+                  fillColor: colors.surfaceMuted,
+                  prefixIcon: const Icon(Icons.email_outlined, size: 18),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.borderSoft),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.borderSoft),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.primary, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return 'กรุณาระบุอีเมล';
+                  if (!val.contains('@')) return 'รูปแบบอีเมลไม่ถูกต้อง';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                style: GoogleFonts.notoSansThai(color: colors.foreground, fontSize: 13),
+                decoration: InputDecoration(
+                  labelText: 'รหัสผ่าน',
+                  labelStyle: GoogleFonts.notoSansThai(color: colors.textMuted, fontSize: 12),
+                  filled: true,
+                  fillColor: colors.surfaceMuted,
+                  prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      size: 18,
+                      color: colors.textMuted,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.borderSoft),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.borderSoft),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: colors.primary, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'กรุณาระบุรหัสผ่าน';
+                  if (val.length < 6) return 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+
+              ElevatedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        if (_isSignUp) {
+                          _handlePasswordSignUp(supabaseProv);
+                        } else {
+                          _handlePasswordSignIn(supabaseProv);
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        _isSignUp ? 'สมัครสมาชิก' : 'เข้าสู่ระบบด้วยอีเมล',
+                        style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                      ),
+              ),
+              const SizedBox(height: 8),
+
+              TextButton(
+                onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                child: Text(
+                  _isSignUp ? 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ' : 'ยังไม่มีบัญชี? สมัครสมาชิกที่นี่',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: colors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResumeReadingBanner(
+    AppThemeColors colors,
+    dynamic latestReading,
+  ) {
+    final surahId = latestReading.verse.surahId as String;
+    final verseId = latestReading.verse.verseId as String;
+    final repository = widget.repository ?? QuranRepository();
+    final surahName = repository.getSurahName(surahId).replaceAll(RegExp(r'^\d+\.\s*'), '');
+    final surahAr = offlineSurahNamesAr[surahId];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border(
+          left: BorderSide(color: colors.primary, width: 3.5),
+          top: BorderSide(color: colors.borderSoft),
+          right: BorderSide(color: colors.borderSoft),
+          bottom: BorderSide(color: colors.borderSoft),
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF2EE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.bookmark, size: 15, color: Color(0xFF0E5A4A)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'อ่านต่อจากจุดเดิม',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.6,
+                      color: colors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                timeago.format(latestReading.readAt),
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11,
+                  color: colors.textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openBookmarks(initialTab: 0),
-                  icon: const Icon(Icons.history_rounded, size: 16),
-                  label: Text(
-                    isThai
-                        ? 'อ่านล่าสุด ($recentCount)'
-                        : 'Recent ($recentCount)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$surahName • อายะฮฺที่ $verseId',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: colors.foreground,
+                      ),
                     ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                    if (surahAr != null)
+                      Text(
+                        surahAr,
+                        style: const TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontSize: 16,
+                          color: Color(0xFF0E5A4A),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openBookmarks(initialTab: 1),
-                  icon: const Icon(Icons.bookmark_rounded, size: 16),
-                  label: Text(
-                    isThai
-                        ? 'บุ๊กมาร์ก ($bookmarkCount)'
-                        : 'Saved ($bookmarkCount)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _openReading(surahId, verseId),
+                    icon: const Icon(Icons.translate, size: 13),
+                    label: Text(
+                      'อ่านฉบับแปล',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _openMushaf(surahId, verseId),
+                    icon: const Icon(Icons.menu_book, size: 13),
+                    label: Text(
+                      'มุศหัฟ',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF8A6530),
+                      backgroundColor: const Color(0xFFF6EFE3),
+                      side: const BorderSide(color: Color(0xFFE8DFC8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _openBookmarks(initialTab: 2),
-                  icon: const Icon(Icons.favorite_rounded, size: 16),
-                  label: Text(
-                    isThai
-                        ? 'โปรด ($favCount)'
-                        : 'Notes ($favCount)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+                ],
               ),
             ],
           ),
@@ -1160,25 +1180,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileStatsGroup({
-    required String title,
-    required List<Widget> children,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildStatsGrid(
+    AppThemeColors colors,
+    StatsProvider statsProv,
+    LocalReadingProvider readingProv,
+    MushafReadingProvider mushafProv,
+    NotesProvider notesProv,
+    SupabaseProvider supabaseProv,
+    bool isThai,
+  ) {
+    final bookmarksCount = readingProv.bookmarks.length +
+        mushafProv.pageBookmarks.length +
+        mushafProv.verseBookmarks.length;
+    final reflectionsCount = notesProv.personalNotes.length;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            title.toUpperCase(),
-            style: GoogleFonts.notoSansThai(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
-              color: colorScheme.primary,
-            ),
+        Text(
+          isThai ? 'สถิติการอ่านและคลังของฉัน' : 'READING ACTIVITY & LIBRARY',
+          style: GoogleFonts.notoSansThai(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.8,
+            color: colors.primary,
           ),
         ),
         const SizedBox(height: 10),
@@ -1186,141 +1211,631 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.4,
-          children: children,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 1.6,
+          children: [
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.local_fire_department,
+              iconColor: const Color(0xFFD97706),
+              iconBgColor: const Color(0xFFFEF3C7),
+              title: isThai ? 'อ่านต่อเนื่อง' : 'Reading Streak',
+              value: '${statsProv.streakCount} ${isThai ? 'วัน' : 'Days'}',
+              onTap: widget.onOpenGoalsTab,
+            ),
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.today,
+              iconColor: colors.primary,
+              iconBgColor: const Color(0xFFEAF2EE),
+              title: isThai ? 'อ่านวันนี้' : 'Read Today',
+              value: '${statsProv.todayReadCount} ${isThai ? 'อายะฮฺ' : 'Ayat'}',
+              onTap: widget.onOpenGoalsTab,
+            ),
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.date_range,
+              iconColor: const Color(0xFF0E5A4A),
+              iconBgColor: const Color(0xFFEAF2EE),
+              title: isThai ? '7 วันล่าสุด' : 'This Week',
+              value: '${statsProv.weekReadCount} ${isThai ? 'อายะฮฺ' : 'Ayat'}',
+              onTap: widget.onOpenGoalsTab,
+            ),
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.bookmark,
+              iconColor: const Color(0xFF8A6530),
+              iconBgColor: const Color(0xFFF6EFE3),
+              title: isThai ? 'บุ๊กมาร์กทั้งหมด' : 'Bookmarks',
+              value: '$bookmarksCount ${isThai ? 'รายการ' : 'Saved'}',
+              onTap: () => _openBookmarks(initialTab: 1),
+            ),
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.note_alt_outlined,
+              iconColor: const Color(0xFF0E5A4A),
+              iconBgColor: const Color(0xFFEAF2EE),
+              title: isThai ? 'บันทึกตดับบุร' : 'Reflections',
+              value: '$reflectionsCount ${isThai ? 'บันทึก' : 'Notes'}',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TadabburPrivateScreen(
+                      repository: widget.repository ?? QuranRepository(),
+                    ),
+                  ),
+                );
+              },
+            ),
+            _buildStatCard(
+              colors: colors,
+              icon: Icons.flag_outlined,
+              iconColor: colors.primary,
+              iconBgColor: const Color(0xFFEAF2EE),
+              title: isThai ? 'เป้าหมายที่กำลังอ่าน' : 'Active Goals',
+              value:
+                  '${readingProv.activeProfiles.where((p) => !isFreeReadProfile(p)).length + mushafProv.activeCustomProfiles.length}',
+              onTap: widget.onOpenGoalsTab,
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildReportsCountCard(SupabaseProvider supabaseProv) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _reportsFuture,
-      builder: (context, snapshot) {
-        final reports = snapshot.data ?? const <Map<String, dynamic>>[];
-        final value = snapshot.connectionState == ConnectionState.waiting
-            ? '...'
-            : '${reports.length}';
-
-        return _buildStatCard(
-          icon: Icons.report_outlined,
-          title: 'รายงานปัญหา',
-          value: value,
-          color: colorScheme.secondary,
-          onTap: () => _showReportsSheet(supabaseProv),
-        );
-      },
-    );
-  }
-
-  void _showReportsSheet(SupabaseProvider supabaseProv) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      backgroundColor: colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: FractionallySizedBox(
-            heightFactor: 0.86,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              child: _buildReportsSection(supabaseProv),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildStatCard({
+    required AppThemeColors colors,
     required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
     required String title,
     required String value,
-    required Color color,
     VoidCallback? onTap,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTheme.radius),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: colors.borderSoft),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11,
+                      color: colors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              value,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: colors.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    Color activeColor = color;
-    if (color == Colors.blue ||
-        color == Colors.purple ||
-        color == Colors.indigo ||
-        color == Colors.teal) {
-      activeColor = colorScheme.primary;
-    } else if (color == Colors.orange ||
-        color == Colors.red ||
-        color == Colors.deepOrange) {
-      activeColor = colorScheme.secondary;
-    } else {
-      activeColor = colorScheme.primary;
-    }
+  Widget _buildQuickLibraryShortcuts(
+    AppThemeColors colors,
+    LocalReadingProvider readingProv,
+    MushafReadingProvider mushafProv,
+    NotesProvider notesProv,
+    bool isThai,
+  ) {
+    final recentCount = readingProv.recentReadings.length + mushafProv.recentReadings.length;
+    final bookmarkCount = readingProv.bookmarks.length +
+        mushafProv.pageBookmarks.length +
+        mushafProv.verseBookmarks.length;
+    final favCount = notesProv.personalNotes.length;
 
-    final card = Container(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Text(
+            isThai ? 'คลังส่วนตัวของฉัน' : 'My Saved Library',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: colors.foreground,
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: activeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: activeColor, size: 18),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: _buildLibraryButton(
+                  colors: colors,
+                  label: isThai ? 'อ่านล่าสุด ($recentCount)' : 'Recent ($recentCount)',
+                  icon: Icons.history,
+                  onTap: () => _openBookmarks(initialTab: 0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildLibraryButton(
+                  colors: colors,
+                  label: isThai ? 'บุ๊กมาร์ก ($bookmarkCount)' : 'Bookmarks ($bookmarkCount)',
+                  icon: Icons.bookmark_border,
+                  onTap: () => _openBookmarks(initialTab: 1),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildLibraryButton(
+                  colors: colors,
+                  label: isThai ? 'บันทึก ($favCount)' : 'Notes ($favCount)',
+                  icon: Icons.favorite_border,
+                  onTap: () => _openBookmarks(initialTab: 2),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.notoSansThai(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-          ),
         ],
       ),
     );
+  }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: card,
+  Widget _buildLibraryButton({
+    required AppThemeColors colors,
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.borderSoft),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 14, color: colors.primary),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: colors.foreground,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildRecentAndReflectionsSection(
+    AppThemeColors colors,
+    LocalReadingProvider readingProv,
+    List<TadabburNote> notesList,
+    int publicCount,
+    int privateNotesCount,
+    bool isThai,
+  ) {
+    final recentList = readingProv.recentReadings.take(4).toList();
+    final repository = widget.repository ?? QuranRepository();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Recent Readings Card ──
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            border: Border.all(color: colors.borderSoft),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.history, size: 16, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        isThai ? 'ประวัติการอ่านล่าสุด' : 'Recent Readings',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: colors.foreground,
+                        ),
+                      ),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () => _openBookmarks(initialTab: 0),
+                    child: Text(
+                      isThai ? 'ดูทั้งหมด' : 'View all',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (recentList.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Text(
+                      isThai ? 'ยังไม่มีประวัติการอ่าน' : 'No recent reading history.',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ...recentList.map((reading) {
+                  final surahName = repository
+                      .getSurahName(reading.verse.surahId)
+                      .replaceAll(RegExp(r'^\d+\.\s*'), '');
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: InkWell(
+                      onTap: () => _openReading(
+                        reading.verse.surahId,
+                        reading.verse.verseId,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colors.borderSoft),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '$surahName (${reading.verse.surahId}:${reading.verse.verseId})',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: colors.foreground,
+                              ),
+                            ),
+                            Text(
+                              timeago.format(reading.readAt),
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 10,
+                                color: colors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ── My Tadabbur Reflections Breakdown ──
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            border: Border.all(color: colors.borderSoft),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.edit_note, size: 16, color: colors.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        isThai ? 'บันทึกตดับบุรของฉัน' : 'My Reflections',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: colors.foreground,
+                        ),
+                      ),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TadabburPrivateScreen(
+                            repository: repository,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      isThai ? 'ดูทั้งหมด' : 'View all',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Counter Row
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: colors.borderSoft),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'เฉพาะฉัน',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 10,
+                              color: colors.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$privateNotesCount',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: colors.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF2EE),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFB7D4C7)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'แชร์สู่ชุมชน',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 10,
+                              color: const Color(0xFF0E5A4A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$publicCount',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF0E5A4A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Reflections Snippet List
+              if (notesList.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: Text(
+                      isThai ? 'ยังไม่มีบันทึกตดับบุร' : 'No reflections written yet.',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ...notesList.take(3).map((note) {
+                  final surahName = repository
+                      .getSurahName(note.surahId)
+                      .replaceAll(RegExp(r'^\d+\.\s*'), '');
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: InkWell(
+                      onTap: () => _openReading(note.surahId, note.verseId),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colors.borderSoft),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$surahName ${note.surahId}:${note.verseId}',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.primary,
+                                  ),
+                                ),
+                                Icon(
+                                  note.isPublic ? Icons.public : Icons.lock_outline,
+                                  size: 12,
+                                  color: colors.textMuted,
+                                ),
+                              ],
+                            ),
+                            if (note.noteText.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                note.noteText,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 12,
+                                  color: colors.foreground,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TadabburPrivateScreen(
+                              repository: repository,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.note_alt_outlined, size: 14),
+                      label: Text(
+                        'บันทึกส่วนตัว',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.primary,
+                        side: BorderSide(color: colors.borderSoft),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TadabburCommunityScreen(
+                              repository: repository,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.public, size: 14),
+                      label: Text(
+                        'ชุมชนตดับบุร',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.foreground,
+                        side: BorderSide(color: colors.borderSoft),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1338,38 +1853,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildStatusBadge(String status) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
+  Widget _buildStatusBadge(String status, AppThemeColors colors) {
     Color bgColor;
     Color textColor;
     String label;
 
     switch (status) {
       case 'reviewed_fixed':
-        bgColor = colorScheme.primary.withValues(alpha: 0.15);
-        textColor = colorScheme.primary;
-        label = isThai ? 'แก้ไขแล้ว' : 'Fixed';
+        bgColor = const Color(0xFFEAF2EE);
+        textColor = const Color(0xFF0E5A4A);
+        label = 'แก้ไขแล้ว';
         break;
       case 'reviewed_not_needed':
-        bgColor = colorScheme.outline.withValues(alpha: 0.15);
-        textColor = colorScheme.onSurfaceVariant;
-        label = isThai ? 'ไม่ต้องแก้ไข' : 'No Action';
+        bgColor = colors.surfaceMuted;
+        textColor = colors.textMuted;
+        label = 'ไม่ต้องแก้ไข';
         break;
       case 'pending_review':
       default:
-        bgColor = colorScheme.secondary.withValues(alpha: 0.15);
-        textColor = colorScheme.secondary;
-        label = isThai ? 'รอดำเนินการ' : 'Pending';
+        bgColor = const Color(0xFFFEF3C7);
+        textColor = const Color(0xFFD97706);
+        label = 'รอดำเนินการ';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: textColor.withValues(alpha: 0.2), width: 1),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
@@ -1382,268 +1894,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildReportsSection(SupabaseProvider supabaseProv) {
-    if (!supabaseProv.isLoggedIn) {
-      return const SizedBox.shrink();
-    }
-
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget _buildReportsSection(
+    SupabaseProvider supabaseProv,
+    AppThemeColors colors,
+    bool isThai,
+  ) {
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: colorScheme.outline, width: 1),
+        border: Border.all(color: colors.borderSoft),
       ),
-      margin: const EdgeInsets.only(top: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'รายงานข้อผิดพลาด (My Error Reports)',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.refresh,
-                    size: 20,
-                    color: colorScheme.primary,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _reportsFuture = _fetchUserReports(supabaseProv.userId);
-                    });
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            FutureBuilder<List<Map<String, dynamic>>>(
-              future: _reportsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(
-                        color: colorScheme.primary,
-                      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.report_problem_outlined, size: 16, color: colors.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    isThai ? 'รายงานปัญหาข้อผิดพลาด' : 'My Problem Reports',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
                     ),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Text(
-                    'เกิดข้อผิดพลาดในการโหลดข้อมูล (Error loading reports)',
-                    style: GoogleFonts.notoSansThai(color: colorScheme.error),
-                  );
-                }
-                final reports = snapshot.data ?? [];
-                if (reports.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'ไม่มีประวัติการรายงานข้อผิดพลาด (No error reports submitted yet)',
-                      style: GoogleFonts.notoSansThai(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(Icons.refresh, size: 16, color: colors.primary),
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  setState(() {
+                    _reportsFuture = _fetchUserReports(supabaseProv.userId);
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _reportsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.primary,
                     ),
-                  );
-                }
+                  ),
+                );
+              }
+              final reports = snapshot.data ?? [];
+              if (reports.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    isThai
+                        ? 'ไม่มีประวัติการรายงานข้อผิดพลาด'
+                        : 'No error reports submitted yet',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.textMuted,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
 
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: reports.length,
-                  separatorBuilder: (context, index) =>
-                      Divider(color: colorScheme.outline, thickness: 1),
-                  itemBuilder: (context, index) {
-                    final settings = Provider.of<SettingsProvider>(context, listen: false);
-                    final report = reports[index];
-                    final surahId = report['surah_id']?.toString() ?? '';
-                    final ayahNum = report['ayah_number']?.toString() ?? '';
-                    final reportedText =
-                        report['reported_verse_text']?.toString() ?? '';
-                    final userComment =
-                        report['user_comment']?.toString() ?? '';
-                    final status =
-                        report['status']?.toString() ?? 'pending_review';
-                    final adminNotes =
-                        report['admin_resolution_notes']?.toString() ?? '';
-                    final dateStr = report['created_at']?.toString() ?? '';
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: reports.length,
+                separatorBuilder: (context, index) =>
+                    Divider(color: colors.borderSoft, height: 16),
+                itemBuilder: (context, index) {
+                  final report = reports[index];
+                  final surahId = report['surah_id']?.toString() ?? '';
+                  final ayahNum = report['ayah_number']?.toString() ?? '';
+                  final userComment = report['user_comment']?.toString() ?? '';
+                  final status = report['status']?.toString() ?? 'pending_review';
+                  final dateStr = report['created_at']?.toString() ?? '';
 
-                    DateTime? parsedDate;
-                    String formattedDate = '';
-                    if (dateStr.isNotEmpty) {
-                      try {
-                        parsedDate = DateTime.parse(dateStr).toLocal();
-                        formattedDate =
-                            '${parsedDate.day}/${parsedDate.month}/${parsedDate.year} ${parsedDate.hour.toString().padLeft(2, '0')}:${parsedDate.minute.toString().padLeft(2, '0')}';
-                      } catch (_) {}
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              GestureDetector(
-                                onTap: () => _openReading(surahId, ayahNum),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primary.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        settings.languageCode == 'en'
-                                            ? 'Ayah $surahId:$ayahNum'
-                                            : 'อายะฮฺ $surahId:$ayahNum',
-                                        style: GoogleFonts.notoSansThai(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.open_in_new,
-                                        size: 12,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                          InkWell(
+                            onTap: () => _openReading(surahId, ayahNum),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
                               ),
-                              _buildStatusBadge(status),
-                            ],
-                          ),
-                          if (formattedDate.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              formattedDate,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                          Text(
-                            settings.languageCode == 'en'
-                                ? 'Reported Verse Text:'
-                                : 'ข้อความโองการที่รายงาน:',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            reportedText,
-                            softWrap: true,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            settings.languageCode == 'en'
-                                ? 'Your Comment:'
-                                : 'ความคิดเห็นของคุณ:',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            userComment,
-                            softWrap: true,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 13,
-                              color: colorScheme.onSurface,
-                            ),
-                          ),
-                          if (adminNotes.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              width: double.infinity,
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: colorScheme.primary.withValues(alpha: 0.15),
+                                color: const Color(0xFFEAF2EE),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'อายะฮฺ $surahId:$ayahNum',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0E5A4A),
                                 ),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.admin_panel_settings,
-                                        size: 16,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        settings.languageCode == 'en'
-                                            ? 'Admin Note:'
-                                            : 'บันทึกจากผู้ดูแล:',
-                                        style: GoogleFonts.notoSansThai(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    adminNotes,
-                                    softWrap: true,
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 12,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
-                          ],
+                          ),
+                          _buildStatusBadge(status, colors),
                         ],
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
-        ),
+                      if (userComment.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          userComment,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            color: colors.foreground,
+                          ),
+                        ),
+                      ],
+                      if (dateStr.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          dateStr.split('T').first,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 10,
+                            color: colors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+        ],
       ),
     );
   }

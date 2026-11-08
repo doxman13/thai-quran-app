@@ -189,6 +189,17 @@ class ProgressProvider extends ChangeNotifier {
     }
   }
 
+  // Update verse index without triggering scroll animation (used during continuous scrolling)
+  Future<void> setVerseIndexWithoutScroll(int index) async {
+    if (_profileVerses[_currentProfile] == index) return;
+    _profileVerses[_currentProfile] = index;
+    notifyListeners();
+
+    _saveTimer?.cancel();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('profile_${_currentProfile}_verse_index', index);
+  }
+
   Future<void> incrementCompletedRead() async {
     _completedReadCount++;
     notifyListeners();

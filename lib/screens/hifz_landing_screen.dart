@@ -21,6 +21,7 @@ import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/surah_mastery_card.dart';
 import 'hifz_guide_screen.dart';
 import 'hifz_history_screen.dart';
@@ -44,7 +45,7 @@ int _juzOfSurah(int surah) {
   return juz;
 }
 
-enum _MasteryFilter { all, inProgress, mastered, juz29And30 }
+enum _MasteryFilter { all, inProgress, mastered, notStarted, juz29And30 }
 
 class HifzLandingScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -104,18 +105,18 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     if (!mounted) return;
     setState(() {
       _completionMap = map;
-      _masteredCount = records
-          .where((r) => r.newVersesCompleted && r.reviewCount >= 3)
-          .length;
-      _inProgressCount = records
-          .where((r) => r.newVersesCompleted || r.reviewCount > 0)
-          .length;
+      _masteredCount = records.where(SurahMasteryCard.isMasteredRecord).length;
+      _inProgressCount =
+          records.where(SurahMasteryCard.isInProgressRecord).length;
       _activeSessionSnapshot = activeSession;
       _hasActiveSession = activeSession != null;
       _loading = false;
     });
     _animController.forward();
   }
+
+  int get _notStartedCount =>
+      math.max(0, 114 - _masteredCount - _inProgressCount);
 
   Future<void> _openNewVerses({int? surahNum}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -238,14 +239,19 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   List<int> _getFilteredSurahs(bool isThai) {
     final all = List.generate(114, (i) => i + 1);
     final byFilter = switch (_filterMode) {
-      _MasteryFilter.mastered => all.where((s) {
-          final r = _completionMap[s];
-          return r != null && r.newVersesCompleted && r.reviewCount >= 3;
-        }).toList(),
-      _MasteryFilter.inProgress => all.where((s) {
-          final r = _completionMap[s];
-          return r != null && (r.newVersesCompleted || r.reviewCount > 0);
-        }).toList(),
+      _MasteryFilter.mastered => all
+          .where((s) => SurahMasteryCard.isMasteredRecord(_completionMap[s]))
+          .toList(),
+      _MasteryFilter.inProgress => all
+          .where((s) => SurahMasteryCard.isInProgressRecord(_completionMap[s]))
+          .toList(),
+      _MasteryFilter.notStarted => all
+          .where(
+            (s) =>
+                !SurahMasteryCard.isMasteredRecord(_completionMap[s]) &&
+                !SurahMasteryCard.isInProgressRecord(_completionMap[s]),
+          )
+          .toList(),
       _MasteryFilter.juz29And30 =>
         all.where((s) => _juzOfSurah(s) >= 29).toList(),
       _MasteryFilter.all => all,
@@ -273,7 +279,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           : AppBar(
               title: Text(
                 isThai ? 'โหมดท่องจำ (Hifz)' : 'Hifz Memorization',
-                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
               ),
               centerTitle: false,
               actions: [
@@ -328,7 +334,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                                   : 'Hifz Memorization',
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 color: colorScheme.onSurface,
                               ),
                             ),
@@ -409,7 +415,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                               : 'Surah Mastery (114 Surahs)',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: colorScheme.onSurface,
                           ),
                         ),
@@ -448,14 +454,14 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                           vertical: 10,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
                           borderSide: BorderSide(
                             color: colorScheme.outlineVariant
                                 .withValues(alpha: 0.35),
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
                           borderSide: BorderSide(
                             color: colorScheme.outlineVariant
                                 .withValues(alpha: 0.35),
@@ -472,13 +478,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                           final selected = _filterMode == mode;
                           final label = switch (mode) {
                             _MasteryFilter.all =>
-                              isThai ? 'ทั้งหมด (114)' : 'All (114)',
+                              isThai ? 'ทั้งหมด 114' : 'All (114)',
                             _MasteryFilter.inProgress => isThai
                                 ? 'กำลังท่อง ($_inProgressCount)'
                                 : 'In Progress ($_inProgressCount)',
                             _MasteryFilter.mastered => isThai
                                 ? 'จำขึ้นใจแล้ว ($_masteredCount)'
                                 : 'Mastered ($_masteredCount)',
+                            _MasteryFilter.notStarted => isThai
+                                ? 'ยังไม่เริ่ม ($_notStartedCount)'
+                                : 'Not Started ($_notStartedCount)',
                             _MasteryFilter.juz29And30 =>
                               isThai ? 'ญุซอ์ 29 & 30' : 'Juz 29 & 30',
                           };
@@ -498,7 +507,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                                     : colorScheme.onSurfaceVariant,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius:
+                                    BorderRadius.circular(AppTheme.radiusSm),
                               ),
                             ),
                           );
@@ -594,7 +604,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8EB),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
           color: const Color(0xFFD4A853).withValues(alpha: 0.6),
         ),
@@ -606,7 +616,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
             height: 40,
             decoration: BoxDecoration(
               color: const Color(0xFFD4A853).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
             child: const Icon(
               Icons.play_circle_fill_rounded,
@@ -629,7 +639,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                           : 'Active Review Session'),
                   style: GoogleFonts.notoSansThai(
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: const Color(0xFF9A6B16),
                   ),
                 ),
@@ -661,7 +671,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               foregroundColor: Colors.white,
               visualDensity: VisualDensity.compact,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               ),
             ),
             child: Text(isThai ? 'ท่องต่อ' : 'Resume'),
@@ -715,19 +725,11 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF062C2B), Color(0xFF0E5A4A)],
+        color: const Color(0xFF0E5A4A),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(
+          color: const Color(0xFF0A4437),
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF062C2B).withValues(alpha: 0.22),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,7 +741,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFD4A853).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   border: Border.all(
                     color: const Color(0xFFD4A853).withValues(alpha: 0.45),
                   ),
@@ -758,7 +760,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               const Spacer(),
               InkWell(
                 onTap: _openGuide,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -792,7 +794,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 : 'Memorize New Verses & Protect Retention',
             style: GoogleFonts.notoSansThai(
               fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
@@ -817,7 +819,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                   label: Text(
                     isThai ? 'เริ่มท่องอายะฮฺใหม่' : 'New Verses',
                     style: GoogleFonts.notoSansThai(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13.5,
                     ),
                   ),
@@ -826,7 +828,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     foregroundColor: const Color(0xFF1E1608),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
                     ),
                   ),
                 ),
@@ -851,7 +853,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     backgroundColor: Colors.white.withValues(alpha: 0.08),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
                     ),
                   ),
                 ),
@@ -870,6 +872,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     SettingsProvider settings,
     bool isThai,
   ) {
+    final colors = context.appColors;
     final inputModeLabel = switch (settings.hifzInputMode) {
       HifzInputMode.inAppTally => isThai ? 'ปุ่มบนจอ' : 'On-Screen',
       HifzInputMode.bluetoothShutter => isThai ? 'รีโมทบลูทูธ' : 'BT Shutter',
@@ -883,7 +886,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           Expanded(
             child: _CompactInfoCard(
               icon: Icons.verified_rounded,
-              iconColor: const Color(0xFF15803D),
+              iconColor: colors.success,
               title: '$_masteredCount / 114',
               subtitle: isThai ? 'จำขึ้นใจแล้ว' : 'Mastered',
               onTap: () =>
@@ -894,7 +897,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           Expanded(
             child: _CompactInfoCard(
               icon: Icons.trending_up_rounded,
-              iconColor: const Color(0xFFB45309),
+              iconColor: colors.mushafGold,
               title: '$_inProgressCount / 114',
               subtitle: isThai ? 'กำลังท่องจำ' : 'In Progress',
               onTap: () =>
@@ -909,7 +912,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                   : (settings.hifzInputMode == HifzInputMode.bluetoothShutter
                       ? Icons.bluetooth_searching_rounded
                       : Icons.touch_app_rounded),
-              iconColor: colorScheme.primary,
+              iconColor: colors.primary,
               title: inputModeLabel,
               subtitle: isThai ? 'วิธีเลื่อนอายะฮฺ ⚙' : 'Input Mode ⚙',
               onTap: _openHifzSettings,
@@ -923,6 +926,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   void _showSurahActionSheet(BuildContext context, int surahNum) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final colors = context.appColors;
     final isThai =
         Provider.of<SettingsProvider>(context, listen: false).languageCode ==
             'th';
@@ -937,7 +941,9 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       context: context,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
       ),
       builder: (sheetCtx) {
         return SafeArea(
@@ -962,13 +968,13 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                       height: 48,
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         '$surahNum',
                         style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
@@ -982,7 +988,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                             isThai ? names.th : names.en,
                             style: GoogleFonts.notoSansThai(
                               fontSize: 17,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           Text(
@@ -1001,15 +1007,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF15803D).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
+                          color: colors.success.withValues(alpha: 0.12),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSm),
                         ),
                         child: Text(
                           isThai ? 'สำเร็จแล้ว' : 'Completed',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF15803D),
+                            color: colors.success,
                           ),
                         ),
                       ),
@@ -1018,7 +1025,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 const SizedBox(height: 20),
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   tileColor: colorScheme.surfaceContainerLow,
                   leading: CircleAvatar(
@@ -1051,7 +1058,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 const SizedBox(height: 10),
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   tileColor: colorScheme.surfaceContainerLow,
                   leading: CircleAvatar(
@@ -1110,14 +1117,14 @@ class _CompactInfoCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppTheme.radius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
               color: colorScheme.outlineVariant.withValues(alpha: 0.35),
             ),
@@ -1133,7 +1140,7 @@ class _CompactInfoCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: colorScheme.onSurface,
                 ),
               ),

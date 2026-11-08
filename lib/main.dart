@@ -51,8 +51,7 @@ Future<void> _initializeAppServices() async {
 
   await Supabase.initialize(
     url: 'https://atouicznofujiwqavxer.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0b3VpY3pub2Z1aml3cWF2eGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MTU1ODksImV4cCI6MjEwNjI5MTU4OX0.H558zeNMkz-06QZxMcusjpcGufxuYzOwYJQxNOP6nsI',
+    publishableKey: 'sb_publishable_B0aJ8hFUQz2-PLS6_jBkkg_rZcQ4F5y',
   );
 
   await _initializeAudioBackground();
@@ -98,6 +97,7 @@ class ThaiQuranBootstrap extends StatelessWidget {
 
         return MultiProvider(
           providers: [
+            Provider<QuranRepository>.value(value: repository),
             ChangeNotifierProvider(create: (_) => BleRemoteProvider()),
             ChangeNotifierProvider(create: (_) => SupabaseProvider()),
             ChangeNotifierProvider(create: (_) => ProgressProvider()),

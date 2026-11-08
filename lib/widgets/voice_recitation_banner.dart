@@ -307,39 +307,50 @@ class VoiceRecitationBanner extends StatelessWidget {
               ],
             ),
           ),
-          if (isListening && onSkipOrRevealNextVerse != null) ...[
-            FilledButton.tonalIcon(
-              onPressed: onSkipOrRevealNextVerse,
-              icon: Icon(
-                isCurrentVerseHinted ? Icons.arrow_forward_rounded : Icons.lightbulb_outline_rounded,
-                size: 14,
-              ),
-              label: Text(
-                isCurrentVerseHinted
-                    ? (isThai ? 'ข้ามอายะฮฺ >' : 'V${tracker.currentExpectedAyah} Skip >')
-                    : (isThai ? 'ใบ้คำแรก' : 'V${tracker.currentExpectedAyah} Hint'),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: isCurrentVerseHinted
-                    ? colorScheme.errorContainer.withValues(alpha: 0.8)
-                    : colorScheme.primaryContainer.withValues(alpha: 0.85),
-                foregroundColor: isCurrentVerseHinted
-                    ? colorScheme.onErrorContainer
-                    : colorScheme.onPrimaryContainer,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isCurrentVerseHinted
-                        ? colorScheme.error.withValues(alpha: 0.35)
-                        : colorScheme.primary.withValues(alpha: 0.35),
-                    width: 1,
+          if (isListening) ...[
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              tooltip: isThai ? 'ล้างเสียงอ่าน/ลองใหม่' : 'Reset buffer & retry',
+              visualDensity: VisualDensity.compact,
+              onPressed: () {
+                tracker.retryVerse(tracker.currentExpectedAyah);
+              },
+            ),
+            const SizedBox(width: 2),
+            if (onSkipOrRevealNextVerse != null) ...[
+              FilledButton.tonalIcon(
+                onPressed: onSkipOrRevealNextVerse,
+                icon: Icon(
+                  isCurrentVerseHinted ? Icons.arrow_forward_rounded : Icons.lightbulb_outline_rounded,
+                  size: 14,
+                ),
+                label: Text(
+                  isCurrentVerseHinted
+                      ? (isThai ? 'ข้ามอายะฮฺ >' : 'V${tracker.currentExpectedAyah} Skip >')
+                      : (isThai ? 'ใบ้คำแรก' : 'V${tracker.currentExpectedAyah} Hint'),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: isCurrentVerseHinted
+                      ? colorScheme.errorContainer.withValues(alpha: 0.8)
+                      : colorScheme.primaryContainer.withValues(alpha: 0.85),
+                  foregroundColor: isCurrentVerseHinted
+                      ? colorScheme.onErrorContainer
+                      : colorScheme.onPrimaryContainer,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isCurrentVerseHinted
+                          ? colorScheme.error.withValues(alpha: 0.35)
+                          : colorScheme.primary.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 4),
+              const SizedBox(width: 4),
+            ],
           ],
           Material(
             color: Colors.transparent,

@@ -315,6 +315,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   void _onAudioStateChanged() {
     final audio = _audioProvider;
     if (audio == null || !audio.isPlaying) return;
+
+    // Audio Guide Feedback Protection: pause voice tracking during model recitation
+    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    if (tracker.isListening) {
+      tracker.toggleVoiceTracking(false);
+    }
+
     final key = audio.currentVerseKey;
     if (key == null || key == _lastObservedAudioVerseKey) return;
     _lastObservedAudioVerseKey = key;
@@ -1067,7 +1074,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         final colorScheme = Theme.of(ctx).colorScheme;
         final textTheme = Theme.of(ctx).textTheme;
         final typeLabel = snap.sessionType == HifzSessionType.newVerses
-            ? (isThai ? 'ท่องจำอายะห์ใหม่ (Takrar)' : 'New Verses (Takrar)')
+            ? (isThai ? 'ท่องจำอายะฮฺใหม่ (Takrar)' : 'New Verses (Takrar)')
             : (isThai ? 'ทบทวนฮิฟซ์ (Review)' : 'Review Mode');
         final stepLabel = snap.sessionType == HifzSessionType.review
             ? (isThai
@@ -2658,8 +2665,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(newChunkVal
-                                ? (isThai ? 'เปิดการแบ่งย่อยอายะฮ์ยาวแล้ว' : 'Chunk long verses enabled')
-                                : (isThai ? 'ปิดการแบ่งย่อยอายะฮ์ยาวแล้ว' : 'Chunk long verses disabled')),
+                                ? (isThai ? 'เปิดการแบ่งย่อยอายะฮฺยาวแล้ว' : 'Chunk long verses enabled')
+                                : (isThai ? 'ปิดการแบ่งย่อยอายะฮฺยาวแล้ว' : 'Chunk long verses disabled')),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -3444,7 +3451,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                 hintedVerseKeys: (activeSurah != null && _hintedVerse != null)
                                     ? {'$activeSurah:$_hintedVerse'}
                                     : null,
-                                onVerseTap: (_) => _toggleChrome(),
+                                onVerseTap: (verseKey) {
+                                  if (highlightedVerseKeys.contains(verseKey)) {
+                                    provider.toggleVisibilityOverride();
+                                  } else {
+                                    _toggleChrome();
+                                  }
+                                },
                                 onVerseLongPressStart: (_) {},
                                 onVerseLongPress: (_) {},
                                 isVerseHidden: (verseKey) {
@@ -4176,7 +4189,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           ),
           content: Text(
             isThai
-                ? 'คุณต้องการรีเซ็ตเฉพาะอายะห์ปัจจุบัน หรือรีเซ็ตทั้งลำดับ?'
+                ? 'คุณต้องการรีเซ็ตเฉพาะอายะฮฺปัจจุบัน หรือรีเซ็ตทั้งลำดับ?'
                 : 'Do you want to reset just the current verse, or the entire sequence?',
             style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
@@ -4187,7 +4200,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'current'),
-              child: Text(isThai ? 'รีเซ็ตอายะห์นี้' : 'Reset current verse'),
+              child: Text(isThai ? 'รีเซ็ตอายะฮฺนี้' : 'Reset current verse'),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'all'),
@@ -4371,7 +4384,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   const SizedBox(height: 6),
                   Text(
                     isThai
-                        ? 'อายะห์ใหม่จะเลือนหายไปอย่างรวดเร็วหากไม่ทบทวนทันที ทบทวนช่วงนี้แบบ 2x/2x เพื่อบันทึกลงความจำระยะยาว'
+                        ? 'อายะฮฺใหม่จะเลือนหายไปอย่างรวดเร็วหากไม่ทบทวนทันที ทบทวนช่วงนี้แบบ 2x/2x เพื่อบันทึกลงความจำระยะยาว'
                         : 'New verses fade fast without immediate review. Review this range now with the 2x/2x cycle to solidify it.',
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onTertiaryContainer.withValues(alpha: 0.85),
@@ -4384,7 +4397,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     icon: const Icon(Icons.replay_rounded, size: 18),
                     label: Text(
                       isThai
-                          ? 'เริ่มทบทวนช่วงนี้ทันที (สูเราะฮ์ ${provider.surahNumber}:$_selectedStartVerse-$_selectedEndVerse)'
+                          ? 'เริ่มทบทวนช่วงนี้ทันที (ซูเราะฮฺ ${provider.surahNumber}:$_selectedStartVerse-$_selectedEndVerse)'
                           : 'Review This Range Now (${provider.surahNumber}:$_selectedStartVerse-$_selectedEndVerse)',
                     ),
                     style: FilledButton.styleFrom(
@@ -4561,7 +4574,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     hintedVerseKeys: _hintedVerse != null
                                         ? {'${provider.surahNumber}:$_hintedVerse'}
                                         : null,
-                                    onVerseTap: (_) => _toggleChrome(),
+                                    onVerseTap: (verseKey) {
+                                      if (highlightedKeys.contains(verseKey)) {
+                                        provider.toggleVisibilityOverride();
+                                      } else {
+                                        _toggleChrome();
+                                      }
+                                    },
                                     onVerseLongPressStart: (_) {},
                                     onVerseLongPress: (_) {},
                                     isVerseHidden: (verseKey) {

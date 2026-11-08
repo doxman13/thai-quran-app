@@ -295,8 +295,8 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                                       ),
                                       Text(
                                         secondaryName.isEmpty
-                                            ? '$totalVerses ${isThai ? 'อายะห์' : 'verses'}'
-                                            : '$secondaryName · $totalVerses ${isThai ? 'อายะห์' : 'verses'}',
+                                            ? '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}'
+                                            : '$secondaryName · $totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
                                         style: textTheme.bodySmall?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
                                         ),
@@ -435,8 +435,8 @@ class SurahSelectorTile extends StatelessWidget {
                     ),
                     Text(
                       secondaryName.isEmpty
-                          ? '$totalVerses ${isThai ? 'อายะห์' : 'verses'}'
-                          : '$secondaryName · $totalVerses ${isThai ? 'อายะห์' : 'verses'}',
+                          ? '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}'
+                          : '$secondaryName · $totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),

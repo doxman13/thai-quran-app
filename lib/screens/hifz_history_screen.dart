@@ -117,7 +117,7 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
   String _getLocalizedTitle(_HistoryItem r, bool isThai) {
     if (r.sessionType == HifzSessionType.newVerses) {
       final surah = r.surahNumber ?? 1;
-      return isThai ? 'สูเราะฮ์ $surah (อายะห์ใหม่)' : 'Surah $surah (New Verses)';
+      return isThai ? 'ซูเราะฮฺ $surah (อายะฮฺใหม่)' : 'Surah $surah (New Verses)';
     } else {
       final surahOrPage = r.surahNumber;
       final isPage = r.title.startsWith('Page');
@@ -127,7 +127,7 @@ class _HifzHistoryScreenState extends State<HifzHistoryScreen> {
         return isThai ? 'หน้า $pageNum (ทบทวน)' : 'Page $pageNum (Review)';
       } else {
         final surah = surahOrPage ?? 1;
-        return isThai ? 'สูเราะฮ์ $surah (ทบทวน)' : 'Surah $surah (Review)';
+        return isThai ? 'ซูเราะฮฺ $surah (ทบทวน)' : 'Surah $surah (Review)';
       }
     }
   }

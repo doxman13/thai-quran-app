@@ -3,31 +3,40 @@
 - **Pre-Action Requirement**: Before starting ANY task, analysis, script run, or code edits, ALWAYS run git pull first to synchronize with the latest remote state.
 - Never make changes or base decisions on stale local code.
 
-# Antigravity UI Refactoring Rules
+# Thai Islamic Terminology Standard
+When generating or modifying Thai UI strings, navigation, labels, tooltips, or i18n entries, always follow the standard transliteration:
+- `ซูเราะฮฺ` (not ซูเราะห์ / สูเราะห์ / ซูเราะฮ์ / สูเราะฮฺ)
+- `อายะฮฺ` (not อายะห์ / อายะฮ์ / โองการ)
+- `ญุซอ์` (not ยุซ / ยุซอ์ / ญุซ)
+- `ฮิซบฺ` (not ฮิซบ / ฮิสบ์ / ฮิซบ์)
+- `ซัจญ์ดะฮฺ` (not ซัจดะห์ / ซัจดะฮฺ / ซัจญ์ดะฮ์)
+- `มักกียะฮฺ` (not มักกีย์ / มักกียะฮ์)
+- `มะดะนียะฮฺ` (not มะดะนีย์ / มะดะนียะฮ์)
+- `บิสมิลลาฮฺ` (not บิสมิลลาห์ / บิสมิลลาฮ์)
+- `มุศหัฟ` (not มุสฮัฟ / มุศฮัฟ / มุสฮะฟ)
+- `ตดับบุร` (not ตะดับบุร)
 
-You are a Senior Flutter UI/UX Architect. Your goal is to upgrade the current "ugly/functional" layouts into polished, modern, minimalist Material 3 interfaces.
+# Anti-AI Editorial Manuscript Design System & Theme Standards (STRICT MANDATORY)
+Whenever creating, modifying, redesigning, or refining UI components, screens, or styling, you **MUST ALWAYS** strictly follow the Anti-AI Editorial Manuscript design system aligned 1:1 with `thai-quran-web/docs/DESIGN_STANDARDS.md`:
 
-## 1. Absolute Constraints (Do Not Break)
-- **Zero Business Logic Alteration:** Never touch, modify, or rewrite Riverpod providers, BLoC states, ChangeNotifier methods, or existing API/repository calls. Only touch the `Widget build(BuildContext context)` layout structure.
-- **Maintain State Callbacks:** Keep all existing button callbacks (e.g., `onPressed: widget.onSave`), form controllers, and constructor parameters exactly as they are currently defined.
+## 1. Color Palette System (`AppThemeColors` via `context.appColors`)
+- **Primary Brand (Meaning Mode)**: Deep Manuscript Jade `#0E5A4A` (Hover: `#0A4437`, Soft: `#EAF2EE`, Border: `#B7D4C7`; Dark Primary: `#4A9E89`)
+- **Secondary / Mushaf Gold**: Classic Manuscript Gold `#8A6530` (Hover: `#735424`, Soft: `#F6EFE3`, Border: `#D7C299`; Dark Gold: `#CCA252`)
+- **Canvas Background**: Warm Parchment `#FBF9F5` (Dark: `#131210`)
+- **Card Surface**: Pure White `#FFFFFF` (Dark: `#1C1B18`)
+- **Surface Muted**: `#F7F5EE` (Dark: `#24231F`)
+- **Border Soft**: `#E8E3D7` (Dark: `#2E2C27`)
+- **Text Strong**: `#1C2520` (Dark: `#FAF6EE`)
+- **Text Body (`foreground`)**: `#42524A` (Dark: `#D8D4CD`)
+- **Text Muted**: `#708078` (Dark: `#96928A`)
+- **Danger / Errata**: Muted Brick `#A34C43` (Soft: `#FAF0EE`; Dark: `#D97777`)
 
-## 2. Visual & Styling Standards (The "Modern Look")
-- **Theme Tokens Only:** Never hardcode colors (e.g., NO `Colors.blue` or `Color(0xFF123456)`). Use the Material 3 context tokens:
-  - Backgrounds: `Theme.of(context).colorScheme.surface` or `surfaceContainerLow`
-  - Core Elements: `Theme.of(context).colorScheme.primary` / `onPrimary`
-  - Muted Text/Icons: `Theme.of(context).colorScheme.onSurfaceVariant`
-- **Typography:** Enforce clean hierarchies using modern M3 text styles:
-  - Headers: `Theme.of(context).textTheme.headlineMedium` (bold, clean)
-  - Body: `Theme.of(context).textTheme.bodyLarge` or `bodyMedium`
-- **Component Geometry:** 
-  - Standardize all `BorderRadius.circular(16)` or `24` for a soft, modern look. Never use sharp corners unless explicit.
-  - Cards must use minimal elevation (`elevation: 0`) and rely on subtle, distinct border strokes or soft container background tints to separate content.
+## 2. Forbidden AI-Style Clichés (DO NOT USE)
+- **NO foreign or saturated hues**: Never use Material/Tailwind `Colors.blue`, `Colors.blueGrey`, `Colors.indigo`, `Colors.purple`, `Colors.cyan`, `Colors.teal`, `Colors.orange`, or radioactive neon greens (`#15803D`, `Colors.green`).
+- **NO decorative AI artifacts**: Never add multi-stop `LinearGradient` hero cards, blurred glow blobs, dot-grid overlays, pulsing glow rings, or colored drop shadows (`BoxShadow`).
+- **NO puffy `BorderRadius.circular(20)` / `24` / `28` containers**: Standardize cards and modals on `AppTheme.radius` (`12.0`, equivalent to `rounded-xl`) and badges/chips on `AppTheme.radiusSm` (`8.0`, equivalent to `rounded-lg`), with `1px solid context.appColors.borderSoft` hairline borders.
+- **NO `FontWeight.w900` or `FontWeight.w800` on Thai text**: Thai headings use `FontWeight.w700` (`bold`) and labels/buttons use `FontWeight.w600` (`semibold`). Heavy weights (`w800`/`w900`) cause Thai upper/lower vowel and tone marks to collide.
 
-## 3. Layout & Spacing Discipline
-- **Padding:** Never use random padding numbers. Use a strict 8px grid alignment (`8`, `16`, `24`, `32`).
-- **Lists:** Replace generic vertical columns with clean `ListView.separated` blocks using distinct row heights, explicit item separators (`SizedBox(height: 12)`), and side padding.
-- **Micro-Interactions:** Always wrap tap targets in `InkWell` or `GestureDetector` with proper visual feedback, using custom animations or `AnimatedContainer` where subtle transitions elevate the feel.
-
-## 4. Execution Workflow
-- Before rewriting a file, output a quick 3-bullet visual plan explaining exactly how you will restructure the UI blocks.
-- Execute the layout update and run `flutter reload` via terminal to verify the changes.
+## 3. Execution Workflow
+- Before rewriting a file, output a quick 3-bullet visual plan explaining how you will structure the UI blocks.
+- Run `flutter analyze` and `flutter test` to verify changes.

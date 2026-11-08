@@ -1,4 +1,5 @@
 // Auto-generated Surah Names
+import 'medina_mushaf_pages.dart';
 
 const Map<String, String> offlineSurahNamesEn = {
   "1": "Al-Fatihah",
@@ -410,15 +411,19 @@ String _stripLatinArticlePrefix(String normalized) {
   return normalized;
 }
 
-/// Normalizes Thai Surah name or query (removes spaces, hyphens, pinthu, and optional prefixes).
+/// Normalizes Thai Surah name or query (removes spaces, hyphens, pinthu, tone marks, and article prefixes).
 String _normalizeThaiSurahQuery(String input) {
   var s = input
       .trim()
-      .replaceAll('ซูเราะฮ์', '')
       .replaceAll('ซูเราะฮฺ', '')
-      .replaceAll('สูเราะฮ์', '')
+      .replaceAll('ซูเราะฮ์', '')
+      .replaceAll('ซูเราะห์', '')
       .replaceAll('สูเราะฮฺ', '')
-      .replaceAll(RegExp(r'[\s\-\u0E3A]'), '');
+      .replaceAll('สูเราะฮ์', '')
+      .replaceAll('สูเราะห์', '')
+      .replaceAll('บทที่', '')
+      .replaceAll(RegExp(r'^(อัล|อัน|อัต|อัซ|อัช|อัร|อัด|อัฎ|อัศ|อัฏ)[\s\-]*'), '')
+      .replaceAll(RegExp(r'[\s\-\u0E3A\u0E4C\u0E47\u0E48\u0E49\u0E4A\u0E4B]'), '');
   return s;
 }
 
@@ -435,17 +440,139 @@ String _normalizeArabicSurahQuery(String input) {
       .trim();
 }
 
+/// Cross-language transliteration and keyword aliases for all 114 Surahs
+const Map<String, List<String>> _surahCrossAliases = {
+  '1': ['fatihah', 'fatiha', 'ฟาติฮะฮฺ', 'ฟาติฮะฮ์', 'ฟาติหะฮฺ', 'เปิดคำภีร์'],
+  '2': ['baqarah', 'baqara', 'บะเกาะเราะฮฺ', 'บะเกาะเราะฮ์', 'วัว'],
+  '3': ['ali imran', 'imran', 'อาลิอิมรอน', 'อิมรอน'],
+  '4': ['nisa', 'an-nisa', 'นิสาอ์', 'อันนิสาอ์', 'สตรี'],
+  '5': ['maidah', 'al-maidah', 'มาอิดะฮฺ', 'มาอิดะฮ์', 'โต๊ะอาหาร'],
+  '6': ['anam', 'al-anam', 'อันอาม', 'ปศุสัตว์'],
+  '7': ['araf', 'al-araf', 'อะอ์รอฟ', 'ที่สูง'],
+  '8': ['anfal', 'al-anfal', 'อันฟาล', 'สงคราม'],
+  '9': ['tawbah', 'at-tawbah', 'เตาบะฮฺ', 'เตาบะฮ์', 'สารภาพผิด'],
+  '10': ['yunus', 'ยูนุส', 'โยนาห์'],
+  '11': ['hud', 'ฮูด'],
+  '12': ['yusuf', 'ยูซุฟ', 'โยเซฟ'],
+  '13': ['rad', 'ar-rad', 'เราะอด์', 'ฟ้าร้อง'],
+  '14': ['ibrahim', 'อิบรอฮีม', 'อับราฮัม'],
+  '15': ['hijr', 'al-hijr', 'ฮิจญร์'],
+  '16': ['nahl', 'an-nahl', 'นะฮล์', 'ผึ้ง'],
+  '17': ['isra', 'al-isra', 'อิสรออ์', 'การเดินทางยามค่ำคืน'],
+  '18': ['kahf', 'al-kahf', 'กะฮฺฟิ', 'กะฮฟ', 'อัลกะฮฟ', 'ถ้ำ'],
+  '19': ['maryam', 'มัรยัม', 'มาเรีย'],
+  '20': ['taha', 'ฏอฮา', 'ตอฮา'],
+  '21': ['anbiya', 'al-anbiya', 'อันบิยาอ์', 'นบี', 'บรรดาศาสดา'],
+  '22': ['hajj', 'al-hajj', 'ฮัจญ์'],
+  '23': ['muminun', 'al-muminun', 'มุอ์มินูน', 'ผู้ศรัทธา'],
+  '24': ['nur', 'an-nur', 'นูร', 'แสงสว่าง'],
+  '25': ['furqan', 'al-furqan', 'ฟุรกอน'],
+  '26': ['shuara', 'ash-shuara', 'ชุอะรออ์', 'กวี'],
+  '27': ['naml', 'an-naml', 'นัมล์', 'มด'],
+  '28': ['qasas', 'al-qasas', 'เกาะศ็อศ', 'เรื่องราว'],
+  '29': ['ankabut', 'al-ankabut', 'อันกะบูต', 'แมงมุม'],
+  '30': ['rum', 'ar-rum', 'โรม', 'ชาวโรมัน'],
+  '31': ['luqman', 'ลุกมาน'],
+  '32': ['sajdah', 'as-sajdah', 'ซัจญดะฮฺ', 'กราบ'],
+  '33': ['ahzab', 'al-ahzab', 'อะฮ์ซาบ', 'พันธมิตร'],
+  '34': ['saba', 'สะบาอ์'],
+  '35': ['fatir', 'ฟาฏิร'],
+  '36': ['yasin', 'ya-sin', 'ยาซีน', 'ยาสีน'],
+  '37': ['saffat', 'as-saffat', 'ศอฟฟาต'],
+  '38': ['sad', 'ศอด'],
+  '39': ['zumar', 'az-zumar', 'ซุมัร', 'กลุ่มชน'],
+  '40': ['ghafir', 'กาฟิร', 'ฆอฟิร'],
+  '41': ['fussilat', 'ฟุศศิลัต'],
+  '42': ['shura', 'ash-shura', 'ชูรอ', 'การปรึกษาหารือ'],
+  '43': ['zukhruf', 'az-zukhruf', 'ซุครุฟ', 'ทองคำ'],
+  '44': ['dukhan', 'ad-dukhan', 'ดุคอน', 'ควัน'],
+  '45': ['jathiyah', 'al-jathiyah', 'ญาษิยะฮฺ', 'การคุกเข่า'],
+  '46': ['ahqaf', 'al-ahqaf', 'อะฮ์กอฟ'],
+  '47': ['muhammad', 'มุฮัมมัด', 'มุฮัมหมัด'],
+  '48': ['fath', 'al-fath', 'ฟัตห์', 'ชัยชนะ'],
+  '49': ['hujurat', 'al-hujurat', 'หุจุรอต', 'ห้องหับ'],
+  '50': ['qaf', 'กอฟ'],
+  '51': ['dhariyat', 'ad-dhariyat', 'ซาริยาต', 'ลมพัดสลาย'],
+  '52': ['tur', 'at-tur', 'ฏูร', 'ภูเขา'],
+  '53': ['najm', 'an-najm', 'นัจญม์', 'ดวงดาว'],
+  '54': ['qamar', 'al-qamar', 'เกาะมัร', 'ดวงจันทร์'],
+  '55': ['rahman', 'ar-rahman', 'เราะฮฺมาน', 'เราะห์มาน', 'อัลเราะฮ์มาน', 'ผู้ทรงกรุณา'],
+  '56': ['waqiah', 'al-waqiah', 'วากิอะฮฺ', 'วากิอะฮ์', 'เหตุการณ์ใหญ่'],
+  '57': ['hadid', 'al-hadid', 'หะดีด', 'เหล็ก'],
+  '58': ['mujadila', 'al-mujadila', 'มุญาดะละฮฺ'],
+  '59': ['hashr', 'al-hashr', 'ฮัชร์', 'การเนรเทศ'],
+  '60': ['mumtahanah', 'al-mumtahanah', 'มุมตะฮะนะฮฺ'],
+  '61': ['saff', 'as-saff', 'ศ็อฟ', 'แถว'],
+  '62': ['jumuah', 'al-jumuah', 'ญุมุอะฮฺ', 'วันศุกร์'],
+  '63': ['munafiqun', 'al-munafiqun', 'มุนาฟิกูน', 'คนกลับกลอก'],
+  '64': ['taghabun', 'at-taghabun', 'ตะฆอบุน'],
+  '65': ['talaq', 'at-talaq', 'เฏาะลาก', 'การหย่า'],
+  '66': ['tahrim', 'at-tahrim', 'ตะห์รีม', 'ข้อห้าม'],
+  '67': ['mulk', 'al-mulk', 'มุลก์', 'อัลมุลก์', 'อำนาจ'],
+  '68': ['qalam', 'al-qalam', 'เกาะลัม', 'ปากกา'],
+  '69': ['haqqah', 'al-haqqah', 'หากเกาะฮฺ', 'ความจริง'],
+  '70': ['maarij', 'al-maarij', 'มะอาริจญ์'],
+  '71': ['nuh', 'นูฮฺ', 'โนอาห์'],
+  '72': ['jinn', 'jin', 'al-jinn', 'al-jin', 'ญิน', 'อัลญิน', 'พวกญิน', 'ยิน'],
+  '73': ['muzzammil', 'al-muzzammil', 'มุซซัมมิล'],
+  '74': ['muddathir', 'al-muddaththir', 'มุดดัษษิร'],
+  '75': ['qiyamah', 'al-qiyamah', 'กิยามะฮฺ', 'วันสิ้นโลก', 'วันฟื้นคืนชีพ'],
+  '76': ['insan', 'al-insan', 'อินซาน', 'มนุษย์'],
+  '77': ['mursalat', 'al-mursalat', 'มุรสะลาต'],
+  '78': ['naba', 'an-naba', 'นะบะอ์', 'ข่าวใหญ่'],
+  '79': ['naziat', 'an-naziat', 'นาซิอาต'],
+  '80': ['abasa', 'อะบะสะ', 'หน้านิ่ว'],
+  '81': ['takwir', 'at-takwir', 'ตักวีร'],
+  '82': ['infitar', 'al-infitar', 'อินฟิฏอร'],
+  '83': ['mutaffifin', 'al-mutaffifin', 'มุต็อฟฟิฟีน'],
+  '84': ['inshiqaq', 'al-inshiqaq', 'อินชิกอก'],
+  '85': ['buruj', 'al-buruj', 'บุรูจญ์', 'ดวงดาว'],
+  '86': ['tariq', 'at-tariq', 'ฏอริก', 'ดาวประกายพรึก'],
+  '87': ['ala', 'al-ala', 'อะอ์ลา', 'ผู้ทรงสูงสุด'],
+  '88': ['ghashiyah', 'al-ghashiyah', 'กอชิยะฮฺ'],
+  '89': ['fajr', 'al-fajr', 'ฟัจญร์', 'ยามรุ่งอรุณ'],
+  '90': ['balad', 'al-balad', 'บะลัด', 'เมือง'],
+  '91': ['shams', 'ash-shams', 'ชัมส์', 'ดวงอาทิตย์'],
+  '92': ['layl', 'al-layl', 'ลัยล์', 'กลางคืน'],
+  '93': ['duha', 'ad-duha', 'ฎุฮา', 'ยามสาย'],
+  '94': ['sharh', 'inshirah', 'ชัรห์', 'อินชิรอห์', 'ความโล่งอก'],
+  '95': ['tin', 'at-tin', 'ตีน', 'มะเดื่อ'],
+  '96': ['alaq', 'al-alaq', 'อะลัก', 'ก้อนเลือด'],
+  '97': ['qadr', 'al-qadr', 'ก็อดร์', 'อานุภาพ'],
+  '98': ['bayyinah', 'al-bayyinah', 'บัยยินะฮฺ', 'หลักฐานชัดแจ้ง'],
+  '99': ['zalzalah', 'az-zalzalah', 'ซัลซะละฮฺ', 'แผ่นดินไหว'],
+  '100': ['adiyat', 'al-adiyat', 'อาดิยาต', 'ม้าศึก'],
+  '101': ['qariah', 'al-qariah', 'กอริอะฮฺ', 'วันอันน่าสะพรึงกลัว'],
+  '102': ['takathur', 'at-takathur', 'ตะกาษุร', 'การสะสม'],
+  '103': ['asr', 'al-asr', 'อัศร์', 'กาลเวลา'],
+  '104': ['humazah', 'al-humazah', 'ฮุมะซะฮฺ', 'คนนินทา'],
+  '105': ['fil', 'al-fil', 'ฟีล', 'ช้าง'],
+  '106': ['quraysh', 'กุร็อยช์', 'กุเรช'],
+  '107': ['maun', 'al-maun', 'มาอูน', 'สิ่งของจำเป็น'],
+  '108': ['kawthar', 'al-kawthar', 'เกาษัร', 'แม่น้ำในสวรรค์'],
+  '109': ['kafirun', 'al-kafirun', 'กาฟิรูน', 'ผู้ปฏิเสธ'],
+  '110': ['nasr', 'an-nasr', 'นัศร์', 'การช่วยเหลือ'],
+  '111': ['masad', 'al-masad', 'มะสัด', 'เชือกใยอินทผลัม', 'ละฮับ'],
+  '112': ['ikhlas', 'al-ikhlas', 'อิคลาศ', 'อิคลาส', 'ความบริสุทธิ์ใจ'],
+  '113': ['falaq', 'al-falaq', 'ฟะลัก', 'รุ่งอรุณ'],
+  '114': ['nas', 'an-nas', 'นาส', 'อันนาส', 'มนุษยชาติ'],
+};
+
 /// Checks whether Surah [surahId] ("1".."114") matches [rawQuery] across:
 /// - Surah number (e.g. "72")
 /// - English name & fuzzy transliteration (e.g. "Jin", "Al-Jinn", "Yaseen", "Kahf", "Baqara")
 /// - Thai name (with or without "อัล" / pinthu, e.g. "ญิน", "อัลญิน", "กะฮฟ")
-/// - Arabic name (with or without tashkeel, e.g. "الجن", "جن", "الكهف")
+/// - Arabic name (with or without tashkeel, e.g. "الجن", "جن", "الكهฟ")
+/// - Cross-language transliteration & meaning aliases (e.g. "jin" -> "Al-Jinn" / "อัลญิน")
 bool matchesSurahQuery(String surahId, String rawQuery) {
   final q = rawQuery.trim();
   if (q.isEmpty) return true;
 
   final qLower = q.toLowerCase();
-  if (surahId.contains(qLower)) return true;
+  if (surahId == qLower || surahId == q) return true;
+
+  // If query is e.g. "ญิน 1" or "jin 1", extract name part
+  final namePart = qLower.replaceFirst(RegExp(r'\s+\d+$'), '').trim();
 
   final en = offlineSurahNamesEn[surahId] ?? '';
   final th = offlineSurahNamesTh[surahId] ?? '';
@@ -454,34 +581,53 @@ bool matchesSurahQuery(String surahId, String rawQuery) {
   // 1. Direct case-insensitive substring check across all 3 languages
   if (en.toLowerCase().contains(qLower) ||
       th.toLowerCase().contains(qLower) ||
-      ar.contains(q)) {
+      ar.contains(q) ||
+      (namePart.isNotEmpty &&
+          (en.toLowerCase().contains(namePart) ||
+              th.toLowerCase().contains(namePart) ||
+              ar.contains(namePart)))) {
     return true;
   }
 
-  // 2. Normalized Latin / Transliteration fuzzy check (e.g. "jin" -> "Al-Jinn")
-  final qLatin = _normalizeLatinSurahQuery(qLower);
+  // 2. Cross-language aliases (handles "jin" -> "Al-Jinn", "ญิน" -> "Al-Jinn", etc.)
+  final aliases = _surahCrossAliases[surahId];
+  if (aliases != null) {
+    for (final a in aliases) {
+      final aLower = a.toLowerCase();
+      if (aLower.contains(qLower) ||
+          qLower.contains(aLower) ||
+          (namePart.isNotEmpty &&
+              (aLower.contains(namePart) || namePart.contains(aLower)))) {
+        return true;
+      }
+    }
+  }
+
+  // 3. Normalized Latin / Transliteration fuzzy check (e.g. "jin" -> "Al-Jinn")
+  final qLatin = _normalizeLatinSurahQuery(namePart.isNotEmpty ? namePart : qLower);
   if (qLatin.isNotEmpty) {
     final enNorm = _normalizeLatinSurahQuery(en);
     final enStem = _stripLatinArticlePrefix(enNorm);
     final qStem = _stripLatinArticlePrefix(qLatin);
     if (enNorm.contains(qLatin) ||
         enStem.contains(qLatin) ||
-        (qStem.length >= 2 && (enNorm.contains(qStem) || enStem.contains(qStem)))) {
+        (qStem.length >= 2 &&
+            (enNorm.contains(qStem) || enStem.contains(qStem)))) {
       return true;
     }
   }
 
-  // 3. Normalized Thai check (e.g. "ญิน" or "อัลญิน" without pinthu/spaces)
-  final qThai = _normalizeThaiSurahQuery(q);
+  // 4. Normalized Thai check (e.g. "ญิน" or "อัลญิน" without pinthu/spaces)
+  final qThai = _normalizeThaiSurahQuery(namePart.isNotEmpty ? namePart : q);
   if (qThai.isNotEmpty) {
     final thNorm = _normalizeThaiSurahQuery(th);
-    if (thNorm.contains(qThai)) {
+    if (thNorm.contains(qThai) || (qThai.length >= 2 && qThai.contains(thNorm))) {
       return true;
     }
   }
 
-  // 4. Normalized Arabic check (without tashkeel/diacritics)
-  final qAr = _normalizeArabicSurahQuery(q);
+  // 5. Normalized Arabic check (without tashkeel/diacritics)
+  final qAr = _normalizeArabicSurahQuery(namePart.isNotEmpty ? namePart : q);
   if (qAr.isNotEmpty) {
     final arNorm = _normalizeArabicSurahQuery(ar);
     if (arNorm.contains(qAr)) {
@@ -491,6 +637,7 @@ bool matchesSurahQuery(String surahId, String rawQuery) {
 
   return false;
 }
+
 
 /// Resolves a Surah display name in the requested UI language.
 ///
@@ -513,4 +660,158 @@ String surahDisplayName(String surahId, {required bool isThai}) {
   final thai = offlineSurahNamesTh[surahId] ?? english;
   return (th: thai, en: english);
 }
+
+/// Represents a direct verse reference match (e.g. 2:255, 72:1, ญิน 1, jin 1).
+class QuranDirectRef {
+  final int surahId;
+  final int verseId;
+  final String surahNameThai;
+  final String surahNameEn;
+  final String matchedText;
+  final int pageNumber;
+
+  const QuranDirectRef({
+    required this.surahId,
+    required this.verseId,
+    required this.surahNameThai,
+    required this.surahNameEn,
+    required this.matchedText,
+    required this.pageNumber,
+  });
+}
+
+/// Represents a direct Medina Mushaf page reference match (e.g. p 293, หน้า 293, 293).
+class QuranPageRef {
+  final int page;
+  final int juzNumber;
+  final int surahId;
+  final String surahNameThai;
+  final String surahNameEn;
+
+  const QuranPageRef({
+    required this.page,
+    required this.juzNumber,
+    required this.surahId,
+    required this.surahNameThai,
+    required this.surahNameEn,
+  });
+}
+
+/// Parses direct Quran verse references:
+/// - Numerical: "2:255", "72:1", "18.1", "36-5"
+/// - Name + Ayah: "ญิน 1", "jin 1", "yasin 1", "กะฮฟ 1", "baqarah 255"
+QuranDirectRef? parseQuranReference(String query) {
+  final trimmed = query.trim();
+  if (trimmed.isEmpty) return null;
+
+  // Pattern 1: Numerical "2:255" or "72:1"
+  final numColonMatch =
+      RegExp(r'^(\d{1,3})\s*[:\.\-\s]\s*(\d{1,3})$').firstMatch(trimmed);
+  if (numColonMatch != null) {
+    final sId = int.tryParse(numColonMatch.group(1)!);
+    final vId = int.tryParse(numColonMatch.group(2)!);
+    if (sId != null && vId != null && sId >= 1 && sId <= 114 && vId >= 1) {
+      final sStr = sId.toString();
+      final page = getMedinaMushafPageNumber(sId, vId);
+      return QuranDirectRef(
+        surahId: sId,
+        verseId: vId,
+        surahNameThai: offlineSurahNamesTh[sStr] ?? 'ซูเราะฮฺ $sStr',
+        surahNameEn: offlineSurahNamesEn[sStr] ?? 'Surah $sStr',
+        matchedText: '$sId:$vId',
+        pageNumber: page,
+      );
+    }
+  }
+
+  // Pattern 2: Name + Verse number (e.g. 'ญิน 1', 'jin 1', 'yasin 1', 'กะฮฟ 1')
+  final words = trimmed.split(RegExp(r'\s+'));
+  if (words.length >= 2) {
+    final lastWord = words.last;
+    final verseNum = int.tryParse(lastWord);
+    if (verseNum != null && verseNum >= 1) {
+      final namePart = words
+          .sublist(0, words.length - 1)
+          .join(' ')
+          .toLowerCase()
+          .replaceFirst(
+            RegExp(
+              r'^(ซูเราะฮฺ|ซูเราะฮ์|สูเราะฮฺ|ซูเราะห์|surah)\s*',
+              caseSensitive: false,
+            ),
+            '',
+          );
+      if (namePart.length >= 2) {
+        for (var s = 1; s <= 114; s++) {
+          final sStr = s.toString();
+          if (matchesSurahQuery(sStr, namePart)) {
+            final page = getMedinaMushafPageNumber(s, verseNum);
+            return QuranDirectRef(
+              surahId: s,
+              verseId: verseNum,
+              surahNameThai: offlineSurahNamesTh[sStr] ?? 'ซูเราะฮฺ $sStr',
+              surahNameEn: offlineSurahNamesEn[sStr] ?? 'Surah $sStr',
+              matchedText: '${offlineSurahNamesTh[sStr]} อายะฮฺที่ $verseNum',
+              pageNumber: page,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/// Parses direct Mushaf page references:
+/// - "p 293", "p.293", "page 293", "หน้า 293", "หน้า293"
+/// - or standalone number 1-604 (when not a verse reference)
+QuranPageRef? parsePageReference(String query) {
+  final trimmed = query.trim();
+  if (trimmed.isEmpty) return null;
+
+  final match =
+      RegExp(r'^(?:p\.?|page|หน้า)\s*([1-9]\d{0,2})$', caseSensitive: false)
+          .firstMatch(trimmed) ??
+      RegExp(r'^([1-9]\d{0,2})$').firstMatch(trimmed);
+
+  if (match != null) {
+    final pageNum = int.tryParse(match.group(1)!);
+    if (pageNum != null && pageNum >= 1 && pageNum <= 604) {
+      final pageData = getMedinaMushafPageData(pageNum);
+      int surahId = pageData.isNotEmpty ? pageData.first['surah'] ?? 1 : 1;
+      for (final portion in pageData) {
+        if (portion['start'] == 1) {
+          surahId = portion['surah'] ?? surahId;
+          break;
+        }
+      }
+      final sStr = surahId.toString();
+
+      const juzStarts = [
+        1, 22, 42, 62, 82, 102, 121, 142, 162, 182,
+        201, 222, 242, 262, 282, 302, 322, 342, 362, 382,
+        402, 422, 442, 462, 482, 502, 522, 542, 562, 582,
+      ];
+      int juzNumber = 1;
+      for (int j = 0; j < juzStarts.length; j++) {
+        if (juzStarts[j] <= pageNum) {
+          juzNumber = j + 1;
+        } else {
+          break;
+        }
+      }
+
+      return QuranPageRef(
+        page: pageNum,
+        juzNumber: juzNumber,
+        surahId: surahId,
+        surahNameThai: offlineSurahNamesTh[sStr] ?? 'ซูเราะฮฺ $sStr',
+        surahNameEn: offlineSurahNamesEn[sStr] ?? 'Surah $sStr',
+      );
+    }
+  }
+  return null;
+}
+
 

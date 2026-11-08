@@ -19,18 +19,18 @@ import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
-import '../widgets/topics_tab_view.dart';
 import '../widgets/voice_search_sheet.dart';
 import '../services/offline_quran_database_service.dart';
 import 'topic_verses_screen.dart';
 import 'mushaf_reader_screen.dart';
-import 'settings_screen.dart';
+import 'topics_screen.dart';
 
 class BrowseScreen extends StatefulWidget {
   final QuranRepository repository;
   final QuranFoundationRepository? foundationRepository;
   final AppThemeColors colors;
   final void Function(String surahId, String verseId) onOpen;
+  final void Function(String surahId, String verseId)? onOpenMeaning;
   final ValueChanged<int> onOpenPage;
   final void Function(int page, {String? highlightVerseKey})? onOpenMushafPage;
 
@@ -40,6 +40,7 @@ class BrowseScreen extends StatefulWidget {
     this.foundationRepository,
     required this.colors,
     required this.onOpen,
+    this.onOpenMeaning,
     required this.onOpenPage,
     this.onOpenMushafPage,
   });
@@ -93,13 +94,27 @@ class BrowseScreenState extends State<BrowseScreen> {
     return [114, 6];
   }
 
+  static const Set<int> _medinanSurahs = {
+    2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110,
+  };
+  static const Set<int> _popularSurahs = {
+    1, 18, 36, 55, 56, 67,
+  };
+
   String _mode = 'surah';
+  String _surahFilter = 'all'; // 'all', 'juz30', 'popular', 'meccan', 'medinan', 'juz'
+
   final TextEditingController _searchController = TextEditingController();
   late final QuranFoundationRepository _foundationRepo;
   QuranSearchResult? _apiSearchResult;
   bool _isApiSearching = false;
   List<Map<String, dynamic>> _topicSearchResults = [];
   Timer? _debounceTimer;
+
+  QuranDirectRef? _directRef;
+  QuranPageRef? _directPageRef;
+  List<Map<String, dynamic>> _offlineVerseResults = [];
+  bool _isOfflineSearching = false;
 
   @override
   void initState() {
@@ -115,27 +130,46 @@ class BrowseScreenState extends State<BrowseScreen> {
     super.dispose();
   }
 
-  void _onSearchQueryChanged(String query) {
-    setState(() {});
-
-    final trimmed = query.trim();
-    if (trimmed.isNotEmpty) {
-      OfflineQuranDatabaseService.searchTopics(trimmed).then((topics) {
-        if (mounted && _searchController.text.trim() == trimmed) {
-          setState(() {
-            _topicSearchResults = topics;
-          });
-        }
-      });
-    } else {
-      setState(() {
-        _topicSearchResults = [];
-      });
+  void _openMushafPage(int pageNumber) {
+    if (widget.onOpenMushafPage != null) {
+      widget.onOpenMushafPage!(pageNumber);
+      return;
     }
+    final mushafProvider = context.read<MushafReadingProvider>();
+    final profile = mushafProvider.freeReadProfileForMushaf(1);
+    unawaited(mushafProvider.openUnifiedFreeRead());
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MushafReaderScreen(
+          quranRepository: widget.repository,
+          foundationRepository: _foundationRepo,
+          profileId: profile.id,
+          initialPage: pageNumber,
+        ),
+      ),
+    );
+  }
+
+  void _onSearchQueryChanged(String query) {
+    final trimmed = query.trim();
+
+    // Direct reference and page reference evaluated immediately
+    final dRef = parseQuranReference(trimmed);
+    final pRef = dRef == null ? parsePageReference(trimmed) : null;
+
+    setState(() {
+      _directRef = dRef;
+      _directPageRef = pRef;
+    });
 
     _debounceTimer?.cancel();
     if (trimmed.length < 2) {
       setState(() {
+        _topicSearchResults = [];
+        _offlineVerseResults = [];
+        _isOfflineSearching = false;
         _apiSearchResult = null;
         _isApiSearching = false;
       });
@@ -143,18 +177,267 @@ class BrowseScreenState extends State<BrowseScreen> {
     }
 
     setState(() {
+      _isOfflineSearching = true;
       _isApiSearching = true;
     });
 
-    _debounceTimer = Timer(const Duration(milliseconds: 400), () async {
-      final res = await _foundationRepo.searchQuran(query: trimmed);
+    _debounceTimer = Timer(const Duration(milliseconds: 180), () async {
+      final topicsFuture = OfflineQuranDatabaseService.searchTopics(trimmed);
+      final versesFuture =
+          OfflineQuranDatabaseService.searchVerses(trimmed, limit: 35);
+      final apiFuture = _foundationRepo.searchQuran(query: trimmed);
+
+      final results = await Future.wait([topicsFuture, versesFuture]);
       if (mounted && _searchController.text.trim() == trimmed) {
         setState(() {
-          _apiSearchResult = res;
-          _isApiSearching = false;
+          _topicSearchResults = results[0];
+          _offlineVerseResults = results[1];
+          _isOfflineSearching = false;
         });
       }
+
+      try {
+        final apiRes = await apiFuture;
+        if (mounted && _searchController.text.trim() == trimmed) {
+          setState(() {
+            _apiSearchResult = apiRes;
+            _isApiSearching = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() {
+            _isApiSearching = false;
+          });
+        }
+      }
     });
+  }
+
+  Widget _buildDirectVerseJumpCard(
+    BuildContext context,
+    QuranDirectRef ref,
+    bool isThai,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(
+          color: const Color(0xFF0E5A4A),
+          width: 1.5,
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0E5A4A),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text(
+                    '⚡',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isThai ? 'ตรงกับอายะฮฺที่ระบุทันที' : 'DIRECT AYAH MATCH',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0E5A4A),
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      '${ref.surahNameThai} (${ref.surahId}:${ref.verseId})',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: widget.colors.textStrong,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8A6530).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isThai ? 'หน้า ${ref.pageNumber}' : 'Page ${ref.pageNumber}',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8A6530),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => widget.onOpen(
+                  ref.surahId.toString(),
+                  ref.verseId.toString(),
+                ),
+                icon: const Icon(Icons.menu_book, size: 14),
+                label: Text(
+                  isThai ? 'อ่านฉบับแปล' : 'Read Meaning',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  side: BorderSide(color: widget.colors.borderSoft),
+                  backgroundColor: widget.colors.surfaceMuted,
+                  foregroundColor: widget.colors.foreground,
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () => _openMushafForVerse(
+                  ref.surahId.toString(),
+                  ref.verseId.toString(),
+                ),
+                icon: const Icon(Icons.import_contacts, size: 14),
+                label: Text(
+                  isThai
+                      ? 'เปิดในมุศหัฟ (หน้า ${ref.pageNumber})'
+                      : 'Open Mushaf (p.${ref.pageNumber})',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  backgroundColor: const Color(0xFF0E5A4A),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDirectPageJumpCard(
+    BuildContext context,
+    QuranPageRef pageRef,
+    bool isThai,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(
+          color: const Color(0xFF8A6530),
+          width: 1.5,
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8A6530),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text(
+                    '📄',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isThai ? 'ไปยังหน้ามุศหัฟทันที' : 'DIRECT MUSHAF PAGE JUMP',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF8A6530),
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      isThai
+                          ? 'หน้า ${pageRef.page} · ${pageRef.surahNameThai} (ญุซอ์ ${pageRef.juzNumber})'
+                          : 'Page ${pageRef.page} · ${pageRef.surahNameEn} (Juz ${pageRef.juzNumber})',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        color: widget.colors.textStrong,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton.icon(
+                onPressed: () {
+                  if (widget.onOpenMushafPage != null) {
+                    widget.onOpenMushafPage!(pageRef.page);
+                  } else {
+                    widget.onOpenPage(pageRef.page);
+                  }
+                },
+                icon: const Icon(Icons.import_contacts, size: 14),
+                label: Text(
+                  isThai
+                      ? 'เปิดหน้า ${pageRef.page} ในมุศหัฟ'
+                      : 'Open Page ${pageRef.page} in Mushaf',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  backgroundColor: const Color(0xFF8A6530),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _openMushafForVerse(String surahId, String verseId) {
@@ -185,10 +468,454 @@ class BrowseScreenState extends State<BrowseScreen> {
     );
   }
 
-  void _setMode(String mode) {
-    setState(() {
-      _mode = mode;
-    });
+  void _showSurahReadOptionsModal({
+    required BuildContext context,
+    required String surahId,
+    required String surahName,
+    required String surahNameEn,
+    required String arabicTitle,
+    required int verseCount,
+    required int startPage,
+    required bool isMedinan,
+    required bool isCompleted,
+  }) {
+    final settings = context.read<SettingsProvider>();
+    final isThai = settings.languageCode == 'th';
+    final colors = settings.getAppColors();
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.borderSoft,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        surahId,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  surahName,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                              ),
+                              if (isCompleted) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 15,
+                                  color: Color(0xFF0E5A4A),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$surahNameEn · $verseCount ${isThai ? "อายะฮฺ" : "verses"} · ${isMedinan ? (isThai ? "มะดะนียะฮฺ" : "Medinan") : (isThai ? "มักกียะฮฺ" : "Meccan")} · ${isThai ? "หน้า" : "Page"} $startPage',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 12,
+                              color: colors.foreground.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (arabicTitle.isNotEmpty)
+                      Text(
+                        arabicTitle,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontSize: 24,
+                          color: Color(0xFF0E5A4A),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Divider(height: 1, color: colors.borderSoft),
+                const SizedBox(height: 12),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      Navigator.pop(modalCtx);
+                      if (widget.onOpenMeaning != null) {
+                        widget.onOpenMeaning!(surahId, '1');
+                      } else {
+                        widget.onOpen(surahId, '1');
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0E5A4A).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(
+                          color: const Color(0xFF0E5A4A).withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0E5A4A),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.menu_book_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isThai ? 'อ่านฉบับแปลความหมาย' : 'Meaning Reader (Verse-by-Verse)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isThai
+                                      ? 'แปลไทยพร้อมตัฟซีร, คำแปลศัพท์ & เสียงอ่าน'
+                                      : 'Thai & English translation, tafsir & audio',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    color: colors.foreground.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: colors.foreground.withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      Navigator.pop(modalCtx);
+                      _openMushafPage(startPage);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A6530).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(
+                          color: const Color(0xFF8A6530).withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8A6530),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.auto_stories_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isThai ? 'อ่านมุศหัฟมะดีนะฮฺ' : 'Medina Mushaf (Page View)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isThai
+                                      ? 'เปิดอ่าน 15 บรรทัดมาตรฐาน (หน้าที่ $startPage)'
+                                      : 'Standard 15-line Medina Mushaf (Page $startPage)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    color: colors.foreground.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: colors.foreground.withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showJuzReadOptionsModal({
+    required BuildContext context,
+    required int juzNumber,
+    required String startSurahName,
+    required String startSurahId,
+    required String startAyah,
+    required String endSurahName,
+    required String endSurahId,
+    required String endAyah,
+    required int startPage,
+    required int endPage,
+  }) {
+    final settings = context.read<SettingsProvider>();
+    final isThai = settings.languageCode == 'th';
+    final colors = settings.getAppColors();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (modalCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.borderSoft,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isThai ? 'ญุซอ์ที่ $juzNumber' : 'Juz $juzNumber',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: colors.textStrong,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  endAyah.isNotEmpty
+                      ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah) · หน้า $startPage-$endPage'
+                      : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName · หน้า $startPage-$endPage',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12.5,
+                    color: colors.foreground.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Divider(height: 1, color: colors.borderSoft),
+                const SizedBox(height: 12),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      Navigator.pop(modalCtx);
+                      if (widget.onOpenMeaning != null) {
+                        widget.onOpenMeaning!(startSurahId, startAyah);
+                      } else {
+                        widget.onOpen(startSurahId, startAyah);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0E5A4A).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: const Color(0xFF0E5A4A).withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0E5A4A),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.menu_book_rounded, size: 20, color: Colors.white),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isThai ? 'อ่านฉบับแปลความหมาย' : 'Meaning Reader',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$startSurahName อายะฮฺที่ $startAyah',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    color: colors.foreground.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: colors.foreground.withValues(alpha: 0.4)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      Navigator.pop(modalCtx);
+                      _openMushafPage(startPage);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8A6530).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: const Color(0xFF8A6530).withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8A6530),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.auto_stories_rounded, size: 20, color: Colors.white),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isThai ? 'อ่านมุศหัฟมะดีนะฮฺ' : 'Medina Mushaf',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isThai ? 'เปิดหน้าที่ $startPage' : 'Open page $startPage',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    color: colors.foreground.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios_rounded, size: 14, color: colors.foreground.withValues(alpha: 0.4)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   int _compareRefs(VerseRef left, VerseRef right) {
@@ -234,17 +961,28 @@ class BrowseScreenState extends State<BrowseScreen> {
       context.watch<LocalReadingProvider>(),
     );
 
-    // Build surah list with optional translation search
+    // Build surah list with optional translation search and filter
     final surahs = [
       for (var id = 1; id <= 114; id++)
         (
           id: id.toString(),
+          num: id,
           name: surahDisplayName(id.toString(), isThai: isThai),
+          nameEn: offlineSurahNamesEn[id.toString()] ?? '',
           arabic: offlineSurahNamesAr[id.toString()] ?? '',
           count: widget.repository.getSurahVerses(id.toString()).length,
+          startPage: getMedinaMushafPageNumber(id, 1),
+          isMedinan: _medinanSurahs.contains(id),
         ),
     ].where((surah) {
-      return matchesSurahQuery(surah.id, query);
+      if (isSearching) {
+        return matchesSurahQuery(surah.id, query);
+      }
+      if (_surahFilter == 'popular') return _popularSurahs.contains(surah.num);
+      if (_surahFilter == 'juz30') return surah.num >= 78 && surah.num <= 114;
+      if (_surahFilter == 'meccan') return !surah.isMedinan;
+      if (_surahFilter == 'medinan') return surah.isMedinan;
+      return true;
     }).toList();
 
     final juz = [
@@ -253,66 +991,36 @@ class BrowseScreenState extends State<BrowseScreen> {
         index < BrowseScreenState._juzStarts.length;
         index++
       )
-        (
-          id: index + 1,
-          startSurah: BrowseScreenState._juzStarts[index][0].toString(),
-          startAyah: BrowseScreenState._juzStarts[index][1].toString(),
-        ),
+        () {
+          final sSurah = BrowseScreenState._juzStarts[index][0];
+          final sAyah = BrowseScreenState._juzStarts[index][1];
+          final end = BrowseScreenState.getJuzEnd(index);
+          final eSurah = end != null ? end[0] : 114;
+          final eAyah = end != null ? end[1] : 6;
+          final startPage = getMedinaMushafPageNumber(sSurah, sAyah);
+          final endPage = index < 29
+              ? getMedinaMushafPageNumber(BrowseScreenState._juzStarts[index + 1][0], BrowseScreenState._juzStarts[index + 1][1]) - 1
+              : 604;
+          return (
+            id: index + 1,
+            startSurah: sSurah.toString(),
+            startAyah: sAyah.toString(),
+            startSurahName: widget.repository.getSurahName(sSurah.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+            endSurah: eSurah.toString(),
+            endAyah: eAyah == 9999 ? '' : eAyah.toString(),
+            endSurahName: widget.repository.getSurahName(eSurah.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+            startPage: startPage,
+            endPage: endPage >= startPage ? endPage : startPage,
+          );
+        }(),
     ].where((item) {
       return query.isEmpty ||
           item.id.toString().contains(query) ||
           'juz ${item.id}'.contains(query) ||
           'ญุซอ์ ${item.id}'.contains(query) ||
-          matchesSurahQuery(item.startSurah, query);
+          matchesSurahQuery(item.startSurah, query) ||
+          matchesSurahQuery(item.endSurah, query);
     }).toList();
-
-    final cleanQuery = query.replaceAll(RegExp(r'\D'), '');
-    final int? queriedPage = int.tryParse(cleanQuery);
-
-    final pages = [for (var page = 1; page <= 604; page++) page].where((page) {
-      if (query.isEmpty) return true;
-      if (queriedPage != null && page == queriedPage) return true;
-      return page.toString().contains(query) ||
-          'page $page'.contains(query) ||
-          'หน้า $page'.contains(query);
-    }).toList();
-
-    // Collect verse translation matches
-    final List<
-      ({
-        String surahName,
-        String surahId,
-        String verseId,
-        String translationText,
-      })
-    >
-    verseMatches = [];
-    if (isSearching && query.length >= 2) {
-      outer:
-      for (var id = 1; id <= 114; id++) {
-        final verses = widget.repository.getSurahVerses(id.toString());
-        for (var verse in verses) {
-          final primaryTranslation = resolveVerseTranslationText(
-            context: context,
-            verseKey: verse.verseKey,
-            verse: verse,
-            settings: settings,
-          );
-          if (primaryTranslation.toLowerCase().contains(query) ||
-              verse.thaiV3.toLowerCase().contains(query) ||
-              verse.thaiV2.toLowerCase().contains(query) ||
-              verse.english.toLowerCase().contains(query)) {
-            verseMatches.add((
-              surahName: widget.repository.getSurahName(verse.surahId),
-              surahId: verse.surahId,
-              verseId: verse.id,
-              translationText: primaryTranslation,
-            ));
-            if (verseMatches.length >= 30) break outer;
-          }
-        }
-      }
-    }
 
     return Scaffold(
       backgroundColor: widget.colors.background,
@@ -320,74 +1028,14 @@ class BrowseScreenState extends State<BrowseScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.tr('choose_surah'),
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          context.tr('which_surah_to_read'),
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            SettingsScreen(repository: widget.repository),
-                      ),
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundColor: colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.settings,
-                        color: colorScheme.onSurface,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
             // ── Search Field ────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Container(
                 decoration: BoxDecoration(
                   color: widget.colors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0C000000),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: widget.colors.borderSoft),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -399,11 +1047,11 @@ class BrowseScreenState extends State<BrowseScreen> {
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
+                      horizontal: 16,
+                      vertical: 12,
                     ),
                     prefixIcon: Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 8.0),
+                      padding: const EdgeInsets.only(left: 14.0, right: 8.0),
                       child: Icon(
                         Icons.search,
                         color: colorScheme.onSurfaceVariant,
@@ -458,113 +1106,146 @@ class BrowseScreenState extends State<BrowseScreen> {
               ),
             ),
 
-            const SizedBox(height: 12),
-
-            // Popular Search Chips
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+            // ── Filter Chips & Topics Sub-page Button ────────────────────────
+            if (!isSearching) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    'ความเมตตา', 'ความอดทน', 'การละหมาด', 'สวรรค์', 'นรก', 'ศรัทธา'
-                  ].map((chip) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: InkWell(
-                      onTap: () {
-                        _searchController.text = chip;
-                        _onSearchQueryChanged(chip);
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _searchController.text == chip
-                              ? colorScheme.primary
-                              : widget.colors.surface,
-                          borderRadius: BorderRadius.circular(20),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ('all', isThai ? 'ทั้งหมด (114)' : 'All (114)'),
+                            ('popular', isThai ? 'ยอดนิยม' : 'Popular'),
+                            ('juz30', isThai ? 'ญุซอ์ 30' : 'Juz 30'),
+                            ('meccan', isThai ? 'มักกียะฮฺ' : 'Meccan'),
+                            ('medinan', isThai ? 'มะดะนียะฮฺ' : 'Medinan'),
+                            ('juz', isThai ? 'ตามญุซอ์ (30)' : 'By Juz (30)'),
+                          ].map((entry) {
+                            final isSelected = _surahFilter == entry.$1;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InkWell(
+                                onTap: () => setState(() {
+                                  _surahFilter = entry.$1;
+                                  if (entry.$1 == 'juz') {
+                                    _mode = 'juz';
+                                  } else {
+                                    _mode = 'surah';
+                                  }
+                                }),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF0E5A4A)
+                                        : widget.colors.surface,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? const Color(0xFF0E5A4A)
+                                          : widget.colors.borderSoft,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    entry.$2,
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 12,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : widget.colors.foreground,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                        child: Text(
-                          '🔍 $chip',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _searchController.text == chip
-                                ? colorScheme.onPrimary
-                                : colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TopicsScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              colorScheme.primaryContainer.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: colorScheme.primary.withValues(alpha: 0.3),
                           ),
                         ),
-                      ),
-                    ),
-                  )).toList(),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ── Mode tabs (only when not searching) ─────────────────────────
-            if (!isSearching)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _TabButton(
-                        label: context.tr('surah'),
-                        selected: _mode == 'surah',
-                        colors: widget.colors,
-                        onTap: () => _setMode('surah'),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TabButton(
-                        label: context.tr('juz'),
-                        selected: _mode == 'juz',
-                        colors: widget.colors,
-                        onTap: () => _setMode('juz'),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TabButton(
-                        label: 'หัวข้อ',
-                        selected: _mode == 'topic',
-                        colors: widget.colors,
-                        onTap: () => _setMode('topic'),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: _TabButton(
-                        label: context.tr('page'),
-                        selected: _mode == 'page',
-                        colors: widget.colors,
-                        onTap: () => _setMode('page'),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.category_outlined,
+                              size: 14,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isThai ? 'หัวข้อ' : 'Topics',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+            ],
 
             const SizedBox(height: 12),
 
             // ── Content List ────────────────────────────────────────────────
-            if (!isSearching && _mode == 'topic')
-              const Expanded(
-                child: TopicsTabView(),
-              )
-            else
-              Expanded(
-                child: ClipRect(
-                  child: ListView(
+            Expanded(
+              child: ClipRect(
+                child: ListView(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 0,
                     ),
                     children: [
                     if (isSearching) ...[
+                      // Direct Reference Jump Card (e.g. 2:255, 72:1, ญิน 1, jin 1)
+                      if (_directRef != null) ...[
+                        _buildDirectVerseJumpCard(context, _directRef!, isThai),
+                        const SizedBox(height: 14),
+                      ],
+                      // Direct Mushaf Page Jump Card (e.g. p 293, หน้า 293, 293)
+                      if (_directPageRef != null && _directRef == null) ...[
+                        _buildDirectPageJumpCard(context, _directPageRef!, isThai),
+                        const SizedBox(height: 14),
+                      ],
                       // Surah matches
                       if (surahs.isNotEmpty) ...[
                         Text(
@@ -587,7 +1268,17 @@ class BrowseScreenState extends State<BrowseScreen> {
                             ),
                             icon: Icons.menu_book_outlined,
                             completed: completedSurahs.contains(surah.id),
-                            onTap: () => widget.onOpen(surah.id, '1'),
+                            onTap: () => _showSurahReadOptionsModal(
+                              context: context,
+                              surahId: surah.id,
+                              surahName: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                              surahNameEn: surah.nameEn,
+                              arabicTitle: surah.arabic,
+                              verseCount: surah.count,
+                              startPage: surah.startPage,
+                              isMedinan: surah.isMedinan,
+                              isCompleted: completedSurahs.contains(surah.id),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -697,60 +1388,88 @@ class BrowseScreenState extends State<BrowseScreen> {
                         }),
                         const SizedBox(height: 16),
                       ],
-                      // Verse / translation matches
-                      if (verseMatches.isNotEmpty) ...[
+                      // Offline verse & translation matches (cross-language, bilingual, and exact)
+                      if (_offlineVerseResults.isNotEmpty) ...[
                         Text(
-                          context.tr('ayah_matches'),
+                          isThai
+                              ? 'อายะฮฺและคำแปลที่พบ (${_offlineVerseResults.length})'
+                              : 'Verses & Translations (${_offlineVerseResults.length})',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             letterSpacing: 1.2,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        ...verseMatches.map(
-                          (m) => Padding(
+                        ..._offlineVerseResults.map((verse) {
+                          final sId = verse['surah_id'].toString();
+                          final vId = verse['verse_id'].toString();
+                          final vKey = verse['verse_key'] as String? ?? '$sId:$vId';
+                          final thText = verse['translation_th'] as String? ?? '';
+                          final enText = verse['translation_en'] as String? ?? '';
+                          final arText = verse['text_uthmani'] as String? ?? '';
+                          final surahName = surahDisplayName(sId, isThai: isThai);
+
+                          final isLatin = RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(_searchController.text.trim());
+                          final displayText = (isLatin && enText.isNotEmpty && thText.isNotEmpty)
+                              ? '$thText ($enText)'
+                              : (thText.isNotEmpty ? thText : enText);
+
+                          return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radius,
-                              ),
+                              borderRadius: BorderRadius.circular(AppTheme.radius),
                               child: _SectionCard(
                                 colors: widget.colors,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Icon(
-                                          Icons.menu_book_outlined,
-                                          color: widget.colors.primary,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primaryContainer,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
                                           child: Text(
-                                            '${m.surahName}, ${context.tr('ayah_number', args: {'number': m.verseId})}',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: textTheme.titleSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: widget
-                                                      .colors
-                                                      .textStrong,
-                                                ),
+                                            isThai
+                                                ? 'ซูเราะฮฺ $surahName ($vKey)'
+                                                : 'Surah $surahName ($vKey)',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: colorScheme.onPrimaryContainer,
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
+                                    if (arText.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          arText,
+                                          textDirection: TextDirection.rtl,
+                                          style: GoogleFonts.amiri(
+                                            fontSize: 16,
+                                            height: 1.8,
+                                            color: widget.colors.textStrong,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 6),
                                     Text(
-                                      m.translationText,
+                                      displayText,
                                       maxLines: 3,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: widget.colors.foreground,
                                         fontSize: 13,
+                                        height: 1.4,
                                       ),
                                     ),
                                     const SizedBox(height: 10),
@@ -758,9 +1477,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
                                         OutlinedButton.icon(
-                                          onPressed: () => widget.onOpen(m.surahId, m.verseId),
+                                          onPressed: () => widget.onOpen(sId, vId),
                                           icon: const Icon(Icons.menu_book, size: 14),
-                                          label: const Text('ฉบับแปล', style: TextStyle(fontSize: 12)),
+                                          label: Text(isThai ? 'ฉบับแปล' : 'Meaning', style: const TextStyle(fontSize: 12)),
                                           style: OutlinedButton.styleFrom(
                                             visualDensity: VisualDensity.compact,
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -771,9 +1490,12 @@ class BrowseScreenState extends State<BrowseScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         FilledButton.icon(
-                                          onPressed: () => _openMushafForVerse(m.surahId, m.verseId),
+                                          onPressed: () => _openMushafForVerse(sId, vId),
                                           icon: const Icon(Icons.import_contacts, size: 14),
-                                          label: const Text('อ่านในมุศหัฟ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          label: Text(
+                                            isThai ? 'อ่านในมุศหัฟ' : 'Mushaf',
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
                                           style: FilledButton.styleFrom(
                                             visualDensity: VisualDensity.compact,
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -788,11 +1510,12 @@ class BrowseScreenState extends State<BrowseScreen> {
                                 ),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
+                        const SizedBox(height: 16),
                       ],
-                      // Live API search matches
-                      if (_isApiSearching)
+                      // Loading indicator
+                      if ((_isOfflineSearching || _isApiSearching) && _offlineVerseResults.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 24),
                           child: Center(
@@ -915,7 +1638,15 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (surahs.isEmpty && _topicSearchResults.isEmpty && verseMatches.isEmpty && (_apiSearchResult == null || _apiSearchResult!.items.isEmpty) && !_isApiSearching)
+                      if (surahs.isEmpty &&
+                          _topicSearchResults.isEmpty &&
+                          _offlineVerseResults.isEmpty &&
+                          (_apiSearchResult == null ||
+                              _apiSearchResult!.items.isEmpty) &&
+                          _directRef == null &&
+                          _directPageRef == null &&
+                          !_isOfflineSearching &&
+                          !_isApiSearching)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 48),
                           child: Center(
@@ -931,40 +1662,57 @@ class BrowseScreenState extends State<BrowseScreen> {
                           ),
                         ),
                     ] else ...[
-                      if (_mode == 'surah')
-                        ...surahs.map(
-                          (surah) => _SimpleLinkRow(
-                            colors: widget.colors,
-                            index: surah.id,
-                            title: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
-                            arabicTitle: surah.arabic,
-                            subtitle: context.tr(
-                              'ayat_count',
-                              args: {'count': '${surah.count}'},
-                            ),
-                            icon: Icons.menu_book_outlined,
-                            completed: completedSurahs.contains(surah.id),
-                            onTap: () => widget.onOpen(surah.id, '1'),
-                          ),
-                        )
-                      else if (_mode == 'juz')
+                      if (_surahFilter == 'juz' || _mode == 'juz')
                         ...juz.map(
-                          (item) => _SimpleLinkRow(
+                          (item) => _JuzCard(
                             colors: widget.colors,
-                            index: '${item.id}',
-                            title: '${context.tr('juz')} ${item.id}',
-                            subtitle:
-                                '${widget.repository.getSurahName(item.startSurah).replaceFirst(RegExp(r'^\d+\.\s*'), '')}:${item.startAyah}',
-                            icon: Icons.view_week_outlined,
-                            onTap: () =>
-                                widget.onOpen(item.startSurah, item.startAyah),
+                            juzNumber: item.id,
+                            startSurahName: item.startSurahName,
+                            startSurahId: item.startSurah,
+                            startAyah: item.startAyah,
+                            endSurahName: item.endSurahName,
+                            endSurahId: item.endSurah,
+                            endAyah: item.endAyah,
+                            startPage: item.startPage,
+                            endPage: item.endPage,
+                            onTap: () => _showJuzReadOptionsModal(
+                              context: context,
+                              juzNumber: item.id,
+                              startSurahName: item.startSurahName,
+                              startSurahId: item.startSurah,
+                              startAyah: item.startAyah,
+                              endSurahName: item.endSurahName,
+                              endSurahId: item.endSurah,
+                              endAyah: item.endAyah,
+                              startPage: item.startPage,
+                              endPage: item.endPage,
+                            ),
                           ),
                         )
                       else
-                        _PageNumberGrid(
-                          colors: widget.colors,
-                          pages: pages,
-                          onOpenPage: widget.onOpenPage,
+                        ...surahs.map(
+                          (surah) => _SurahCard(
+                            colors: widget.colors,
+                            id: surah.id,
+                            title: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                            englishTitle: surah.nameEn,
+                            arabicTitle: surah.arabic,
+                            count: surah.count,
+                            startPage: surah.startPage,
+                            isMedinan: surah.isMedinan,
+                            completed: completedSurahs.contains(surah.id),
+                            onTap: () => _showSurahReadOptionsModal(
+                              context: context,
+                              surahId: surah.id,
+                              surahName: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                              surahNameEn: surah.nameEn,
+                              arabicTitle: surah.arabic,
+                              verseCount: surah.count,
+                              startPage: surah.startPage,
+                              isMedinan: surah.isMedinan,
+                              isCompleted: completedSurahs.contains(surah.id),
+                            ),
+                          ),
                         ),
                     ],
                     const SizedBox(height: 24),
@@ -979,50 +1727,304 @@ class BrowseScreenState extends State<BrowseScreen> {
   }
 }
 
-class _PageNumberGrid extends StatelessWidget {
+class _SurahCard extends StatelessWidget {
   final AppThemeColors colors;
-  final List<int> pages;
-  final ValueChanged<int> onOpenPage;
+  final String id;
+  final String title;
+  final String englishTitle;
+  final String arabicTitle;
+  final int count;
+  final int startPage;
+  final bool isMedinan;
+  final bool completed;
+  final VoidCallback onTap;
 
-  const _PageNumberGrid({
+  const _SurahCard({
     required this.colors,
-    required this.pages,
-    required this.onOpenPage,
+    required this.id,
+    required this.title,
+    required this.englishTitle,
+    required this.arabicTitle,
+    required this.count,
+    required this.startPage,
+    required this.isMedinan,
+    required this.completed,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: pages.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 2.6,
-      ),
-      itemBuilder: (context, index) {
-        final page = pages[index];
-        return FilledButton(
-          onPressed: () => onOpenPage(page),
-          style: FilledButton.styleFrom(
-            backgroundColor: colors.surface,
-            foregroundColor: colors.textStrong,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              border: Border.all(color: colors.borderSoft),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Surah Number Badge
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.borderSoft),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    id,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Surah Name & Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: colors.textStrong,
+                              ),
+                            ),
+                          ),
+                          if (completed) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEAF2EE),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check_rounded,
+                                      size: 10.5, color: Color(0xFF0E5A4A)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'อ่านจบ',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF0E5A4A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4.5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: isMedinan
+                                  ? const Color(0xFFEAF2EE)
+                                  : const Color(0xFFF6EFE3),
+                              borderRadius: BorderRadius.circular(3.5),
+                              border: Border.all(
+                                color: isMedinan
+                                    ? const Color(0xFFB7D4C7)
+                                    : const Color(0xFFD7C299),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Text(
+                              isMedinan ? 'มะดะนียะฮฺ' : 'มักกียะฮฺ',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                                color: isMedinan
+                                    ? const Color(0xFF0E5A4A)
+                                    : const Color(0xFF8A6530),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              '$count อายะฮฺ · หน้า $startPage · $englishTitle',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSans(
+                                fontSize: 11,
+                                color: colors.foreground.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Arabic Name + Arrow
+                if (arabicTitle.isNotEmpty) ...[
+                  Text(
+                    arabicTitle,
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
+                      fontFamily: 'UthmanicHafs',
+                      fontSize: 18,
+                      color: Color(0xFF0E5A4A),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: colors.foreground.withValues(alpha: 0.35),
+                ),
+              ],
+            ),
           ),
-          child: Text(
-            '${context.tr('page')} $page',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+class _JuzCard extends StatelessWidget {
+  final AppThemeColors colors;
+  final int juzNumber;
+  final String startSurahName;
+  final String startSurahId;
+  final String startAyah;
+  final String endSurahName;
+  final String endSurahId;
+  final String endAyah;
+  final int startPage;
+  final int endPage;
+  final VoidCallback onTap;
+
+  const _JuzCard({
+    required this.colors,
+    required this.juzNumber,
+    required this.startSurahName,
+    required this.startSurahId,
+    required this.startAyah,
+    required this.endSurahName,
+    required this.endSurahId,
+    required this.endAyah,
+    required this.startPage,
+    required this.endPage,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: colors.borderSoft),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$juzNumber',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ญุซอ์ที่ $juzNumber',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: colors.textStrong,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        endAyah.isNotEmpty
+                            ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah)'
+                            : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11.5,
+                          color: colors.foreground.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'หน้า $startPage-$endPage',
+                  style: GoogleFonts.notoSans(
+                    fontSize: 11,
+                    color: colors.foreground.withValues(alpha: 0.5),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: colors.foreground.withValues(alpha: 0.35),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -1041,6 +2043,7 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
       ),
       child: child,
     );
@@ -1078,17 +2081,22 @@ class _SimpleLinkRow extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.radius),
           onTap: onTap,
-          child: Padding(
+          child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              border: Border.all(color: colors.borderSoft),
+            ),
             child: Row(
               children: [
                 if (index != null) ...[
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colors.borderSoft),
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -1096,11 +2104,11 @@ class _SimpleLinkRow extends StatelessWidget {
                       style: GoogleFonts.notoSansThai(
                         color: colors.primary,
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                 ] else ...[
                   Icon(icon, color: colors.primary),
                   const SizedBox(width: 12),
@@ -1116,15 +2124,15 @@ class _SimpleLinkRow extends StatelessWidget {
                         style: GoogleFonts.notoSansThai(
                           color: colors.textStrong,
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 14.5,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: GoogleFonts.notoSansThai(
-                          color: colors.foreground,
-                          fontSize: 12,
+                          color: colors.foreground.withValues(alpha: 0.7),
+                          fontSize: 11.5,
                         ),
                       ),
                     ],
@@ -1133,10 +2141,10 @@ class _SimpleLinkRow extends StatelessWidget {
                 if (arabicTitle != null && arabicTitle!.isNotEmpty) ...[
                   Text(
                     arabicTitle!,
-                    style: GoogleFonts.amiri(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: colors.primary,
+                    style: const TextStyle(
+                      fontFamily: 'UthmanicHafs',
+                      fontSize: 17,
+                      color: Color(0xFF0E5A4A),
                     ),
                     textDirection: TextDirection.rtl,
                   ),
@@ -1146,7 +2154,7 @@ class _SimpleLinkRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Icon(
                     Icons.check_circle_rounded,
-                    color: Colors.green,
+                    color: Color(0xFF0E5A4A),
                     size: 18,
                   ),
                 ],
@@ -1159,41 +2167,6 @@ class _SimpleLinkRow extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabButton extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final AppThemeColors colors;
-  final VoidCallback onTap;
-
-  const _TabButton({
-    required this.label,
-    required this.selected,
-    required this.colors,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: selected ? colors.primary : colors.surface,
-        foregroundColor: selected ? colors.textInverse : colors.foreground,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: const StadiumBorder(),
-      ),
-      onPressed: onTap,
-      child: Text(
-        label,
-        style: GoogleFonts.notoSansThai(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
         ),
       ),
     );

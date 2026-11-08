@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/settings_provider.dart';
+import '../theme/app_theme.dart';
 
 class HifzGuideScreen extends StatefulWidget {
   final VoidCallback? onStartNewVerses;
@@ -101,17 +102,10 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.primaryContainer.withValues(alpha: 0.7),
-                colorScheme.surfaceContainerHighest,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFF0E5A4A),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
-              color: colorScheme.primary.withValues(alpha: 0.2),
+              color: const Color(0xFF0A4437),
             ),
           ),
           child: Column(
@@ -119,14 +113,14 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
             children: [
               Row(
                 children: [
-                  Icon(Icons.lightbulb_rounded,
-                      color: colorScheme.primary, size: 24),
+                  const Icon(Icons.lightbulb_rounded,
+                      color: Color(0xFFF3D28A), size: 24),
                   const SizedBox(width: 8),
                   Text(
                     isThai ? 'กฎทองคำแห่งการฮิฟซ์' : 'The Golden Rule of Hifz',
                     style: textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
+                      color: const Color(0xFFF3D28A),
                     ),
                   ),
                 ],
@@ -134,21 +128,21 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
               const SizedBox(height: 10),
               Text(
                 isThai
-                    ? '«การรักษาอายะห์เดิม สำคัญกว่าการท่องจำอายะห์ใหม่»'
+                    ? '«การรักษาอายะฮฺเดิม สำคัญกว่าการท่องจำอายะฮฺใหม่»'
                     : '“Preserving what you have memorized is far more important than memorizing new verses.”',
                 style: textTheme.bodyLarge?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
+                  color: Colors.white,
                   fontStyle: FontStyle.italic,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 isThai
-                    ? 'ผู้ท่องจำส่วนใหญ่ล้มเหลวเพราะคิดว่า "ท่องจบแล้วคือเสร็จ" แต่ความจริงอัลกุรอานหลุดลอยได้เร็วกว่าอูฐที่หลุดจากเชือกผูก หากปราศจากการทบทวนอย่างสม่ำเสมอ อายะห์ใหม่จะเลือนหายไปภายใน 3–7 วัน'
+                    ? 'ผู้ท่องจำส่วนใหญ่ล้มเหลวเพราะคิดว่า "ท่องจบแล้วคือเสร็จ" แต่ความจริงอัลกุรอานหลุดลอยได้เร็วกว่าอูฐที่หลุดจากเชือกผูก หากปราศจากการทบทวนอย่างสม่ำเสมอ อายะฮฺใหม่จะเลือนหายไปภายใน 3–7 วัน'
                     : 'Most students struggle because they assume "memorized once = done forever." In reality, the Quran slips away faster than a camel freed from its tether. Without continuous review, new verses fade within 3–7 days.',
                 style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: Colors.white.withValues(alpha: 0.85),
                   height: 1.6,
                 ),
               ),
@@ -168,9 +162,9 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           number: '1',
           icon: Icons.menu_book_rounded,
           accentColor: colorScheme.primary,
-          title: isThai ? 'สะบัก (Sabaq) — อายะห์ใหม่' : 'Sabaq (New Lesson)',
+          title: isThai ? 'สะบัก (Sabaq) — อายะฮฺใหม่' : 'Sabaq (New Lesson)',
           subtitle: isThai
-              ? 'การท่องจำอายะห์ใหม่ประจำวัน เช่น วันละ 3–5 อายะห์ หรือ 1 หน้า ใช้สมาธิสูงและเทคนิคตัครอร (Takrar)'
+              ? 'การท่องจำอายะฮฺใหม่ประจำวัน เช่น วันละ 3–5 อายะฮฺ หรือ 1 หน้า ใช้สมาธิสูงและเทคนิคตัครอร (Takrar)'
               : 'Daily new verses (e.g. 3–5 ayahs or 1 page). Requires high focus and the Takrar repetition cycle.',
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -180,9 +174,9 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           number: '2',
           icon: Icons.history_toggle_off_rounded,
           accentColor: colorScheme.tertiary,
-          title: isThai ? 'สะบักกี (Sabqi) — ทบทวนอายะห์ล่าสุด' : 'Sabqi (Recent Revision)',
+          title: isThai ? 'สะบักกี (Sabqi) — ทบทวนอายะฮฺล่าสุด' : 'Sabqi (Recent Revision)',
           subtitle: isThai
-              ? 'ทบทวนอายะห์ที่ท่องจำไปในช่วง 7–14 วันที่ผ่านมา เพื่อไม่ให้อายะห์ใหม่ที่เพิ่งจำได้เลือนหายไป'
+              ? 'ทบทวนอายะฮฺที่ท่องจำไปในช่วง 7–14 วันที่ผ่านมา เพื่อไม่ให้อายะฮฺใหม่ที่เพิ่งจำได้เลือนหายไป'
               : 'Reviewing verses memorized over the past 7–14 days to lock them from short-term into long-term memory.',
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -194,7 +188,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           accentColor: colorScheme.secondary,
           title: isThai ? 'มันซิล / ดอร์ (Manzil) — ทบทวนรวม' : 'Manzil (Cumulative Review)',
           subtitle: isThai
-              ? 'ทบทวนส่วนที่จำได้แม่นยำแล้วทั้งหมดแบบหมุนเวียนรอบละ 1 ญุซอ์ หรือ 1 สูเราะฮ์ต่อวัน เพื่อรักษาตลอดชีวิต'
+              ? 'ทบทวนส่วนที่จำได้แม่นยำแล้วทั้งหมดแบบหมุนเวียนรอบละ 1 ญุซอ์ หรือ 1 ซูเราะฮฺต่อวัน เพื่อรักษาตลอดชีวิต'
               : 'Rotating cumulative review of fully mastered Juz or Surahs (e.g. 1 Juz/day) for lifelong retention.',
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -211,7 +205,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                 label: Text(isThai ? 'ดูวิธีท่องจำใหม่' : 'New Verses Guide'),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(AppTheme.radius)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -224,7 +218,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                 label: Text(isThai ? 'ดูวิธีทบทวน' : 'Review Guide'),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(AppTheme.radius)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -244,13 +238,13 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          isThai ? 'ขั้นตอนการท่องจำอายะห์ใหม่ (วิธีตัครอร Takrar)' : 'New Verses Methodology (Takrar Cycle)',
+          isThai ? 'ขั้นตอนการท่องจำอายะฮฺใหม่ (วิธีตัครอร Takrar)' : 'New Verses Methodology (Takrar Cycle)',
           style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
           isThai
-              ? 'ระบบจะแบ่งอายะห์เป็นช่วงๆ และให้คุณอ่านตามวงจรสลับระหว่าง "เปิดเผยตัวอักษร" และ "ซ่อนตัวอักษรเพื่อทดสอบความจำ"'
+              ? 'ระบบจะแบ่งอายะฮฺเป็นช่วงๆ และให้คุณอ่านตามวงจรสลับระหว่าง "เปิดเผยตัวอักษร" และ "ซ่อนตัวอักษรเพื่อทดสอบความจำ"'
               : 'The system breaks down verses into manageable chunks and guides you through alternating visible & hidden active recall.',
           style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
@@ -273,7 +267,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           icon: Icons.visibility_rounded,
           title: isThai ? 'รอบเปิดเผย (Visible) — สร้างภาพจำ' : 'Visible Rounds (10x) — Visual Memory',
           description: isThai
-              ? 'อ่านออกเสียงพร้อมมองตัวอักษรในมุสฮัฟ 10 ครั้ง เพื่อให้สมองและดวงตาจดจำตำแหน่งคำและความยาวของประโยค'
+              ? 'อ่านออกเสียงพร้อมมองตัวอักษรในมุศหัฟ 10 ครั้ง เพื่อให้สมองและดวงตาจดจำตำแหน่งคำและความยาวของประโยค'
               : 'Recite aloud while looking at the Mushaf text 10 times. This builds visual and muscle memory.',
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -297,7 +291,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           icon: Icons.link_rounded,
           title: isThai ? 'การเชื่อมโยงลำดับ (Linked Sequence)' : 'Linked Sequence — Seamless Transitions',
           description: isThai
-              ? 'เมื่อท่องจำอายะห์ที่ 1 และ 2 ได้แล้ว ระบบจะเชื่อมโยงให้อ่าน 1 ➔ 2 ต่อเนื่องกัน เพื่อไม่ให้สะดุดตรงรอยต่อของอายะห์'
+              ? 'เมื่อท่องจำอายะฮฺที่ 1 และ 2 ได้แล้ว ระบบจะเชื่อมโยงให้อ่าน 1 ➔ 2 ต่อเนื่องกัน เพื่อไม่ให้สะดุดตรงรอยต่อของอายะฮฺ'
               : 'After memorizing Verse 1 & 2 individually, the system links 1 ➔ 2 together so your memory flows without pausing.',
           colorScheme: colorScheme,
           textTheme: textTheme,
@@ -309,7 +303,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
               color: colorScheme.primary.withValues(alpha: 0.35),
             ),
@@ -335,7 +329,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                       children: [
                         Text(
                           isThai
-                              ? 'เทคนิคการตั้งค่าช่วงอายะห์แบบลูกโซ่'
+                              ? 'เทคนิคการตั้งค่าช่วงอายะฮฺแบบลูกโซ่'
                               : 'The Linking Chain Strategy',
                           style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
@@ -358,7 +352,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
               const SizedBox(height: 14),
               Text(
                 isThai
-                    ? 'ปัญหาที่พบบ่อยที่สุด: ผู้ท่องจำมักจำอายะห์ 1–10 ได้ และจำอายะห์ 11–20 ได้ แต่พอลองอ่านต่อกัน 1–20 จะ "สะดุดหรือนึกไม่ออกตรงรอยต่อระหว่างอายะห์ 10 ไป 11" เสมอ!'
+                    ? 'ปัญหาที่พบบ่อยที่สุด: ผู้ท่องจำมักจำอายะฮฺ 1–10 ได้ และจำอายะฮฺ 11–20 ได้ แต่พอลองอ่านต่อกัน 1–20 จะ "สะดุดหรือนึกไม่ออกตรงรอยต่อระหว่างอายะฮฺ 10 ไป 11" เสมอ!'
                     : 'The most common Hifz obstacle: A student memorizes Ayahs 1–10 and then 11–20 separately, but freezes at the junction when trying to flow from Ayah 10 into 11!',
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -376,7 +370,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                     ? 'เริ่มเชื่อมจาก: 1'
                     : 'Repeat Start: 1',
                 outcomeText: isThai
-                    ? 'ท่องอายะห์ 1 ถึง 10 จนคล่อง และอ่านเชื่อม 1 ➔ 10 จบรอบ'
+                    ? 'ท่องอายะฮฺ 1 ถึง 10 จนคล่อง และอ่านเชื่อม 1 ➔ 10 จบรอบ'
                     : 'Memorize 1 to 10 and cement the chain from 1 ➔ 10.',
                 isHighlight: false,
                 colorScheme: colorScheme,
@@ -392,7 +386,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                     ? 'เริ่มเชื่อมจาก: 1 (ไม่ใช่ 11!)'
                     : 'Repeat Start: 1 (NOT 11!)',
                 outcomeText: isThai
-                    ? 'เมื่อท่องจำอายะห์ใหม่ 11–20 ระบบจะดึงให้ทบทวนเชื่อมตั้งแต่ 1 ➔ 11, 1 ➔ 12 จนถึง 1 ➔ 20 ทำให้รอยต่อระหว่างเมื่อวานกับวันนี้ถูกเชื่อมกันอย่างสมบูรณ์แบบ!'
+                    ? 'เมื่อท่องจำอายะฮฺใหม่ 11–20 ระบบจะดึงให้ทบทวนเชื่อมตั้งแต่ 1 ➔ 11, 1 ➔ 12 จนถึง 1 ➔ 20 ทำให้รอยต่อระหว่างเมื่อวานกับวันนี้ถูกเชื่อมกันอย่างสมบูรณ์แบบ!'
                     : 'While acquiring 11–20, each link step tests 1 ➔ 11, 1 ➔ 12... up to 1 ➔ 20. The yesterday-to-today junction is permanently fused!',
                 isHighlight: true,
                 colorScheme: colorScheme,
@@ -419,7 +413,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                     Expanded(
                       child: Text(
                         isThai
-                            ? '💡 จุดเช็คพอยต์: หากซูเราะฮ์ยาวมาก (เช่น อัลบะเกาะเราะฮ์) สามารถตั้งค่า Repeat Start ย้อนกลับไปที่ "ต้นหน้า" หรือ "ต้นรุกูอ์" แทนที่จะเริ่มจากอายะห์ 1 เสมอไป'
+                            ? '💡 จุดเช็คพอยต์: หากซูเราะฮฺยาวมาก (เช่น อัลบะเกาะเราะฮ์) สามารถตั้งค่า Repeat Start ย้อนกลับไปที่ "ต้นหน้า" หรือ "ต้นรุกูอ์" แทนที่จะเริ่มจากอายะฮฺ 1 เสมอไป'
                             : '💡 Pro-Tip for Long Surahs: In lengthy surahs (e.g. Al-Baqarah), you can set Repeat Start back to the top of the Page or Ruku\' rather than Ayah 1 indefinitely.',
                         style: textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface,
@@ -442,10 +436,10 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
             widget.onStartNewVerses?.call();
           },
           icon: const Icon(Icons.play_arrow_rounded),
-          label: Text(isThai ? 'เริ่มท่องจำอายะห์ใหม่ตอนนี้' : 'Start New Verses Session'),
+          label: Text(isThai ? 'เริ่มท่องจำอายะฮฺใหม่ตอนนี้' : 'Start New Verses Session'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radius)),
           ),
         ),
       ],
@@ -465,7 +459,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: colorScheme.errorContainer.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -488,7 +482,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
                     const SizedBox(height: 4),
                     Text(
                       isThai
-                          ? 'ทันทีที่คุณท่องอายะห์ใหม่จบ ให้ทบทวนซ้ำทันทีภายใน 24 ชั่วโมง และทบทวนอย่างน้อย 3 รอบเพื่อเปลี่ยนเป็นสถานะ "เชี่ยวชาญ (Mastered)"'
+                          ? 'ทันทีที่คุณท่องอายะฮฺใหม่จบ ให้ทบทวนซ้ำทันทีภายใน 24 ชั่วโมง และทบทวนอย่างน้อย 3 รอบเพื่อเปลี่ยนเป็นสถานะ "เชี่ยวชาญ (Mastered)"'
                           : 'As soon as you finish new verses, review them within 24 hours. A surah must be reviewed at least 3 times to achieve "Mastered" status.',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
@@ -538,7 +532,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
           ),
           child: Column(
@@ -551,7 +545,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
               const SizedBox(height: 10),
               _RoutineRow(
                 time: isThai ? 'ทันทีหลังจำใหม่' : 'Immediately',
-                task: isThai ? 'ทบทวนอายะห์ใหม่ 1 รอบเต็ม' : '1 full review of new verses',
+                task: isThai ? 'ทบทวนอายะฮฺใหม่ 1 รอบเต็ม' : '1 full review of new verses',
                 colorScheme: colorScheme,
               ),
               _RoutineRow(
@@ -561,7 +555,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
               ),
               _RoutineRow(
                 time: isThai ? 'ประจำสัปดาห์' : 'Weekly',
-                task: isThai ? 'ทบทวนมันซิล (1 สูเราะฮ์ หรือ 1 ญุซอ์)' : 'Manzil review (1 full Surah or Juz)',
+                task: isThai ? 'ทบทวนมันซิล (1 ซูเราะฮฺ หรือ 1 ญุซอ์)' : 'Manzil review (1 full Surah or Juz)',
                 colorScheme: colorScheme,
               ),
             ],
@@ -581,7 +575,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
             minimumSize: const Size.fromHeight(50),
             backgroundColor: colorScheme.tertiary,
             foregroundColor: colorScheme.onTertiary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radius)),
           ),
         ),
       ],
@@ -605,7 +599,7 @@ class _HifzGuideScreenState extends State<HifzGuideScreen>
         color: isHighlight
             ? colorScheme.primaryContainer.withValues(alpha: 0.3)
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
           color: isHighlight
               ? colorScheme.primary.withValues(alpha: 0.5)
@@ -741,7 +735,7 @@ class _PillarCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -752,7 +746,7 @@ class _PillarCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
             alignment: Alignment.center,
             child: Icon(icon, color: accentColor, size: 22),
@@ -809,7 +803,7 @@ class _StepGuideCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -820,7 +814,7 @@ class _StepGuideCard extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
             alignment: Alignment.center,
             child: Text(

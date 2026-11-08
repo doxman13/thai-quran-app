@@ -9,6 +9,7 @@ import '../providers/local_reading_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../models/verse.dart';
+import '../theme/app_theme.dart';
 
 class VerseActionSheet extends StatelessWidget {
   final Verse verse;
@@ -42,7 +43,10 @@ class VerseActionSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
+        border: Border(top: BorderSide(color: colors.borderSoft)),
       ),
       padding: EdgeInsets.only(
         top: 20,
@@ -62,12 +66,12 @@ class VerseActionSheet extends StatelessWidget {
                 'Verse Actions — ${verse.surahId}:${verse.id}',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
                   color: primaryColor,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(Icons.close, color: colors.textMuted),
                 onPressed: () => Navigator.pop(context),
               )
             ],
@@ -76,7 +80,7 @@ class VerseActionSheet extends StatelessWidget {
 
           // Actions List
           ListTile(
-            leading: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border, color: Colors.amber.shade700),
+            leading: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border, color: colors.mushafGold),
             title: Text(
               isBookmarked ? 'Remove Bookmark' : 'Bookmark Verse',
               style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
@@ -133,7 +137,7 @@ class VerseActionSheet extends StatelessWidget {
             ),
             onTap: () async {
               Navigator.pop(context);
-              final urlString = 'https://quran.salamthailand.com/tadabbur/community?surah=${verse.surahId}&ayah=${verse.id}';
+              final urlString = 'https://quran-th.com/tadabbur/community?surah=${verse.surahId}&ayah=${verse.id}';
               final uri = Uri.parse(urlString);
               try {
                 if (await canLaunchUrl(uri)) {
@@ -148,7 +152,7 @@ class VerseActionSheet extends StatelessWidget {
           ),
 
           ListTile(
-            leading: const Icon(Icons.report_problem_outlined, color: Colors.blueGrey),
+            leading: Icon(Icons.report_problem_outlined, color: colors.textMuted),
             title: Text(
               'Report Error',
               style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
@@ -169,9 +173,9 @@ class VerseActionSheet extends StatelessWidget {
 
     if (!supabaseProv.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('กรุณาเข้าสู่ระบบเพื่อรายงานข้อผิดพลาด (Please log in to report an error)'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(
+          content: const Text('กรุณาเข้าสู่ระบบเพื่อรายงานข้อผิดพลาด (Please log in to report an error)'),
+          backgroundColor: colors.danger,
         ),
       );
       return;
@@ -188,15 +192,15 @@ class VerseActionSheet extends StatelessWidget {
             return AlertDialog(
               backgroundColor: colors.surface,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
                 side: BorderSide(color: colors.borderSoft),
               ),
               title: Text(
                 'Report Error (Surah ${verse.surahId}:${verse.id})',
                 style: GoogleFonts.notoSansThai(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
                   fontSize: 16,
-                  color: Colors.redAccent,
+                  color: colors.danger,
                 ),
               ),
               content: SingleChildScrollView(
@@ -218,7 +222,7 @@ class VerseActionSheet extends StatelessWidget {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: colors.background,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                         border: Border.all(color: colors.borderSoft),
                       ),
                       child: Text(
@@ -245,7 +249,7 @@ class VerseActionSheet extends StatelessWidget {
                       style: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textStrong),
                       decoration: InputDecoration(
                         hintText: 'Describe the issue (e.g. translation error, spelling)...',
-                        hintStyle: GoogleFonts.notoSansThai(fontSize: 12, color: colors.foreground),
+                        hintStyle: GoogleFonts.notoSansThai(fontSize: 12, color: colors.textMuted),
                         border: const OutlineInputBorder(),
                         contentPadding: const EdgeInsets.all(10),
                       ),
@@ -292,9 +296,9 @@ class VerseActionSheet extends StatelessWidget {
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('รายงานข้อผิดพลาดสำเร็จ (Error report submitted successfully!)'),
-                                  backgroundColor: Colors.teal,
+                                SnackBar(
+                                  content: const Text('รายงานข้อผิดพลาดสำเร็จ (Error report submitted successfully!)'),
+                                  backgroundColor: colors.success,
                                 ),
                               );
                             }
@@ -306,17 +310,17 @@ class VerseActionSheet extends StatelessWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('เกิดข้อผิดพลาด: $e'),
-                                  backgroundColor: Colors.redAccent,
+                                  backgroundColor: colors.danger,
                                 ),
                               );
                             }
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
+                    backgroundColor: colors.danger,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
                   ),
                   child: isSaving
@@ -330,7 +334,7 @@ class VerseActionSheet extends StatelessWidget {
                         )
                       : Text(
                           'Submit',
-                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
                         ),
                 ),
               ],
@@ -357,13 +361,13 @@ class VerseActionSheet extends StatelessWidget {
         return AlertDialog(
           backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             side: BorderSide(color: colors.borderSoft),
           ),
           title: Text(
             'My Thoughts ($surahId:$verseId)',
             style: GoogleFonts.notoSansThai(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               fontSize: 16,
               color: primaryColor,
             ),
@@ -387,7 +391,7 @@ class VerseActionSheet extends StatelessWidget {
             // Left Action: View Community Reflections
             TextButton(
               onPressed: () async {
-                final urlString = 'https://quran.salamthailand.com/tadabbur/community?surah=$surahId&ayah=$verseId';
+                final urlString = 'https://quran-th.com/tadabbur/community?surah=$surahId&ayah=$verseId';
                 final uri = Uri.parse(urlString);
                 try {
                   if (await canLaunchUrl(uri)) {
@@ -418,9 +422,9 @@ class VerseActionSheet extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
+                foregroundColor: colors.textInverse,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
@@ -428,7 +432,7 @@ class VerseActionSheet extends StatelessWidget {
                 'Close',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

@@ -15,6 +15,7 @@ import '../data/quran_repository.dart';
 import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/surah_mastery_card.dart';
 import 'hifz_wizard_setup_screen.dart';
 
@@ -35,7 +36,7 @@ int _juzOfSurah(int surah) {
   return juz;
 }
 
-enum _FilterMode { all, mastered, inProgress, juz29And30 }
+enum _FilterMode { all, mastered, inProgress, notStarted, juz29And30 }
 
 class HifzMasteryListScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -91,6 +92,14 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       case _FilterMode.inProgress:
         return all
             .where((s) => SurahMasteryCard.isInProgressRecord(_completionMap[s]))
+            .toList();
+      case _FilterMode.notStarted:
+        return all
+            .where(
+              (s) =>
+                  !SurahMasteryCard.isMasteredRecord(_completionMap[s]) &&
+                  !SurahMasteryCard.isInProgressRecord(_completionMap[s]),
+            )
             .toList();
       case _FilterMode.juz29And30:
         return all.where((s) => _juzOfSurah(s) >= 29).toList();
@@ -157,6 +166,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
               _FilterMode.all => 'All (114)',
               _FilterMode.mastered => 'Mastered',
               _FilterMode.inProgress => 'In Progress',
+              _FilterMode.notStarted => 'Not Started',
               _FilterMode.juz29And30 => "Juz' 29 & 30",
             };
             final selected = _filterMode == mode;
@@ -196,7 +206,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: 0.2),
         ),
@@ -288,6 +298,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
   void _showSurahActionSheet(BuildContext context, int surahNum) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final colors = context.appColors;
     final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
     final record = _completionMap[surahNum];
     final isMastered = SurahMasteryCard.isMasteredRecord(record);
@@ -305,7 +316,9 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
       ),
       builder: (sheetCtx) {
         return SafeArea(
@@ -332,7 +345,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                     border: Border.all(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                     ),
@@ -344,7 +357,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                         height: 52,
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -378,10 +391,10 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                       ),
                       Text(
                         String.fromCharCode(0xe000 + surahNum),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'QcfSurahName',
                           fontSize: 36,
-                          color: Color(0xFF1B5E20),
+                          color: colors.primary,
                         ),
                       ),
                     ],
@@ -393,16 +406,16 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                 Row(
                   children: [
                     if (isMastered)
-                      _Badge(isThai ? 'จำขึ้นใจแล้ว' : 'MASTERED', const Color(0xFF15803D))
+                      _Badge(isThai ? 'จำขึ้นใจแล้ว' : 'MASTERED', colors.success)
                     else if (isInProgress)
-                      _Badge(isThai ? 'กำลังท่อง' : 'IN PROGRESS', const Color(0xFFFFA726))
+                      _Badge(isThai ? 'กำลังท่อง' : 'IN PROGRESS', colors.mushafGold)
                     else
                       _Badge(isThai ? 'ยังไม่ได้เริ่ม' : 'NOT STARTED', colorScheme.onSurfaceVariant),
                     if (reviewCount > 0) ...[
                       const SizedBox(width: 8),
                       _Badge(
                         isThai ? 'ทบทวนแล้ว $reviewCount ครั้ง' : 'REVIEWED ×$reviewCount',
-                        const Color(0xFF2196F3),
+                        colors.primary,
                       ),
                     ],
                   ],
@@ -412,14 +425,14 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                 // Option 1: Memorize New Verses
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   tileColor: colorScheme.surfaceContainerLow,
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
                     child: Icon(Icons.menu_book_rounded, color: colorScheme.primary, size: 22),
                   ),
@@ -460,14 +473,14 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                 // Option 2: Review this Surah
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   tileColor: colorScheme.surfaceContainerLow,
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: colorScheme.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
                     child: Icon(Icons.replay_circle_filled_rounded, color: colorScheme.tertiary, size: 22),
                   ),
@@ -509,14 +522,14 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                 // Option 3: Custom Wizard Setup
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                   tileColor: colorScheme.surfaceContainerLow,
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     ),
                     child: Icon(Icons.tune_rounded, color: colorScheme.onSurfaceVariant, size: 22),
                   ),
@@ -526,7 +539,7 @@ class _HifzMasteryListScreenState extends State<HifzMasteryListScreen> {
                   ),
                   subtitle: Text(
                     isThai
-                        ? 'เลือกช่วงอายะฮฺ หรือหน้ามุศฮัฟตามต้องการ'
+                        ? 'เลือกช่วงอายะฮฺ หรือหน้ามุศหัฟตามต้องการ'
                         : 'Customize verse range, chunking, and goals',
                     style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),

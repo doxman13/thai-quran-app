@@ -161,6 +161,18 @@ class StatsProvider extends ChangeNotifier {
     }
   }
 
+  int get totalVersesRead {
+    final allVerses = <String>{};
+    for (final verses in _history.values) {
+      allVerses.addAll(verses);
+    }
+    return allVerses.length;
+  }
+
+  int get totalAyahsRead => totalVersesRead;
+
+  int get streakDays => streakCount;
+
   int get todayReadCount {
     final todayStr = _getDateString(DateTime.now());
     return _history[todayStr]?.length ?? 0;

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../data/medina_mushaf_pages.dart';
+import '../data/quran_foundation_repository.dart';
+import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
+import '../theme/app_theme.dart';
 import '../widgets/word_by_word_strip.dart';
+import 'mushaf_reader_screen.dart';
+import 'reading_screen.dart';
 
 class RootVersesScreen extends StatefulWidget {
   final String rootArabic;
@@ -58,6 +64,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
     final colorScheme = theme.colorScheme;
     final settings = Provider.of<SettingsProvider>(context);
     final transManager = Provider.of<TranslationManagerProvider>(context);
+    final colors = settings.getAppColors();
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -116,7 +123,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
           : _verses == null || _verses!.isEmpty
               ? Center(
                   child: Text(
-                    'ไม่พบโองการ',
+                    'ไม่พบอายะฮฺ',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 16,
                       color: colorScheme.onSurfaceVariant,
@@ -145,12 +152,23 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                       transManager: transManager,
                     );
 
+                    final parts = verseKey.split(':');
+                    final surahNum = int.tryParse(parts.first) ?? 1;
+                    final ayahNum =
+                        int.tryParse(parts.length > 1 ? parts[1] : '1') ?? 1;
+                    final pageNum =
+                        getMedinaMushafPageNumber(surahNum, ayahNum);
+
                     return Container(
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLow,
-                        borderRadius: BorderRadius.circular(20),
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(
+                          color: colors.borderSoft,
+                          width: 1,
+                        ),
                       ),
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -158,13 +176,17 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(alpha: 0.12),
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'ซูเราะฮ์ $verseKey',
+                                  'ซูเราะฮฺ $verseKey',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -205,7 +227,7 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
 
                           Divider(
                             height: 1,
-                            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                            color: colors.borderSoft,
                           ),
                           const SizedBox(height: 12),
 
@@ -218,6 +240,101 @@ class _RootVersesScreenState extends State<RootVersesScreen> {
                               height: 1.6,
                               color: colorScheme.onSurface,
                             ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Dual navigation action buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: () {
+                                    final repo =
+                                        context.read<QuranRepository>();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ReadingScreen(
+                                          repository: repo,
+                                          initialSurah: surahNum.toString(),
+                                          initialVerseIndex: ayahNum - 1,
+                                          initialVerseId: verseKey,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.menu_book_rounded,
+                                    size: 14,
+                                  ),
+                                  label: Text(
+                                    'อ่านในบริบท',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: colorScheme.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusSm,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    final repo =
+                                        context.read<QuranRepository>();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => MushafReaderScreen(
+                                          quranRepository: repo,
+                                          foundationRepository:
+                                              QuranFoundationRepository(),
+                                          initialPage: pageNum,
+                                          initialHighlightVerseKey: verseKey,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.import_contacts_rounded,
+                                    size: 14,
+                                  ),
+                                  label: Text(
+                                    'เปิดมุศหัฟ (หน้า $pageNum)',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF8A6530),
+                                    side: const BorderSide(
+                                      color: Color(0xFF8A6530),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusSm,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

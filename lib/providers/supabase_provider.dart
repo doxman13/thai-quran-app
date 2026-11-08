@@ -1,6 +1,8 @@
 // lib/providers/supabase_provider.dart
 import 'dart:async';
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,12 +12,17 @@ class SupabaseProvider extends ChangeNotifier {
   final _client = Supabase.instance.client;
   User? _user;
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<Uri>? _appLinksSubscription;
   String _guestName = 'Reader';
+  bool _isSigningIn = false;
+  String? _authError;
 
   User? get user => _user;
   bool get isLoggedIn => _user != null;
   String get userEmail => _user?.email ?? '';
   String get userId => _user?.id ?? '';
+  bool get isSigningIn => _isSigningIn;
+  String? get authError => _authError;
 
   String get displayName {
     if (_user != null) {
@@ -30,15 +37,99 @@ class SupabaseProvider extends ChangeNotifier {
     _user = _client.auth.currentUser;
     _loadGuestName();
     _authSubscription = _client.auth.onAuthStateChange.listen((data) {
-      final oldUser = _user;
+      debugPrint('[SupabaseProvider] onAuthStateChange event: ${data.event}, session: ${data.session?.user.email}');
       _user = data.session?.user;
-      if (oldUser?.id != _user?.id) {
-        notifyListeners();
-        if (_user != null) {
-          bootstrapUser(_user!.id);
-        }
+      notifyListeners();
+      if (_user != null) {
+        bootstrapUser(_user!.id);
       }
     });
+
+    if (!kIsWeb) {
+      _initDeepLinkListener();
+    }
+  }
+
+  void _initDeepLinkListener() async {
+    final appLinks = AppLinks();
+
+    // Check initial uri on startup (cold start)
+    try {
+      final initialUri = await appLinks.getInitialLink();
+      if (initialUri != null) {
+        debugPrint('[SupabaseProvider] Initial deep link detected: $initialUri');
+        await _handleIncomingDeepLink(initialUri);
+      }
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error reading initial deep link: $e');
+    }
+
+    // Check latest link
+    try {
+      final latestUri = await appLinks.getLatestLink();
+      if (latestUri != null) {
+        debugPrint('[SupabaseProvider] Latest deep link detected: $latestUri');
+        await _handleIncomingDeepLink(latestUri);
+      }
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error reading latest deep link: $e');
+    }
+
+    // Observe incoming links stream
+    _appLinksSubscription = appLinks.uriLinkStream.listen((uri) async {
+      debugPrint('[SupabaseProvider] uriLinkStream emitted: $uri');
+      await _handleIncomingDeepLink(uri);
+    }, onError: (err) {
+      debugPrint('[SupabaseProvider] uriLinkStream error: $err');
+    });
+  }
+
+  Future<void> _handleIncomingDeepLink(Uri uri) async {
+    if (uri.scheme != 'io.supabase.thaiquran') return;
+
+    final fragmentParams = Uri.splitQueryString(uri.fragment);
+    final hasAuthParams = uri.queryParameters.containsKey('code') ||
+        uri.queryParameters.containsKey('access_token') ||
+        uri.queryParameters.containsKey('error_description') ||
+        fragmentParams.containsKey('code') ||
+        fragmentParams.containsKey('access_token') ||
+        fragmentParams.containsKey('error_description');
+
+    if (!hasAuthParams) return;
+
+    debugPrint('[SupabaseProvider] Processing auth deep link: $uri');
+
+    // If user is already authenticated with session, sync and return
+    if (_client.auth.currentUser != null) {
+      _user = _client.auth.currentUser;
+      _authError = null;
+      notifyListeners();
+      return;
+    }
+
+    _isSigningIn = true;
+    _authError = null;
+    notifyListeners();
+
+    try {
+      final res = await _client.auth.getSessionFromUrl(uri);
+      _user = res.session.user;
+      _authError = null;
+      notifyListeners();
+      await bootstrapUser(_user!.id);
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error extracting session from url: $e');
+      if (_client.auth.currentUser != null) {
+        _user = _client.auth.currentUser;
+        _authError = null;
+      } else {
+        _authError = e.toString().replaceAll('Exception:', '').trim();
+      }
+      notifyListeners();
+    } finally {
+      _isSigningIn = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _loadGuestName() async {
@@ -54,6 +145,7 @@ class SupabaseProvider extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _appLinksSubscription?.cancel();
     super.dispose();
   }
 
@@ -67,14 +159,73 @@ class SupabaseProvider extends ChangeNotifier {
     );
   }
 
-  // Google sign-in request
+  static const String _googleWebClientId =
+      '1011303318865-jrub1rpu8e661lmo6eunphtrin1alcrl.apps.googleusercontent.com';
+
+  // Google sign-in request (Native Bottom Sheet on Mobile, OAuth on Web)
   Future<void> signInWithGoogle() async {
-    await _client.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: kIsWeb
-          ? Uri.base.origin
-          : 'io.supabase.thaiquran://login-callback',
-    );
+    _authError = null;
+    _isSigningIn = true;
+    notifyListeners();
+
+    try {
+      if (kIsWeb) {
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: Uri.base.origin,
+        );
+        return;
+      }
+
+      final googleSignIn = GoogleSignIn(
+        serverClientId: _googleWebClientId,
+      );
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled account picker
+        _isSigningIn = false;
+        notifyListeners();
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+
+      if (idToken == null) {
+        throw Exception('Google Sign-In failed to retrieve ID token.');
+      }
+
+      final response = await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      if (response.user != null) {
+        _user = response.user;
+        await bootstrapUser(response.user!.id);
+      }
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Native Google sign-in error: $e');
+      debugPrint('[SupabaseProvider] Attempting Web OAuth fallback...');
+      try {
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: 'io.supabase.thaiquran://login-callback',
+        );
+        return;
+      } catch (fallbackError) {
+        debugPrint('[SupabaseProvider] Web OAuth fallback also failed: $fallbackError');
+        _authError = e.toString().replaceAll('Exception:', '').trim();
+        notifyListeners();
+        rethrow;
+      }
+    } finally {
+      _isSigningIn = false;
+      notifyListeners();
+    }
   }
 
   // Sign In with Email & Password
@@ -108,6 +259,14 @@ class SupabaseProvider extends ChangeNotifier {
 
   // Logout
   Future<void> signOut() async {
+    try {
+      final googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+      }
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error signing out from GoogleSignIn: $e');
+    }
     await _client.auth.signOut();
   }
 
@@ -148,7 +307,7 @@ class SupabaseProvider extends ChangeNotifier {
                 'user_id': userId,
                 'name': 'Saved Verses',
                 'slug': 'saved_verses',
-                'max_items': 5,
+                'max_items': 9999,
                 'sort_order': 0,
               },
               onConflict: 'user_id,slug',
@@ -315,7 +474,7 @@ class SupabaseProvider extends ChangeNotifier {
             'user_id': userId,
             'name': 'Saved Verses',
             'slug': 'saved_verses',
-            'max_items': 5,
+            'max_items': 9999,
             'sort_order': 0,
           }, onConflict: 'user_id,slug')
           .select('id')

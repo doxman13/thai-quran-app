@@ -290,7 +290,7 @@ class _MutashabihatSheetState extends State<MutashabihatSheet> {
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
-                                          'ซูเราะฮ์ $vKey',
+                                          'ซูเราะฮฺ $vKey',
                                           style: GoogleFonts.notoSansThai(
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.w700,

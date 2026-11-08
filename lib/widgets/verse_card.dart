@@ -914,7 +914,7 @@ class _VerseCardState extends State<VerseCard> {
       child: Container(
         margin: EdgeInsets.symmetric(
           horizontal: _isPreparingShare ? 24 : 0,
-          vertical: 16,
+          vertical: 8,
         ),
         decoration: _isPreparingShare
             ? BoxDecoration(

@@ -1,5 +1,6 @@
 package com.abuzayd.iqra
 
+import android.content.Intent
 import android.view.KeyEvent
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -8,6 +9,11 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceFragmentActivity() {
     private var channel: MethodChannel? = null
     private var interceptVolumeKeys: Boolean = false
+
+    override fun onNewIntent(intent: Intent) {
+        setIntent(intent)
+        super.onNewIntent(intent)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

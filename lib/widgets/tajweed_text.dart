@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class TajweedText extends StatelessWidget {
   final String text;
@@ -10,55 +11,24 @@ class TajweedText extends StatelessWidget {
     this.fontSize = 24.0,
   });
 
-  Color _getColorForClass(String ruleClass) {
-    // Strip quotes if they exist in the class name e.g. class='ham_wasl'
-    final sanitized = ruleClass.replaceAll("'", "").replaceAll('"', '');
-    switch (sanitized) {
-      case 'madda_normal':
-      case 'madda_permissible':
-      case 'madda_necessary':
-      case 'madda_obligatory_mottasel':
-      case 'madda_obligatory_monfasel':
-        return Colors.red;
-      case 'ghunnah':
-      case 'idgham_ghunnah':
-        return Colors.green;
-      case 'idgham_wo_ghunnah':
-      case 'idgham_mutajanisayn':
-      case 'idgham_mutaqaribayn':
-      case 'slnt':
-      case 'ham_wasl':
-      case 'laam_shamsiyah':
-        return Colors.grey;
-      case 'qalaqah':
-        return Colors.blue;
-      case 'ikhafa':
-      case 'ikhafa_shafawi':
-        return Colors.orange;
-      case 'iqlab':
-        return Colors.purple;
-      default:
-        return Colors.black;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultColor = context.appColors.textStrong;
     final spans = <TextSpan>[];
     final parts = _parseTajweedParts(text);
 
     for (final part in parts) {
       final isRule = part.className.isNotEmpty;
+      final ruleColor = isRule
+          ? TajweedPalette.getColor(part.className, isDark: isDark)
+          : null;
       spans.add(TextSpan(
         text: part.text,
         style: TextStyle(
           fontFamily: 'Tajweed',
           fontSize: fontSize,
-          color: isRule
-              ? _getColorForClass(part.className)
-              : (Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Colors.black),
+          color: ruleColor ?? defaultColor,
         ),
       ));
     }

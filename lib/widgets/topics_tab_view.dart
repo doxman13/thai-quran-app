@@ -392,7 +392,7 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          '$versesCount อายะฮ์',
+                                          '$versesCount อายะฮฺ',
                                           style: GoogleFonts.notoSansThai(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,

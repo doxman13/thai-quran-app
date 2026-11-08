@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -477,6 +478,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<LocalBookmark> _bookmarks = [];
   List<LocalRecentReading> _recentReadings = [];
   Set<String> _readDates = {};
+  Set<String> _completedReadSurahs = {};
+  Map<String, int> _completedReadSurahCounts = {};
   String? _activeProfileId;
   final Completer<void> _loadCompleter = Completer<void>();
 
@@ -543,6 +546,21 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _bookmarks.where((b) => b.userId == currentUserId).toList();
   List<LocalRecentReading> get recentReadings =>
       _recentReadings.where((r) => r.userId == currentUserId).toList();
+  Set<String> get completedReadSurahs => Set.unmodifiable(_completedReadSurahs);
+  Map<String, int> get completedReadSurahCounts =>
+      Map.unmodifiable(_completedReadSurahCounts);
+
+  Future<void> toggleCompletedReadSurah(String surahId) async {
+    if (_completedReadSurahs.contains(surahId)) {
+      _completedReadSurahs.remove(surahId);
+    } else {
+      _completedReadSurahs.add(surahId);
+      _completedReadSurahCounts[surahId] =
+          (_completedReadSurahCounts[surahId] ?? 0) + 1;
+    }
+    await _save(immediate: true);
+    notifyListeners();
+  }
   String? get activeProfileId => _activeProfileId;
   LocalReadingProfile? get freeReadProfile => _profiles
       .where((profile) => profile.userId == currentUserId)
@@ -756,8 +774,55 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           );
         }
 
+        // Merge any local/guest bookmarks (_localUserId) or unsynced items for userId
+        // that are not yet present in syncedBookmarks, and push them to Supabase.
+        final localCandidates = _bookmarks.where(
+          (b) => b.userId == _localUserId || b.userId == userId,
+        );
+        for (final localB in localCandidates) {
+          final alreadyInSynced = syncedBookmarks.any(
+            (sb) => sb.verse.verseKey == localB.verse.verseKey,
+          );
+          if (alreadyInSynced) continue;
+
+          String mergedId = localB.id;
+          try {
+            final inserted = await client
+                .from('bookmarks')
+                .insert({
+                  'user_id': userId,
+                  'category_id': serverCatId,
+                  'surah_id': localB.verse.surahId,
+                  'verse_id': localB.verse.verseId,
+                  'label': ?localB.label,
+                  'note': ?localB.note,
+                  'sort_order': syncedBookmarks.length,
+                })
+                .select('id')
+                .single();
+            if (inserted['id'] != null) {
+              mergedId = inserted['id'].toString();
+            }
+          } catch (e) {
+            debugPrint('Error pushing local bookmark during sync: $e');
+          }
+
+          syncedBookmarks.add(
+            LocalBookmark(
+              id: mergedId,
+              userId: userId,
+              categoryId: serverCatId,
+              verse: localB.verse,
+              label: localB.label,
+              note: localB.note,
+              sortOrder: syncedBookmarks.length,
+              createdAt: localB.createdAt,
+            ),
+          );
+        }
+
         final otherBookmarks = _bookmarks
-            .where((b) => b.userId != userId)
+            .where((b) => b.userId != userId && b.userId != _localUserId)
             .toList();
         _bookmarks = otherBookmarks + syncedBookmarks;
 
@@ -772,7 +837,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                 userId: userId,
                 name: 'Saved Verses',
                 slug: 'saved_verses',
-                maxItems: 5,
+                maxItems: 9999,
                 sortOrder: 0,
               ),
             ];
@@ -964,22 +1029,59 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               ) ??
               DateTime.fromMillisecondsSinceEpoch(0);
           final localUpdatedAt = localP.updatedAt;
+          final remoteProfile = _profileFromReadingProfileRow(
+            dbP: matchedRemote,
+          );
+          final remoteFurthestIndex = remoteProfile.furthestUnreadIndex;
+          final remoteLastViewedIndex = remoteProfile.lastViewedIndex;
+          final maxFurthestIndex = math.max(
+            localP.furthestUnreadIndex,
+            remoteFurthestIndex,
+          );
+          final maxLastViewedIndex = math.max(
+            localP.lastViewedIndex,
+            remoteLastViewedIndex,
+          );
+          final mergedCurrent = verseRefFromAbsoluteIndex(maxFurthestIndex);
+          final mergedLastViewed = verseRefFromAbsoluteIndex(
+            maxLastViewedIndex,
+          );
 
           final remoteIsArchived = matchedRemote['is_archived'] == true;
           if (!remoteIsArchived && localUpdatedAt.isAfter(remoteUpdatedAt)) {
-            // Local is newer: keep local and mark for sync to remote
-            reconciledProfiles.add(localP.copyWith(id: remoteId));
+            // Local is newer: keep local with monotonic forward progress and mark for sync to remote
+            reconciledProfiles.add(
+              localP.copyWith(
+                id: remoteId,
+                current: mergedCurrent,
+                lastViewed: mergedLastViewed,
+              ),
+            );
             profilesToSync.add(remoteId);
           } else {
-            // Remote is newer or equal: update local with remote profile state.
+            // Remote is newer or equal: adopt remote metadata while preserving monotonic max progress.
             if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
               hasRemoteUpdates = true;
             }
 
-            reconciledProfiles.add(
-              _profileFromReadingProfileRow(dbP: matchedRemote),
+            final mergedIsArchived = localP.isArchived && remoteIsArchived;
+            final mergedProfile = remoteProfile.copyWith(
+              current: mergedCurrent,
+              lastViewed: mergedLastViewed,
+              isArchived: mergedIsArchived,
             );
+            reconciledProfiles.add(mergedProfile);
             localStateChanged = true;
+
+            final bool localProgressAhead =
+                maxFurthestIndex > remoteFurthestIndex ||
+                maxLastViewedIndex > remoteLastViewedIndex;
+            final bool activeStateImproved =
+                !mergedIsArchived && remoteIsArchived;
+
+            if (localProgressAhead || activeStateImproved) {
+              profilesToSync.add(remoteId);
+            }
           }
         } else {
           // Local-only: keep local and mark for sync to remote
@@ -1221,17 +1323,36 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           upsertData['id'] = p.id;
         }
 
-        final response = hasUuid
-            ? await client
+        Map<String, dynamic> response;
+        if (hasUuid) {
+          try {
+            response = await client
+                .from('reading_profiles')
+                .upsert(upsertData, onConflict: 'id')
+                .select('id')
+                .single();
+          } on PostgrestException catch (pgErr) {
+            if (pgErr.code == '23505' ||
+                pgErr.code == 'PGRST204' ||
+                pgErr.message.contains('web_profile_id')) {
+              final fallbackData = Map<String, dynamic>.from(upsertData)
+                ..remove('id');
+              response = await client
                   .from('reading_profiles')
-                  .upsert(upsertData, onConflict: 'id')
-                  .select('id')
-                  .single()
-            : await client
-                  .from('reading_profiles')
-                  .insert(upsertData)
+                  .upsert(fallbackData, onConflict: 'user_id,slug')
                   .select('id')
                   .single();
+            } else {
+              rethrow;
+            }
+          }
+        } else {
+          response = await client
+              .from('reading_profiles')
+              .upsert(upsertData, onConflict: 'user_id,slug')
+              .select('id')
+              .single();
+        }
 
         final returnedId = response['id']?.toString();
         if (returnedId != null && returnedId != p.id) {
@@ -1794,31 +1915,57 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     String verseId,
     String? profileId,
   ) async {
+    final client = Supabase.instance.client;
+    final now = DateTime.now().toUtc().toIso8601String();
+
     try {
-      final client = Supabase.instance.client;
-      final now = DateTime.now().toUtc().toIso8601String();
-      await client.from('recent_readings').upsert({
-        'user_id': userId,
-        'surah_id': surahId,
-        'verse_id': verseId,
-        'profile_id': profileId,
-        'read_at': now,
-      }, onConflict: 'user_id,surah_id');
-    } catch (e) {
-      if (!e.toString().contains('verse_id') &&
-          !e.toString().contains('read_at')) {
-        debugPrint('Error syncing recent reading to Supabase: $e');
-        return;
-      }
-      try {
-        final client = Supabase.instance.client;
-        await client.from('recent_readings').upsert({
+      final existing = await client
+          .from('recent_readings')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('surah_id', surahId)
+          .maybeSingle();
+
+      if (existing != null && existing['id'] != null) {
+        await client.from('recent_readings').update({
+          'verse_id': verseId,
+          'profile_id': ?profileId,
+          'read_at': now,
+        }).eq('id', existing['id']);
+      } else {
+        await client.from('recent_readings').insert({
           'user_id': userId,
           'surah_id': surahId,
-          'last_read_verse': verseId,
-          'profile_id': profileId,
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }, onConflict: 'user_id,surah_id');
+          'verse_id': verseId,
+          'profile_id': ?profileId,
+          'read_at': now,
+        });
+      }
+    } catch (e) {
+      // Fallback for legacy schema column names (last_read_verse / updated_at)
+      try {
+        final existing = await client
+            .from('recent_readings')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('surah_id', surahId)
+            .maybeSingle();
+
+        if (existing != null && existing['id'] != null) {
+          await client.from('recent_readings').update({
+            'last_read_verse': verseId,
+            'profile_id': ?profileId,
+            'updated_at': now,
+          }).eq('id', existing['id']);
+        } else {
+          await client.from('recent_readings').insert({
+            'user_id': userId,
+            'surah_id': surahId,
+            'last_read_verse': verseId,
+            'profile_id': ?profileId,
+            'updated_at': now,
+          });
+        }
       } catch (fallbackError) {
         debugPrint('Error syncing recent reading to Supabase: $fallbackError');
       }
@@ -1983,22 +2130,46 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                   DateTime.fromMillisecondsSinceEpoch(0)
             : DateTime.fromMillisecondsSinceEpoch(0);
 
-        if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
-          final remoteFurthestRef = remoteFurthestIndex == null
-              ? toVerseRef(remoteSurahId.toString(), remoteVerseId.toString())
-              : verseRefFromAbsoluteIndex(remoteFurthestIndex);
-          final remoteLastViewedRef = remoteLastViewedIndex == null
-              ? remoteFurthestRef
-              : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
+        final remoteFurthestRef = remoteFurthestIndex == null
+            ? toVerseRef(remoteSurahId.toString(), remoteVerseId.toString())
+            : verseRefFromAbsoluteIndex(remoteFurthestIndex);
+        final remoteLastViewedRef = remoteLastViewedIndex == null
+            ? remoteFurthestRef
+            : verseRefFromAbsoluteIndex(remoteLastViewedIndex);
+        final int remoteFurthestIdx =
+            remoteFurthestIndex ?? absoluteVerseIndex(remoteFurthestRef);
+        final int remoteLastViewedIdx =
+            remoteLastViewedIndex ?? absoluteVerseIndex(remoteLastViewedRef);
 
-          final targetProfile = freeReadProfile;
+        final targetProfile = freeReadProfile;
+        final int localFurthestIdx = targetProfile?.furthestUnreadIndex ?? 1;
+        final int localLastViewedIdx =
+            targetProfile?.lastViewedIndex ?? localFurthestIdx;
+
+        final int maxFurthestIdx = math.max(
+          localFurthestIdx,
+          remoteFurthestIdx,
+        );
+        final int maxLastViewedIdx = math.max(
+          localLastViewedIdx,
+          remoteLastViewedIdx,
+        );
+        final mergedFurthestRef = verseRefFromAbsoluteIndex(maxFurthestIdx);
+        final mergedLastViewedRef = verseRefFromAbsoluteIndex(maxLastViewedIdx);
+
+        if (remoteUpdatedAt.isAfter(localUpdatedAt) ||
+            maxFurthestIdx > localFurthestIdx) {
+          final mergedUpdatedAt = remoteUpdatedAt.isAfter(localUpdatedAt)
+              ? remoteUpdatedAt
+              : localUpdatedAt;
+
           if (targetProfile != null) {
             _profiles = _profiles.map((p) {
               if (p.id == targetProfile.id) {
                 return p.copyWith(
-                  current: remoteFurthestRef,
-                  lastViewed: remoteLastViewedRef,
-                  updatedAt: remoteUpdatedAt,
+                  current: mergedFurthestRef,
+                  lastViewed: mergedLastViewedRef,
+                  updatedAt: mergedUpdatedAt,
                 );
               }
               return p;
@@ -2007,10 +2178,14 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
           await prefs.setString(
             'user_reading_state_updated_at',
-            remoteUpdatedAt.toUtc().toIso8601String(),
+            mergedUpdatedAt.toUtc().toIso8601String(),
           );
           await _save(immediate: true);
           notifyListeners();
+        }
+
+        if (localFurthestIdx > remoteFurthestIdx) {
+          await _syncReadingStateToSupabase(userId, maxFurthestIdx);
         }
       }
     } catch (e) {
@@ -2059,6 +2234,17 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       );
       if (decoded['readDates'] != null) {
         _readDates = Set<String>.from(decoded['readDates'] as List);
+      }
+      if (decoded['completedReadSurahs'] != null) {
+        _completedReadSurahs =
+            Set<String>.from(decoded['completedReadSurahs'] as List);
+      }
+      if (decoded['completedReadSurahCounts'] != null) {
+        _completedReadSurahCounts = Map<String, int>.from(
+          (decoded['completedReadSurahCounts'] as Map).map(
+            (k, v) => MapEntry(k.toString(), int.tryParse(v.toString()) ?? 1),
+          ),
+        );
       }
       _activeProfileId = decoded['activeProfileId']?.toString();
       _ensureDefaultProfile();
@@ -2153,6 +2339,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             .map((reading) => reading.toJson())
             .toList(),
         'readDates': _readDates.toList(),
+        'completedReadSurahs': _completedReadSurahs.toList(),
+        'completedReadSurahCounts': _completedReadSurahCounts,
       }),
     );
   }

@@ -38,6 +38,16 @@ class TajweedColorGuideSheet extends StatelessWidget {
 
   const TajweedColorGuideSheet({super.key, required this.colors});
 
+  static Color _ruleColor(String id, bool isDark) =>
+      TajweedPalette.getColor(id, isDark: isDark) ??
+      (isDark ? const Color(0xFFD9AB63) : const Color(0xFF8A6530));
+
+  static Color _ruleBg(String id, bool isDark) =>
+      _ruleColor(id, isDark).withValues(alpha: isDark ? 0.16 : 0.08);
+
+  static Color _ruleBorder(String id, bool isDark) =>
+      _ruleColor(id, isDark).withValues(alpha: isDark ? 0.35 : 0.24);
+
   static List<TajweedRuleItem> getRules(String lang, bool isDark) {
     switch (lang) {
       case 'en':
@@ -52,9 +62,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'نّ, مّ',
             exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
             exampleTranslit: 'Inna Allāh • Thumma',
-            color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
-            colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
-            colorBorder: isDark ? const Color(0x50EA580C) : const Color(0x33EA580C),
+            color: _ruleColor('ghunnah', isDark),
+            colorBg: _ruleBg('ghunnah', isDark),
+            colorBorder: _ruleBorder('ghunnah', isDark),
           ),
           TajweedRuleItem(
             id: 'idgham',
@@ -66,9 +76,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ي, ر, م, ل, و, ن (Yarmaloon)',
             exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'May-yaqūlu • Ghafūrur-Rahīm',
-            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-            colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
-            colorBorder: isDark ? const Color(0x500284C7) : const Color(0x330284C7),
+            color: _ruleColor('idgham', isDark),
+            colorBg: _ruleBg('idgham', isDark),
+            colorBorder: _ruleBorder('idgham', isDark),
           ),
           TajweedRuleItem(
             id: 'ikhfa',
@@ -80,9 +90,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ت, ث, ج, د, ذ, ز, س, ش, ص, ض, ط, ظ, ف, ق, ك (15 letters)',
             exampleAr: 'مِن قَبْلُ • أَنفُسَكُمْ',
             exampleTranslit: 'Min qablu • Anfusakum',
-            color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-            colorBg: isDark ? const Color(0x28059669) : const Color(0x14059669),
-            colorBorder: isDark ? const Color(0x50059669) : const Color(0x33059669),
+            color: _ruleColor('ikhfa', isDark),
+            colorBg: _ruleBg('ikhfa', isDark),
+            colorBorder: _ruleBorder('ikhfa', isDark),
           ),
           TajweedRuleItem(
             id: 'iqlab',
@@ -94,9 +104,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ب (indicated by a small Meem ۘ)',
             exampleAr: 'مِن بَعْدِ • عَلِيمٌۢ بِذَاتِ',
             exampleTranslit: 'Mim-ba‘di • ‘Alīmum-bi-dhāti',
-            color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
-            colorBg: isDark ? const Color(0x289333EA) : const Color(0x149333EA),
-            colorBorder: isDark ? const Color(0x509333EA) : const Color(0x339333EA),
+            color: _ruleColor('iqlab', isDark),
+            colorBg: _ruleBg('iqlab', isDark),
+            colorBorder: _ruleBorder('iqlab', isDark),
           ),
           TajweedRuleItem(
             id: 'qalqalah',
@@ -108,9 +118,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ق, ط, ب, ج, د (Qutb Jad)',
             exampleAr: 'يَجْعَلُونَ • ٱلْفَلَقِ',
             exampleTranslit: 'Yaj‘alūna • Al-Falaq',
-            color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
-            colorBg: isDark ? const Color(0x284F46E5) : const Color(0x144F46E5),
-            colorBorder: isDark ? const Color(0x504F46E5) : const Color(0x334F46E5),
+            color: _ruleColor('qalqalah', isDark),
+            colorBg: _ruleBg('qalqalah', isDark),
+            colorBorder: _ruleBorder('qalqalah', isDark),
           ),
           TajweedRuleItem(
             id: 'madd',
@@ -122,9 +132,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'آ, يٓ, وٓ (wavy mark ~)',
             exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
             exampleTranslit: "Jāaa'a • As-Sāaakh-khah",
-            color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
-            colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
-            colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
+            color: _ruleColor('madd', isDark),
+            colorBg: _ruleBg('madd', isDark),
+            colorBorder: _ruleBorder('madd', isDark),
           ),
         ];
       case 'ms':
@@ -139,9 +149,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'نّ, مّ',
             exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
             exampleTranslit: 'Inna Allāh • Thumma',
-            color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
-            colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
-            colorBorder: isDark ? const Color(0x50EA580C) : const Color(0x33EA580C),
+            color: _ruleColor('ghunnah', isDark),
+            colorBg: _ruleBg('ghunnah', isDark),
+            colorBorder: _ruleBorder('ghunnah', isDark),
           ),
           TajweedRuleItem(
             id: 'idgham',
@@ -153,9 +163,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ي, ر, م, ل, و, ن (Yarmalun)',
             exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'May-yaqūlu • Ghafūrur-Rahīm',
-            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-            colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
-            colorBorder: isDark ? const Color(0x500284C7) : const Color(0x330284C7),
+            color: _ruleColor('idgham', isDark),
+            colorBg: _ruleBg('idgham', isDark),
+            colorBorder: _ruleBorder('idgham', isDark),
           ),
           TajweedRuleItem(
             id: 'ikhfa',
@@ -167,9 +177,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ت, ث, ج, د, ذ, ز, س, ش, ص, ض, ط, ظ, ف, ق, ك (15 huruf)',
             exampleAr: 'مِن قَبْلُ • أَنفُسَكُمْ',
             exampleTranslit: 'Min qablu • Anfusakum',
-            color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-            colorBg: isDark ? const Color(0x28059669) : const Color(0x14059669),
-            colorBorder: isDark ? const Color(0x50059669) : const Color(0x33059669),
+            color: _ruleColor('ikhfa', isDark),
+            colorBg: _ruleBg('ikhfa', isDark),
+            colorBorder: _ruleBorder('ikhfa', isDark),
           ),
           TajweedRuleItem(
             id: 'iqlab',
@@ -181,9 +191,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ب (ditandai dengan Mim kecil ۘ)',
             exampleAr: 'مِن بَعْدِ • عَلِيمٌۢ بِذَاتِ',
             exampleTranslit: 'Mim-ba‘di • ‘Alīmum-bi-dhāti',
-            color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
-            colorBg: isDark ? const Color(0x289333EA) : const Color(0x149333EA),
-            colorBorder: isDark ? const Color(0x509333EA) : const Color(0x339333EA),
+            color: _ruleColor('iqlab', isDark),
+            colorBg: _ruleBg('iqlab', isDark),
+            colorBorder: _ruleBorder('iqlab', isDark),
           ),
           TajweedRuleItem(
             id: 'qalqalah',
@@ -195,9 +205,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'ق, ط, ب, ج, د (Qutbu Jaddin)',
             exampleAr: 'يَجْعَلُونَ • ٱلْفَلَقِ',
             exampleTranslit: 'Yaj‘alūn • Al-Falaq',
-            color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
-            colorBg: isDark ? const Color(0x284F46E5) : const Color(0x144F46E5),
-            colorBorder: isDark ? const Color(0x504F46E5) : const Color(0x334F46E5),
+            color: _ruleColor('qalqalah', isDark),
+            colorBg: _ruleBg('qalqalah', isDark),
+            colorBorder: _ruleBorder('qalqalah', isDark),
           ),
           TajweedRuleItem(
             id: 'madd',
@@ -209,9 +219,9 @@ class TajweedColorGuideSheet extends StatelessWidget {
             letters: 'آ, يٓ, وٓ (simbol ombak ~)',
             exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
             exampleTranslit: "Jāaa'a • As-Sāaakh-khah",
-            color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
-            colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
-            colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
+            color: _ruleColor('madd', isDark),
+            colorBg: _ruleBg('madd', isDark),
+            colorBorder: _ruleBorder('madd', isDark),
           ),
         ];
       case 'th':
@@ -219,87 +229,87 @@ class TajweedColorGuideSheet extends StatelessWidget {
         return [
           TajweedRuleItem(
             id: 'ghunnah',
-            name: 'ฆุนนะฮ์ (Ghunnah)',
+            name: 'ฆุนนะฮฺ (Ghunnah)',
             nameAr: 'غُنَّة',
-            duration: 'หน่วงเสียง 2 ฮารอกาต',
+            duration: 'หน่วงเสียง 2 ฮะเราะกะฮฺ',
             description:
-                'หน่วงเสียงขึ้นจมูก 2 ฮารอกาต เมื่อพบนูนชัดดะฮ์ (نّ) หรือมีมชัดดะฮ์ (مّ)',
+                'หน่วงเสียงขึ้นจมูก 2 ฮะเราะกะฮฺ เมื่อพบนูนชัดดะฮฺ (نّ) หรือมีมชัดดะฮฺ (مّ)',
             letters: 'نّ, مّ',
             exampleAr: 'إِنَّ ٱللَّهَ • ثُمَّ',
-            exampleTranslit: 'อินนัลลอฮ์ • ษุมมะ',
-            color: isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C),
-            colorBg: isDark ? const Color(0x28EA580C) : const Color(0x14EA580C),
-            colorBorder: isDark ? const Color(0x50EA580C) : const Color(0x33EA580C),
+            exampleTranslit: 'อินนัลลอฮฺ • ษุมมะ',
+            color: _ruleColor('ghunnah', isDark),
+            colorBg: _ruleBg('ghunnah', isDark),
+            colorBorder: _ruleBorder('ghunnah', isDark),
           ),
           TajweedRuleItem(
             id: 'idgham',
             name: 'อิดฆอม (Idgham)',
             nameAr: 'إِدْغَام',
-            duration: 'หน่วงเสียง 2 ฮารอกาต (ยกเว้น ل, ر)',
+            duration: 'หน่วงเสียง 2 ฮะเราะกะฮฺ (ยกเว้น ل, ر)',
             description:
                 'การอ่านกล้ำเสียงนูนสุกูน (นูนตาย) หรือตันวีนเข้าสู่อักษรตัวถัดไป',
             letters: 'ي, ر, م, ل, و, ن (ยัรมะลูน)',
             exampleAr: 'مَن يَقُولُ • غَفُورٌ رَّحِيمٌ',
             exampleTranslit: 'มัยยะกูลุ • เฆาะฟูรุรเราะฮีม',
-            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
-            colorBg: isDark ? const Color(0x280284C7) : const Color(0x140284C7),
-            colorBorder: isDark ? const Color(0x500284C7) : const Color(0x330284C7),
+            color: _ruleColor('idgham', isDark),
+            colorBg: _ruleBg('idgham', isDark),
+            colorBorder: _ruleBorder('idgham', isDark),
           ),
           TajweedRuleItem(
             id: 'ikhfa',
             name: 'อิคฟาอ์ (Ikhfa)',
             nameAr: 'الإِخْفَاء',
-            duration: 'หน่วงเสียง 2 ฮารอกาต',
+            duration: 'หน่วงเสียง 2 ฮะเราะกะฮฺ',
             description:
                 'การอ่านซ่อนเสียงนูนสุกูน (นูนตาย) หรือตันวีน ให้อยู่กึ่งกลางระหว่างอิซฮารและอิดฆอม พร้อมหน่วงเสียงขึ้นจมูก',
             letters: 'ت, ث, ج, د, ذ, ز, س, ش, ص, ض, ط, ظ, ف, ق, ك (15 อักษร)',
             exampleAr: 'مِن قَبْلُ • أَنفُسَكُمْ',
             exampleTranslit: 'มิงก็อบลิ • อันฟุสะกุม',
-            color: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
-            colorBg: isDark ? const Color(0x28059669) : const Color(0x14059669),
-            colorBorder: isDark ? const Color(0x50059669) : const Color(0x33059669),
+            color: _ruleColor('ikhfa', isDark),
+            colorBg: _ruleBg('ikhfa', isDark),
+            colorBorder: _ruleBorder('ikhfa', isDark),
           ),
           TajweedRuleItem(
             id: 'iqlab',
             name: 'อิกลาบ (Iqlab)',
             nameAr: 'الإِقْلَاب',
-            duration: 'หน่วงเสียง 2 ฮารอกาต',
+            duration: 'หน่วงเสียง 2 ฮะเราะกะฮฺ',
             description:
                 'การแปลงเสียงนูนสุกูน (นูนตาย) หรือตันวีน ให้เป็นเสียงอักษรมีม (م) เมื่อพบกับอักษรบาอ์ (ب)',
             letters: 'ب (พร้อมเครื่องหมาย มีม ตัวเล็ก ۘ)',
             exampleAr: 'مِن بَعْدِ • عَلِيمٌۢ بِذَاتِ',
             exampleTranslit: 'มิมบะอ์ดิ • อะลีมัมบิซาติ',
-            color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
-            colorBg: isDark ? const Color(0x289333EA) : const Color(0x149333EA),
-            colorBorder: isDark ? const Color(0x509333EA) : const Color(0x339333EA),
+            color: _ruleColor('iqlab', isDark),
+            colorBg: _ruleBg('iqlab', isDark),
+            colorBorder: _ruleBorder('iqlab', isDark),
           ),
           TajweedRuleItem(
             id: 'qalqalah',
-            name: 'ก็อลเกาะละฮ์ (Qalqalah)',
+            name: 'ก็อลเกาะละฮฺ (Qalqalah)',
             nameAr: 'القَلْقَلَة',
             duration: 'สะท้อนเสียง',
             description:
-                'การสะท้อนหรือกระดอนเสียง เมื่ออักษรก็อลเกาะละฮ์มีเครื่องหมายสุกูน (เครื่องหมายตาย) หรือหยุดอ่านที่อักษรนั้น',
+                'การสะท้อนหรือกระดอนเสียง เมื่ออักษรก็อลเกาะละฮฺมีเครื่องหมายสุกูน (เครื่องหมายตาย) หรือหยุดอ่านที่อักษรนั้น',
             letters: 'ق, ط, ب, ج, د (กุฏบุญัดด์)',
             exampleAr: 'يَجْعَلُونَ • ٱلْفَلَقِ',
             exampleTranslit: 'ยัจญ์อะลูน • อัลฟะลัก',
-            color: isDark ? const Color(0xFF818CF8) : const Color(0xFF4F46E5),
-            colorBg: isDark ? const Color(0x284F46E5) : const Color(0x144F46E5),
-            colorBorder: isDark ? const Color(0x504F46E5) : const Color(0x334F46E5),
+            color: _ruleColor('qalqalah', isDark),
+            colorBg: _ruleBg('qalqalah', isDark),
+            colorBorder: _ruleBorder('qalqalah', isDark),
           ),
           TajweedRuleItem(
             id: 'madd',
             name: 'มัดด์วาญิบ / มัดด์ลาซิม (Madd 4-6 Harakat)',
             nameAr: 'مَدّ وَاجِب / لَازِم',
-            duration: 'ยาว 4 - 6 ฮารอกาต',
+            duration: 'ยาว 4 - 6 ฮะเราะกะฮฺ',
             description:
-                'การลากเสียงยาวเป็นพิเศษ เมื่อมีเครื่องหมายคลื่น (~) บนอักษรมัดด์ตามด้วยฮัมซะฮ์หรือสุกูน',
+                'การลากเสียงยาวเป็นพิเศษ เมื่อมีเครื่องหมายคลื่น (~) บนอักษรมัดด์ตามด้วยฮัมซะฮฺหรือสุกูน',
             letters: 'آ, يٓ, وٓ (เครื่องหมายคลื่น ~)',
             exampleAr: 'جَآءَ • ٱلصَّآخَّةُ',
-            exampleTranslit: 'ญาาาอะ • อัศศอคเคาะฮ์',
-            color: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
-            colorBg: isDark ? const Color(0x28E11D48) : const Color(0x14E11D48),
-            colorBorder: isDark ? const Color(0x50E11D48) : const Color(0x33E11D48),
+            exampleTranslit: 'ญาาาอะ • อัศศอคเคาะฮฺ',
+            color: _ruleColor('madd', isDark),
+            colorBg: _ruleBg('madd', isDark),
+            colorBorder: _ruleBorder('madd', isDark),
           ),
         ];
     }
@@ -342,7 +352,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                       style: GoogleFonts.notoSansThai(
                         color: colors.textStrong,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -375,7 +385,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: r.colorBg,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                     border: Border.all(color: r.colorBorder),
                   ),
                   child: Column(
@@ -401,7 +411,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                                   child: Text(
                                     r.name,
                                     style: GoogleFonts.notoSansThai(
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                       color: r.color,
                                     ),
@@ -428,7 +438,7 @@ class TajweedColorGuideSheet extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: colors.surface.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                               border: Border.all(color: colors.borderSoft),
                             ),
                             child: Text(
@@ -501,11 +511,11 @@ class TajweedColorGuideSheet extends StatelessWidget {
                                   ),
                                   TextSpan(
                                     text: r.exampleAr,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontFamily: 'Tajweed',
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFFD97706),
+                                      color: colors.mushafGold,
                                     ),
                                   ),
                                   TextSpan(
@@ -535,13 +545,13 @@ class TajweedColorGuideSheet extends StatelessWidget {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
               ),
             ),
             child: Text(
               context.tr('tajweed_got_it'),
               style: GoogleFonts.notoSansThai(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
             ),

@@ -16,11 +16,22 @@ import '../models/tadabbur_note.dart';
 import 'reading_screen.dart';
 import 'tadabbur_community_screen.dart';
 import '../shared/shared.dart';
+import '../data/offline_surah_names.dart';
+import '../data/medina_mushaf_pages.dart';
 
 class _UnifiedItem {
   final DateTime timestamp;
+  final String title;
+  final String subtitle;
+  final String mode; // 'meaning' or 'mushaf'
   final Widget widget;
-  _UnifiedItem(this.timestamp, this.widget);
+  _UnifiedItem({
+    required this.timestamp,
+    required this.title,
+    required this.subtitle,
+    required this.mode,
+    required this.widget,
+  });
 }
 
 class BookmarksScreen extends StatefulWidget {
@@ -41,13 +52,30 @@ class BookmarksScreen extends StatefulWidget {
 class _BookmarksScreenState extends State<BookmarksScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
-  static const int _displayLimit = 3;
   late int _selectedMenuIndex;
+  String _recentFilter = 'all'; // 'all', 'meaning', 'mushaf'
+  String _bookmarkFilter = 'all'; // 'all', 'meaning', 'mushaf'
+  final TextEditingController _searchController = TextEditingController();
+
+  static const List<({String surahId, String noteTh, String noteEn, int page})> _favoriteSurahs = [
+    (surahId: '67', noteTh: 'อ่านทุกคืนเพื่อการคุ้มครอง', noteEn: 'Read every night', page: 562),
+    (surahId: '18', noteTh: 'อ่านทุกวันศุกร์', noteEn: 'Read every Friday', page: 293),
+    (surahId: '36', noteTh: 'หัวใจแห่งอัลกุรอาน', noteEn: 'Heart of Quran', page: 440),
+    (surahId: '55', noteTh: 'บทแห่งความเมตตา', noteEn: 'Surah Ar-Rahman', page: 531),
+    (surahId: '56', noteTh: 'อ่านเพิ่มพูนริซกี', noteEn: 'Surah Al-Waqi\'ah', page: 534),
+    (surahId: '112', noteTh: 'เทียบเท่า 1/3 ของกุรอาน', noteEn: '1/3 of Quran', page: 604),
+  ];
 
   @override
   void initState() {
     super.initState();
     _selectedMenuIndex = widget.initialTab.clamp(0, 2);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _openReading({
@@ -213,112 +241,35 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  void _showSeeMoreDialog(
-    String title,
-    List<Widget> items,
-    ColorScheme colorScheme,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: colorScheme.surface,
-          surfaceTintColor: colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-          ),
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.notoSansThai(
-                          color: colorScheme.onSurface,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: colorScheme.onSurface),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, thickness: 1),
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      thickness: 0.5,
-                      color: colorScheme.outline.withValues(alpha: 0.3),
-                    ),
-                    itemBuilder: (context, index) => items[index],
-                  ),
-                ),
-              ],
-            ),
-          ),
+  String _getVerseSnippet(String surahId, String verseId, SettingsProvider settings) {
+    try {
+      final verses = widget.repository.getSurahVerses(surahId);
+      final verse = verses.where((v) => v.id == verseId).firstOrNull;
+      if (verse != null) {
+        final text = resolveVerseTranslationText(
+          context: context,
+          verseKey: '$surahId:$verseId',
+          verse: verse,
+          settings: settings,
         );
-      },
-    );
+        if (text.isNotEmpty) return text;
+        if (verse.thaiV3.isNotEmpty) return verse.thaiV3;
+        return verse.english;
+      }
+    } catch (_) {}
+    return '';
   }
 
   Widget _buildSectionTitle(String title, ColorScheme colorScheme) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
       child: Text(
         title,
         style: GoogleFonts.notoSansThai(
           fontSize: 14,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
           color: colorScheme.primary,
           letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSeeMoreButton(
-    String title,
-    List<Widget> allItems,
-    ColorScheme colorScheme,
-  ) {
-    if (allItems.length <= _displayLimit) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: OutlinedButton(
-        onPressed: () => _showSeeMoreDialog(title, allItems, colorScheme),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: colorScheme.outline, width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          backgroundColor: colorScheme.surface,
-          foregroundColor: colorScheme.primary,
-        ),
-        child: Text(
-          context.tr('see_more'),
-          style: GoogleFonts.notoSansThai(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
         ),
       ),
     );
@@ -344,104 +295,186 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     ColorScheme colorScheme, {
     required String title,
     required String subtitle,
+    String? arabicTitle,
+    String? meaningSnippet,
     DateTime? timestamp,
     String? badgeText,
     required String readModeLabel,
     required bool isMushaf,
     required VoidCallback onTap,
+    VoidCallback? onOpenMushaf,
     Widget? trailing,
     bool isThai = true,
   }) {
-    final leadingBg = isMushaf
-        ? colorScheme.secondaryContainer.withValues(alpha: 0.5)
-        : colorScheme.primaryContainer.withValues(alpha: 0.3);
-    final leadingText = isMushaf
-        ? colorScheme.onSecondaryContainer
-        : colorScheme.primary;
-
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: leadingBg,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            readModeLabel,
-            style: GoogleFonts.notoSansThai(
-              color: leadingText,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.notoSansThai(
-            color: colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  timestamp != null
-                      ? '$subtitle • ${_formatTimestamp(timestamp, isThai)}'
-                      : subtitle,
-                  style: GoogleFonts.notoSansThai(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isMushaf
+                            ? const Color(0xFFF6EFE3)
+                            : const Color(0xFFEAF2EE),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isMushaf
+                              ? const Color(0xFFD7C299)
+                              : const Color(0xFFB7D4C7),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        readModeLabel,
+                        style: GoogleFonts.notoSansThai(
+                          color: isMushaf
+                              ? const Color(0xFF8A6530)
+                              : const Color(0xFF0E5A4A),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: GoogleFonts.notoSansThai(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (arabicTitle != null && arabicTitle.isNotEmpty)
+                      Text(
+                        arabicTitle,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontSize: 16,
+                          color: Color(0xFF0E5A4A),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-              if (badgeText != null) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    badgeText,
+                if (meaningSnippet != null && meaningSnippet.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    meaningSnippet,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
-                      color: colorScheme.onSurfaceVariant,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                      height: 1.4,
                     ),
                   ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          timestamp != null
+                              ? '$subtitle • ${_formatTimestamp(timestamp, isThai)}'
+                              : subtitle,
+                          style: GoogleFonts.notoSansThai(
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (badgeText != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: GoogleFonts.notoSansThai(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onOpenMushaf != null) ...[
+                          InkWell(
+                            onTap: onOpenMushaf,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF6EFE3),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFD7C299), width: 0.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.import_contacts_outlined, size: 10.5, color: Color(0xFF8A6530)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'มุศหัฟ',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF8A6530),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        if (trailing != null)
+                          trailing
+                        else
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
         ),
-        onTap: onTap,
-        trailing:
-            trailing ??
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
       ),
     );
   }
@@ -451,23 +484,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final hasBackAction = canPop || widget.onBackToHome != null;
 
     final String titleText = _selectedMenuIndex == 2
-        ? (isThai ? 'บันทึกส่วนตัว' : 'Personal Notes')
+        ? (isThai ? 'บันทึก & ซูเราะฮฺโปรด' : 'Notes & Favorites')
         : context.tr('bookmarks');
     final String subtitleText = _selectedMenuIndex == 2
         ? (isThai
-              ? 'บันทึกและความคิดเห็นของคุณ'
-              : 'Your personal notes and thoughts')
+              ? 'บันทึกส่วนตัวและซูเราะฮฺแนะนำที่เปิดอ่านประจำ'
+              : 'Your personal reflections and favorite surahs')
         : context.tr('reading_progress');
     final IconData headerIcon = _selectedMenuIndex == 2
         ? Icons.edit_note_rounded
-        : Icons.bookmark;
+        : Icons.bookmark_border_rounded;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
         MediaQuery.of(context).padding.top + 8,
         24,
-        24,
+        16,
       ),
       color: colorScheme.surface,
       child: Row(
@@ -493,23 +526,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   titleText,
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.primary,
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   subtitleText,
                   style: GoogleFonts.notoSansThai(
                     color: colorScheme.onSurfaceVariant,
-                    fontSize: 14,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          Icon(headerIcon, color: colorScheme.primary, size: 36),
+          const SizedBox(width: 12),
+          Icon(headerIcon, color: colorScheme.primary, size: 32),
         ],
       ),
     );
@@ -518,33 +551,38 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   Widget _buildCapsuleSelector(
     ColorScheme colorScheme,
     TextTheme textTheme,
-    bool isThai,
-  ) {
+    bool isThai, {
+    required int recentCount,
+    required int bookmarkCount,
+    required int notesCount,
+  }) {
     final tabs = [
       {
-        'title': isThai ? 'อ่านล่าสุด' : 'Recent Read',
+        'title': isThai ? 'อ่านล่าสุด' : 'Recent',
+        'count': recentCount,
         'icon': Icons.history,
         'index': 0,
       },
       {
         'title': isThai ? 'บุ๊กมาร์ก' : 'Bookmarks',
-        'icon': Icons.bookmark,
+        'count': bookmarkCount,
+        'icon': Icons.bookmark_border_rounded,
         'index': 1,
       },
       {
-        'title': isThai ? 'รายการโปรด' : 'Favourites',
-        'icon': Icons.favorite_rounded,
+        'title': isThai ? 'บันทึก & ซูเราะฮฺโปรด' : 'Notes & Favs',
+        'count': notesCount,
+        'icon': Icons.edit_note_rounded,
         'index': 2,
       },
     ];
 
     return Container(
-      height: 56,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: colorScheme.onSurface.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(24),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: List.generate(tabs.length, (index) {
@@ -554,37 +592,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
 
           return Expanded(
             child: InkWell(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
               onTap: () => setState(() => _selectedMenuIndex = tabIndex),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isActive ? colorScheme.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
+                  color: isActive ? const Color(0xFF0E5A4A) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       tab['icon'] as IconData,
-                      size: 18,
-                      color: isActive
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface.withValues(alpha: 0.55),
+                      size: 16,
+                      color: isActive ? Colors.white : colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        tab['title'] as String,
+                        '${tab['title']} (${tab['count']})',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: textTheme.labelLarge?.copyWith(
-                          color: isActive
-                              ? colorScheme.onPrimary
-                              : colorScheme.onSurface.withValues(alpha: 0.55),
-                          fontWeight: FontWeight.w900,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11.5,
+                          color: isActive ? Colors.white : colorScheme.onSurfaceVariant,
+                          fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -598,6 +633,369 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
+  Widget _buildFilterChips({
+    required String activeFilter,
+    required ValueChanged<String> onFilterChanged,
+    required int totalCount,
+    required int meaningCount,
+    required int mushafCount,
+    required bool isThai,
+    required ColorScheme colorScheme,
+  }) {
+    final filters = [
+      ('all', isThai ? 'ทั้งหมด' : 'All', totalCount),
+      ('meaning', isThai ? 'ความหมาย' : 'Meaning', meaningCount),
+      ('mushaf', isThai ? 'มุศหัฟ' : 'Mushaf', mushafCount),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: filters.map((f) {
+          final isSelected = activeFilter == f.$1;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: InkWell(
+              onTap: () => onFilterChanged(f.$1),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF0E5A4A) : colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF0E5A4A) : colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  '${f.$2} (${f.$3})',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? Colors.white : colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar({
+    required bool isThai,
+    required ColorScheme colorScheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: isThai ? 'ค้นหาในรายการ (ชื่อซูเราะฮฺ, เลขหน้า, ข้อความ)...' : 'Filter by name, page, or text...',
+            hintStyle: GoogleFonts.notoSansThai(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 11),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+          ),
+          style: GoogleFonts.notoSansThai(
+            fontSize: 13,
+            color: colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String description,
+    required bool isThai,
+    required ColorScheme colorScheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF2EE),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFB7D4C7)),
+              ),
+              child: Icon(icon, color: const Color(0xFF0E5A4A), size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12.5,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _openReading(surahId: '1', verseId: '1'),
+                  icon: const Icon(Icons.menu_book, size: 14),
+                  label: Text(
+                    isThai ? 'อ่านฉบับแปล (อัลฟาติหะฮฺ)' : 'Read Meaning (Al-Fatihah)',
+                    style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0E5A4A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    elevation: 0,
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _openMushaf(null, 1, pageNumber: 1),
+                  icon: const Icon(Icons.import_contacts, size: 14),
+                  label: Text(
+                    isThai ? 'เปิดมุศหัฟ (หน้า 1)' : 'Open Mushaf (Page 1)',
+                    style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF8A6530)),
+                    foregroundColor: const Color(0xFF8A6530),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteSurahsGallery(ColorScheme colorScheme, bool isThai) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            isThai ? 'ซูเราะฮฺที่แนะนำและเปิดอ่านประจำ' : 'Recommended Surahs',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 13.5,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: _favoriteSurahs.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: 1.45,
+          ),
+          itemBuilder: (context, index) {
+            final fav = _favoriteSurahs[index];
+            final surahName = widget.repository.getSurahName(fav.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '');
+            final arabicName = offlineSurahNamesAr[fav.surahId] ?? '';
+
+            return Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF2EE),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          fav.surahId,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0E5A4A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              surahName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            Text(
+                              isThai ? fav.noteTh : fav.noteEn,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 10,
+                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (arabicName.isNotEmpty)
+                        Text(
+                          arabicName,
+                          textDirection: TextDirection.rtl,
+                          style: const TextStyle(
+                            fontFamily: 'UthmanicHafs',
+                            fontSize: 14,
+                            color: Color(0xFF0E5A4A),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      InkWell(
+                        onTap: () => _openReading(surahId: fav.surahId, verseId: '1'),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF2EE),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFB7D4C7), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.menu_book_outlined, size: 10.5, color: Color(0xFF0E5A4A)),
+                              const SizedBox(width: 3),
+                              Text(
+                                'แปล',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF0E5A4A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      InkWell(
+                        onTap: () => _openMushaf(null, 1, pageNumber: fav.page),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF6EFE3),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFD7C299), width: 0.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.import_contacts_outlined, size: 10.5, color: Color(0xFF8A6530)),
+                              const SizedBox(width: 3),
+                              Text(
+                                'มุศหัฟ',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF8A6530),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final localReading = Provider.of<LocalReadingProvider>(context);
@@ -607,12 +1005,13 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isThai = settings.languageCode == 'th';
-    final primaryColor = settings.getPrimaryColor();
+    final query = _searchController.text.trim().toLowerCase();
 
     final meaningfulReadLabel = isThai ? 'ความหมาย' : 'Meaning';
     final mushafReadLabel = isThai ? 'มุศหัฟ' : 'Mushaf';
 
-    final unifiedRecent = <_UnifiedItem>[];
+    // 1. Build Unified Recent Readings
+    final rawRecent = <_UnifiedItem>[];
 
     if (localReading.recentReadings.isNotEmpty) {
       final seenRecentKeys = <String>{};
@@ -621,39 +1020,46 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         return seenRecentKeys.add(key);
       }).toList();
 
-      unifiedRecent.addAll(
+      rawRecent.addAll(
         deduplicatedRecent.map((reading) {
           final profile = reading.profileId != null
               ? localReading.profileById(reading.profileId!)
               : null;
+          final sName = widget.repository.getSurahName(reading.verse.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          final sNum = int.tryParse(reading.verse.surahId) ?? 1;
+          final vNum = int.tryParse(reading.verse.verseId) ?? 1;
+          final pageNum = getMedinaMushafPageNumber(sNum, vNum);
+          final arName = offlineSurahNamesAr[reading.verse.surahId] ?? '';
+          final snippet = _getVerseSnippet(reading.verse.surahId, reading.verse.verseId, settings);
+
           return _UnifiedItem(
-            reading.readAt,
-            _buildVerseItem(
+            timestamp: reading.readAt,
+            title: isThai
+                ? 'ซูเราะฮฺ$sName (${reading.verse.surahId}:${reading.verse.verseId})'
+                : 'Surah $sName (${reading.verse.surahId}:${reading.verse.verseId})',
+            subtitle: (profile != null && !isFreeReadProfile(profile))
+                ? profile.name
+                : (isThai ? 'ฉบับแปล' : 'Meaning'),
+            mode: 'meaning',
+            widget: _buildVerseItem(
               colorScheme,
-               title: widget.repository.getSurahName(reading.verse.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
-              subtitle: context.tr(
-                'ayah_number',
-                args: {
-                  'number': '${reading.verse.surahId}:${reading.verse.verseId}',
-                },
-              ),
+              title: isThai
+                  ? 'ซูเราะฮฺ$sName (${reading.verse.surahId}:${reading.verse.verseId})'
+                  : 'Surah $sName (${reading.verse.surahId}:${reading.verse.verseId})',
+              subtitle: (profile != null && !isFreeReadProfile(profile))
+                  ? profile.name
+                  : (isThai ? 'ฉบับแปล' : 'Meaning'),
+              arabicTitle: arName,
+              meaningSnippet: snippet,
               timestamp: reading.readAt,
-              badgeText: (profile != null &&
-                      !isFreeReadProfile(profile) &&
-                      (isShortcutProfile(profile)
-                          ? reading.verse.surahId == profile.start.surahId
-                          : (profile.target == null ||
-                              localReading.isVerseInsideProfile(
-                                profile,
-                                reading.verse.surahId,
-                                reading.verse.verseId,
-                              ))))
+              badgeText: (profile != null && !isFreeReadProfile(profile))
                   ? profile.name
                   : null,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
               isThai: isThai,
               onTap: () => _handleVerseRecentTap(reading, localReading),
+              onOpenMushaf: () => _openMushaf(null, 1, pageNumber: pageNum),
             ),
           );
         }),
@@ -661,7 +1067,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     if (mushafReading.recentReadings.isNotEmpty) {
-      unifiedRecent.addAll(
+      rawRecent.addAll(
         mushafReading.recentReadings.map((reading) {
           final surahName = getSurahNameForPage(
             reading.pageNumber,
@@ -670,12 +1076,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           final profile = reading.profileId != null
               ? mushafReading.profileById(reading.profileId!)
               : null;
+          var sId = '1';
+          try {
+            final pageSurah = medinaMushafPages[reading.pageNumber - 1].first['surah'];
+            if (pageSurah != null) sId = pageSurah.toString();
+          } catch (_) {}
+          final arName = offlineSurahNamesAr[sId] ?? '';
+
           return _UnifiedItem(
-            reading.updatedAt,
-            _buildVerseItem(
+            timestamp: reading.updatedAt,
+            title: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${reading.pageNumber}',
+            subtitle: surahName,
+            mode: 'mushaf',
+            widget: _buildVerseItem(
               colorScheme,
-              title: 'Mushaf (${context.tr('page')} ${reading.pageNumber})',
+              title: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${reading.pageNumber}',
               subtitle: surahName,
+              arabicTitle: arName,
               timestamp: reading.updatedAt,
               badgeText: (profile != null && !profile.isFreeRead)
                   ? profile.name
@@ -690,26 +1107,52 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       );
     }
 
-    // Sort recent by timestamp descending
-    unifiedRecent.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final allRecentItems = unifiedRecent.map((e) => e.widget).toList();
+    rawRecent.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    final unifiedBookmarks = <_UnifiedItem>[];
+    final meaningRecentCount = rawRecent.where((e) => e.mode == 'meaning').length;
+    final mushafRecentCount = rawRecent.where((e) => e.mode == 'mushaf').length;
+    final totalRecentCount = rawRecent.length;
+
+    final filteredRecent = rawRecent.where((item) {
+      if (_recentFilter == 'meaning' && item.mode != 'meaning') return false;
+      if (_recentFilter == 'mushaf' && item.mode != 'mushaf') return false;
+      if (query.isNotEmpty) {
+        return item.title.toLowerCase().contains(query) ||
+            item.subtitle.toLowerCase().contains(query);
+      }
+      return true;
+    }).toList();
+
+    // 2. Build Unified Bookmarks
+    final rawBookmarks = <_UnifiedItem>[];
 
     if (localReading.bookmarks.isNotEmpty) {
-      unifiedBookmarks.addAll(
+      rawBookmarks.addAll(
         localReading.bookmarks.map((bookmark) {
           final rawSurahId = int.parse(bookmark.verse.surahId).toString();
           final rawVerseId = bookmark.verse.verseId;
+          final sName = widget.repository.getSurahName(rawSurahId).replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          final sNum = int.tryParse(rawSurahId) ?? 1;
+          final vNum = int.tryParse(rawVerseId) ?? 1;
+          final pageNum = getMedinaMushafPageNumber(sNum, vNum);
+          final arName = offlineSurahNamesAr[rawSurahId] ?? '';
+          final snippet = _getVerseSnippet(rawSurahId, rawVerseId, settings);
 
           return _UnifiedItem(
-            bookmark.createdAt,
-            _buildVerseItem(
+            timestamp: bookmark.createdAt,
+            title: isThai
+                ? 'ซูเราะฮฺ$sName ($rawSurahId:$rawVerseId)'
+                : 'Surah $sName ($rawSurahId:$rawVerseId)',
+            subtitle: isThai ? 'อายะฮฺที่บันทึกไว้' : 'Saved Ayah',
+            mode: 'meaning',
+            widget: _buildVerseItem(
               colorScheme,
-              title:
-                  '${widget.repository.getSurahName(rawSurahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
-              subtitle:
-                  '${context.tr('surah_number', args: {'number': rawSurahId})}, ${context.tr('ayah_number', args: {'number': rawVerseId})}',
+              title: isThai
+                  ? 'ซูเราะฮฺ$sName ($rawSurahId:$rawVerseId)'
+                  : 'Surah $sName ($rawSurahId:$rawVerseId)',
+              subtitle: isThai ? 'อายะฮฺที่บันทึกไว้' : 'Saved Ayah',
+              arabicTitle: arName,
+              meaningSnippet: snippet,
               timestamp: bookmark.createdAt,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
@@ -721,12 +1164,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   saveToFreeReadOnly: true,
                 );
               },
+              onOpenMushaf: () => _openMushaf(null, 1, pageNumber: pageNum),
               trailing: IconButton(
                 icon: Icon(
                   Icons.delete_outline,
                   color: colorScheme.error,
-                  size: 22,
+                  size: 20,
                 ),
+                tooltip: isThai ? 'ลบที่คั่นหน้า' : 'Remove Bookmark',
                 onPressed: () => localReading.removeBookmark(bookmark.id),
               ),
             ),
@@ -736,18 +1181,29 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     if (mushafReading.pageBookmarks.isNotEmpty) {
-      unifiedBookmarks.addAll(
+      rawBookmarks.addAll(
         mushafReading.pageBookmarks.map((bookmark) {
           final surahName = getSurahNameForPage(
             bookmark.pageNumber,
             widget.repository,
           );
+          var sId = '1';
+          try {
+            final pageSurah = medinaMushafPages[bookmark.pageNumber - 1].first['surah'];
+            if (pageSurah != null) sId = pageSurah.toString();
+          } catch (_) {}
+          final arName = offlineSurahNamesAr[sId] ?? '';
+
           return _UnifiedItem(
-            bookmark.createdAt,
-            _buildVerseItem(
+            timestamp: bookmark.createdAt,
+            title: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${bookmark.pageNumber}',
+            subtitle: surahName,
+            mode: 'mushaf',
+            widget: _buildVerseItem(
               colorScheme,
-              title: '${context.tr('page')} ${bookmark.pageNumber}',
+              title: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${bookmark.pageNumber}',
               subtitle: surahName,
+              arabicTitle: arName,
               timestamp: bookmark.createdAt,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
@@ -761,8 +1217,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                 icon: Icon(
                   Icons.delete_outline,
                   color: colorScheme.error,
-                  size: 24,
+                  size: 20,
                 ),
+                tooltip: isThai ? 'ลบที่คั่นหน้า' : 'Remove Bookmark',
                 onPressed: () => mushafReading.togglePageBookmark(
                   bookmark.mushafId,
                   bookmark.pageNumber,
@@ -775,20 +1232,31 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     if (mushafReading.verseBookmarks.isNotEmpty) {
-      unifiedBookmarks.addAll(
+      rawBookmarks.addAll(
         mushafReading.verseBookmarks.map((bookmark) {
           final parts = bookmark.verseKey.split(':');
           final surahId = parts.isNotEmpty ? parts[0] : '';
           final verseId = parts.length > 1 ? parts[1] : '';
           final formattedSurahName = widget.repository.getSurahName(surahId);
+          final sName = formattedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+          final arName = offlineSurahNamesAr[surahId] ?? '';
+          final snippet = _getVerseSnippet(surahId, verseId, settings);
 
           return _UnifiedItem(
-            bookmark.createdAt,
-            _buildVerseItem(
+            timestamp: bookmark.createdAt,
+            title: isThai
+                ? 'ซูเราะฮฺ$sName ($surahId:$verseId)'
+                : 'Surah $sName ($surahId:$verseId)',
+            subtitle: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${bookmark.pageNumber}',
+            mode: 'mushaf',
+            widget: _buildVerseItem(
               colorScheme,
-              title:
-                  '${formattedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}, ${context.tr('ayah_number', args: {'number': verseId})}',
-              subtitle: '${context.tr('page')} ${bookmark.pageNumber}',
+              title: isThai
+                  ? 'ซูเราะฮฺ$sName ($surahId:$verseId)'
+                  : 'Surah $sName ($surahId:$verseId)',
+              subtitle: '${isThai ? 'หน้ามุศหัฟ' : 'Mushaf Page'} ${bookmark.pageNumber}',
+              arabicTitle: arName,
+              meaningSnippet: snippet,
               timestamp: bookmark.createdAt,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
@@ -803,8 +1271,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                 icon: Icon(
                   Icons.delete_outline,
                   color: colorScheme.error,
-                  size: 24,
+                  size: 20,
                 ),
+                tooltip: isThai ? 'ลบที่คั่นหน้า' : 'Remove Bookmark',
                 onPressed: () => mushafReading.toggleVerseBookmark(
                   mushafId: bookmark.mushafId,
                   pageNumber: bookmark.pageNumber,
@@ -817,13 +1286,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       );
     }
 
-    // Sort bookmarks by timestamp descending
-    unifiedBookmarks.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final allBookmarkItems = unifiedBookmarks.map((e) => e.widget).toList();
+    rawBookmarks.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
+    final meaningBookmarkCount = rawBookmarks.where((e) => e.mode == 'meaning').length;
+    final mushafBookmarkCount = rawBookmarks.where((e) => e.mode == 'mushaf').length;
+    final totalBookmarkCount = rawBookmarks.length;
 
+    final filteredBookmarks = rawBookmarks.where((item) {
+      if (_bookmarkFilter == 'meaning' && item.mode != 'meaning') return false;
+      if (_bookmarkFilter == 'mushaf' && item.mode != 'mushaf') return false;
+      if (query.isNotEmpty) {
+        return item.title.toLowerCase().contains(query) ||
+            item.subtitle.toLowerCase().contains(query);
+      }
+      return true;
+    }).toList();
 
-    // Notes Entries
+    // 3. Notes Entries
     final noteEntries = notesProv.personalNotes.entries.toList()
       ..sort((a, b) {
         final aParts = a.key.split(':');
@@ -836,32 +1315,30 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         return aVerse.compareTo(bVerse);
       });
 
+    final filteredNoteEntries = noteEntries.where((entry) {
+      if (query.isEmpty) return true;
+      final keyParts = entry.key.split(':');
+      final sName = widget.repository.getSurahName(keyParts[0]);
+      return entry.key.contains(query) ||
+          sName.toLowerCase().contains(query) ||
+          entry.value.noteText.toLowerCase().contains(query);
+    }).toList();
+
+    final totalNotesAndFavsCount = noteEntries.length + _favoriteSurahs.length;
+
     // Helper functions for Note Cards & Community banner
     Widget buildCommunityLinkCard() {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.primary,
-              colorScheme.primary.withValues(alpha: 0.8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.primary.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: const Color(0xFFEAF2EE),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: const Color(0xFFB7D4C7)),
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             onTap: () {
               Navigator.push(
                 context,
@@ -872,22 +1349,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               );
             },
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFB7D4C7), width: 0.5),
                     ),
                     child: const Icon(
                       Icons.forum_rounded,
-                      color: Colors.white,
-                      size: 24,
+                      color: Color(0xFF0E5A4A),
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -897,8 +1375,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                               ? 'แบ่งปันตดับบุรในชุมชน'
                               : 'Share Tadabbur in Community',
                           style: GoogleFonts.notoSansThai(
-                            color: Colors.white,
-                            fontSize: 15,
+                            color: const Color(0xFF0E5A4A),
+                            fontSize: 14.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -908,8 +1386,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                               ? 'อ่านบันทึกและแบ่งปันความคิดร่วมกับพี่น้องในชุมชน'
                               : 'Read and share reflections with the community',
                           style: GoogleFonts.notoSansThai(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 11,
+                            color: const Color(0xFF0E5A4A).withValues(alpha: 0.8),
+                            fontSize: 11.5,
                           ),
                         ),
                       ],
@@ -917,9 +1395,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   ),
                   const SizedBox(width: 8),
                   const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 14,
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF0E5A4A),
+                    size: 20,
                   ),
                 ],
               ),
@@ -1127,21 +1605,22 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       final noteContent = note.noteText;
       final surahId = note.surahId;
       final verseId = note.verseId;
+      final arName = offlineSurahNamesAr[surahId] ?? '';
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
           border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.radius),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1149,28 +1628,29 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                        horizontal: 8,
+                        vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFEAF2EE),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFB7D4C7), width: 0.5),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.edit_note_rounded,
                             size: 14,
-                            color: colorScheme.onPrimaryContainer,
+                            color: Color(0xFF0E5A4A),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
                             '${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} $surahId:$verseId',
                             style: GoogleFonts.notoSansThai(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
-                              color: colorScheme.onPrimaryContainer,
+                              color: const Color(0xFF0E5A4A),
                             ),
                           ),
                         ],
@@ -1179,16 +1659,14 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 7,
+                        vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
                         color: note.isPublic
-                            ? colorScheme.tertiaryContainer.withValues(
-                                alpha: 0.6,
-                              )
+                            ? colorScheme.tertiaryContainer.withValues(alpha: 0.6)
                             : colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1197,18 +1675,18 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                             note.isPublic
                                 ? Icons.public
                                 : Icons.lock_outline_rounded,
-                            size: 12,
+                            size: 11,
                             color: note.isPublic
                                 ? colorScheme.onTertiaryContainer
                                 : colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           Text(
                             note.isPublic
                                 ? (isThai ? 'สาธารณะ' : 'Public')
                                 : (isThai ? 'ส่วนตัว' : 'Private'),
                             style: GoogleFonts.notoSansThai(
-                              fontSize: 11,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.w600,
                               color: note.isPublic
                                   ? colorScheme.onTertiaryContainer
@@ -1219,23 +1697,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       ),
                     ),
                     const Spacer(),
+                    if (arName.isNotEmpty)
+                      Text(
+                        arName,
+                        textDirection: TextDirection.rtl,
+                        style: const TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontSize: 15,
+                          color: Color(0xFF0E5A4A),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
                     IconButton(
                       icon: Icon(
                         Icons.edit_outlined,
                         color: colorScheme.primary,
-                        size: 20,
+                        size: 18,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       tooltip: isThai ? 'แก้ไข' : 'Edit',
                       onPressed: onEdit,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     IconButton(
                       icon: Icon(
                         Icons.delete_outline_rounded,
                         color: colorScheme.error,
-                        size: 20,
+                        size: 18,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -1244,43 +1733,43 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border(
-                      left: BorderSide(color: primaryColor, width: 3),
+                    color: colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(10),
+                    border: const Border(
+                      left: BorderSide(color: Color(0xFF0E5A4A), width: 3),
                     ),
                   ),
                   child: Text(
                     noteContent,
                     style: GoogleFonts.notoSansThai(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       color: colorScheme.onSurface,
                       height: 1.5,
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      isThai ? 'แตะเพื่อเปิดอ่านอายะฮฺ' : 'Tap to read verse',
+                      isThai ? 'เปิดอ่านอายะฮฺ' : 'Open Ayah',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
-                        color: colorScheme.primary,
+                        color: const Color(0xFF0E5A4A),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(
+                    const SizedBox(width: 3),
+                    const Icon(
                       Icons.arrow_forward_rounded,
                       size: 12,
-                      color: colorScheme.primary,
+                      color: Color(0xFF0E5A4A),
                     ),
                   ],
                 ),
@@ -1295,134 +1784,87 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       body: Column(
         children: [
           _buildHeader(colorScheme, isThai),
-          _buildCapsuleSelector(colorScheme, textTheme, isThai),
+          _buildCapsuleSelector(
+            colorScheme,
+            textTheme,
+            isThai,
+            recentCount: totalRecentCount,
+            bookmarkCount: totalBookmarkCount,
+            notesCount: totalNotesAndFavsCount,
+          ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.only(top: 8, bottom: 32),
+              padding: const EdgeInsets.only(top: 4, bottom: 32),
               children: [
                 if (_selectedMenuIndex == 0) ...[
-                  _buildSectionTitle(
-                    isThai ? 'อ่านล่าสุดทั้งหมด' : 'All Recent Reads',
-                    colorScheme,
+                  _buildSearchBar(isThai: isThai, colorScheme: colorScheme),
+                  _buildFilterChips(
+                    activeFilter: _recentFilter,
+                    onFilterChanged: (f) => setState(() => _recentFilter = f),
+                    totalCount: totalRecentCount,
+                    meaningCount: meaningRecentCount,
+                    mushafCount: mushafRecentCount,
+                    isThai: isThai,
+                    colorScheme: colorScheme,
                   ),
-                  if (allRecentItems.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      child: Text(
-                        isThai ? 'ไม่มีประวัติการอ่าน' : 'No reading history',
-                        style: GoogleFonts.notoSansThai(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                    )
-                  else ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: allRecentItems
-                            .take(_displayLimit * 2)
-                            .toList(),
-                      ),
-                    ),
-                    _buildSeeMoreButton(
-                      isThai ? 'อ่านล่าสุดทั้งหมด' : 'All Recent Reads',
-                      allRecentItems,
-                      colorScheme,
-                    ),
-                  ],
-                ] else if (_selectedMenuIndex == 1) ...[
-                  _buildSectionTitle(
-                    isThai ? 'บุ๊กมาร์กทั้งหมด' : 'All Bookmarks',
-                    colorScheme,
-                  ),
-                  if (allBookmarkItems.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      child: Text(
-                        context.tr('no_bookmarks'),
-                        style: GoogleFonts.notoSansThai(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                    )
-                  else ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: allBookmarkItems
-                            .take(_displayLimit * 2)
-                            .toList(),
-                      ),
-                    ),
-                    _buildSeeMoreButton(
-                      isThai ? 'บุ๊กมาร์กทั้งหมด' : 'All Bookmarks',
-                      allBookmarkItems,
-                      colorScheme,
-                    ),
-                  ],
-                ] else if (_selectedMenuIndex == 2) ...[
-                  // Community Link Banner
-                  buildCommunityLinkCard(),
-
-                  // Section Title
-                  _buildSectionTitle(
-                    isThai ? 'บันทึกส่วนตัวของฉัน' : 'My Personal Notes',
-                    colorScheme,
-                  ),
-
-                  if (noteEntries.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 24,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.edit_note_rounded,
-                            size: 48,
-                            color: colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isThai
-                                ? 'ยังไม่มีบันทึกส่วนตัว'
-                                : 'No personal notes yet.',
-                            style: GoogleFonts.notoSansThai(
-                              color: colorScheme.onSurfaceVariant,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            isThai
-                                ? 'คุณสามารถเพิ่มบันทึกในอายะฮฺต่าง ๆ ขณะอ่านอัลกุรอาน'
-                                : 'You can add notes to any verse while reading the Quran.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.notoSansThai(
-                              color: colorScheme.onSurfaceVariant.withValues(
-                                alpha: 0.7,
-                              ),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+                  const SizedBox(height: 6),
+                  if (filteredRecent.isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.history,
+                      title: isThai ? 'ไม่มีประวัติการอ่าน' : 'No Reading History',
+                      description: isThai
+                          ? 'เมื่อคุณเริ่มอ่านอัลกุรอาน หน้าและอายะฮฺที่อ่านล่าสุดจะแสดงที่นี่'
+                          : 'Pages and ayahs you read will be recorded here.',
+                      isThai: isThai,
+                      colorScheme: colorScheme,
                     )
                   else
-                    ...noteEntries.map((entry) {
+                    ...filteredRecent.map((e) => e.widget),
+                ] else if (_selectedMenuIndex == 1) ...[
+                  _buildSearchBar(isThai: isThai, colorScheme: colorScheme),
+                  _buildFilterChips(
+                    activeFilter: _bookmarkFilter,
+                    onFilterChanged: (f) => setState(() => _bookmarkFilter = f),
+                    totalCount: totalBookmarkCount,
+                    meaningCount: meaningBookmarkCount,
+                    mushafCount: mushafBookmarkCount,
+                    isThai: isThai,
+                    colorScheme: colorScheme,
+                  ),
+                  const SizedBox(height: 6),
+                  if (filteredBookmarks.isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.bookmark_border_rounded,
+                      title: isThai ? 'ไม่มีที่คั่นหน้า' : 'No Bookmarks Saved',
+                      description: isThai
+                          ? 'แตะไอคอนที่คั่นหน้าขณะอ่าน เพื่อบันทึกอายะฮฺหรือหน้าที่ต้องการกลับมาอ่านซ้ำ'
+                          : 'Tap the bookmark icon while reading to save verses or pages.',
+                      isThai: isThai,
+                      colorScheme: colorScheme,
+                    )
+                  else
+                    ...filteredBookmarks.map((e) => e.widget),
+                ] else if (_selectedMenuIndex == 2) ...[
+                  buildCommunityLinkCard(),
+                  _buildFavoriteSurahsGallery(colorScheme, isThai),
+                  _buildSectionTitle(
+                    isThai ? 'บันทึกส่วนตัวของฉัน (${noteEntries.length})' : 'My Personal Notes (${noteEntries.length})',
+                    colorScheme,
+                  ),
+                  if (noteEntries.length > 3)
+                    _buildSearchBar(isThai: isThai, colorScheme: colorScheme),
+                  if (filteredNoteEntries.isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.edit_note_rounded,
+                      title: isThai ? 'ยังไม่มีบันทึกส่วนตัว' : 'No Personal Notes Yet',
+                      description: isThai
+                          ? 'คุณสามารถเพิ่มบันทึกตดับบุรในอายะฮฺต่าง ๆ ขณะอ่านอัลกุรอานเพื่อทบทวนบทเรียนชีวิต'
+                          : 'You can reflect and save personal notes on any verse while reading.',
+                      isThai: isThai,
+                      colorScheme: colorScheme,
+                    )
+                  else
+                    ...filteredNoteEntries.map((entry) {
                       final note = entry.value;
                       final keyParts = entry.key.split(':');
                       final surahId = keyParts[0];

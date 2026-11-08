@@ -18,12 +18,14 @@ import '../models/verse.dart';
 import '../models/tadabbur_note.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
+import '../data/quran_foundation_repository.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/translation_download_dialog.dart';
 
 class ReadingScreen extends StatefulWidget {
   final QuranRepository repository;
+  final QuranFoundationRepository? foundationRepository;
   final String? initialSurah;
   final int? initialVerseIndex;
   final String? initialVerseId;
@@ -34,6 +36,7 @@ class ReadingScreen extends StatefulWidget {
   const ReadingScreen({
     super.key,
     required this.repository,
+    this.foundationRepository,
     this.initialSurah,
     this.initialVerseIndex,
     this.initialVerseId,
@@ -693,7 +696,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: (constraints.maxHeight - 48).clamp(
@@ -745,7 +748,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         builder: (context, constraints) {
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: (constraints.maxHeight - 48).clamp(
@@ -776,7 +779,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       children: [
         if (showThemeHeader)
           Padding(
-            padding: const EdgeInsets.only(left: 32, right: 32, top: 12),
+            padding: const EdgeInsets.only(left: 20, right: 20, top: 12),
             child: AnimatedBuilder(
               animation: _versePageController,
               builder: (context, child) {
@@ -1745,8 +1748,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                                       return Padding(
                                         padding: const EdgeInsets.only(
-                                          left: 32,
-                                          right: 32,
+                                          left: 20,
+                                          right: 20,
                                           top: 12,
                                           bottom: 4,
                                         ),

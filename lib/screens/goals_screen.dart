@@ -3,12 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../data/medina_mushaf_pages.dart';
+import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../models/mushaf_models.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/stats_provider.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
@@ -195,7 +197,11 @@ class GoalsScreen extends StatefulWidget {
 
 class _GoalsScreenState extends State<GoalsScreen> {
   GoalFilterTab _filterTab = GoalFilterTab.all;
-  bool _showPresets = true;
+  final bool _showPresets = true;
+  bool _isArchivedExpanded = false;
+  int _khatamDays = 30;
+  String _khatamKind = 'mushaf';
+  String _matrixSearchQuery = '';
 
   static const List<List<int>> _juzStarts = [
     [1, 1],
@@ -535,7 +541,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                           : 'Set New Reading Goal'),
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 20,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   color: colorScheme.onSurface,
                                 ),
                               ),
@@ -568,7 +574,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                             : '1. Select Reading Mode',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
                         ),
                       ),
@@ -626,7 +632,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                 : '2. Recommended Presets',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: colorScheme.onSurface,
                             ),
                           ),
@@ -689,7 +695,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                             overflow: TextOverflow.ellipsis,
                                             style: GoogleFonts.notoSansThai(
                                               fontSize: 12,
-                                              fontWeight: FontWeight.w800,
+                                              fontWeight: FontWeight.w700,
                                               color: colorScheme.onSurface,
                                             ),
                                           ),
@@ -743,7 +749,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       isThai ? '3. ชื่อเป้าหมาย' : '3. Goal Name',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: colorScheme.onSurface,
                       ),
                     ),
@@ -1127,7 +1133,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                             ? 'สร้างเป้าหมายการอ่าน'
                                             : 'Create Reading Goal'),
                               style: GoogleFonts.notoSansThai(
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -1188,7 +1194,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           isThai ? '4. รูปแบบการคำนวณขอบเขต' : '4. Range Calculation Method',
           style: GoogleFonts.notoSansThai(
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -1398,7 +1404,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               : '4. Mushaf Range Calculation',
           style: GoogleFonts.notoSansThai(
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -1581,6 +1587,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final settings = Provider.of<SettingsProvider>(context);
     final readingProv = Provider.of<LocalReadingProvider>(context);
     final mushafProv = Provider.of<MushafReadingProvider>(context);
+    final statsProv = Provider.of<StatsProvider>(context);
     final colorScheme = Theme.of(context).colorScheme;
     final colors = settings.getAppColors();
     final isThai = settings.languageCode == 'th';
@@ -1609,7 +1616,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               title: Text(
                 isThai ? 'เป้าหมายการอ่าน' : 'Reading Goals',
                 style: GoogleFonts.notoSansThai(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   fontSize: 19,
                 ),
               ),
@@ -1622,7 +1629,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     label: Text(
                       isThai ? 'ตั้งเป้าหมายใหม่' : 'New Goal',
                       style: GoogleFonts.notoSansThai(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
                     ),
@@ -1651,7 +1658,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                   : 'READING GOALS & PLANS',
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: 0.8,
                                 color: colorScheme.primary,
                               ),
@@ -1663,7 +1670,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                                   : 'Quran Reading Goals',
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 22,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                                 color: colorScheme.onSurface,
                               ),
                             ),
@@ -1676,7 +1683,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         label: Text(
                           isThai ? 'ตั้งเป้าหมายใหม่' : 'New Goal',
                           style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
                         ),
@@ -1695,196 +1702,62 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   const SizedBox(height: 18),
                 ],
 
-                // 1. Recommended Presets Strip
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: colors.borderSoft),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: () =>
-                            setState(() => _showPresets = !_showPresets),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(
-                                  alpha: 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.auto_awesome_rounded,
-                                size: 16,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    isThai
-                                        ? 'แผนแนะนำยอดนิยม (1-Click Presets)'
-                                        : 'Recommended Goal Presets',
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: colorScheme.onSurface,
-                                    ),
-                                  ),
-                                  Text(
-                                    isThai
-                                        ? 'แตะเลือกแผนด้านล่างเพื่อเริ่มตั้งเป้าหมายได้ทันที'
-                                        : 'Tap any preset below to start a goal in seconds',
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 11,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              _showPresets
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_showPresets) ...[
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          height: 108,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _goalPresets.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, index) {
-                              final preset = _goalPresets[index];
-                              final isMeaning = preset.kind == 'meaning';
-                              final badgeColor = isMeaning
-                                  ? colorScheme.primary
-                                  : const Color(0xFF8A6530);
-
-                              return InkWell(
-                                onTap: () => _showUnifiedGoalModal(
-                                  initialKind: preset.kind,
-                                  initialPreset: preset,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                child: Container(
-                                  width: 240,
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: colors.surfaceMuted,
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: colors.borderSoft,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: badgeColor.withValues(
-                                                alpha: 0.12,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              isMeaning
-                                                  ? (isThai
-                                                        ? 'ความหมาย'
-                                                        : 'Meaning')
-                                                  : (isThai
-                                                        ? 'มุศหัฟ'
-                                                        : 'Mushaf'),
-                                              style: GoogleFonts.notoSansThai(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w800,
-                                                color: badgeColor,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            isThai
-                                                ? preset.badgeTh
-                                                : preset.badgeEn,
-                                            style: GoogleFonts.notoSansThai(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                              color:
-                                                  colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        isThai
-                                            ? preset.titleTh
-                                            : preset.titleEn,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.notoSansThai(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      Text(
-                                        isThai ? preset.descTh : preset.descEn,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.notoSansThai(
-                                          fontSize: 11,
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                // 1. Unified Continue Reading Hero Card
+                _buildContinueReadingCard(
+                  isThai: isThai,
+                  colorScheme: colorScheme,
+                  colors: colors,
+                  readingProv: readingProv,
+                  mushafProv: mushafProv,
                 ),
+                const SizedBox(height: 16),
 
+                // 2. 4 KPI Overview Cards
+                _buildKPIOverview(
+                  isThai: isThai,
+                  colorScheme: colorScheme,
+                  colors: colors,
+                  readingProv: readingProv,
+                  statsProv: statsProv,
+                  totalActive: totalActive,
+                  meaningActiveCount: meaningGoals.length,
+                  mushafActiveCount: mushafGoals.length,
+                ),
                 const SizedBox(height: 20),
 
-                // 2. Filter Tabs (All / Meaning / Mushaf)
+                // 3. Khatam Pacing & Planning Calculator
+                _buildKhatamPacingCalculator(
+                  isThai: isThai,
+                  colorScheme: colorScheme,
+                  colors: colors,
+                ),
+                const SizedBox(height: 20),
+
+                // 4. 114-Surah Completion Matrix
+                _buildSurahCompletionMatrix(
+                  isThai: isThai,
+                  colorScheme: colorScheme,
+                  colors: colors,
+                  readingProv: readingProv,
+                ),
+                const SizedBox(height: 20),
+
+                // 5. Presets Strip (shown when no active goals or explicitly toggled)
+                if (totalActive == 0 || _showPresets) ...[
+                  _buildPresetsStripCard(
+                    isThai: isThai,
+                    colorScheme: colorScheme,
+                    colors: colors,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // 6. Filter Tabs (All / Meaning / Mushaf)
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     color: colors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
                     border: Border.all(color: colors.borderSoft),
                   ),
                   child: Row(
@@ -1926,10 +1799,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 20),
 
-                // 3. Meaning Goals List
+                // 7. Meaning Goals Section
                 if (_filterTab == GoalFilterTab.all ||
                     _filterTab == GoalFilterTab.meaning) ...[
                   _buildSectionHeader(
@@ -1956,22 +1828,39 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       ),
                     )
                   else
-                    ...meaningGoals.map(
-                      (profile) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _buildMeaningGoalCard(
-                          profile: profile,
-                          isActive: readingProv.activeProfile?.id == profile.id,
-                          isThai: isThai,
-                          colorScheme: colorScheme,
-                          colors: colors,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: colors.borderSoft),
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: meaningGoals.length,
+                        separatorBuilder: (c, i) => Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: colors.borderSoft,
                         ),
+                        itemBuilder: (context, idx) {
+                          final profile = meaningGoals[idx];
+                          return _buildMeaningGoalRow(
+                            profile: profile,
+                            isActive:
+                                readingProv.activeProfile?.id == profile.id,
+                            isThai: isThai,
+                            colorScheme: colorScheme,
+                            colors: colors,
+                            readingProv: readingProv,
+                          );
+                        },
                       ),
                     ),
                   const SizedBox(height: 16),
                 ],
 
-                // 4. Mushaf Goals List
+                // 8. Mushaf Goals Section
                 if (_filterTab == GoalFilterTab.all ||
                     _filterTab == GoalFilterTab.mushaf) ...[
                   _buildSectionHeader(
@@ -1998,20 +1887,36 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       ),
                     )
                   else
-                    ...mushafGoals.map(
-                      (profile) => Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: _buildMushafGoalCard(
-                          profile: profile,
-                          isThai: isThai,
-                          colorScheme: colorScheme,
-                          colors: colors,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: colors.borderSoft),
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: mushafGoals.length,
+                        separatorBuilder: (c, i) => Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: colors.borderSoft,
                         ),
+                        itemBuilder: (context, idx) {
+                          final profile = mushafGoals[idx];
+                          return _buildMushafGoalRow(
+                            profile: profile,
+                            isThai: isThai,
+                            colorScheme: colorScheme,
+                            colors: colors,
+                            mushafProv: mushafProv,
+                          );
+                        },
                       ),
                     ),
                 ],
 
-                // 5. Archived Goals Drawer
+                // 9. Archived Goals Drawer (collapsed by default)
                 if (archivedMeaning.isNotEmpty ||
                     archivedMushaf.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -2057,7 +1962,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             title,
             style: GoogleFonts.notoSansThai(
               fontSize: 15,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
             ),
           ),
@@ -2090,27 +1995,27 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }) {
     final accent = isMeaning ? colorScheme.primary : const Color(0xFF8A6530);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(color: colors.borderSoft),
       ),
       child: Column(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               isMeaning
                   ? Icons.menu_book_rounded
                   : Icons.import_contacts_rounded,
               color: accent,
-              size: 24,
+              size: 22,
             ),
           ),
           const SizedBox(height: 12),
@@ -2124,7 +2029,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       : 'No Mushaf reading goals yet'),
             style: GoogleFonts.notoSansThai(
               fontSize: 14,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
             ),
           ),
@@ -2150,7 +2055,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               backgroundColor: accent,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               ),
             ),
             icon: const Icon(Icons.add_rounded, size: 16),
@@ -2162,7 +2067,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         : 'Start 604 Pages Khatam'),
               style: GoogleFonts.notoSansThai(
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -2171,12 +2076,1042 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
   }
 
-  Widget _buildMeaningGoalCard({
+  Widget _buildContinueReadingCard({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+    required LocalReadingProvider readingProv,
+    required MushafReadingProvider mushafProv,
+  }) {
+    final activeMeaning = readingProv.activeProfile;
+    final activeMushaf = mushafProv.activeProfile;
+    final bool hasMeaning =
+        activeMeaning != null && !isFreeReadProfile(activeMeaning);
+    final bool hasMushaf = activeMushaf != null;
+
+    if (!hasMeaning && !hasMushaf) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: colors.borderSoft),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.auto_stories_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isThai ? 'เริ่มต้นอ่านต่อวันนี้' : 'Start Reading Today',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isThai
+                  ? 'ยังไม่มีเป้าหมายที่กำลังอ่าน เลือกเปิดอ่านเพื่อเริ่มนับความคืบหน้า'
+                  : 'No active reading target yet. Choose a mode below to start tracking.',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReadingScreen(
+                            repository: widget.repository,
+                            initialSurah: '1',
+                            initialVerseIndex: 0,
+                            initialVerseId: '1:1',
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.menu_book_rounded, size: 16),
+                    label: Text(
+                      isThai ? 'อ่านฉบับความหมาย' : 'Read Meaning',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MushafReaderScreen(
+                            quranRepository: widget.repository,
+                            foundationRepository: widget.foundationRepository,
+                            initialPage: 1,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.import_contacts_rounded, size: 16),
+                    label: Text(
+                      isThai ? 'เปิดมุศหัฟ 604 หน้า' : 'Open Mushaf',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF8A6530),
+                      side: const BorderSide(color: Color(0xFF8A6530)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (hasMushaf && (!hasMeaning || _filterTab == GoalFilterTab.mushaf)) {
+      final prog = _calculateMushafProgress(activeMushaf);
+      const accent = Color(0xFF8A6530);
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: colors.borderSoft),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isThai
+                        ? 'เป้าหมายล่าสุด (มุศหัฟ)'
+                        : 'CURRENT GOAL (MUSHAF)',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: accent,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${prog.percent}%',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              activeMushaf.name,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${isThai ? 'ค้างไว้ที่หน้า' : 'Currently at page'} ${activeMushaf.lastViewedPage} (${isThai ? 'เป้าหมายหน้า' : 'target page'} ${activeMushaf.targetPage})',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: prog.total > 0 ? (prog.done / prog.total) : 0.0,
+                minHeight: 6,
+                backgroundColor: colors.surfaceMuted,
+                valueColor: const AlwaysStoppedAnimation<Color>(accent),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${prog.done} / ${prog.total} ${isThai ? 'หน้า' : 'pages'}',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: () => _openMushafGoal(activeMushaf),
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                  label: Text(
+                    isThai
+                        ? 'อ่านต่อจากหน้า ${activeMushaf.lastViewedPage}'
+                        : 'Continue P.${activeMushaf.lastViewedPage}',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final p = activeMeaning!;
+    final prog = _calculateMeaningProgress(p);
+    final resume = p.furthestUnread;
+    final resumeSurahName = widget.repository.getSurahName(resume.surahId);
+    final accent = colorScheme.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isThai
+                      ? 'เป้าหมายล่าสุด (แปลความหมาย)'
+                      : 'CURRENT GOAL (MEANING)',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${prog.percent}%',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            p.name,
+            style: GoogleFonts.notoSansThai(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${isThai ? 'ค้างไว้ที่' : 'Currently at'} $resumeSurahName (${resume.verseKey})',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: prog.total > 0 ? (prog.done / prog.total) : 0.0,
+              minHeight: 6,
+              backgroundColor: colors.surfaceMuted,
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${prog.done} / ${prog.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: () => _openMeaningGoal(p),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                label: Text(
+                  isThai ? 'อ่านต่อ' : 'Continue',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKPIOverview({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+    required LocalReadingProvider readingProv,
+    required StatsProvider statsProv,
+    required int totalActive,
+    required int meaningActiveCount,
+    required int mushafActiveCount,
+  }) {
+    final completedCount = readingProv.completedReadSurahs.length;
+    final totalAyahs = statsProv.totalAyahsRead;
+    final streak = statsProv.streakDays;
+
+    Widget buildKpiCard({
+      required IconData icon,
+      required Color iconColor,
+      required String value,
+      required String label,
+      String? subtitle,
+    }) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          border: Border.all(color: colors.borderSoft),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, size: 16, color: iconColor),
+                ),
+                const Spacer(),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 1),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 10,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: buildKpiCard(
+                icon: Icons.check_circle_outline_rounded,
+                iconColor: const Color(0xFF0E5A4A),
+                value: '$completedCount / 114',
+                label: isThai ? 'ซูเราะฮฺที่อ่านแล้ว' : 'Surahs Read',
+                subtitle:
+                    '${((completedCount / 114) * 100).toStringAsFixed(0)}% ของคัมภีร์',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: buildKpiCard(
+                icon: Icons.format_list_numbered_rounded,
+                iconColor: colorScheme.primary,
+                value: '$totalAyahs',
+                label: isThai ? 'อายะฮฺที่อ่านแล้ว' : 'Ayahs Read',
+                subtitle: isThai ? 'สะสมทั้งหมด' : 'All-time total',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: buildKpiCard(
+                icon: Icons.flag_outlined,
+                iconColor: const Color(0xFF8A6530),
+                value: '$totalActive',
+                label: isThai ? 'เป้าหมายที่ดำเนินอยู่' : 'Active Goals',
+                subtitle: isThai
+                    ? '$meaningActiveCount แปล • $mushafActiveCount มุศหัฟ'
+                    : '$meaningActiveCount mean • $mushafActiveCount mushaf',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: buildKpiCard(
+                icon: Icons.local_fire_department_rounded,
+                iconColor: const Color(0xFFD97706),
+                value: '$streak ${isThai ? 'วัน' : 'days'}',
+                label: isThai ? 'ความต่อเนื่อง' : 'Reading Streak',
+                subtitle: isThai ? 'อ่านต่อเนื่อง' : 'Consistent daily',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKhatamPacingCalculator({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+  }) {
+    final isMushaf = _khatamKind == 'mushaf';
+    final int pagesPerDay = (604 / _khatamDays).ceil();
+    final int pagesPerSalah = (pagesPerDay / 5).ceil();
+    final int ayahsPerDay = (6236 / _khatamDays).ceil();
+    final int ayahsPerSalah = (ayahsPerDay / 5).ceil();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.calculate_outlined,
+                size: 18,
+                color: isMushaf
+                    ? const Color(0xFF8A6530)
+                    : colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isThai
+                      ? 'เครื่องคำนวณและวางแผนค็อตม์'
+                      : 'Khatam Pacing Calculator',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Kind selector
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _khatamKind = 'mushaf'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isMushaf
+                          ? const Color(0xFF8A6530).withValues(alpha: 0.15)
+                          : colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isMushaf
+                            ? const Color(0xFF8A6530)
+                            : colors.borderSoft,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      isThai ? 'มุศหัฟ 604 หน้า' : 'Mushaf (604p)',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isMushaf
+                            ? const Color(0xFF8A6530)
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _khatamKind = 'meaning'),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: !isMushaf
+                          ? colorScheme.primary.withValues(alpha: 0.15)
+                          : colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: !isMushaf
+                            ? colorScheme.primary
+                            : colors.borderSoft,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      isThai ? 'แปลความหมาย 30 ญุซอ์' : 'Meaning (30 Juz)',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: !isMushaf
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Days chips
+          Text(
+            isThai ? 'ระยะเวลาที่ต้องการจบเล่ม:' : 'Target duration:',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [30, 60, 90, 365].map((d) {
+              final isSel = _khatamDays == d;
+              String label;
+              if (d == 30) {
+                label = isThai ? '30 วัน (รอมฎอน)' : '30 days';
+              } else if (d == 365) {
+                label = isThai ? '365 วัน (1 ปี)' : '1 year';
+              } else {
+                label = '$d ${isThai ? 'วัน' : 'days'}';
+              }
+              return ChoiceChip(
+                label: Text(
+                  label,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isSel ? Colors.white : colorScheme.onSurface,
+                  ),
+                ),
+                selected: isSel,
+                selectedColor: isMushaf
+                    ? const Color(0xFF8A6530)
+                    : colorScheme.primary,
+                onSelected: (_) => setState(() => _khatamDays = d),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          // Result metric box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colors.surfaceMuted,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isMushaf
+                            ? '$pagesPerDay ${isThai ? 'หน้า / วัน' : 'pages / day'}'
+                            : (_khatamDays == 30
+                                  ? (isThai ? '1 ญุซอ์ / วัน' : '1 Juz / day')
+                                  : '$ayahsPerDay ${isThai ? 'อายะฮฺ / วัน' : 'ayahs / day'}'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isMushaf
+                              ? const Color(0xFF8A6530)
+                              : colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isMushaf
+                            ? (isThai
+                                  ? 'ประมาณ $pagesPerSalah หน้าหลังละหมาด 5 เวลา'
+                                  : '~$pagesPerSalah pages after each 5 daily prayers')
+                            : (isThai
+                                  ? 'ประมาณ $ayahsPerSalah อายะฮฺหลังละหมาด 5 เวลา'
+                                  : '~$ayahsPerSalah ayahs after each 5 daily prayers'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    _showUnifiedGoalModal(
+                      initialKind: isMushaf ? 'mushaf' : 'meaning',
+                      initialPreset: isMushaf
+                          ? _goalPresets[1]
+                          : _goalPresets.first,
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: isMushaf
+                        ? const Color(0xFF8A6530)
+                        : colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    isThai ? 'ตั้งเป้าหมายนี้' : 'Set Plan',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSurahCompletionMatrix({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+    required LocalReadingProvider readingProv,
+  }) {
+    final completedSet = readingProv.completedReadSurahs;
+    final int completedCount = completedSet.length;
+    final percent = ((completedCount / 114) * 100).toStringAsFixed(0);
+
+    final filteredList = List.generate(114, (i) => i + 1).where((sNum) {
+      if (_matrixSearchQuery.trim().isEmpty) return true;
+      final q = _matrixSearchQuery.trim().toLowerCase();
+      if (sNum.toString().contains(q)) return true;
+      final name = widget.repository
+          .getSurahName(sNum.toString())
+          .toLowerCase();
+      if (name.contains(q)) return true;
+      final arName = offlineSurahNamesAr[sNum.toString()] ?? '';
+      if (arName.contains(q)) return true;
+      return false;
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.grid_view_rounded,
+                size: 18,
+                color: Color(0xFF0E5A4A),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isThai
+                      ? 'บันทึกอ่านจบ 114 ซูเราะฮฺ'
+                      : '114 Surahs Reading Matrix',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0E5A4A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$completedCount / 114 ($percent%)',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0E5A4A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isThai
+                ? 'แตะที่หมายเลขซูเราะฮฺเพื่อสลับสถานะอ่านจบแล้ว (ซิงค์อัตโนมัติ)'
+                : 'Tap a Surah number to toggle read completion.',
+            style: GoogleFonts.notoSansThai(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Search box
+          SizedBox(
+            height: 38,
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: isThai
+                    ? 'ค้นหาซูเราะฮฺ (ชื่อ หรือ เลข 1-114)...'
+                    : 'Search surah (name or 1-114)...',
+                hintStyle: GoogleFonts.notoSansThai(fontSize: 11),
+                prefixIcon: const Icon(Icons.search, size: 16),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                filled: true,
+                fillColor: colors.surfaceMuted,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: colors.borderSoft),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: colors.borderSoft),
+                ),
+              ),
+              style: GoogleFonts.notoSansThai(fontSize: 12),
+              onChanged: (v) => setState(() => _matrixSearchQuery = v),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Matrix wrap
+          Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            children: filteredList.map((sNum) {
+              final sId = sNum.toString();
+              final isDone = completedSet.contains(sId);
+              final surahName = widget.repository.getSurahName(sId);
+
+              return Tooltip(
+                message: '$sNum. $surahName',
+                child: InkWell(
+                  onTap: () => readingProv.toggleCompletedReadSurah(sId),
+                  borderRadius: BorderRadius.circular(6),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 38,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isDone
+                          ? const Color(0xFF0E5A4A)
+                          : colors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDone
+                            ? const Color(0xFF0E5A4A)
+                            : colors.borderSoft,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$sNum',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: isDone ? Colors.white : colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetsStripCard({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.auto_awesome_outlined,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isThai ? 'แม่แบบเป้าหมายยอดนิยม' : 'Popular Goal Presets',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _goalPresets.length,
+            separatorBuilder: (c, i) => const SizedBox(width: 10),
+            itemBuilder: (context, idx) {
+              final preset = _goalPresets[idx];
+              final isMushaf = preset.kind == 'mushaf';
+              final accent = isMushaf
+                  ? const Color(0xFF8A6530)
+                  : colorScheme.primary;
+
+              return InkWell(
+                onTap: () => _showUnifiedGoalModal(initialPreset: preset),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
+                child: Container(
+                  width: 190,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colors.borderSoft),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              isMushaf ? 'มุศหัฟ' : 'แปลความหมาย',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: accent,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isThai ? preset.titleTh : preset.titleEn,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isThai ? preset.descTh : preset.descEn,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 10,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            isThai ? 'เลือกใช้' : 'Select',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: accent,
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 12,
+                            color: accent,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMeaningGoalRow({
     required LocalReadingProfile profile,
     required bool isActive,
     required bool isThai,
     required ColorScheme colorScheme,
     required AppThemeColors colors,
+    required LocalReadingProvider readingProv,
   }) {
     final progress = _calculateMeaningProgress(profile);
     final resume = profile.furthestUnread;
@@ -2189,261 +3124,181 @@ class _GoalsScreenState extends State<GoalsScreen> {
     final resumeSurahName = widget.repository.getSurahName(resume.surahId);
     final emerald = colorScheme.primary;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isActive
-              ? emerald.withValues(alpha: 0.45)
-              : colors.borderSoft,
-          width: isActive ? 1.5 : 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top badges
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: emerald.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isThai ? 'ความหมาย' : 'Meaning',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: emerald,
-                  ),
-                ),
-              ),
-              if (isActive)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderSoft),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: emerald,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isThai ? 'กำลังอ่านอยู่' : 'Active',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Title & Range
-          Text(
-            profile.name,
-            style: GoogleFonts.notoSansThai(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            profile.target != null
-                ? '$startSurahName (${profile.start.verseKey})  →  $targetSurahName (${profile.target!.verseKey})'
-                : '$startSurahName (${profile.start.verseKey})',
-            style: GoogleFonts.notoSansThai(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: (progress.percent / 100).clamp(0.03, 1.0),
-              minHeight: 8,
-              backgroundColor: colors.surfaceMuted,
-              valueColor: AlwaysStoppedAnimation<Color>(emerald),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${progress.percent}% ${isThai ? 'เสร็จสิ้น' : 'complete'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: emerald,
-                ),
-              ),
-              Text(
-                '${progress.done} / ${progress.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Currently Reading At Box
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
-              color: colors.surfaceMuted,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colors.borderSoft),
+              color: emerald,
+              shape: BoxShape.circle,
             ),
-            child: Row(
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.bookmark_rounded, size: 18, color: emerald),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isThai
-                            ? 'อ่านค้างไว้ที่ล่าสุด'
-                            : 'CURRENTLY READING AT',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '$resumeSurahName (${resume.verseKey})',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        profile.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
                         ),
                       ),
+                    ),
+                    if (isActive) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: emerald.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isThai ? 'เป้าหมายหลัก' : 'Active',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: emerald,
+                          ),
+                        ),
+                      ),
                     ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$startSurahName → ${targetSurahName.isNotEmpty ? targetSurahName : (isThai ? 'อัน-นาส' : 'An-Nas')}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: progress.total > 0
+                        ? (progress.done / progress.total)
+                        : 0.0,
+                    minHeight: 5,
+                    backgroundColor: colors.surfaceMuted,
+                    valueColor: AlwaysStoppedAnimation<Color>(emerald),
                   ),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderSoft),
-                  ),
-                  child: Text(
-                    '${isThai ? 'อายะฮฺที่' : 'Ayah'} ${resume.verseId}',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: emerald,
+                      ),
                     ),
-                  ),
+                    Text(
+                      '${isThai ? 'อ่านถึง' : 'At'} $resumeSurahName ${resume.verseKey}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Actions Footer
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => _showUnifiedGoalModal(
-                  editingMeaningProfile: profile,
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.edit_outlined, size: 15),
-                label: Text(
-                  isThai ? 'แก้ไข' : 'Edit',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: () => _openMeaningGoal(profile),
+            style: FilledButton.styleFrom(
+              backgroundColor: emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: const Size(0, 34),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              isThai ? 'อ่านต่อ' : 'Read',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            onSelected: (val) async {
+              if (val == 'edit') {
+                _showUnifiedGoalModal(editingMeaningProfile: profile);
+              } else if (val == 'active') {
+                await readingProv.setActiveProfile(profile.id);
+              } else if (val == 'archive') {
+                await readingProv.archiveProfile(profile.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isThai ? 'จัดเก็บเป้าหมายแล้ว' : 'Goal archived',
+                      ),
+                      action: SnackBarAction(
+                        label: isThai ? 'เลิกทำ' : 'Undo',
+                        onPressed: () => readingProv.restoreProfile(profile.id),
+                      ),
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              }
+            },
+            itemBuilder: (_) => [
+              if (!isActive)
+                PopupMenuItem(
+                  value: 'active',
+                  child: Text(
+                    isThai ? 'ตั้งเป็นเป้าหมายหลัก' : 'Set as active',
+                    style: GoogleFonts.notoSansThai(fontSize: 12),
                   ),
+                ),
+              PopupMenuItem(
+                value: 'edit',
+                child: Text(
+                  isThai ? 'แก้ไขเป้าหมาย' : 'Edit goal',
+                  style: GoogleFonts.notoSansThai(fontSize: 12),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => context
-                    .read<LocalReadingProvider>()
-                    .archiveProfile(profile.id),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.error,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.archive_outlined, size: 15),
-                label: Text(
-                  isThai ? 'จัดเก็บ' : 'Archive',
+              PopupMenuItem(
+                value: 'archive',
+                child: Text(
+                  isThai ? 'จัดเก็บเป้าหมาย' : 'Archive goal',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    color: colorScheme.error,
                   ),
                 ),
-              ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: () => _openMeaningGoal(profile),
-                style: FilledButton.styleFrom(
-                  backgroundColor: emerald,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                label: Text(
-                  isThai
-                      ? 'อ่านต่อ (${resume.verseKey})'
-                      : 'Continue (${resume.verseKey})',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 15),
               ),
             ],
           ),
@@ -2452,219 +3307,192 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
   }
 
-  Widget _buildMushafGoalCard({
+  Widget _buildMushafGoalRow({
     required MushafProfile profile,
     required bool isThai,
     required ColorScheme colorScheme,
     required AppThemeColors colors,
+    required MushafReadingProvider mushafProv,
   }) {
     final progress = _calculateMushafProgress(profile);
     const amber = Color(0xFF8A6530);
+    final isActive = mushafProv.activeProfile?.id == profile.id;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colors.borderSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Top Badge
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: amber.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              isThai ? 'มุศหัฟ 604 หน้า' : 'Mushaf Pages',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: amber,
-              ),
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: amber,
+              shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(height: 10),
-
-          // Title & Range
-          Text(
-            profile.name,
-            style: GoogleFonts.notoSansThai(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${isThai ? 'หน้า' : 'Pages'} ${profile.startPage} – ${profile.targetPage} (${progress.total} ${isThai ? 'หน้า' : 'pages'})',
-            style: GoogleFonts.notoSansThai(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: (progress.percent / 100).clamp(0.03, 1.0),
-              minHeight: 8,
-              backgroundColor: colors.surfaceMuted,
-              valueColor: const AlwaysStoppedAnimation<Color>(amber),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${progress.percent}% ${isThai ? 'เสร็จสิ้น' : 'complete'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: amber,
-                ),
-              ),
-              Text(
-                '${progress.done} / ${progress.total} ${isThai ? 'หน้า' : 'pages'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Currently Reading At Box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: colors.surfaceMuted,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colors.borderSoft),
-            ),
-            child: Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.bookmark_rounded, size: 18, color: amber),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isThai
-                            ? 'อ่านค้างไว้ที่ล่าสุด'
-                            : 'CURRENTLY READING AT',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        profile.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
-                          fontSize: 10,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '${isThai ? 'หน้ามุศหัฟที่' : 'Mushaf Page'} ${profile.lastViewedPage}',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
                           color: colorScheme.onSurface,
                         ),
                       ),
+                    ),
+                    if (isActive) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: amber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          isThai ? 'เป้าหมายหลัก' : 'Active',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: amber,
+                          ),
+                        ),
+                      ),
                     ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${isThai ? 'หน้า' : 'Pages'} ${profile.startPage} – ${profile.targetPage}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: progress.total > 0
+                        ? (progress.done / progress.total)
+                        : 0.0,
+                    minHeight: 5,
+                    backgroundColor: colors.surfaceMuted,
+                    valueColor: const AlwaysStoppedAnimation<Color>(amber),
                   ),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: colors.borderSoft),
-                  ),
-                  child: Text(
-                    '${isThai ? 'หน้า' : 'P.'} ${profile.lastViewedPage} / ${profile.targetPage}',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'หน้า' : 'pages'}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: amber,
+                      ),
                     ),
-                  ),
+                    Text(
+                      '${isThai ? 'อ่านถึงหน้าที่' : 'Page'} ${profile.lastViewedPage}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Actions Footer
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => _showUnifiedGoalModal(
-                  editingMushafProfile: profile,
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.onSurfaceVariant,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.edit_outlined, size: 15),
-                label: Text(
-                  isThai ? 'แก้ไข' : 'Edit',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: () => _openMushafGoal(profile),
+            style: FilledButton.styleFrom(
+              backgroundColor: amber,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: const Size(0, 34),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              isThai ? 'เปิดอ่าน' : 'Read',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert_rounded,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            onSelected: (val) async {
+              if (val == 'edit') {
+                _showUnifiedGoalModal(editingMushafProfile: profile);
+              } else if (val == 'active') {
+                await mushafProv.setActiveProfile(profile.id);
+              } else if (val == 'archive') {
+                await mushafProv.archiveProfile(profile.id);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isThai ? 'จัดเก็บเป้าหมายแล้ว' : 'Goal archived',
+                      ),
+                      action: SnackBarAction(
+                        label: isThai ? 'เลิกทำ' : 'Undo',
+                        onPressed: () => mushafProv.restoreProfile(profile.id),
+                      ),
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              }
+            },
+            itemBuilder: (_) => [
+              if (!isActive)
+                PopupMenuItem(
+                  value: 'active',
+                  child: Text(
+                    isThai ? 'ตั้งเป็นเป้าหมายหลัก' : 'Set as active',
+                    style: GoogleFonts.notoSansThai(fontSize: 12),
                   ),
+                ),
+              PopupMenuItem(
+                value: 'edit',
+                child: Text(
+                  isThai ? 'แก้ไขเป้าหมาย' : 'Edit goal',
+                  style: GoogleFonts.notoSansThai(fontSize: 12),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => context
-                    .read<MushafReadingProvider>()
-                    .archiveProfile(profile.id),
-                style: TextButton.styleFrom(
-                  foregroundColor: colorScheme.error,
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.archive_outlined, size: 15),
-                label: Text(
-                  isThai ? 'จัดเก็บ' : 'Archive',
+              PopupMenuItem(
+                value: 'archive',
+                child: Text(
+                  isThai ? 'จัดเก็บเป้าหมาย' : 'Archive goal',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    color: colorScheme.error,
                   ),
                 ),
-              ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: () => _openMushafGoal(profile),
-                style: FilledButton.styleFrom(
-                  backgroundColor: amber,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                label: Text(
-                  isThai
-                      ? 'เปิดอ่านหน้า ${profile.lastViewedPage}'
-                      : 'Continue P.${profile.lastViewedPage}',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 15),
               ),
             ],
           ),
@@ -2684,162 +3512,183 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }) {
     final totalArchived = archivedMeaning.length + archivedMushaf.length;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(color: colors.borderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.archive_outlined,
-                    size: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isThai
-                        ? 'เป้าหมายที่เก็บถาวร (Archived Goals)'
-                        : 'Archived Goals',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
+          InkWell(
+            onTap: () =>
+                setState(() => _isArchivedExpanded = !_isArchivedExpanded),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.archive_outlined,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                  ),
-                ],
-              ),
-              Text(
-                '$totalArchived ${isThai ? 'รายการ' : 'items'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 8),
+                    Text(
+                      isThai
+                          ? 'เป้าหมายที่จัดเก็บถาวร'
+                          : 'Archived Goals',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      '$totalArchived ${isThai ? 'รายการ' : 'items'}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _isArchivedExpanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_isArchivedExpanded) ...[
+            const SizedBox(height: 10),
+            Divider(height: 1, thickness: 1, color: colors.borderSoft),
+            const SizedBox(height: 8),
+            ...archivedMeaning.map(
+              (profile) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          Text(
+                            '${isThai ? 'ความหมาย' : 'Meaning'} • ${profile.start.verseKey} → ${profile.target?.verseKey ?? '114:6'}',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        try {
+                          await readingProv.restoreProfile(profile.id);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        isThai ? 'กู้คืน' : 'Restore',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...archivedMeaning.map(
-            (profile) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
+            ),
+            ...archivedMushaf.map(
+              (profile) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.name,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${isThai ? 'ความหมาย' : 'Meaning'} • ${profile.start.verseKey} → ${profile.target?.verseKey ?? '114:6'}',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant,
+                          Text(
+                            '${isThai ? 'มุศหัฟ' : 'Mushaf'} • ${isThai ? 'หน้า' : 'Pages'} ${profile.startPage}–${profile.targetPage}',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      try {
-                        await readingProv.restoreProfile(profile.id);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
+                    OutlinedButton(
+                      onPressed: () async {
+                        try {
+                          await mushafProv.restoreProfile(profile.id);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
                         }
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                      },
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        isThai ? 'กู้คืน' : 'Restore',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    child: Text(
-                      isThai ? 'กู้คืน' : 'Restore',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          ...archivedMushaf.map(
-            (profile) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          '${isThai ? 'มุศหัฟ' : 'Mushaf'} • ${isThai ? 'หน้า' : 'Pages'} ${profile.startPage}–${profile.targetPage}',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton(
-                    onPressed: () async {
-                      try {
-                        await mushafProv.restoreProfile(profile.id);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(e.toString())),
-                          );
-                        }
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      isThai ? 'กู้คืน' : 'Restore',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -2909,7 +3758,7 @@ class _ModeChoiceTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
                       fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: colorScheme.onSurface,
                     ),
                   ),
@@ -2965,7 +3814,7 @@ class _FilterTabPill extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.notoSansThai(
             fontSize: 12,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: isSelected ? Colors.white : colorScheme.onSurfaceVariant,
           ),
         ),

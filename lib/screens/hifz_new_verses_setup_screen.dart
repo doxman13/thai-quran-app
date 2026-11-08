@@ -155,7 +155,7 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
       builder: (ctx) {
         final colorScheme = Theme.of(ctx).colorScheme;
         final textTheme = Theme.of(ctx).textTheme;
-        final typeLabel = isThai ? 'ท่องจำอายะห์ใหม่ (Takrar)' : 'New Verses (Takrar)';
+        final typeLabel = isThai ? 'ท่องจำอายะฮฺใหม่ (Takrar)' : 'New Verses (Takrar)';
         final stepLabel = isThai
                 ? 'งานที่ ${snap!.currentStepIndex + 1} · จำนวนรอบ ${snap.currentTally}'
                 : 'Task ${snap!.currentStepIndex + 1} · tally ${snap.currentTally}';
@@ -347,7 +347,7 @@ class _HifzNewVersesSetupScreenState extends State<HifzNewVersesSetupScreen>
           tabs: [
             Tab(
               icon: const Icon(Icons.menu_book_outlined),
-              text: isThai ? 'ตามซูเราะฮ์' : 'By Surah',
+              text: isThai ? 'ตามซูเราะฮฺ' : 'By Surah',
             ),
             Tab(
               icon: const Icon(Icons.auto_stories_outlined),
@@ -540,7 +540,7 @@ class _BySurahTabState extends State<_BySurahTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isThai ? 'ช่วงอายะห์แบบรวดเร็ว' : 'Quick Range Presets',
+          isThai ? 'ช่วงอายะฮฺแบบรวดเร็ว' : 'Quick Range Presets',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurfaceVariant,
@@ -553,7 +553,7 @@ class _BySurahTabState extends State<_BySurahTab> {
           children: [
             ActionChip(
               avatar: Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? '+3 อายะห์' : '+3 Verses'),
+              label: Text(isThai ? '+3 อายะฮฺ' : '+3 Verses'),
               onPressed: () => _applyRangePreset(3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -561,7 +561,7 @@ class _BySurahTabState extends State<_BySurahTab> {
             ),
             ActionChip(
               avatar: Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? '+5 อายะห์' : '+5 Verses'),
+              label: Text(isThai ? '+5 อายะฮฺ' : '+5 Verses'),
               onPressed: () => _applyRangePreset(5),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -569,7 +569,7 @@ class _BySurahTabState extends State<_BySurahTab> {
             ),
             ActionChip(
               avatar: Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? '+10 อายะห์' : '+10 Verses'),
+              label: Text(isThai ? '+10 อายะฮฺ' : '+10 Verses'),
               onPressed: () => _applyRangePreset(10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -577,7 +577,7 @@ class _BySurahTabState extends State<_BySurahTab> {
             ),
             ActionChip(
               avatar: Icon(Icons.menu_book_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? 'ทั้งซูเราะฮ์' : 'Full Surah'),
+              label: Text(isThai ? 'ทั้งซูเราะฮฺ' : 'Full Surah'),
               onPressed: () => _applyRangePreset(-1),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -600,9 +600,9 @@ class _BySurahTabState extends State<_BySurahTab> {
       padding: const EdgeInsets.all(24),
       children: [
         _SectionHeader(
-          isThai ? 'เลือกซูเราะฮ์ & ช่วงอายะห์' : 'Select Surah & Verse Range',
+          isThai ? 'เลือกซูเราะฮฺ & ช่วงอายะฮฺ' : 'Select Surah & Verse Range',
           isThai
-              ? 'ท่องจำแต่ละอายะห์ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
+              ? 'ท่องจำแต่ละอายะฮฺ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
               : 'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
         ),
         const SizedBox(height: 16),
@@ -611,7 +611,7 @@ class _BySurahTabState extends State<_BySurahTab> {
           icon: const Icon(Icons.auto_stories_rounded, size: 20),
           label: Text(
             isThai
-                ? 'เลือกช่วงจากหน้ามุศฮัฟ (Visual Picker)'
+                ? 'เลือกช่วงจากหน้ามุศหัฟ (Visual Picker)'
                 : 'Select Range from Mushaf (Visual)',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -645,10 +645,10 @@ class _BySurahTabState extends State<_BySurahTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
+                label: isThai ? 'อายะฮฺเริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_totalVerses, (i) => i + 1),
-                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -663,10 +663,10 @@ class _BySurahTabState extends State<_BySurahTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
+                label: isThai ? 'อายะฮฺสิ้นสุด' : 'End Verse',
                 value: _end,
                 items: List.generate(_totalVerses - _start + 1, (i) => _start + i),
-                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -682,7 +682,7 @@ class _BySurahTabState extends State<_BySurahTab> {
           label: isThai ? 'ลำดับเริ่มต้น (ทบทวนจาก)' : 'Sequence Linked From (Repeat Start)',
           value: _repeat,
           items: List.generate(_start, (i) => i + 1),
-          itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+          itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
           onChanged: (v) {
             setState(() => _repeat = v);
             _notify();
@@ -691,7 +691,7 @@ class _BySurahTabState extends State<_BySurahTab> {
         const SizedBox(height: 6),
         Text(
           isThai
-              ? '💡 เช่น หากท่องจำอายะห์ 11–20 ให้เลือกเริ่มจาก 1 เพื่อเชื่อมโยงเนื้อหาของเซสชันก่อนหน้า (1–10) เข้ากับรอบนี้'
+              ? '💡 เช่น หากท่องจำอายะฮฺ 11–20 ให้เลือกเริ่มจาก 1 เพื่อเชื่อมโยงเนื้อหาของเซสชันก่อนหน้า (1–10) เข้ากับรอบนี้'
               : '💡 e.g. If memorizing verses 11–20, keep this at 1 to bridge yesterday\'s session (1–10) into today\'s flow.',
           style: textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -711,8 +711,8 @@ class _BySurahTabState extends State<_BySurahTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            (isThai ? 'อายะห์' : 'Verses', '$count'),
-            (isThai ? 'ต่ออายะห์' : 'Per Verse', '3× (10V + 5H)'),
+            (isThai ? 'อายะฮฺ' : 'Verses', '$count'),
+            (isThai ? 'ต่ออายะฮฺ' : 'Per Verse', '3× (10V + 5H)'),
             (isThai ? 'ลำดับ' : 'Sequence', 'V$_repeat → V$_end'),
           ],
         ),
@@ -853,7 +853,7 @@ class _ByPageTabState extends State<_ByPageTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isThai ? 'ช่วงอายะห์แบบรวดเร็ว' : 'Quick Range Presets',
+          isThai ? 'ช่วงอายะฮฺแบบรวดเร็ว' : 'Quick Range Presets',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurfaceVariant,
@@ -866,7 +866,7 @@ class _ByPageTabState extends State<_ByPageTab> {
           children: [
             ActionChip(
               avatar: Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? '+3 อายะห์' : '+3 Verses'),
+              label: Text(isThai ? '+3 อายะฮฺ' : '+3 Verses'),
               onPressed: () => _applyRangePreset(3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -874,7 +874,7 @@ class _ByPageTabState extends State<_ByPageTab> {
             ),
             ActionChip(
               avatar: Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-              label: Text(isThai ? '+5 อายะห์' : '+5 Verses'),
+              label: Text(isThai ? '+5 อายะฮฺ' : '+5 Verses'),
               onPressed: () => _applyRangePreset(5),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -905,9 +905,9 @@ class _ByPageTabState extends State<_ByPageTab> {
       padding: const EdgeInsets.all(24),
       children: [
         _SectionHeader(
-          isThai ? 'เลือกหน้า & ช่วงอายะห์' : 'Select Page & Verse Range',
+          isThai ? 'เลือกหน้า & ช่วงอายะฮฺ' : 'Select Page & Verse Range',
           isThai
-              ? 'ท่องจำแต่ละอายะห์ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
+              ? 'ท่องจำแต่ละอายะฮฺ 3 รอบ (เห็น 10× + ซ่อน 5×) แล้วต่อลำดับ'
               : 'Memorize each verse with 3 rounds of (10× visible + 5× hidden), followed by linked sequence.',
         ),
         const SizedBox(height: 16),
@@ -916,7 +916,7 @@ class _ByPageTabState extends State<_ByPageTab> {
           icon: const Icon(Icons.auto_stories_rounded, size: 20),
           label: Text(
             isThai
-                ? 'เลือกช่วงจากหน้ามุศฮัฟ (Visual Picker)'
+                ? 'เลือกช่วงจากหน้ามุศหัฟ (Visual Picker)'
                 : 'Select Range from Mushaf (Visual)',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -944,10 +944,10 @@ class _ByPageTabState extends State<_ByPageTab> {
           children: [
             Expanded(
               child: _LabeledDropdown<int>(
-                label: isThai ? 'อายะห์เริ่ม' : 'Start Verse',
+                label: isThai ? 'อายะฮฺเริ่ม' : 'Start Verse',
                 value: _start,
                 items: List.generate(_totalVerses, (i) => i + 1),
-                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() {
                     _start = v;
@@ -962,10 +962,10 @@ class _ByPageTabState extends State<_ByPageTab> {
             const SizedBox(width: 12),
             Expanded(
               child: _LabeledDropdown<int>(
-                label: isThai ? 'อายะห์สิ้นสุด' : 'End Verse',
+                label: isThai ? 'อายะฮฺสิ้นสุด' : 'End Verse',
                 value: _end,
                 items: List.generate(_totalVerses - _start + 1, (i) => _start + i),
-                itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+                itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
                 onChanged: (v) {
                   setState(() => _end = v);
                   _notify();
@@ -981,7 +981,7 @@ class _ByPageTabState extends State<_ByPageTab> {
           label: isThai ? 'ลำดับเริ่มต้น (ทบทวนจาก)' : 'Sequence Linked From (Repeat Start)',
           value: _repeat,
           items: List.generate(_start, (i) => i + 1),
-          itemLabel: (v) => isThai ? 'อายะห์ $v' : 'Verse $v',
+          itemLabel: (v) => isThai ? 'อายะฮฺ $v' : 'Verse $v',
           onChanged: (v) {
             setState(() => _repeat = v);
             _notify();
@@ -990,7 +990,7 @@ class _ByPageTabState extends State<_ByPageTab> {
         const SizedBox(height: 6),
         Text(
           isThai
-              ? '💡 เช่น หากท่องจำช่วงถัดไป ให้เลือกเริ่มจากอายะห์แรกของหน้า เพื่อเชื่อมโยงทั้งหน้าเข้าด้วยกัน'
+              ? '💡 เช่น หากท่องจำช่วงถัดไป ให้เลือกเริ่มจากอายะฮฺแรกของหน้า เพื่อเชื่อมโยงทั้งหน้าเข้าด้วยกัน'
               : '💡 e.g. When moving to the next block, set this to the first verse of the page to connect the entire page.',
           style: textTheme.bodySmall?.copyWith(
             color: colorScheme.onSurfaceVariant,
@@ -1010,8 +1010,8 @@ class _ByPageTabState extends State<_ByPageTab> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           items: [
-            (isThai ? 'อายะห์' : 'Verses', '$count'),
-            (isThai ? 'ต่ออายะห์' : 'Per Verse', '3× (10V + 5H)'),
+            (isThai ? 'อายะฮฺ' : 'Verses', '$count'),
+            (isThai ? 'ต่ออายะฮฺ' : 'Per Verse', '3× (10V + 5H)'),
             (isThai ? 'ลำดับ' : 'Sequence', 'V$_repeat → V$_end'),
           ],
         ),
@@ -1214,7 +1214,7 @@ class _ChunkLongVersesCard extends StatelessWidget {
               children: [
                 Text(
                   isThai
-                      ? 'แบ่งย่อยอายะฮ์ยาว (> 1.5 บรรทัด)'
+                      ? 'แบ่งย่อยอายะฮฺยาว (> 1.5 บรรทัด)'
                       : 'Chunk Long Verses (> 1.5 lines)',
                   style: textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,

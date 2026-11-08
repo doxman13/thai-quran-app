@@ -21,6 +21,7 @@ dependencies:
   collection: ^1.18.0
   http: ^1.6.0
   supabase_flutter: ^2.8.0
+  app_links: ^7.1.2
   flutter_svg: ^2.0.10
   share_plus: ^13.2.0
   just_audio: ^0.10.5
@@ -38,6 +39,7 @@ dependencies:
   uuid: ^4.6.0
   firebase_core: ^4.12.1
   firebase_analytics: ^12.4.5
+  google_sign_in: ^6.2.2
   intl: any
   onnxruntime_v2: ^1.23.2+2
   record: ^5.2.0

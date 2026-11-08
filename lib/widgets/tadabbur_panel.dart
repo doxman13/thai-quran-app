@@ -114,10 +114,11 @@ class _TadabburPanelState extends State<TadabburPanel> {
       }
     } catch (e) {
       if (mounted) {
+        final colors = context.appColors;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: colors.danger,
           ),
         );
       }
@@ -137,14 +138,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
         child: Container(
           decoration: BoxDecoration(
             color: colors.surface,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(color: colors.borderSoft),
           ),
           child: Column(
@@ -157,7 +151,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 decoration: BoxDecoration(
                   color: colors.surfaceMuted,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+                    top: Radius.circular(AppTheme.radius),
                   ),
                   border: Border(bottom: BorderSide(color: colors.borderSoft)),
                 ),
@@ -165,17 +159,17 @@ class _TadabburPanelState extends State<TadabburPanel> {
                   children: [
                     Icon(
                       Icons.favorite_rounded,
-                      color: Colors.red.shade400,
+                      color: colors.danger,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       isThai
-                          ? 'รายการโปรดและข้อคิด — อายะฮ์ ${widget.surahId}:${widget.verseId}'
+                          ? 'รายการโปรดและข้อคิด — อายะฮฺ ${widget.surahId}:${widget.verseId}'
                           : 'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: colors.textStrong,
                       ),
                     ),
@@ -269,7 +263,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     children: [
                       Icon(
                         Icons.favorite_rounded,
-                        color: Colors.red.shade400,
+                        color: colors.danger,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
@@ -279,7 +273,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
-                            color: colors.textStrong.withValues(alpha: 0.6),
+                            color: colors.textMuted,
                           ),
                         ),
                       ),
@@ -297,7 +291,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 timeago.format(_savedNote!.updatedAt),
                 style: GoogleFonts.notoSansThai(
                   fontSize: 11,
-                  color: colors.foreground.withValues(alpha: 0.6),
+                  color: colors.textMuted,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -331,7 +325,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Failed: $e'),
-                              backgroundColor: Colors.red,
+                              backgroundColor: colors.danger,
                             ),
                           );
                         }
@@ -342,7 +336,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       isThai ? 'ทำให้เป็นส่วนตัว' : 'Make Private',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     style: TextButton.styleFrom(
@@ -378,7 +372,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Failed: $e'),
-                              backgroundColor: Colors.red,
+                              backgroundColor: colors.danger,
                             ),
                           );
                         }
@@ -389,7 +383,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       isThai ? 'ทำให้เป็นสาธารณะ' : 'Make Public',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     style: TextButton.styleFrom(
@@ -402,7 +396,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 icon: Icon(
                   Icons.delete_outline_rounded,
                   size: 20,
-                  color: Colors.red.shade400,
+                  color: colors.danger,
                 ),
                 tooltip: context.tr('unfavorite'),
                 onPressed: () async {
@@ -411,7 +405,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                     builder: (ctx) => AlertDialog(
                       title: Text(
                         context.tr('remove_from_favorites'),
-                        style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
+                        style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
                       ),
                       content: Text(
                         context.tr('unfavorite_confirm'),
@@ -423,7 +417,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           child: Text(
                             context.tr('cancel'),
                             style: GoogleFonts.notoSansThai(
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -432,8 +426,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                           child: Text(
                             context.tr('unfavorite'),
                             style: GoogleFonts.notoSansThai(
-                              fontWeight: FontWeight.w800,
-                              color: Colors.red,
+                              fontWeight: FontWeight.w700,
+                              color: colors.danger,
                             ),
                           ),
                         ),
@@ -453,17 +447,14 @@ class _TadabburPanelState extends State<TadabburPanel> {
   Widget _buildPrivacyChip(AppThemeColors colors) {
     final isPublic = _savedNote?.isPublic ?? _isPublic;
     final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final chipColor = isPublic ? colors.success : colors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isPublic
-            ? Colors.green.withValues(alpha: 0.08)
-            : colors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        color: chipColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         border: Border.all(
-          color: isPublic
-              ? Colors.green.withValues(alpha: 0.2)
-              : colors.primary.withValues(alpha: 0.2),
+          color: chipColor.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -472,7 +463,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
           Icon(
             isPublic ? Icons.public : Icons.lock_outline,
             size: 11,
-            color: isPublic ? Colors.green : colors.primary,
+            color: chipColor,
           ),
           const SizedBox(width: 4),
           Text(
@@ -481,8 +472,8 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 : (settings.languageCode == 'th' ? 'ส่วนตัว' : 'Private'),
             style: GoogleFonts.notoSansThai(
               fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: isPublic ? Colors.green : colors.primary,
+              fontWeight: FontWeight.w700,
+              color: chipColor,
             ),
           ),
         ],
@@ -688,15 +679,15 @@ class _TadabburPanelState extends State<TadabburPanel> {
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: isTextEmpty
-                    ? Colors.red.shade400
+                    ? colors.danger
                     : colors.primary,
                 foregroundColor: colors.textInverse,
                 disabledBackgroundColor:
-                    (isTextEmpty ? Colors.red.shade400 : colors.primary)
+                    (isTextEmpty ? colors.danger : colors.primary)
                         .withValues(alpha: 0.25),
                 disabledForegroundColor: colors.textInverse.withValues(alpha: 0.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 elevation: 0,

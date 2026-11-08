@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../data/medina_mushaf_pages.dart';
-
 import '../data/offline_surah_names.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
+import '../screens/reading_screen.dart';
 import '../services/ctc_matcher.dart';
 import '../services/offline_quran_database_service.dart';
 import '../services/recitation_engine.dart';
+import '../theme/app_theme.dart';
 
 /// Interactive Material 3 Modal Bottom Sheet for "Recite-to-Search" (Voice Quran Search).
 class VoiceSearchSheet extends StatefulWidget {
@@ -296,7 +298,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                 child: Center(
                   child: Text(
                     isThai
-                        ? 'ไม่พบอายะห์ที่ตรงกัน ลองอ่านใหม่อีกครั้ง'
+                        ? 'ไม่พบอายะฮฺที่ตรงกัน ลองอ่านใหม่อีกครั้ง'
                         : 'No matching verse found. Please try reciting again.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: colorScheme.onSurfaceVariant,
@@ -336,14 +338,11 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                   color: _isListening
                       ? colorScheme.primary
                       : colorScheme.surfaceContainerHigh,
-                  boxShadow: _isListening
-                      ? [
-                          BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.35 + _audioLevel * 0.35),
-                            blurRadius: 18 + _audioLevel * 14,
-                            spreadRadius: 4 + _audioLevel * 8,
-                          ),
-                        ]
+                  border: _isListening
+                      ? Border.all(
+                          color: colorScheme.primary.withValues(alpha: 0.3),
+                          width: 4 + _audioLevel * 4,
+                        )
                       : null,
                 ),
                 child: Icon(
@@ -398,125 +397,161 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.pop(context);
-            widget.onOpenPage(pageNumber, highlightVerseKey: key);
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top header: Surah & Ayah badge + confidence
+            Row(
               children: [
-                // Top header: Surah & Ayah badge + confidence
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '$displayName ${item.surah}:${item.ayah}',
-                        style: textTheme.labelMedium?.copyWith(
-                           color: colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      String.fromCharCode(0xe000 + item.surah),
-                      style: TextStyle(
-                        fontFamily: 'QcfSurahName',
-                        fontSize: 22,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.secondaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '$confidencePct% match',
-                        style: textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // Arabic verse preview
-                Text(
-                  uthmaniText,
-                  style: TextStyle(
-                    fontFamily: 'UthmanicHafs',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                    height: 1.8,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  textDirection: TextDirection.rtl,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (translation.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    translation,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.4,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-                const SizedBox(height: 12),
-
-                // Action buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      isThai ? 'หน้า $pageNumber' : 'Page $pageNumber',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
+                  child: Text(
+                    '$displayName ${item.surah}:${item.ayah}',
+                    style: textTheme.labelMedium?.copyWith(
                       color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  String.fromCharCode(0xe000 + item.surah),
+                  style: TextStyle(
+                    fontFamily: 'QcfSurahName',
+                    fontSize: 22,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '$confidencePct% match',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 10),
+
+            // Arabic verse preview
+            Text(
+              uthmaniText,
+              style: TextStyle(
+                fontFamily: 'UthmanicHafs',
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+                height: 1.8,
+              ),
+              textDirection: TextDirection.rtl,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (translation.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                translation,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 14),
+
+            // Dual action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReadingScreen(
+                            repository: widget.repository,
+                            initialSurah: item.surah.toString(),
+                            initialVerseIndex: item.ayah - 1,
+                            initialVerseId: key,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.menu_book_rounded, size: 14),
+                    label: Text(
+                      isThai ? 'อ่านความหมาย' : 'Meaning',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      widget.onOpenPage(pageNumber, highlightVerseKey: key);
+                    },
+                    icon: const Icon(Icons.import_contacts_rounded, size: 14),
+                    label: Text(
+                      isThai ? 'เปิดมุศหัฟ (หน้า $pageNumber)' : 'Mushaf (P.$pageNumber)',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF8A6530),
+                      side: const BorderSide(color: Color(0xFF8A6530)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

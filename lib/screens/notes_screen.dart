@@ -42,7 +42,7 @@ class NotesScreen extends StatelessWidget {
         title: Text(
           isThai ? 'บันทึกและข้อคิดส่วนตัว' : 'Personal Notes & Thoughts',
           style: GoogleFonts.notoSansThai(
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
           ),
         ),
@@ -166,7 +166,7 @@ class NotesScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               isThai
-                  ? 'คุณสามารถเพิ่มบันทึกในอายะฮ์ต่าง ๆ ได้โดยตรงขณะอ่านอัลกุรอาน'
+                  ? 'คุณสามารถเพิ่มบันทึกในอายะฮฺต่าง ๆ ได้โดยตรงขณะอ่านอัลกุรอาน'
                   : 'You can add notes to any verse while reading the Quran.',
               textAlign: TextAlign.center,
               style: GoogleFonts.notoSansThai(
@@ -238,7 +238,7 @@ class _NoteCard extends StatelessWidget {
                         Text(
                           '${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} $surahId:$verseId',
                           style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             fontSize: 12,
                             color: colorScheme.onPrimaryContainer,
                           ),
@@ -290,7 +290,7 @@ class _NoteCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    isThai ? 'แตะเพื่อเปิดอ่านอายะฮ์' : 'Tap to read verse',
+                    isThai ? 'แตะเพื่อเปิดอ่านอายะฮฺ' : 'Tap to read verse',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 11,
                       color: colorScheme.primary,

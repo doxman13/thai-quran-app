@@ -7,6 +7,7 @@ import '../services/offline_quran_database_service.dart';
 import '../screens/root_verses_screen.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../theme/app_theme.dart';
 
 /// Helper function to resolve the word-by-word language automatically
 /// based on the currently selected translation in the app.
@@ -188,8 +189,7 @@ class _WordByWordViewState extends State<WordByWordView> {
   }
 
   void _showWordDetailSheet(BuildContext context, Map<String, dynamic> word, int wordIndexOneBased) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colors = context.appColors;
     final effectiveLang = widget.languageOverride ?? resolveEffectiveWbwLanguage(context);
 
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
@@ -211,294 +211,357 @@ class _WordByWordViewState extends State<WordByWordView> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerLow,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header indicator
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+        String selectedLang = effectiveLang;
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final modalColors = ctx.appColors;
+            return Container(
+              decoration: BoxDecoration(
+                color: modalColors.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppTheme.radius),
                 ),
+                border: Border(top: BorderSide(color: modalColors.borderSoft)),
               ),
-              const SizedBox(height: 16),
-
-              // Word in Large Arabic Font with Audio Button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  IconButton.filledTonal(
-                    icon: const Icon(Icons.volume_up_rounded),
-                    onPressed: () {
-                      _playWordAudio(audioUrl, -1);
-                    },
-                  ),
-                  Expanded(
-                    child: Text(
-                      textUthmani,
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontFamily: 'Tajweed',
-                        fontSize: 34,
-                        fontWeight: FontWeight.bold,
+                  // Header indicator
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: modalColors.borderSoft,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
-              // Transliteration & Multilingual Meaning Box (Borderless Surface Container)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (transliteration.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Icon(Icons.record_voice_over_outlined, size: 15, color: colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            transliteration,
-                            style: GoogleFonts.notoSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.primary,
-                            ),
+                  // Word in Large Arabic Font with Audio Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton.filledTonal(
+                        style: IconButton.styleFrom(
+                          backgroundColor: modalColors.primaryLight,
+                          foregroundColor: modalColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            side: BorderSide(color: modalColors.primaryLightBorder),
                           ),
+                        ),
+                        icon: const Icon(Icons.volume_up_rounded),
+                        onPressed: () {
+                          _playWordAudio(audioUrl, -1);
+                        },
+                      ),
+                      Expanded(
+                        child: Text(
+                          textUthmani,
+                          textDirection: TextDirection.rtl,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontFamily: 'UthmanicHafs',
+                            fontSize: 36,
+                            fontWeight: FontWeight.w600,
+                            color: modalColors.textStrong,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 3-Language Switcher + All 3-Language Meanings Box
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: modalColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                      border: Border.all(color: modalColors.borderSoft),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (transliteration.isNotEmpty)
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.record_voice_over_outlined, size: 15, color: modalColors.primary),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        transliteration,
+                                        style: GoogleFonts.notoSans(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: modalColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final entry in const [
+                                  ('th', 'ไทย'),
+                                  ('ms', 'Melayu'),
+                                  ('en', 'English'),
+                                ])
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 4),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                      onTap: () => setModalState(() => selectedLang = entry.$1),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: selectedLang == entry.$1
+                                              ? modalColors.primary
+                                              : modalColors.surface,
+                                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                          border: Border.all(
+                                            color: selectedLang == entry.$1
+                                                ? modalColors.primary
+                                                : modalColors.borderSoft,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          entry.$2,
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: selectedLang == entry.$1
+                                                ? modalColors.textInverse
+                                                : modalColors.foreground,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (translationTh.isNotEmpty) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 58,
+                                child: Text(
+                                  'ไทย',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedLang == 'th' ? modalColors.primary : modalColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  translationTh,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: selectedLang == 'th' ? 15 : 13.5,
+                                    fontWeight: selectedLang == 'th' ? FontWeight.w700 : FontWeight.w500,
+                                    color: selectedLang == 'th' ? modalColors.textStrong : modalColors.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (translationMs.isNotEmpty) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 58,
+                                child: Text(
+                                  'Melayu',
+                                  style: GoogleFonts.notoSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedLang == 'ms' ? modalColors.primary : modalColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  translationMs,
+                                  style: GoogleFonts.notoSans(
+                                    fontSize: selectedLang == 'ms' ? 15 : 13.5,
+                                    fontWeight: selectedLang == 'ms' ? FontWeight.w700 : FontWeight.w500,
+                                    color: selectedLang == 'ms' ? modalColors.textStrong : modalColors.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (translationEn.isNotEmpty)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 58,
+                                child: Text(
+                                  'English',
+                                  style: GoogleFonts.notoSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedLang == 'en' ? modalColors.primary : modalColors.textMuted,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  translationEn,
+                                  style: GoogleFonts.notoSans(
+                                    fontSize: selectedLang == 'en' ? 15 : 13.5,
+                                    fontWeight: selectedLang == 'en' ? FontWeight.w700 : FontWeight.w500,
+                                    color: selectedLang == 'en' ? modalColors.textStrong : modalColors.foreground,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Morphology & Root Word Section
+                  if (rootArabic != null || partOfSpeech != null) ...[
+                    Text(
+                      'ไวยากรณ์และรากศัพท์ (Morphology & Root)',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: modalColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: modalColors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(color: modalColors.borderSoft),
+                      ),
+                      child: Column(
+                        children: [
+                          if (rootArabic != null) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'รากศัพท์คำ (جذر)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 13,
+                                    color: modalColors.foreground,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: modalColors.mushafGoldSoft,
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                    border: Border.all(color: modalColors.mushafGoldBorder),
+                                  ),
+                                  child: Text(
+                                    rootArabic,
+                                    style: TextStyle(
+                                      fontFamily: 'UthmanicHafs',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: modalColors.mushafGold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (partOfSpeech != null) const SizedBox(height: 12),
+                          ],
+                          if (partOfSpeech != null) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'หน้าที่ของคำ (POS)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 13,
+                                    color: modalColors.foreground,
+                                  ),
+                                ),
+                                Text(
+                                  partOfSpeech,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: modalColors.textStrong,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    // If English is selected: Show English ONLY
-                    if (effectiveLang == 'en') ...[
-                      if (translationEn.isNotEmpty)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
-                            Expanded(
-                              child: Text(
-                                translationEn,
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ]
-                    // If Malay is selected: Show Malay & English (for reference)
-                    else if (effectiveLang == 'ms') ...[
-                      if (translationMs.isNotEmpty) ...[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('🇲🇾 ', style: TextStyle(fontSize: 13)),
-                            Expanded(
-                              child: Text(
-                                translationMs,
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (translationEn.isNotEmpty) const SizedBox(height: 8),
-                      ],
-                      if (translationEn.isNotEmpty)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
-                            Expanded(
-                              child: Text(
-                                translationEn,
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ]
-                    // Default / Thai: Show Thai & English (for reference)
-                    else ...[
-                      if (translationTh.isNotEmpty) ...[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('🇹🇭 ', style: TextStyle(fontSize: 13)),
-                            Expanded(
-                              child: Text(
-                                translationTh,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (translationEn.isNotEmpty) const SizedBox(height: 8),
-                      ],
-                      if (translationEn.isNotEmpty)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('🇬🇧 ', style: TextStyle(fontSize: 13)),
-                            Expanded(
-                              child: Text(
-                                translationEn,
-                                style: GoogleFonts.notoSans(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-              // Morphology & Root Word Section (Borderless Surface Container)
-              if (rootArabic != null || partOfSpeech != null) ...[
-                Text(
-                  'ไวยากรณ์และรากศัพท์ (Morphology & Root)',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      if (rootArabic != null) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'รากศัพท์คำ (جذر)',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 13,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                  // Button to view all occurrences by root
+                  if (rootArabic != null && rootOccurrences > 0) ...[
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RootVersesScreen(
+                              rootArabic: rootArabic,
+                              occurrences: rootOccurrences,
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                rootArabic,
-                                style: TextStyle(
-                                  fontFamily: 'Tajweed',
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (partOfSpeech != null) const SizedBox(height: 12),
-                      ],
-                      if (partOfSpeech != null) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'หน้าที่ของคำ (POS)',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 13,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            Text(
-                              partOfSpeech,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-
-              // Button to view all occurrences by root
-              if (rootArabic != null && rootOccurrences > 0) ...[
-                FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RootVersesScreen(
-                          rootArabic: rootArabic,
-                          occurrences: rootOccurrences,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.saved_search_rounded, size: 18),
+                      label: Text(
+                        'ดูทั้ง $rootOccurrences อายะฮฺที่มีรากศัพท์นี้ ($rootArabic)',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.saved_search_rounded, size: 18),
-                  label: Text(
-                    'ดูทั้ง $rootOccurrences โองการที่มีรากศัพท์นี้ ($rootArabic)',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.textInverse,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                        ),
+                      ),
                     ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+                  ],
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -554,9 +617,7 @@ class _WordByWordViewState extends State<WordByWordView> {
     String effectiveLang,
     ColorScheme colorScheme,
   ) {
-    final theme = Theme.of(context);
     final isHidden = widget.isHidden;
-    final isDark = theme.brightness == Brightness.dark;
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
     final textUthmani = _cleanWordArabicText(rawTextUthmani);
     var translation = _getWordTranslation(word, effectiveLang);
@@ -571,20 +632,20 @@ class _WordByWordViewState extends State<WordByWordView> {
     final wordIndexOneBased = index + 1;
     final audioUrl = _getCanonicalWordAudioUrl(widget.verseKey, wordIndexOneBased);
 
-    final baseColor = isDark
-        ? colorScheme.surfaceContainer
-        : colorScheme.surfaceContainerHigh.withValues(alpha: 0.65);
-    final activeColor = colorScheme.primaryContainer;
+    final colors = context.appColors;
+    final baseColor = colors.surfaceMuted;
+    final activeColor = colors.primaryLight;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         onTap: isHidden
             ? null
             : () {
                 widget.onWordTap?.call(index);
                 _playWordAudio(audioUrl, index);
+                _showWordDetailSheet(context, word, wordIndexOneBased);
               },
         onLongPress: isHidden
             ? null
@@ -593,11 +654,15 @@ class _WordByWordViewState extends State<WordByWordView> {
               },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: const BoxConstraints(minWidth: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          constraints: const BoxConstraints(minWidth: 54),
           decoration: BoxDecoration(
             color: isPlaying ? activeColor : baseColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            border: Border.all(
+              color: isPlaying ? colors.primary : colors.borderSoft,
+              width: isPlaying ? 1.5 : 1.0,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -608,18 +673,16 @@ class _WordByWordViewState extends State<WordByWordView> {
                 textUthmani,
                 textDirection: TextDirection.rtl,
                 style: TextStyle(
-                  fontFamily: 'Tajweed',
+                  fontFamily: 'UthmanicHafs',
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   color: isHidden
                       ? Colors.transparent
-                      : (isPlaying
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurface),
+                      : (isPlaying ? colors.primary : colors.textStrong),
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 4),
               // Word Translation (in selected translation language)
               Text(
                 translation.isNotEmpty ? translation : transliteration,
@@ -627,12 +690,10 @@ class _WordByWordViewState extends State<WordByWordView> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.notoSansThai(
                   fontSize: 11.5,
-                  fontWeight: FontWeight.normal,
+                  fontWeight: FontWeight.w500,
                   color: isHidden
                       ? Colors.transparent
-                      : (isPlaying
-                          ? colorScheme.onPrimaryContainer.withValues(alpha: 0.85)
-                          : colorScheme.onSurfaceVariant),
+                      : (isPlaying ? colors.primary : colors.foreground),
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -752,12 +813,13 @@ class _WordByWordSheetState extends State<WordByWordSheet> {
     };
 
     final tipText = switch (_currentLang) {
-      'en' => 'Tap word to play audio • Long press to view root word & grammar',
-      'ms' => 'Ketik perkataan untuk audio • Tekan lama untuk kata dasar & tatabahasa',
-      _ => 'แตะที่คำเพื่อฟังเสียงอ่าน • แตะค้างเพื่อดูรากศัพท์และไวยากรณ์',
+      'en' => 'Tap word to play audio & view root word / grammar',
+      'ms' => 'Ketik perkataan untuk audio & kata dasar / tatabahasa',
+      _ => 'แตะที่คำเพื่อฟังเสียงอ่าน และดูรากศัพท์/ไวยากรณ์',
     };
 
     final translationToShow = _fullTranslationText ?? widget.translationText;
+    final colors = context.appColors;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.65,
@@ -766,15 +828,11 @@ class _WordByWordSheetState extends State<WordByWordSheet> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
+            color: colors.surface,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppTheme.radius),
+            ),
+            border: Border(top: BorderSide(color: colors.borderSoft)),
           ),
           child: Column(
             children: [
