@@ -34,6 +34,12 @@ const String googleLogoSvg = '''
 </svg>
 ''';
 
+const String appleLogoSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 170">
+  <path fill="#FFFFFF" d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.7-3.04-7.58-7.7-11.64-13.98-5.34-8.25-9.61-17.77-12.79-28.56-3.18-10.79-4.78-21.28-4.78-31.47 0-14.57 3.59-26.68 10.77-36.32 7.18-9.64 16.32-14.58 27.42-14.82 5.01 0 10.63 1.25 16.86 3.75 6.23 2.5 10.3 3.86 12.22 4.08 1.92-.22 6.13-1.63 12.63-4.23 6.5-2.6 12.18-3.79 17.04-3.58 13.06.66 23.36 4.99 30.9 12.98-11.74 7.08-17.47 16.89-17.18 29.43.3 9.94 4.15 18.23 11.55 24.87 3.7 3.37 7.93 5.87 12.7 7.5-2.39 6.84-5.2 13.82-8.43 20.94zm-37.49-106.1c0 7.39-2.67 14.28-8.01 20.67-6.2 7.39-13.78 11.63-22.74 12.72-.22-1.3-.33-2.4-.33-3.26 0-7.39 2.83-14.57 8.48-21.52 2.83-3.48 6.36-6.31 10.6-8.48 4.24-2.18 8.16-3.37 11.76-3.59.11 1.19.24 2.34.24 3.46z"/>
+</svg>
+''';
+
 class ProfileScreen extends StatefulWidget {
   final QuranRepository? repository;
   final bool isEmbedded;
@@ -259,6 +265,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleAppleSignIn(SupabaseProvider supabaseProv) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      await supabaseProv.signInWithApple();
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -795,6 +819,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     AppThemeColors colors,
     SupabaseProvider supabaseProv,
   ) {
+    final isGoogleSigningIn = supabaseProv.isSigningIn &&
+        supabaseProv.activeSignInProvider == 'google';
+    final isAppleSigningIn = supabaseProv.isSigningIn &&
+        supabaseProv.activeSignInProvider == 'apple';
+    final isAnyBusy = _isLoading || supabaseProv.isSigningIn;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -809,11 +839,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-        // Google Sign In Button (Strict Editorial Standard - No gradients, no fuzzy shadows)
+        // Apple Sign In Button (Strict Editorial Standard - No gradients, no fuzzy shadows)
         InkWell(
-          onTap: (_isLoading || supabaseProv.isSigningIn)
-              ? null
-              : () => _handleGoogleSignIn(supabaseProv),
+          onTap: isAnyBusy ? null : () => _handleAppleSignIn(supabaseProv),
           borderRadius: BorderRadius.circular(8),
           child: Container(
             height: 44,
@@ -825,7 +853,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (_isLoading || supabaseProv.isSigningIn) ...[
+                if (isAppleSigningIn) ...[
                   SizedBox(
                     width: 18,
                     height: 18,
@@ -836,7 +864,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'กำลังเชื่อมต่อกับ Google...',
+                    context.tr('connecting_to_apple'),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
+                  ),
+                ] else ...[
+                  SvgPicture.string(
+                    appleLogoSvg,
+                    width: 17,
+                    height: 17,
+                    colorFilter: ColorFilter.mode(
+                      colors.textStrong,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    context.tr('sign_in_with_apple'),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Google Sign In Button (Strict Editorial Standard - No gradients, no fuzzy shadows)
+        InkWell(
+          onTap: isAnyBusy ? null : () => _handleGoogleSignIn(supabaseProv),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isGoogleSigningIn) ...[
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    context.tr('connecting_to_google'),
                     style: GoogleFonts.notoSansThai(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
@@ -847,7 +932,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SvgPicture.string(googleLogoSvg, width: 18, height: 18),
                   const SizedBox(width: 10),
                   Text(
-                    'ลงชื่อเข้าใช้ด้วย Google',
+                    context.tr('sign_in_with_google'),
                     style: GoogleFonts.notoSansThai(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,

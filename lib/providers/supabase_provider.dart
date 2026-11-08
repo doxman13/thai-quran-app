@@ -15,6 +15,7 @@ class SupabaseProvider extends ChangeNotifier {
   StreamSubscription<Uri>? _appLinksSubscription;
   String _guestName = 'Reader';
   bool _isSigningIn = false;
+  String? _activeSignInProvider;
   String? _authError;
 
   User? get user => _user;
@@ -22,13 +23,20 @@ class SupabaseProvider extends ChangeNotifier {
   String get userEmail => _user?.email ?? '';
   String get userId => _user?.id ?? '';
   bool get isSigningIn => _isSigningIn;
+  String? get activeSignInProvider => _activeSignInProvider;
   String? get authError => _authError;
 
   String get displayName {
     if (_user != null) {
-      final metaName = _user?.userMetadata?['full_name']?.toString() ?? '';
+      final metaName = _user?.userMetadata?['full_name']?.toString() ??
+          _user?.userMetadata?['name']?.toString() ??
+          '';
       if (metaName.trim().isNotEmpty) return metaName.trim();
-      return _user?.email?.split('@')[0] ?? 'Reader';
+      final email = _user?.email;
+      if (email != null && email.isNotEmpty) {
+        return email.split('@')[0];
+      }
+      return 'Apple User';
     }
     return _guestName;
   }
@@ -162,10 +170,43 @@ class SupabaseProvider extends ChangeNotifier {
   static const String _googleWebClientId =
       '1011303318865-jrub1rpu8e661lmo6eunphtrin1alcrl.apps.googleusercontent.com';
 
+  // Apple sign-in request (OAuth on Web, OAuth on Mobile)
+  Future<void> signInWithApple() async {
+    _authError = null;
+    _isSigningIn = true;
+    _activeSignInProvider = 'apple';
+    notifyListeners();
+
+    try {
+      if (kIsWeb) {
+        await _client.auth.signInWithOAuth(
+          OAuthProvider.apple,
+          redirectTo: Uri.base.origin,
+        );
+        return;
+      }
+
+      await _client.auth.signInWithOAuth(
+        OAuthProvider.apple,
+        redirectTo: 'io.supabase.thaiquran://login-callback',
+      );
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Apple sign-in error: $e');
+      _authError = e.toString().replaceAll('Exception:', '').trim();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _isSigningIn = false;
+      _activeSignInProvider = null;
+      notifyListeners();
+    }
+  }
+
   // Google sign-in request (Native Bottom Sheet on Mobile, OAuth on Web)
   Future<void> signInWithGoogle() async {
     _authError = null;
     _isSigningIn = true;
+    _activeSignInProvider = 'google';
     notifyListeners();
 
     try {
@@ -185,6 +226,7 @@ class SupabaseProvider extends ChangeNotifier {
       if (googleUser == null) {
         // User cancelled account picker
         _isSigningIn = false;
+        _activeSignInProvider = null;
         notifyListeners();
         return;
       }
@@ -224,6 +266,7 @@ class SupabaseProvider extends ChangeNotifier {
       }
     } finally {
       _isSigningIn = false;
+      _activeSignInProvider = null;
       notifyListeners();
     }
   }
