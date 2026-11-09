@@ -1457,6 +1457,11 @@ class _VerseCardState extends State<VerseCard> {
     Locale? locale,
     String? translationId,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final footnoteColor = isDark
+        ? const Color(0xFFFBBF24) // Vibrant warm gold in dark mode
+        : const Color(0xFFB45309); // Rich amber bronze in light mode
+
     return RichText(
       locale: locale,
       softWrap: true,
@@ -1466,7 +1471,7 @@ class _VerseCardState extends State<VerseCard> {
           context,
           text,
           textStyle,
-          Theme.of(context).colorScheme.primary,
+          footnoteColor,
           verseKey: '${widget.verse.surahId}:${widget.verse.id}',
           translationId: translationId,
         ),

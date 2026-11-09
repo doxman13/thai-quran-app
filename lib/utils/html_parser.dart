@@ -79,14 +79,19 @@ class HtmlParser {
     final appColors = context.appColors;
     final fallbackTextColor = style.color ?? appColors.textStrong;
 
-    // Ensure linkColor has high contrast in dark mode.
+    // Ensure linkColor has high contrast and is clearly distinct from body text in both modes.
     Color effectiveLinkColor = linkColor;
     if (isDark) {
-      if (effectiveLinkColor.computeLuminance() < 0.15 || effectiveLinkColor == theme.primaryColor) {
-        effectiveLinkColor = appColors.primary;
+      if (effectiveLinkColor.computeLuminance() < 0.25 ||
+          effectiveLinkColor == theme.primaryColor ||
+          effectiveLinkColor == theme.colorScheme.primary) {
+        effectiveLinkColor = const Color(0xFFFBBF24); // Vibrant warm gold in dark mode
       }
-      if (effectiveLinkColor.computeLuminance() < 0.15) {
-        effectiveLinkColor = appColors.primary;
+    } else {
+      if (effectiveLinkColor.computeLuminance() < 0.12 ||
+          effectiveLinkColor == theme.primaryColor ||
+          effectiveLinkColor == theme.colorScheme.primary) {
+        effectiveLinkColor = const Color(0xFFB45309); // Rich amber bronze (high contrast against white and dark text)
       }
     }
 
@@ -141,8 +146,11 @@ class HtmlParser {
           text: '[$fnId]',
           style: style.copyWith(
             color: effectiveLinkColor,
-            fontWeight: FontWeight.bold,
-            fontSize: (style.fontSize ?? 14) * 0.75,
+            backgroundColor: effectiveLinkColor.withValues(alpha: isDark ? 0.24 : 0.12),
+            fontWeight: FontWeight.w800,
+            fontSize: (style.fontSize ?? 14) * 0.70,
+            letterSpacing: 0.5,
+            fontFeatures: const [FontFeature.superscripts()],
           ),
           recognizer: isInteractive
               ? (TapGestureRecognizer()
