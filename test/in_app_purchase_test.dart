@@ -11,12 +11,12 @@ void main() {
 
   group('InAppPurchaseService Constants', () {
     test('Product IDs match standard store identifiers', () {
-      expect(InAppPurchaseService.tipSmall, equals('tip_small'));
-      expect(InAppPurchaseService.tipMedium, equals('tip_medium'));
-      expect(InAppPurchaseService.tipLarge, equals('tip_large'));
+      expect(InAppPurchaseService.tipSmall, equals('thaiquran_tip_small'));
+      expect(InAppPurchaseService.tipMedium, equals('thaiquran_tip_medium'));
+      expect(InAppPurchaseService.tipLarge, equals('thaiquran_tip_large'));
       expect(
         InAppPurchaseService.productIds,
-        containsAll(['tip_small', 'tip_medium', 'tip_large']),
+        containsAll(['thaiquran_tip_small', 'thaiquran_tip_medium', 'thaiquran_tip_large']),
       );
     });
 

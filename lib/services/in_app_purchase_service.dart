@@ -7,9 +7,9 @@ class InAppPurchaseService extends ChangeNotifier {
   factory InAppPurchaseService() => _instance;
   InAppPurchaseService._internal();
 
-  static const String tipSmall = 'tip_small';
-  static const String tipMedium = 'tip_medium';
-  static const String tipLarge = 'tip_large';
+  static const String tipSmall = 'thaiquran_tip_small';
+  static const String tipMedium = 'thaiquran_tip_medium';
+  static const String tipLarge = 'thaiquran_tip_large';
 
   static const Set<String> productIds = {
     tipSmall,

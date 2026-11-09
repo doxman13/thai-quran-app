@@ -317,9 +317,9 @@ class _SupportDialogState extends State<SupportDialog> {
   Widget _buildFallbackTiersSection(AppThemeColors colors, String storeName) {
     // Shows the exact items that will be active once Play Store / App Store config is published
     final fallbackItems = [
-      {'id': 'tip_small', 'title': 'เลี้ยงกาแฟทีมพัฒนา (Small Tip)', 'price': '~29 ฿'},
-      {'id': 'tip_medium', 'title': 'สนับสนุนค่าเซิร์ฟเวอร์ (Medium Tip)', 'price': '~99 ฿'},
-      {'id': 'tip_large', 'title': 'สนับสนุนการพัฒนาอัลกุรอาน (Large Tip)', 'price': '~299 ฿'},
+      {'id': 'thaiquran_tip_small', 'title': 'เลี้ยงกาแฟทีมพัฒนา (Small Tip)', 'price': '~29 ฿'},
+      {'id': 'thaiquran_tip_medium', 'title': 'สนับสนุนค่าเซิร์ฟเวอร์ (Medium Tip)', 'price': '~99 ฿'},
+      {'id': 'thaiquran_tip_large', 'title': 'สนับสนุนการพัฒนาอัลกุรอาน (Large Tip)', 'price': '~299 ฿'},
     ];
 
     return Column(
