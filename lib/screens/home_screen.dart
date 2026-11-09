@@ -1031,6 +1031,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final settings = context.watch<SettingsProvider>();
+    final appColors = settings.getAppColors();
     final readingProvider = context.watch<LocalReadingProvider>();
     final mushafReadingProvider = context.watch<MushafReadingProvider>();
     final statsProvider = context.watch<StatsProvider>();
@@ -1038,6 +1039,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!_isInit) {
       return Scaffold(
+        backgroundColor: appColors.background,
         body: SafeArea(
           child: Center(
             child: _initFailed
@@ -1089,15 +1091,16 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: appColors.background,
         appBar: AppBar(
           elevation: 0,
           scrolledUnderElevation: 0,
-          backgroundColor: colorScheme.surface,
+          backgroundColor: appColors.background,
           titleSpacing: 16,
-          title: _buildAppBarTitleForTab(_navIndex, isThai, colorScheme),
+          title: _buildAppBarTitleForTab(_navIndex, isThai, appColors),
           actions: [
             IconButton(
-              icon: const Icon(Icons.search_rounded),
+              icon: Icon(Icons.search_rounded, color: appColors.primary),
               tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
               onPressed: () {
                 setState(() => _navIndex = 1);
@@ -1108,6 +1111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 settings.isDarkMode
                     ? Icons.light_mode_outlined
                     : Icons.dark_mode_outlined,
+                color: appColors.primary,
               ),
               tooltip: isThai
                   ? (settings.isDarkMode
@@ -1128,6 +1132,7 @@ class _HomeScreenState extends State<HomeScreen> {
             setState(() => _navIndex = index);
           },
           elevation: 0,
+          backgroundColor: appColors.background,
           indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.7),
           destinations: [
             NavigationDestination(
@@ -1338,14 +1343,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildAppBarTitleForTab(int tabIndex, bool isThai, ColorScheme colorScheme) {
+  Widget _buildAppBarTitleForTab(int tabIndex, bool isThai, AppThemeColors colors) {
     if (tabIndex == 0) {
       return Text(
         isThai ? 'อัสสลามุอะลัยกุม' : 'Assalamu Alaikum',
         style: GoogleFonts.notoSansThai(
           fontSize: 21,
           fontWeight: FontWeight.w900,
-          color: const Color(0xFF0E5A4A),
+          color: colors.primary,
           letterSpacing: -0.3,
         ),
       );
@@ -1355,7 +1360,8 @@ class _HomeScreenState extends State<HomeScreen> {
         style: GoogleFonts.notoSansThai(
           fontSize: 20,
           fontWeight: FontWeight.w800,
-          color: colorScheme.onSurface,
+          color: colors.primary,
+          letterSpacing: -0.3,
         ),
       );
     } else if (tabIndex == 2) {
@@ -1364,7 +1370,8 @@ class _HomeScreenState extends State<HomeScreen> {
         style: GoogleFonts.notoSansThai(
           fontSize: 20,
           fontWeight: FontWeight.w800,
-          color: colorScheme.onSurface,
+          color: colors.primary,
+          letterSpacing: -0.3,
         ),
       );
     } else {
@@ -1373,7 +1380,8 @@ class _HomeScreenState extends State<HomeScreen> {
         style: GoogleFonts.notoSansThai(
           fontSize: 20,
           fontWeight: FontWeight.w800,
-          color: colorScheme.onSurface,
+          color: colors.primary,
+          letterSpacing: -0.3,
         ),
       );
     }

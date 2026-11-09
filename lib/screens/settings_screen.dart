@@ -24,7 +24,6 @@ import '../widgets/auth_bottom_sheet.dart';
 import 'bookmarks_screen.dart';
 import 'goals_screen.dart';
 import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
-import 'mushaf_reader_screen.dart';
 import 'tadabbur_admin_screen.dart';
 import 'tadabbur_private_screen.dart';
 
@@ -472,24 +471,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _openContinueMushaf(MushafReadingProvider mushafProv) {
-    final recent = mushafProv.recentReadings.isNotEmpty
-        ? mushafProv.recentReadings.first
-        : null;
-    final page = recent?.pageNumber ?? 1;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MushafReaderScreen(
-          quranRepository: widget.repository ?? QuranRepository(),
-          foundationRepository: _foundationRepository,
-          initialPage: page,
-        ),
-      ),
-    );
-  }
-
   // ── Main Build Method ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -503,27 +484,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isThai = settings.languageCode == 'th';
     final canPop = Navigator.canPop(context);
 
-    // Calculate Mushaf reading progress (out of 604 pages)
-    final recentMushaf = mushafProv.recentReadings.isNotEmpty
-        ? mushafProv.recentReadings.first
-        : null;
-    final int pagesRead = (recentMushaf?.pageNumber ?? 1).clamp(1, 604);
-    final int remainingPages = (604 - pagesRead).clamp(0, 603);
-    final int percentComplete = ((pagesRead / 604.0) * 100).round();
-
     return Scaffold(
       backgroundColor: colors.background,
       appBar: canPop
           ? AppBar(
               backgroundColor: colors.background,
               elevation: 0,
-              foregroundColor: colors.foreground,
+              foregroundColor: colors.primary,
               title: Text(
                 isThai ? 'โปรไฟล์ & การตั้งค่า' : 'Profile & Settings',
                 style: GoogleFonts.notoSansThai(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: colors.textStrong,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: colors.primary,
                 ),
               ),
             )
@@ -544,18 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── 2. Your Quran Journey Card ───────────────────────────────
-              _buildQuranJourneyCard(
-                pagesRead: pagesRead,
-                remainingPages: remainingPages,
-                percentComplete: percentComplete,
-                colors: colors,
-                isThai: isThai,
-                onTap: () => _openContinueMushaf(mushafProv),
-              ),
-              const SizedBox(height: 20),
-
-              // ── 3. Category: ACCOUNT ─────────────────────────────────────
+              // ── 2. Category: ACCOUNT ─────────────────────────────────────
               _buildSectionHeader(isThai ? 'บัญชีผู้ใช้' : 'ACCOUNT', colors),
               const SizedBox(height: 8),
               _buildGroupCard(
@@ -1153,160 +1115,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  // ── Quran Journey Card ─────────────────────────────────────────────────────
-  Widget _buildQuranJourneyCard({
-    required int pagesRead,
-    required int remainingPages,
-    required int percentComplete,
-    required AppThemeColors colors,
-    required bool isThai,
-    required VoidCallback onTap,
-  }) {
-    final progressFraction = (pagesRead / 604.0).clamp(0.0, 1.0);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radius),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: colors.borderSoft),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top row with circular indicator and title
-            Row(
-              children: [
-                // Circular progress ring
-                SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: progressFraction,
-                        strokeWidth: 4,
-                        backgroundColor: colors.surfaceMuted,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF8A6530),
-                        ),
-                      ),
-                      Text(
-                        '$pagesRead',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: colors.textStrong,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isThai ? 'การเดินทางในอัลกุรอาน' : 'Your Quran Journey',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: colors.textStrong,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isThai
-                            ? 'เสร็จสิ้น $percentComplete%'
-                            : '$percentComplete% complete',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 13,
-                          color: colors.textMuted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Horizontal progress bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: progressFraction,
-                minHeight: 6,
-                backgroundColor: colors.surfaceMuted,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF8A6530),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Bottom 2 columns
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$pagesRead',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: colors.textStrong,
-                      ),
-                    ),
-                    Text(
-                      isThai ? 'หน้าที่อ่านแล้ว' : 'Pages Read',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 12,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$remainingPages',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: colors.textStrong,
-                      ),
-                    ),
-                    Text(
-                      isThai ? 'หน้าที่เหลือ' : 'Remaining',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 12,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 

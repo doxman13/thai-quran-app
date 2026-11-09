@@ -472,75 +472,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     );
   }
 
-  Widget _buildHeader(ColorScheme colorScheme, bool isThai) {
-    final canPop = Navigator.canPop(context);
-    final hasBackAction = canPop || widget.onBackToHome != null;
-
-    final String titleText = _selectedMenuIndex == 2
-        ? (isThai ? 'บันทึกส่วนตัว' : 'My Notes')
-        : context.tr('bookmarks');
-    final String subtitleText = _selectedMenuIndex == 2
-        ? (isThai
-              ? 'บันทึกข้อคิดและบทเรียนจากอัลกุรอาน'
-              : 'Your personal reflections and notes')
-        : context.tr('reading_progress');
-    final IconData headerIcon = _selectedMenuIndex == 2
-        ? Icons.edit_note_rounded
-        : Icons.bookmark_border_rounded;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        MediaQuery.of(context).padding.top + 8,
-        24,
-        16,
-      ),
-      color: colorScheme.surface,
-      child: Row(
-        children: [
-          if (hasBackAction) ...[
-            IconButton(
-              icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-              onPressed: () {
-                if (canPop) {
-                  Navigator.pop(context);
-                } else if (widget.onBackToHome != null) {
-                  widget.onBackToHome!();
-                }
-              },
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titleText,
-                  style: GoogleFonts.notoSansThai(
-                    color: colorScheme.primary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitleText,
-                  style: GoogleFonts.notoSansThai(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(headerIcon, color: colorScheme.primary, size: 32),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCapsuleSelector(
     ColorScheme colorScheme,
     TextTheme textTheme,
@@ -875,6 +806,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final mushafReading = Provider.of<MushafReadingProvider>(context);
     final notesProv = Provider.of<NotesProvider>(context);
     final settings = Provider.of<SettingsProvider>(context);
+    final colors = settings.getAppColors();
+    final canPop = Navigator.canPop(context);
+    final hasBackAction = canPop || widget.onBackToHome != null;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isThai = settings.languageCode == 'th';
@@ -1654,9 +1588,34 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
 
     return Scaffold(
+      backgroundColor: colors.background,
+      appBar: hasBackAction
+          ? AppBar(
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: colors.background,
+              leading: IconButton(
+                icon: Icon(Icons.arrow_back, color: colors.primary),
+                onPressed: () {
+                  if (canPop) {
+                    Navigator.pop(context);
+                  } else if (widget.onBackToHome != null) {
+                    widget.onBackToHome!();
+                  }
+                },
+              ),
+              title: Text(
+                isThai ? 'ที่คั่นหน้า & บันทึก' : 'Bookmarks & Notes',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: colors.primary,
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
-          _buildHeader(colorScheme, isThai),
           _buildCapsuleSelector(
             colorScheme,
             textTheme,
