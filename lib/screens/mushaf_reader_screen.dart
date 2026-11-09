@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart';
@@ -4802,6 +4803,89 @@ class _PageTranslationListViewState extends State<_PageTranslationListView> {
     });
   }
 
+  Widget _buildSurahHeaderBanner({
+    required String surahId,
+    required AppThemeColors colors,
+    required bool isThai,
+  }) {
+    final surahName = surahDisplayName(surahId, isThai: isThai);
+    final arabicName = offlineSurahNamesAr[surahId] ?? '';
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: colors.primaryLight,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: colors.primaryLightBorder),
+            ),
+            child: Text(
+              isThai ? 'ซูเราะฮฺที่ $surahId' : 'Surah $surahId',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: colors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              surahName,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: colors.textStrong,
+              ),
+            ),
+          ),
+          if (arabicName.isNotEmpty)
+            Text(
+              arabicName,
+              style: TextStyle(
+                fontFamily: 'Amiri',
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: colors.primary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBismillahBanner({
+    required AppThemeColors colors,
+    required bool isDark,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? colors.surfaceMuted.withValues(alpha: 0.5)
+            : colors.primaryLight.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Center(
+        child: SvgPicture.asset(
+          'assets/Bismillah_Calligraphy6.svg',
+          height: 44,
+          colorFilter: ColorFilter.mode(colors.textStrong, BlendMode.srcIn),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = widget.settings.getAppColors();
@@ -4826,24 +4910,27 @@ class _PageTranslationListViewState extends State<_PageTranslationListView> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final horizontalPadding = constraints.maxWidth < 430
-                  ? 32.0
-                  : 48.0;
+                  ? 12.0
+                  : 24.0;
               return ListView.separated(
                 controller: _scrollController,
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
-                  24,
+                  10,
                   horizontalPadding,
-                  120,
+                  90,
                 ),
                 itemCount: verses.length,
                 separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final mv = verses[index];
                   final surahId = mv.surahId;
                   final verseId = mv.verseId;
                   final verseKey = '$surahId:$verseId';
+                  final isFirstVerseOfSurah = verseId == '1';
+                  final shouldShowBismillah =
+                      isFirstVerseOfSurah && surahId != '1' && surahId != '9';
                   final surahVerses = widget.quranRepository.getSurahVerses(
                     surahId,
                   );
@@ -4872,29 +4959,53 @@ class _PageTranslationListViewState extends State<_PageTranslationListView> {
                       notesProvider.getNoteObjectForVerse(surahId, verseId) !=
                       null;
 
+                  final row = _TranslationVerseRow(
+                    key: _keyForVerse(verseKey),
+                    verse: verse,
+                    verseKey: verseKey,
+                    quranRepository: widget.quranRepository,
+                    settings: widget.settings,
+                    colors: colors,
+                    isHighlighted: isHighlighted,
+                    isAudioPlaying:
+                        audioProvider.isPlaying && isAudioActive,
+                    isAudioLoading:
+                        audioProvider.isLoading && isAudioActive,
+                    bookmarked: bookmarked,
+                    favorited: favorited,
+                    onTap: () => widget.onVerseTap(verseKey),
+                    onLongPress: () => widget.onVerseLongPress(verseKey),
+                    onPlay: () => widget.onPlayVerse(verseKey),
+                    onBookmark: () => widget.onBookmarkVerse(verseKey),
+                    onFavorite: () => widget.onFavoriteVerse(verseKey),
+                  );
+
+                  Widget content = row;
+                  if (isFirstVerseOfSurah) {
+                    content = Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildSurahHeaderBanner(
+                          surahId: surahId,
+                          colors: colors,
+                          isThai: widget.settings.languageCode == 'th',
+                        ),
+                        if (shouldShowBismillah)
+                          _buildBismillahBanner(
+                            colors: colors,
+                            isDark:
+                                Theme.of(context).brightness == Brightness.dark,
+                          ),
+                        row,
+                      ],
+                    );
+                  }
+
                   return Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 720),
-                      child: _TranslationVerseRow(
-                        key: _keyForVerse(verseKey),
-                        verse: verse,
-                        verseKey: verseKey,
-                        quranRepository: widget.quranRepository,
-                        settings: widget.settings,
-                        colors: colors,
-                        isHighlighted: isHighlighted,
-                        isAudioPlaying:
-                            audioProvider.isPlaying && isAudioActive,
-                        isAudioLoading:
-                            audioProvider.isLoading && isAudioActive,
-                        bookmarked: bookmarked,
-                        favorited: favorited,
-                        onTap: () => widget.onVerseTap(verseKey),
-                        onLongPress: () => widget.onVerseLongPress(verseKey),
-                        onPlay: () => widget.onPlayVerse(verseKey),
-                        onBookmark: () => widget.onBookmarkVerse(verseKey),
-                        onFavorite: () => widget.onFavoriteVerse(verseKey),
-                      ),
+                      child: content,
                     ),
                   );
                 },
@@ -5028,7 +5139,7 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.fromLTRB(16, 12, 8, 16),
+          padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
