@@ -9,6 +9,7 @@ import '../providers/settings_provider.dart';
 import '../services/remote_content_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
+import '../widgets/support_dialog.dart';
 import '../widgets/tajweed_color_guide_sheet.dart';
 import '../widgets/translation_manager_section.dart';
 import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
@@ -1327,6 +1328,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Divider(height: 1, color: colors.borderSoft),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => SupportDialog.show(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: colors.mushafGoldSoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.favorite_rounded,
+                                size: 14,
+                                color: colors.mushafGold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              context.tr('support_developer'),
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              isThai ? 'ร่วมสนับสนุน' : 'Support',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: colors.mushafGold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 12,
+                              color: colors.mushafGold,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Divider(height: 1, color: colors.borderSoft),

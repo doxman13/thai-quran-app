@@ -23,6 +23,7 @@ import 'mushaf_reader_screen.dart';
 import 'tadabbur_private_screen.dart';
 import 'tadabbur_community_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/support_dialog.dart';
 import '../shared/shared.dart';
 
 const String googleLogoSvg = '''
@@ -597,6 +598,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 20),
               _buildReportsSection(supabaseProv, colors, isThai),
             ],
+
+            // ── 7. SUPPORT / DONATION ─────────────────────────────────────────
+            const SizedBox(height: 20),
+            _buildSupportSection(context, colors, isThai),
 
             const SizedBox(height: 60),
           ],
@@ -2124,6 +2129,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSupportSection(
+    BuildContext context,
+    AppThemeColors colors,
+    bool isThai,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: colors.mushafGoldSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  size: 16,
+                  color: colors.mushafGold,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('support_developer'),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: colors.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.tr('support_desc'),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => SupportDialog.show(context),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: colors.mushafGoldSoft,
+                foregroundColor: colors.mushafGold,
+                side: BorderSide(
+                  color: colors.mushafGold.withValues(alpha: 0.4),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                ),
+              ),
+              icon: Icon(
+                Icons.volunteer_activism_rounded,
+                size: 16,
+                color: colors.mushafGold,
+              ),
+              label: Text(
+                isThai ? 'ร่วมสนับสนุนโครงการ' : 'Support the Project',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: colors.mushafGold,
+                ),
+              ),
+            ),
           ),
         ],
       ),

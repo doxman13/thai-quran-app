@@ -259,6 +259,11 @@ const Map<String, Map<String, String>> _localizedValues = {
     'tajweed_applicable_letters': 'อักษรที่เกี่ยวข้อง: ',
     'tajweed_examples': 'ตัวอย่าง: ',
     'tajweed_got_it': 'เข้าใจแล้ว',
+    'support_developer': 'สนับสนุนโครงการ / ผู้พัฒนา',
+    'support_desc':
+        'แอปพลิเคชันอัลกุรอานแปลไทยตั้งใจพัฒนาขึ้นมาให้ทุกคนใช้งานฟรีโดยไม่มีโฆษณาแฝง หากแอปนี้เป็นประโยชน์และท่านต้องการร่วมสนับสนุนค่าดูแลระบบและเซิร์ฟเวอร์ สามารถสนับสนุนได้ด้านล่างนี้ครับ',
+    'support_thank_you': 'ขอขอบคุณสำหรับการสนับสนุน ญะซากุมุลลอฮุคอยร์ครับ',
+    'support_web_btn': 'เปิดหน้าสนับสนุนบนเว็บไซต์ (quran-th.com)',
   },
   'en': {
     'settings': 'Settings',
@@ -520,12 +525,22 @@ const Map<String, Map<String, String>> _localizedValues = {
     'tajweed_applicable_letters': 'Applicable Letters: ',
     'tajweed_examples': 'Examples: ',
     'tajweed_got_it': 'Got it',
+    'support_developer': 'Support the Project',
+    'support_desc':
+        'Thai Quran is developed to be completely free with zero ads. If this app benefits you and you wish to support server and development costs, you may do so below:',
+    'support_thank_you': 'Thank you for your support. Jazakumullah Khairan.',
+    'support_web_btn': 'Open Support Page on quran-th.com',
   },
   'ms': {
     'sign_in_with_google': 'Log masuk dengan Google',
     'sign_in_with_apple': 'Log masuk dengan Apple',
     'connecting_to_apple': 'Menyambung ke Apple...',
     'connecting_to_google': 'Menyambung ke Google...',
+    'support_developer': 'Sokong Projek Al-Quran',
+    'support_desc':
+        'Aplikasi Al-Quran ini dibangunkan untuk kegunaan percuma tanpa sebarang iklan. Sekiranya aplikasi ini bermanfaat dan anda ingin menyokong kos pelayan, anda boleh berbuat demikian di bawah:',
+    'support_thank_you': 'Terima kasih atas sokongan anda. Jazakumullah Khairan.',
+    'support_web_btn': 'Buka Laman Sokongan di quran-th.com',
     'tajweed_guide_title': 'Panduan Kod Warna Tajwid (Tajweed Color Rules)',
     'tajweed_guide_desc':
         'Ketahui maksud warna dan kaedah sebutan mengikut hukum bacaan Al-Quran.',

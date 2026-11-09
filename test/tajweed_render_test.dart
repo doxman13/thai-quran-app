@@ -67,8 +67,9 @@ void main() {
     final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
     final pngBytes = byteData!.buffer.asUint8List();
 
-    final outFile = File('C:/Users/E/.gemini/antigravity-cli/brain/c09a8df2-682b-4ce3-ba34-f609d8b6ae49/scratch/rendered_shayan_fix_clear.png');
+    final tempDir = Directory.systemTemp.createTempSync('tajweed_render');
+    final outFile = File('${tempDir.path}/rendered_shayan_fix_clear.png');
     outFile.writeAsBytesSync(pngBytes);
-    print("Rendered clear comparison successfully!");
+    print("Rendered clear comparison successfully to ${outFile.path}!");
   });
 }

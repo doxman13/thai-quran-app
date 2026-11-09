@@ -26,6 +26,7 @@ import 'services/background_download_service.dart';
 import 'services/offline_quran_database_service.dart';
 import 'services/remote_content_service.dart';
 import 'services/footnote_service.dart';
+import 'services/in_app_purchase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,7 @@ Future<void> _initializeAppServices() async {
 
   await _initializeAudioBackground();
   await initializeDownloadService();
+  InAppPurchaseService().initialize();
   unawaited(OfflineQuranDatabaseService.getMutashabihatVerseKeys());
   await footnoteFuture;
 }

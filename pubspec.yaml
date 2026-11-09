@@ -43,6 +43,7 @@ dependencies:
   intl: any
   onnxruntime_v2: ^1.23.2+2
   record: ^5.2.0
+  in_app_purchase: ^3.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
