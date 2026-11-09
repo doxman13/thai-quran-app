@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -1644,18 +1645,15 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                               settings: settings,
                                               highlightedVerseKey:
                                                   activeHighlightKey,
-                                              onVerseTap: (verseKey) =>
-                                                  _showVerseDetailSheet(
-                                                    profile,
-                                                    verseKey,
-                                                    page,
-                                                  ),
-                                              onVerseLongPress: (verseKey) =>
-                                                  _showVerseDetailSheet(
-                                                    profile,
-                                                    verseKey,
-                                                    page,
-                                                  ),
+                                              onVerseTap: (verseKey) {},
+                                              onVerseLongPress: (verseKey) {
+                                                HapticFeedback.lightImpact();
+                                                _showVerseDetailSheet(
+                                                  profile,
+                                                  verseKey,
+                                                  page,
+                                                );
+                                              },
                                               onPlayVerse:
                                                   _playVerseOnCurrentPage,
                                               onBookmarkVerse: (verseKey) =>
@@ -1677,12 +1675,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                               pageNumber: renderPage,
                                               highlightedVerseKey:
                                                   activeHighlightKey,
-                                              onVerseTap: (surah, verse) =>
-                                                  _showVerseDetailSheet(
-                                                    profile,
-                                                    '$surah:$verse',
-                                                    page,
-                                                  ),
+                                              onVerseTap: null,
                                               onVerseLongPressStart:
                                                   (surah, verse) =>
                                                       _beginVersePress(
@@ -1691,12 +1684,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                                         page,
                                                       ),
                                               onVerseLongPress:
-                                                  (surah, verse) =>
-                                                      _showVerseDetailSheet(
-                                                        profile,
-                                                        '$surah:$verse',
-                                                        page,
-                                                      ),
+                                                  (surah, verse) {
+                                                    HapticFeedback.lightImpact();
+                                                    _showVerseDetailSheet(
+                                                      profile,
+                                                      '$surah:$verse',
+                                                      page,
+                                                    );
+                                                  },
                                             );
                                           }
                                           return _MushafRemotePageView(
@@ -1708,24 +1703,21 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                             highlightedVerseKey:
                                                 activeHighlightKey,
                                             highlightedVerseKeys: widget.initialHighlightVerseKeys,
-                                            onVerseTap: (verseKey) =>
-                                                _showVerseDetailSheet(
-                                                  profile,
-                                                  verseKey,
-                                                  page,
-                                                ),
+                                            onVerseTap: (verseKey) {},
                                             onVerseLongPressStart: (verseKey) =>
                                                 _beginVersePress(
                                                   profile,
                                                   verseKey,
                                                   page,
                                                 ),
-                                            onVerseLongPress: (verseKey) =>
-                                                _showVerseDetailSheet(
-                                                  profile,
-                                                  verseKey,
-                                                  page,
-                                                ),
+                                            onVerseLongPress: (verseKey) {
+                                              HapticFeedback.lightImpact();
+                                              _showVerseDetailSheet(
+                                                profile,
+                                                verseKey,
+                                                page,
+                                              );
+                                            },
                                           );
                                         },
                                       ),
@@ -3371,8 +3363,12 @@ class MushafLine extends StatelessWidget {
           ? Colors.transparent
           : null;
 
-      final recognizer = TapGestureRecognizer()
-        ..onTap = () => onVerseTap(word.verseKey);
+      final recognizer = LongPressGestureRecognizer()
+        ..onLongPress = () {
+          HapticFeedback.lightImpact();
+          onVerseLongPressStart(word.verseKey);
+          onVerseLongPress(word.verseKey);
+        };
 
       if ((mushafId == 11 || mushafId == 21) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
@@ -3544,15 +3540,17 @@ class _TranslationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: colors.surface,
-      elevation: 16,
-      borderRadius: BorderRadius.circular(8),
+      color: colors.background,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 210),
         padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
         decoration: BoxDecoration(
+          color: colors.background,
           border: Border.all(color: colors.borderSoft),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -5290,8 +5288,8 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
         maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border.all(color: colors.borderSoft, width: 1.0),
       ),
       child: SafeArea(
