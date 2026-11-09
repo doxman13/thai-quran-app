@@ -66,7 +66,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   late PageController _pageController;
   bool _isTranslationView = false;
   bool _isMenuVisible = true;
-  bool _completionShown = false;
   String? _highlightedVerseKey;
   String? _translationVerseKey;
   String? _translationText;
@@ -261,9 +260,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       );
     }
     unawaited(_logMushafPageRead(profile.mushafId, page));
-    if (!profile.isFreeRead && page == profile.targetPage) {
-      _showCompletionOnce();
-    }
   }
 
   Future<void> _logMushafPageRead(int mushafId, int pageNumber) async {
@@ -298,12 +294,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     } else {
       await _handlePageChanged(profile, safePage);
     }
-  }
-
-  void _showCompletionOnce() {
-    if (_completionShown || !mounted) return;
-    _completionShown = true;
-    setState(() {});
   }
 
   void _dismissTranslation() {
@@ -1742,23 +1732,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     ),
                                   ),
                                 ),
-                                if (!profile.isFreeRead &&
-                                    _pageNumber == profile.targetPage)
-                                  Positioned(
-                                    left: 16,
-                                    right: 16,
-                                    bottom: _translationText != null
-                                        ? 178
-                                        : (audioProvider.currentVerseKey !=
-                                                      null &&
-                                                  audioProvider.isContinuous
-                                              ? 102
-                                              : 12),
-                                    child: _CompletionCard(
-                                      colors: colors,
-                                      profile: profile,
-                                    ),
-                                  ),
                                 if (_translationText != null)
                                   Positioned(
                                     left: 14,
@@ -3684,40 +3657,6 @@ class _TranslationPanel extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CompletionCard extends StatelessWidget {
-  final AppThemeColors colors;
-  final MushafProfile profile;
-
-  const _CompletionCard({required this.colors, required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.primaryLight,
-        border: Border.all(color: colors.primaryLightBorder),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.celebration_outlined, color: colors.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              '${profile.name} complete',
-              style: GoogleFonts.notoSansThai(
-                color: colors.textStrong,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
