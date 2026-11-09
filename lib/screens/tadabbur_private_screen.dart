@@ -32,6 +32,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   final _repo = TadabburRepository();
   final _foundationRepository = QuranFoundationRepository();
   List<TadabburNote> _notes = [];
+  Map<String, String> _reviewStatuses = {};
   bool _loading = true;
   bool _isSyncing = false;
   String? _selectedSurahId;
@@ -51,6 +52,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
       try {
         await notesProv.syncWithSupabase();
         final remoteNotes = await _repo.fetchUserNotes();
+        final statuses = await _repo.fetchUserReviewStatuses();
         if (mounted) {
           final localMap = {
             for (final n in notesProv.personalNotes.values)
@@ -65,6 +67,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
 
           setState(() {
             _notes = list;
+            _reviewStatuses = statuses;
             if (_notes.isNotEmpty &&
                 _selectedSurahId != null &&
                 !_notes.any((n) => n.surahId == _selectedSurahId)) {
@@ -897,8 +900,11 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final note = notes[index];
+        final reviewStatus = _reviewStatuses[note.id];
+
         return _NoteCard(
           note: note,
+          reviewStatus: reviewStatus,
           repository: widget.repository,
           colors: colors,
           primaryColor: primaryColor,
@@ -906,28 +912,230 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           onOpenVerse: (surahId, verseId) => _openVerse(surahId, verseId),
           onOpenMushaf: (surahId, verseId) => _openMushaf(surahId, verseId),
           onTogglePublic: (note) async {
-            try {
-              await notesProv.saveNote(
-                surahId: note.surahId,
-                verseId: note.verseId,
-                noteText: note.noteText,
-                isPublic: !note.isPublic,
-                isAnonymous: note.isAnonymous,
+            final user = Supabase.instance.client.auth.currentUser;
+            if (user == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('กรุณาเข้าสู่ระบบก่อนแชร์สู่ชุมชน'),
+                ),
               );
-              await _loadNotes();
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      context.tr(
-                        'failed_to_update',
-                        args: {'error': '$e'},
+              return;
+            }
+
+            final currentStatus = _reviewStatuses[note.id];
+
+            if (note.isPublic) {
+              // 1. Revert from public to private
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: colors.surface,
+                  title: Text(
+                    'เปลี่ยนเป็นบันทึกส่วนตัว',
+                    style: GoogleFonts.notoSansThai(
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
+                  ),
+                  content: Text(
+                    'ต้องการยกเลิกการแชร์สู่ชุมชนใช่หรือไม่? บันทึกนี้จะไม่ปรากฏในชุมชนอีกต่อไป',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.foreground,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(
+                        context.tr('cancel'),
+                        style: GoogleFonts.notoSansThai(
+                          fontWeight: FontWeight.bold,
+                          color: colors.textMuted,
+                        ),
                       ),
                     ),
-                    backgroundColor: Colors.red,
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(
+                        'เปลี่ยนเป็นส่วนตัว',
+                        style: GoogleFonts.notoSansThai(
+                          color: colors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  await notesProv.saveNote(
+                    surahId: note.surahId,
+                    verseId: note.verseId,
+                    noteText: note.noteText,
+                    isPublic: false,
+                    isAnonymous: note.isAnonymous,
+                  );
+                  await _repo.cancelReviewRequest(note.id);
+                  await _loadNotes();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('เปลี่ยนเป็นบันทึกส่วนตัวแล้ว')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              }
+            } else if (currentStatus == 'open' || currentStatus == 'reviewing') {
+              // 2. Pending review -> Allow cancel request
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: colors.surface,
+                  title: Text(
+                    'ยกเลิกคำขอตรวจสอบ',
+                    style: GoogleFonts.notoSansThai(
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
                   ),
-                );
+                  content: Text(
+                    'บันทึกนี้กำลังอยู่ระหว่างรอแอดมินตรวจสอบเพื่อแชร์สู่ชุมชน คุณต้องการยกเลิกคำขอใช่หรือไม่?',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.foreground,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(
+                        context.tr('cancel'),
+                        style: GoogleFonts.notoSansThai(
+                          fontWeight: FontWeight.bold,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text(
+                        'ยกเลิกคำขอ',
+                        style: GoogleFonts.notoSansThai(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                await _repo.cancelReviewRequest(note.id);
+                await _loadNotes();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ยกเลิกคำขอตรวจสอบเรียบร้อยแล้ว')),
+                  );
+                }
+              }
+            } else {
+              // 3. Private -> Request to submit for admin review
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: colors.surface,
+                  title: Row(
+                    children: [
+                      Icon(Icons.rate_review_outlined, color: colors.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'ส่งให้แอดมินตรวจสอบ',
+                          style: GoogleFonts.notoSansThai(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: colors.foreground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    'เพื่อรักษาความถูกต้องและคุณภาพของเนื้อหา บันทึกนี้จะถูกส่งให้แอดมินตรวจสอบก่อนแสดงในชุมชนสาธารณะ เมื่อได้รับอนุมัติ บันทึกจะแสดงสู่สาธารณะโดยอัตโนมัติ',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: colors.foreground,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(
+                        context.tr('cancel'),
+                        style: GoogleFonts.notoSansThai(
+                          fontWeight: FontWeight.bold,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'ส่งตรวจสอบ',
+                        style: GoogleFonts.notoSansThai(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                try {
+                  await notesProv.saveNote(
+                    surahId: note.surahId,
+                    verseId: note.verseId,
+                    noteText: note.noteText,
+                    isPublic: false,
+                    isAnonymous: note.isAnonymous,
+                  );
+                  await _repo.submitForPublicReview(note);
+                  await _loadNotes();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('ส่งบันทึกให้แอดมินตรวจสอบเรียบร้อยแล้ว'),
+                        backgroundColor: Color(0xFF0E5A4A),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('เกิดข้อผิดพลาด: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
               }
             }
           },
@@ -965,6 +1173,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
 
 class _NoteCard extends StatefulWidget {
   final TadabburNote note;
+  final String? reviewStatus;
   final QuranRepository repository;
   final AppThemeColors colors;
   final Color primaryColor;
@@ -976,6 +1185,7 @@ class _NoteCard extends StatefulWidget {
 
   const _NoteCard({
     required this.note,
+    this.reviewStatus,
     required this.repository,
     required this.colors,
     required this.primaryColor,
@@ -1310,50 +1520,113 @@ class _NoteCardState extends State<_NoteCard> {
             // ── Footer Meta & Actions ────────────────────────────────────────
             Row(
               children: [
-                // Visibility toggle
+                // Visibility toggle & status pill
                 InkWell(
                   onTap: () => widget.onTogglePublic(note),
                   borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: note.isPublic
-                          ? const Color(0xFFEAF2EE)
-                          : colors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: note.isPublic
-                            ? const Color(0xFFB7D4C7)
-                            : colors.borderSoft,
+                  child: () {
+                    if (note.isPublic) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF2EE),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFB7D4C7)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.public, size: 13, color: Color(0xFF0E5A4A)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'แชร์สู่ชุมชน',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0E5A4A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (widget.reviewStatus == 'open' || widget.reviewStatus == 'reviewing') {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.hourglass_top_rounded, size: 13, color: Color(0xFFB45309)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'รอตรวจสอบ',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (widget.reviewStatus == 'rejected') {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFECACA)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.close_rounded, size: 13, color: Color(0xFFB91C1C)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'ไม่อนุมัติ (ส่งใหม่)',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFB91C1C),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.borderSoft),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          note.isPublic ? Icons.public : Icons.lock_outline,
-                          size: 13,
-                          color: note.isPublic
-                              ? const Color(0xFF0E5A4A)
-                              : colors.textMuted,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          note.isPublic ? 'แชร์สู่ชุมชน' : 'เฉพาะฉัน',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: note.isPublic
-                                ? const Color(0xFF0E5A4A)
-                                : colors.textMuted,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.lock_outline, size: 13, color: colors.textMuted),
+                          const SizedBox(width: 4),
+                          Text(
+                            'เฉพาะฉัน',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: colors.textMuted,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }(),
                 ),
                 if (note.likesCount > 0) ...[
                   const SizedBox(width: 8),

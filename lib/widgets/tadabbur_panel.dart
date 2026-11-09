@@ -35,6 +35,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
   bool _saveSuccess = false;
   bool _isEditing = false;
   TadabburNote? _savedNote;
+  String? _reviewStatus;
   bool _loading = true;
 
   @override
@@ -56,9 +57,19 @@ class _TadabburPanelState extends State<TadabburPanel> {
       widget.surahId,
       widget.verseId,
     );
+
+    String? status;
+    if (existing != null) {
+      try {
+        final statuses = await _repo.fetchUserReviewStatuses();
+        status = statuses[existing.id];
+      } catch (_) {}
+    }
+
     if (existing != null) {
       setState(() {
         _savedNote = existing;
+        _reviewStatus = status;
         _controller.text = existing.noteText;
         _isPublic = existing.isPublic;
         _isAnonymous = existing.isAnonymous;
@@ -69,6 +80,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
       });
     } else {
       setState(() {
+        _reviewStatus = null;
         _isEditing = true;
         _loading = false;
       });
@@ -80,7 +92,9 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
     setState(() => _isSaving = true);
     final notesProv = context.read<NotesProvider>();
-    final isPublicToSave = text.isEmpty ? false : _isPublic;
+    final isAlreadyPublic = _savedNote?.isPublic ?? false;
+    final shouldSubmitReview = _isPublic && text.isNotEmpty && !isAlreadyPublic;
+    final isPublicToSave = isAlreadyPublic ? _isPublic : false;
 
     await notesProv.saveNote(
       surahId: widget.surahId,
@@ -89,6 +103,13 @@ class _TadabburPanelState extends State<TadabburPanel> {
       isPublic: isPublicToSave,
       isAnonymous: _isAnonymous,
     );
+
+    if (shouldSubmitReview) {
+      final savedObj = notesProv.getNoteObjectForVerse(widget.surahId, widget.verseId);
+      if (savedObj != null) {
+        await _repo.submitForPublicReview(savedObj);
+      }
+    }
 
     if (mounted) {
       setState(() => _isSaving = false);
@@ -317,8 +338,12 @@ class _TadabburPanelState extends State<TadabburPanel> {
                             synced: true,
                           ),
                         );
+                        await _repo.cancelReviewRequest(_savedNote!.id);
                         if (updated != null && mounted) {
-                          setState(() => _savedNote = updated);
+                          setState(() {
+                            _savedNote = updated;
+                            _reviewStatus = null;
+                          });
                         }
                       } catch (e) {
                         if (mounted) {
@@ -344,43 +369,93 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       visualDensity: VisualDensity.compact,
                     ),
                   )
+                else if (_reviewStatus == 'open' || _reviewStatus == 'reviewing')
+                  TextButton.icon(
+                    onPressed: () async {
+                      await _repo.cancelReviewRequest(_savedNote!.id);
+                      if (mounted) {
+                        setState(() => _reviewStatus = null);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ยกเลิกคำขอตรวจสอบแล้ว')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.close_rounded, size: 14),
+                    label: Text(
+                      isThai ? 'ยกเลิกคำขอตรวจสอบ' : 'Cancel Review',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.danger,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
                 else
                   TextButton.icon(
                     onPressed: () async {
-                      try {
-                        final updated = await _repo.saveNote(
-                          TadabburNote(
-                            id: _savedNote!.id,
-                            userId: _savedNote!.userId,
-                            surahId: _savedNote!.surahId,
-                            verseId: _savedNote!.verseId,
-                            noteText: _savedNote!.noteText,
-                            isPublic: true,
-                            isAnonymous: _savedNote!.isAnonymous,
-                            likesCount: _savedNote!.likesCount,
-                            language: _savedNote!.language,
-                            createdAt: _savedNote!.createdAt,
-                            updatedAt: DateTime.now(),
-                            synced: true,
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: Text(
+                            isThai ? 'ส่งให้แอดมินตรวจสอบ' : 'Submit for Review',
+                            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
                           ),
-                        );
-                        if (updated != null && mounted) {
-                          setState(() => _savedNote = updated);
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed: $e'),
-                              backgroundColor: colors.danger,
+                          content: Text(
+                            isThai
+                                ? 'ต้องการส่งบันทึกนี้ให้แอดมินตรวจสอบเพื่อแชร์สู่ชุมชนใช่หรือไม่?'
+                                : 'Do you want to submit this reflection to admins for community review?',
+                            style: GoogleFonts.notoSansThai(fontSize: 13),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(
+                                isThai ? 'ยกเลิก' : 'Cancel',
+                                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          );
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text(
+                                isThai ? 'ส่งตรวจสอบ' : 'Submit',
+                                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm == true) {
+                        try {
+                          await _repo.submitForPublicReview(_savedNote!);
+                          if (mounted) {
+                            setState(() => _reviewStatus = 'open');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('ส่งบันทึกให้แอดมินตรวจสอบเรียบร้อยแล้ว'),
+                                backgroundColor: Color(0xFF0E5A4A),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed: $e'), backgroundColor: colors.danger),
+                            );
+                          }
                         }
                       }
                     },
                     icon: const Icon(Icons.public_rounded, size: 14),
                     label: Text(
-                      isThai ? 'ทำให้เป็นสาธารณะ' : 'Make Public',
+                      isThai ? 'ส่งแชร์สู่ชุมชน' : 'Share to Community',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -446,8 +521,19 @@ class _TadabburPanelState extends State<TadabburPanel> {
 
   Widget _buildPrivacyChip(AppThemeColors colors) {
     final isPublic = _savedNote?.isPublic ?? _isPublic;
+    final isPending = _reviewStatus == 'open' || _reviewStatus == 'reviewing';
+    final isRejected = _reviewStatus == 'rejected';
     final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final chipColor = isPublic ? colors.success : colors.primary;
+    final isThai = settings.languageCode == 'th';
+
+    final chipColor = isPublic
+        ? colors.success
+        : isPending
+        ? const Color(0xFFB45309)
+        : isRejected
+        ? colors.danger
+        : colors.primary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -461,15 +547,25 @@ class _TadabburPanelState extends State<TadabburPanel> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isPublic ? Icons.public : Icons.lock_outline,
+            isPublic
+                ? Icons.public
+                : isPending
+                ? Icons.hourglass_top_rounded
+                : isRejected
+                ? Icons.cancel_outlined
+                : Icons.lock_outline,
             size: 11,
             color: chipColor,
           ),
           const SizedBox(width: 4),
           Text(
             isPublic
-                ? (settings.languageCode == 'th' ? 'สาธารณะ' : 'Public')
-                : (settings.languageCode == 'th' ? 'ส่วนตัว' : 'Private'),
+                ? (isThai ? 'สาธารณะ' : 'Public')
+                : isPending
+                ? (isThai ? 'รอตรวจสอบ' : 'In Review')
+                : isRejected
+                ? (isThai ? 'ไม่อนุมัติ' : 'Rejected')
+                : (isThai ? 'ส่วนตัว' : 'Private'),
             style: GoogleFonts.notoSansThai(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -672,6 +768,20 @@ class _TadabburPanelState extends State<TadabburPanel> {
                 ],
               ),
             ),
+            if (_isPublic)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  isThai
+                      ? '💡 การแชร์สู่สาธารณะจะถูกส่งให้ทีมงานตรวจสอบก่อนเผยแพร่'
+                      : '💡 Public reflections are reviewed by moderators before appearing in community',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11,
+                    color: const Color(0xFF8A6530),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
           ],
           const SizedBox(height: 20),
           SizedBox(

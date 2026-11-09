@@ -14,6 +14,7 @@ import '../widgets/tajweed_color_guide_sheet.dart';
 import '../widgets/translation_manager_section.dart';
 import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
 import 'profile_screen.dart';
+import 'tadabbur_admin_screen.dart';
 
 enum SettingsCategoryTab {
   profile,
@@ -1382,6 +1383,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               color: colors.mushafGold,
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Divider(height: 1, color: colors.borderSoft),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () {
+                    final repo = widget.repository ?? QuranRepository();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TadabburAdminScreen(
+                          repository: repo,
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: colors.primary.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.admin_panel_settings_rounded,
+                                size: 14,
+                                color: colors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isThai ? 'ตรวจสอบบันทึกตดับบุร (Admin)' : 'Tadabbur Review (Admin)',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 12,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ),

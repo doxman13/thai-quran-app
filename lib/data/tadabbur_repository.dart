@@ -1,5 +1,7 @@
 // lib/data/tadabbur_repository.dart
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tadabbur_note.dart';
 
@@ -118,6 +120,268 @@ class TadabburRepository {
     } catch (e) {
       debugPrint('TadabburRepository: Error toggling like: $e');
       rethrow;
+    }
+  }
+
+  /// Submit a note for admin review before making it public
+  Future<void> submitForPublicReview(TadabburNote note) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('Authentication required');
+
+    final existing = await _client
+        .from('translation_reports')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('suggested_text', note.id)
+        .eq('translation_version', 'tadabbur_review')
+        .eq('status', 'open')
+        .maybeSingle();
+
+    if (existing != null) return;
+
+    await _client.from('translation_reports').insert({
+      'user_id': user.id,
+      'surah_id': note.surahId,
+      'verse_id': note.verseId,
+      'translation_version': 'tadabbur_review',
+      'issue_type': 'other',
+      'comment': note.noteText,
+      'suggested_text': note.id,
+      'status': 'open',
+      'source': kIsWeb ? 'web' : 'flutter',
+    });
+  }
+
+  /// Cancel review request (reverting to private)
+  Future<void> cancelReviewRequest(String noteId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _client
+          .from('translation_reports')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('suggested_text', noteId)
+          .eq('translation_version', 'tadabbur_review');
+    } catch (e) {
+      debugPrint('Error canceling review request: $e');
+    }
+  }
+
+  /// Fetch map of noteId -> review status ('open', 'reviewing', 'accepted', 'rejected')
+  Future<Map<String, String>> fetchUserReviewStatuses() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return {};
+
+    try {
+      final response = await _client
+          .from('translation_reports')
+          .select('suggested_text, status')
+          .eq('user_id', user.id)
+          .eq('translation_version', 'tadabbur_review');
+
+      final map = <String, String>{};
+      for (final row in (response as List<dynamic>)) {
+        final noteId = row['suggested_text']?.toString();
+        final status = row['status']?.toString();
+        if (noteId != null && status != null) {
+          map[noteId] = status;
+        }
+      }
+      return map;
+    } catch (e) {
+      debugPrint('TadabburRepository: Error fetching review statuses: $e');
+      return {};
+    }
+  }
+
+  /// Verify admin passphrase via Supabase RPC
+  Future<bool> verifyAdminPassphrase(String candidate) async {
+    try {
+      final res = await _client.rpc(
+        'verify_admin_passphrase',
+        params: {'p_username': 'admin', 'p_passphrase': candidate.trim()},
+      );
+      return res == true;
+    } catch (e) {
+      debugPrint('Admin passphrase verification error: $e');
+      return false;
+    }
+  }
+
+  static String? _cachedAdminPassphrase;
+
+  static void setAdminPassphrase(String passphrase) {
+    _cachedAdminPassphrase = passphrase.trim();
+  }
+
+  static String? get cachedAdminPassphrase => _cachedAdminPassphrase;
+
+  /// Admin method: fetch all tadabbur review requests
+  Future<List<Map<String, dynamic>>> fetchAdminReviewRequests({String? passphrase}) async {
+    final pass = passphrase ?? _cachedAdminPassphrase;
+
+    // 1. Try secure HTTPS backend endpoint if passphrase is known
+    if (pass != null && pass.isNotEmpty) {
+      try {
+        final uri = Uri.parse('https://quran-th.com/api/admin/tadabbur');
+        final res = await http.get(uri, headers: {
+          'x-admin-passphrase': pass,
+        }).timeout(const Duration(seconds: 10));
+
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+          final items = decoded['items'] as List<dynamic>?;
+          if (items != null) {
+            return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint('REST fetchAdminReviewRequests error (falling back to Supabase): $e');
+      }
+    }
+
+    // 2. Fallback to direct Supabase client
+    try {
+      final response = await _client
+          .from('translation_reports')
+          .select('*')
+          .eq('translation_version', 'tadabbur_review')
+          .order('created_at', ascending: false);
+
+      final list = <Map<String, dynamic>>[];
+      for (final r in (response as List<dynamic>)) {
+        final row = Map<String, dynamic>.from(r as Map);
+        list.add({
+          'id': row['id'],
+          'noteId': row['suggested_text'],
+          'surahId': row['surah_id'],
+          'verseId': row['verse_id'],
+          'status': row['status'] ?? 'open',
+          'noteText': row['comment'] ?? '',
+          'reviewerNote': row['reviewer_note'],
+          'userId': row['user_id'],
+          'isPublic': false,
+          'isAnonymous': false,
+          'source': row['source'] ?? 'flutter',
+          'createdAt': row['created_at'],
+          'updatedAt': row['updated_at'],
+        });
+      }
+      return list;
+    } catch (e) {
+      debugPrint('Error fetching admin review requests: $e');
+      return [];
+    }
+  }
+
+  /// Admin method: approve tadabbur note
+  Future<bool> approveTadabburNote(String reportId, String noteId, {String? passphrase}) async {
+    final pass = passphrase ?? _cachedAdminPassphrase;
+
+    // 1. Try secure HTTPS backend endpoint
+    if (pass != null && pass.isNotEmpty) {
+      try {
+        final uri = Uri.parse('https://quran-th.com/api/admin/tadabbur');
+        final res = await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-passphrase': pass,
+          },
+          body: jsonEncode({
+            'action': 'approve',
+            'reportId': reportId,
+            'noteId': noteId,
+          }),
+        ).timeout(const Duration(seconds: 10));
+
+        if (res.statusCode == 200) return true;
+      } catch (e) {
+        debugPrint('REST approveTadabburNote error (falling back to Supabase): $e');
+      }
+    }
+
+    // 2. Direct Supabase update
+    try {
+      await _client
+          .from('translation_reports')
+          .update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', reportId);
+
+      await _client
+          .from('tadabbur_notes')
+          .update({
+            'is_public': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', noteId);
+      return true;
+    } catch (e) {
+      debugPrint('Error approving tadabbur note: $e');
+      return false;
+    }
+  }
+
+  /// Admin method: reject tadabbur note
+  Future<bool> rejectTadabburNote(
+    String reportId,
+    String noteId, {
+    String? reviewerNote,
+    String? passphrase,
+  }) async {
+    final pass = passphrase ?? _cachedAdminPassphrase;
+
+    // 1. Try secure HTTPS backend endpoint
+    if (pass != null && pass.isNotEmpty) {
+      try {
+        final uri = Uri.parse('https://quran-th.com/api/admin/tadabbur');
+        final res = await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-passphrase': pass,
+          },
+          body: jsonEncode({
+            'action': 'reject',
+            'reportId': reportId,
+            'noteId': noteId,
+            'reviewerNote': reviewerNote,
+          }),
+        ).timeout(const Duration(seconds: 10));
+
+        if (res.statusCode == 200) return true;
+      } catch (e) {
+        debugPrint('REST rejectTadabburNote error (falling back to Supabase): $e');
+      }
+    }
+
+    // 2. Direct Supabase update
+    try {
+      await _client
+          .from('translation_reports')
+          .update({
+            'status': 'rejected',
+            'reviewer_note': reviewerNote,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', reportId);
+
+      await _client
+          .from('tadabbur_notes')
+          .update({
+            'is_public': false,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', noteId);
+      return true;
+    } catch (e) {
+      debugPrint('Error rejecting tadabbur note: $e');
+      return false;
     }
   }
 }
