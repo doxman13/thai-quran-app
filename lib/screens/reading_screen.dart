@@ -15,10 +15,11 @@ import '../providers/local_reading_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
 import '../models/verse.dart';
-import '../models/tadabbur_note.dart';
 import '../widgets/verse_card.dart';
 import '../data/quran_repository.dart';
 import '../data/quran_foundation_repository.dart';
+import '../data/offline_surah_names.dart';
+import '../services/tajweed_service.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/translation_download_dialog.dart';
@@ -136,6 +137,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   Future<void> _initData() async {
+    TajweedService.load();
     await Future.wait([
       widget.repository.init(),
       _loadThemeSections(),
@@ -1653,7 +1655,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
     ProgressProvider progressProv,
     LocalReadingProfile? progressProfile,
   ) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
     final hasGoal = _isBoundedCreatedProfile(progressProfile);
 
     if (hasGoal) {
@@ -1740,89 +1741,295 @@ class _ReadingScreenState extends State<ReadingScreen> {
       final safeIndex = verses.isEmpty
           ? 0
           : currentIndex.clamp(0, verses.length - 1).toInt();
-      final surahIds = List.generate(114, (index) => (index + 1).toString());
+      final activeVerseId = verses.isNotEmpty ? verses[safeIndex].id : '1';
+      final isThai = !_isNonThaiPrimary(context);
+      final surahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
 
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Theme(
-            data: Theme.of(
-              context,
-            ).copyWith(canvasColor: Theme.of(context).colorScheme.surface),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _currentSurah,
-                dropdownColor: Theme.of(context).colorScheme.surface,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  color: colors.primary,
-                  size: 18,
-                ),
-                style: GoogleFonts.notoSansThai(
-                  color: colors.textStrong,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
-                items: surahIds
-                    .map(
-                      (id) => DropdownMenuItem(
-                        value: id,
-                        child: Text(widget.repository.getSurahName(id, isThai: !_isNonThaiPrimary(context))),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (surahId) {
-                  if (surahId != null && surahId != _currentSurah) {
-                    _loadSurah(surahId);
-                  }
-                },
-              ),
+      return InkWell(
+        onTap: () => _showSurahVersePickerSheet(context, colors, isThai, safeIndex),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: colors.primary.withValues(alpha: 0.25),
             ),
           ),
-          Text(
-            ' :',
-            style: GoogleFonts.notoSansThai(
-              color: colors.foreground.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Theme(
-            data: Theme.of(
-              context,
-            ).copyWith(canvasColor: Theme.of(context).colorScheme.surface),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: verses.isEmpty ? null : safeIndex,
-                dropdownColor: Theme.of(context).colorScheme.surface,
-                icon: Icon(
-                  Icons.arrow_drop_down,
-                  color: colors.primary,
-                  size: 18,
-                ),
-                style: GoogleFonts.notoSansThai(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                ),
-                hint: Text(settings.languageCode == 'th' ? 'อายะฮฺ' : 'Ayah', style: GoogleFonts.notoSansThai(fontSize: 15)),
-                items: List.generate(
-                  verses.length,
-                  (index) => DropdownMenuItem(
-                    value: index,
-                    child: Text(verses[index].id),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_stories_rounded, size: 15, color: colors.primary),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  surahName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.notoSansThai(
+                    color: colors.textStrong,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
                   ),
                 ),
-                onChanged: (index) {
-                  if (index != null) _selectVerseIndex(index);
-                },
               ),
-            ),
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  activeVerseId,
+                  style: TextStyle(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: colors.primary,
+                size: 18,
+              ),
+            ],
           ),
-        ],
+        ),
       );
     }
+  }
+
+  void _showSurahVersePickerSheet(
+    BuildContext context,
+    AppThemeColors colors,
+    bool isThai,
+    int currentAyahIndex,
+  ) {
+    var selectedSurah = _currentSurah;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black54,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final surahVerses = widget.repository.getSurahVerses(selectedSurah);
+            final totalAyahs = surahVerses.length;
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.58,
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isThai ? 'เลือกซูเราะฮฺและอายะฮฺ' : 'Select Surah & Verse',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: colors.textStrong,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => Navigator.pop(sheetCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.25),
+                  ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        // Left: Surah Slider
+                        Expanded(
+                          flex: 6,
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: 114,
+                            itemBuilder: (context, idx) {
+                              final sId = (idx + 1).toString();
+                              final isSelected = sId == selectedSurah;
+                              final name = widget.repository.getSurahName(sId, isThai: isThai);
+                              final arName = offlineSurahNamesAr[sId] ?? '';
+
+                              return InkWell(
+                                onTap: () {
+                                  setSheetState(() {
+                                    selectedSurah = sId;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colors.primary.withValues(alpha: isDark ? 0.22 : 0.1)
+                                        : Colors.transparent,
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: isSelected ? colors.primary : Colors.transparent,
+                                        width: 3.5,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 26,
+                                        height: 26,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: isSelected
+                                              ? colors.primary
+                                              : colors.primary.withValues(alpha: 0.1),
+                                        ),
+                                        child: Text(
+                                          sId,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: isSelected ? Colors.white : colors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.notoSansThai(
+                                                fontSize: 13,
+                                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                                color: isSelected ? colors.primary : colors.textStrong,
+                                              ),
+                                            ),
+                                            if (arName.isNotEmpty)
+                                              Text(
+                                                arName,
+                                                style: TextStyle(
+                                                  fontFamily: 'UthmanicHafs',
+                                                  fontSize: 12,
+                                                  color: const Color(0xFF8A6530).withValues(alpha: 0.8),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.25),
+                        ),
+                        // Right: Ayah Slider
+                        Expanded(
+                          flex: 4,
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: totalAyahs,
+                            itemBuilder: (context, idx) {
+                              final ayahNum = idx + 1;
+                              final isCurrentAyah = (selectedSurah == _currentSurah) && (idx == currentAyahIndex);
+
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.pop(sheetCtx);
+                                  if (selectedSurah != _currentSurah) {
+                                    _loadSurah(selectedSurah, jumpToIndex: idx, jumpToVerseId: ayahNum.toString());
+                                  } else {
+                                    _selectVerseIndex(idx);
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentAyah
+                                        ? colors.primary.withValues(alpha: isDark ? 0.22 : 0.1)
+                                        : Colors.transparent,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '${isThai ? 'อายะฮฺ' : 'Ayah'} $ayahNum',
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 13,
+                                          fontWeight: isCurrentAyah ? FontWeight.w800 : FontWeight.w600,
+                                          color: isCurrentAyah ? colors.primary : colors.textStrong,
+                                        ),
+                                      ),
+                                      if (isCurrentAyah)
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          size: 16,
+                                          color: colors.primary,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -2471,58 +2678,36 @@ class _ReadingScreenState extends State<ReadingScreen> {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
+            // 1. Play Audio (Clean prominent icon)
+            _buildPlayAudioButton(context, isThaiLang),
+
+            // 2. Word by Word
             _buildMenuActionIcon(
               context: context,
-              tooltip: isThaiLang ? 'คำอธิบายอย่างย่อ' : 'Short tafsir',
-              icon: Icons.menu_book_outlined,
+              tooltip: isThaiLang ? 'แปลคำต่อคำ (Word by Word)' : 'Word by Word',
+              icon: Icons.translate_rounded,
+              active: false,
+              onPressed: _verseCardController.showWordByWord,
+            ),
+
+            // 3. Tafsir
+            _buildMenuActionIcon(
+              context: context,
+              tooltip: isThaiLang ? 'คำอธิบายอย่างย่อ (ตัฟซีร)' : 'Short tafsir',
+              icon: Icons.menu_book_rounded,
               active: _verseCardController.showTafsirBox,
               onPressed: _verseCardController.hasTafsir
                   ? _verseCardController.toggleTafsir
                   : null,
             ),
+
+            // 4. '...' More Options
             _buildMenuActionIcon(
               context: context,
-              tooltip: isThaiLang ? 'แปลคำต่อคำ' : 'Word by word',
-              icon: Icons.translate_rounded,
+              tooltip: isThaiLang ? 'ตัวเลือกเพิ่มเติม' : 'More options',
+              icon: Icons.more_horiz_rounded,
               active: false,
-              onPressed: _verseCardController.showWordByWord,
-            ),
-            _buildCommunityNotesMenuAction(context, _verseCardController),
-            _buildMenuActionIcon(
-              context: context,
-              tooltip: isThaiLang ? 'คัดลอกข้อความอายะฮ์' : 'Copy verse text',
-              icon: Icons.content_copy_rounded,
-              active: false,
-              onPressed: _verseCardController.copyText,
-            ),
-            _buildMenuActionIcon(
-              context: context,
-              tooltip: isThaiLang ? 'แชร์รูปภาพอายะฮ์' : 'Share verse image',
-              icon: Icons.ios_share_rounded,
-              active: false,
-              onPressed: _verseCardController.shareImage,
-            ),
-            _buildMenuActionIcon(
-              context: context,
-              tooltip: isThaiLang ? 'รายงานข้อผิดพลาด' : 'Report error',
-              icon: Icons.report_problem_outlined,
-              active: _verseCardController.showAuditBox,
-              onPressed: _verseCardController.toggleAudit,
-            ),
-            _buildMenuActionIcon(
-              context: context,
-              tooltip: _verseCardController.isAudioPlaying
-                  ? (isThaiLang ? 'หยุดเล่นเสียงอายะฮ์' : 'Stop ayah audio')
-                  : (isThaiLang ? 'เล่นเสียงอายะฮ์' : 'Play ayah audio'),
-              icon: _verseCardController.isAudioLoading
-                  ? Icons.hourglass_empty_rounded
-                  : _verseCardController.isAudioPlaying
-                  ? Icons.stop_circle_outlined
-                  : Icons.play_arrow_rounded,
-              active:
-                  _verseCardController.isAudioPlaying ||
-                  _verseCardController.isAudioLoading,
-              onPressed: _verseCardController.playAudio,
+              onPressed: () => _showMoreVerseActionsSheet(context, colors, isDark, isThaiLang),
             ),
           ],
         );
@@ -2530,41 +2715,129 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
-  Widget _buildCommunityNotesMenuAction(
+  Widget _buildPlayAudioButton(BuildContext context, bool isThaiLang) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isPlaying = _verseCardController.isAudioPlaying;
+    final isLoading = _verseCardController.isAudioLoading;
+
+    return IconButton(
+      tooltip: isPlaying
+          ? (isThaiLang ? 'หยุดเล่นเสียงอายะฮฺ' : 'Stop Audio')
+          : (isThaiLang ? 'เล่นเสียงอายะฮฺ' : 'Play Ayah'),
+      iconSize: 28,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      padding: EdgeInsets.zero,
+      icon: isLoading
+          ? SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: colorScheme.primary,
+              ),
+            )
+          : Icon(
+              isPlaying
+                  ? Icons.pause_circle_filled_rounded
+                  : Icons.play_circle_fill_rounded,
+              size: 32,
+              color: colorScheme.primary,
+            ),
+      onPressed: _verseCardController.playAudio,
+    );
+  }
+
+  void _showMoreVerseActionsSheet(
     BuildContext context,
-    VerseCardController controller,
+    AppThemeColors colors,
+    bool isDark,
+    bool isThaiLang,
   ) {
-    final isThaiLang = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
-    if (controller.communityNotesFuture == null) {
-      return _buildMenuActionIcon(
-        context: context,
-        tooltip: isThaiLang ? 'ไม่มีบันทึกจากชุมชน' : 'No community notes',
-        icon: Icons.forum_outlined,
-        onPressed: null,
-      );
-    }
-
-    return FutureBuilder<List<TadabburNote>>(
-      future: controller.communityNotesFuture,
-      builder: (context, snapshot) {
-        final notes = snapshot.data ?? const <TadabburNote>[];
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
-        final hasNotes = notes.isNotEmpty;
-
-        return _buildMenuActionIcon(
-          context: context,
-          tooltip: isLoading
-              ? (isThaiLang ? 'กำลังโหลดบันทึก...' : 'Loading notes...')
-              : (hasNotes
-                    ? (isThaiLang ? 'ดูบันทึกจากชุมชน' : 'View community notes')
-                    : (isThaiLang ? 'ไม่มีบันทึกจากชุมชนสำหรับอายะฮ์นี้' : 'No community notes for this ayah')),
-          icon: isLoading
-              ? Icons.hourglass_empty_rounded
-              : Icons.forum_outlined,
-          active: hasNotes,
-          onPressed: hasNotes && !isLoading
-              ? controller.showCommunityNotes
-              : null,
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: colors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: Icon(Icons.forum_outlined, color: colors.primary),
+                  title: Text(
+                    isThaiLang ? 'บันทึกตดับบุรจากชุมชน' : 'Community Reflections',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _verseCardController.showCommunityNotes?.call();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.content_copy_rounded, color: colors.primary),
+                  title: Text(
+                    isThaiLang ? 'คัดลอกข้อความอายะฮฺ' : 'Copy Verse Text',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _verseCardController.copyText?.call();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.ios_share_rounded, color: colors.primary),
+                  title: Text(
+                    isThaiLang ? 'แชร์รูปภาพอายะฮฺ' : 'Share Verse Image',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _verseCardController.shareImage?.call();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.report_problem_outlined, color: Theme.of(context).colorScheme.error),
+                  title: Text(
+                    isThaiLang ? 'รายงานข้อผิดพลาด' : 'Report Error',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _verseCardController.toggleAudit?.call();
+                  },
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

@@ -59,15 +59,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   String _bookmarkFilter = 'all'; // 'all', 'meaning', 'mushaf'
   final TextEditingController _searchController = TextEditingController();
 
-  static const List<({String surahId, String noteTh, String noteEn, int page})> _favoriteSurahs = [
-    (surahId: '67', noteTh: 'อ่านทุกคืนเพื่อการคุ้มครอง', noteEn: 'Read every night', page: 562),
-    (surahId: '18', noteTh: 'อ่านทุกวันศุกร์', noteEn: 'Read every Friday', page: 293),
-    (surahId: '36', noteTh: 'หัวใจแห่งอัลกุรอาน', noteEn: 'Heart of Quran', page: 440),
-    (surahId: '55', noteTh: 'บทแห่งความเมตตา', noteEn: 'Surah Ar-Rahman', page: 531),
-    (surahId: '56', noteTh: 'อ่านเพิ่มพูนริซกี', noteEn: 'Surah Al-Waqi\'ah', page: 534),
-    (surahId: '112', noteTh: 'เทียบเท่า 1/3 ของกุรอาน', noteEn: '1/3 of Quran', page: 604),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -486,12 +477,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final hasBackAction = canPop || widget.onBackToHome != null;
 
     final String titleText = _selectedMenuIndex == 2
-        ? (isThai ? 'บันทึก & ซูเราะฮฺโปรด' : 'Notes & Favorites')
+        ? (isThai ? 'บันทึกส่วนตัว' : 'My Notes')
         : context.tr('bookmarks');
     final String subtitleText = _selectedMenuIndex == 2
         ? (isThai
-              ? 'บันทึกส่วนตัวและซูเราะฮฺแนะนำที่เปิดอ่านประจำ'
-              : 'Your personal reflections and favorite surahs')
+              ? 'บันทึกข้อคิดและบทเรียนจากอัลกุรอาน'
+              : 'Your personal reflections and notes')
         : context.tr('reading_progress');
     final IconData headerIcon = _selectedMenuIndex == 2
         ? Icons.edit_note_rounded
@@ -572,7 +563,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         'index': 1,
       },
       {
-        'title': isThai ? 'บันทึก & ซูเราะฮฺโปรด' : 'Notes & Favs',
+        'title': isThai ? 'บันทึกส่วนตัว' : 'Notes',
         'count': notesCount,
         'icon': Icons.edit_note_rounded,
         'index': 2,
@@ -875,178 +866,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildFavoriteSurahsGallery(ColorScheme colorScheme, bool isThai) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Text(
-            isThai ? 'ซูเราะฮฺที่แนะนำและเปิดอ่านประจำ' : 'Recommended Surahs',
-            style: GoogleFonts.notoSansThai(
-              fontSize: 13.5,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: _favoriteSurahs.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 1.45,
-          ),
-          itemBuilder: (context, index) {
-            final fav = _favoriteSurahs[index];
-            final surahName = widget.repository.getSurahName(fav.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '');
-            final arabicName = offlineSurahNamesAr[fav.surahId] ?? '';
-
-            return Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.radius),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF2EE),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          fav.surahId,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0E5A4A),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              surahName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            Text(
-                              isThai ? fav.noteTh : fav.noteEn,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 10,
-                                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (arabicName.isNotEmpty)
-                        Text(
-                          arabicName,
-                          textDirection: TextDirection.rtl,
-                          style: const TextStyle(
-                            fontFamily: 'UthmanicHafs',
-                            fontSize: 14,
-                            color: Color(0xFF0E5A4A),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      InkWell(
-                        onTap: () => _openReading(surahId: fav.surahId, verseId: '1'),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF2EE),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFB7D4C7), width: 0.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.menu_book_outlined, size: 10.5, color: Color(0xFF0E5A4A)),
-                              const SizedBox(width: 3),
-                              Text(
-                                'แปล',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF0E5A4A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      InkWell(
-                        onTap: () => _openMushaf(null, 1, pageNumber: fav.page),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF6EFE3),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFD7C299), width: 0.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.import_contacts_outlined, size: 10.5, color: Color(0xFF8A6530)),
-                              const SizedBox(width: 3),
-                              Text(
-                                'มุศหัฟ',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF8A6530),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
     );
   }
 
@@ -1378,7 +1197,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           entry.value.noteText.toLowerCase().contains(query);
     }).toList();
 
-    final totalNotesAndFavsCount = noteEntries.length + _favoriteSurahs.length;
+    final totalNotesAndFavsCount = noteEntries.length;
 
     // Helper functions for Note Cards & Community banner
     Widget buildCommunityLinkCard() {
@@ -1905,7 +1724,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     ...filteredBookmarks.map((e) => e.widget),
                 ] else if (_selectedMenuIndex == 2) ...[
                   buildCommunityLinkCard(),
-                  _buildFavoriteSurahsGallery(colorScheme, isThai),
                   _buildSectionTitle(
                     isThai ? 'บันทึกส่วนตัวของฉัน (${noteEntries.length})' : 'My Personal Notes (${noteEntries.length})',
                     colorScheme,

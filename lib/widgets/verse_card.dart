@@ -29,8 +29,10 @@ import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 import 'word_by_word_strip.dart';
 import 'mutashabihat_sheet.dart';
+import 'tajweed_text.dart';
 import '../services/offline_quran_database_service.dart';
 import '../services/footnote_service.dart';
+import '../services/tajweed_service.dart';
 import '../providers/supabase_provider.dart';
 import 'auth_bottom_sheet.dart';
 
@@ -1022,26 +1024,6 @@ class _VerseCardState extends State<VerseCard> {
                           );
                         },
                       ),
-                      _buildActionIcon(
-                        tooltip: _isNonThaiPrimary() ? 'Word by Word' : 'แปลคำต่อคำ (Word by Word)',
-                        icon: Icons.translate_rounded,
-                        active: false,
-                        color: colorScheme.primary,
-                        onPressed: () {
-                          WordByWordSheet.show(
-                            context,
-                            verseKey: '${widget.verse.surahId}:${widget.verse.id}',
-                            verseTextUthmani: widget.verse.arabic.split(' | ').join(' '),
-                            translationText: _isNonThaiPrimary()
-                                ? widget.verse.english
-                                : (widget.verse.thaiV3.isNotEmpty
-                                    ? widget.verse.thaiV3
-                                    : (widget.verse.thaiV2.isNotEmpty
-                                        ? widget.verse.thaiV2
-                                        : widget.verse.english)),
-                          );
-                        },
-                      ),
                       if (OfflineQuranDatabaseService.hasMutashabihatSync('${widget.verse.surahId}:${widget.verse.id}')) ...[
                         const SizedBox(width: 4),
                         _buildActionIcon(
@@ -1081,7 +1063,40 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   )
-                else
+                else if (settings.showTajweedColors) ...[
+                  Builder(
+                    builder: (context) {
+                      final sId = int.tryParse(widget.verse.surahId) ?? 1;
+                      final vId = int.tryParse(widget.verse.id) ?? 1;
+                      final tajweedText = TajweedService.getVerse(sId, vId);
+                      if (tajweedText != null && tajweedText.isNotEmpty) {
+                        return Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: TajweedText(
+                            text: tajweedText,
+                            fontSize: arabicStyle.fontSize ?? 26.0,
+                          ),
+                        );
+                      }
+                      return Directionality(
+                        textDirection: TextDirection.rtl,
+                        child: RichText(
+                          text: TextSpan(
+                            style: arabicStyle,
+                            children: [
+                              TextSpan(
+                                text: formatArabicAyahText(
+                                  widget.verse.arabic,
+                                  verseNumber: widget.verse.id,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ] else
                   Directionality(
                     textDirection: TextDirection.rtl,
                     child: RichText(
@@ -1098,6 +1113,15 @@ class _VerseCardState extends State<VerseCard> {
                       ),
                     ),
                   ),
+
+                // Inline Word By Word when enabled in settings
+                if (settings.showWordByWord) ...[
+                  const SizedBox(height: 14),
+                  WordByWordView(
+                    verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+                    isDarkMode: isDark,
+                  ),
+                ],
 
                 const SizedBox(height: 16),
                 Divider(
