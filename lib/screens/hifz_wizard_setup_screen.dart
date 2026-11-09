@@ -107,7 +107,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
 
   // Session Preferences
   bool _chunkLongVerses = true;
-  bool _reviewStartHidden = false;
 
   ActiveSessionSnapshot? _resumableSession;
 
@@ -179,7 +178,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     await prefs.setInt('hifz_review_start_page', _reviewStartPage);
     await prefs.setInt('hifz_review_end_page', _reviewEndPage);
     await prefs.setBool('hifz_chunk_long_verses', _chunkLongVerses);
-    await prefs.setBool('hifz_review_start_hidden', _reviewStartHidden);
   }
 
   Future<void> _loadSavedPreferences() async {
@@ -187,7 +185,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     if (!mounted) return;
     setState(() {
       _chunkLongVerses = prefs.getBool('hifz_chunk_long_verses') ?? true;
-      _reviewStartHidden = prefs.getBool('hifz_review_start_hidden') ?? false;
 
       if (widget.initialMode == null) {
         final savedIsNew = prefs.getBool('hifz_wizard_is_new_verses');
@@ -2100,58 +2097,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                   onChanged: (val) {
                     setState(() => _chunkLongVerses = val);
                   },
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
-          // Review mode repetitions / text options
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isThai ? 'ตัวช่วยการทบทวน' : 'Review Assistance',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilterChip(
-                        avatar: Icon(Icons.visibility_rounded,
-                            size: 16,
-                            color: !_reviewStartHidden ? colorScheme.primary : null),
-                        label: Text(isThai ? 'แสดงตัวอักษร' : 'Visible Text'),
-                        selected: !_reviewStartHidden,
-                        onSelected: (val) =>
-                            setState(() => _reviewStartHidden = false),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilterChip(
-                        avatar: Icon(Icons.visibility_off_rounded,
-                            size: 16,
-                            color: _reviewStartHidden ? colorScheme.primary : null),
-                        label: Text(isThai ? 'ซ่อนตัวอักษร' : 'Hidden Recall'),
-                        selected: _reviewStartHidden,
-                        onSelected: (val) =>
-                            setState(() => _reviewStartHidden = true),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
