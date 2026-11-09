@@ -5,11 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
 import 'package:thai_quran_app/services/in_app_purchase_service.dart';
 import 'package:thai_quran_app/shared/localization.dart';
+import 'package:thai_quran_app/widgets/support_dialog.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('InAppPurchaseService Constants', () {
+  group('InAppPurchaseService Constants & Pricing Tiers', () {
     test('Product IDs match standard store identifiers', () {
       expect(InAppPurchaseService.tipSmall, equals('thaiquran_tip_small'));
       expect(InAppPurchaseService.tipMedium, equals('thaiquran_tip_medium'));
@@ -24,6 +25,18 @@ void main() {
       final service1 = InAppPurchaseService();
       final service2 = InAppPurchaseService();
       expect(identical(service1, service2), isTrue);
+    });
+
+    test('SupportDialog has updated donation price tiers ฿49, ฿129, ฿299', () {
+      expect(SupportDialog.fallbackItems.length, equals(3));
+      expect(SupportDialog.fallbackItems[0]['id'], equals(InAppPurchaseService.tipSmall));
+      expect(SupportDialog.fallbackItems[0]['price'], equals('฿49'));
+
+      expect(SupportDialog.fallbackItems[1]['id'], equals(InAppPurchaseService.tipMedium));
+      expect(SupportDialog.fallbackItems[1]['price'], equals('฿129'));
+
+      expect(SupportDialog.fallbackItems[2]['id'], equals(InAppPurchaseService.tipLarge));
+      expect(SupportDialog.fallbackItems[2]['price'], equals('฿299'));
     });
   });
 

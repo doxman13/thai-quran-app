@@ -12,6 +12,12 @@ import '../theme/app_theme.dart';
 class SupportDialog extends StatefulWidget {
   const SupportDialog({super.key});
 
+  static const List<Map<String, String>> fallbackItems = [
+    {'id': 'thaiquran_tip_small', 'title': 'เลี้ยงกาแฟทีมพัฒนา (Small Tip)', 'price': '฿49'},
+    {'id': 'thaiquran_tip_medium', 'title': 'สนับสนุนค่าเซิร์ฟเวอร์ (Medium Tip)', 'price': '฿129'},
+    {'id': 'thaiquran_tip_large', 'title': 'สนับสนุนการพัฒนาอัลกุรอาน (Large Tip)', 'price': '฿299'},
+  ];
+
   static Future<void> show(BuildContext context) {
     return showDialog<void>(
       context: context,
@@ -315,16 +321,9 @@ class _SupportDialogState extends State<SupportDialog> {
   }
 
   Widget _buildFallbackTiersSection(AppThemeColors colors, String storeName) {
-    // Shows the exact items that will be active once Play Store / App Store config is published
-    final fallbackItems = [
-      {'id': 'thaiquran_tip_small', 'title': 'เลี้ยงกาแฟทีมพัฒนา (Small Tip)', 'price': '~29 ฿'},
-      {'id': 'thaiquran_tip_medium', 'title': 'สนับสนุนค่าเซิร์ฟเวอร์ (Medium Tip)', 'price': '~99 ฿'},
-      {'id': 'thaiquran_tip_large', 'title': 'สนับสนุนการพัฒนาอัลกุรอาน (Large Tip)', 'price': '~299 ฿'},
-    ];
-
     return Column(
       children: [
-        ...fallbackItems.map(
+        ...SupportDialog.fallbackItems.map(
           (item) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Container(
