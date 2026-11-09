@@ -2345,63 +2345,44 @@ class _ReadingScreenState extends State<ReadingScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.check_circle_outline_rounded,
+              size: 28,
+              color: primaryColor,
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
-            '🎉 สิ้นสุดซูเราะฮฺแล้ว',
-            locale: const Locale('th', 'TH'),
+            settingsProv.languageCode == 'th'
+                ? 'สิ้นสุดซูเราะฮฺแล้ว'
+                : 'End of Surah',
+            locale: Locale(settingsProv.languageCode),
             style: GoogleFonts.notoSansThai(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: colors.textStrong,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            'คุณอ่านมาถึงอายะฮฺสุดท้ายของซูเราะฮฺ $_currentSurah แล้ว ทำเครื่องหมายเพื่อบันทึกสถิติของคุณ',
+            settingsProv.languageCode == 'th'
+                ? 'คุณอ่านมาถึงอายะฮฺสุดท้ายของซูเราะฮฺนี้แล้ว'
+                : 'You have reached the final ayah of this Surah',
             textAlign: TextAlign.center,
-            locale: const Locale('th', 'TH'),
+            locale: Locale(settingsProv.languageCode),
             style: GoogleFonts.notoSansThai(
               fontSize: 13,
               color: isDark ? Colors.blueGrey.shade300 : Colors.grey.shade600,
             ),
           ),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                progressProv.incrementCompletedRead();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'บันทึกการอ่านซูเราะฮฺที่จบแล้ว!',
-                      locale: const Locale('th', 'TH'),
-                      style: GoogleFonts.notoSansThai(color: Colors.white),
-                    ),
-                    backgroundColor: Colors.green,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                elevation: 0,
-              ),
-              child: Text(
-                '📖 อ่านจบแล้ว',
-                locale: const Locale('th', 'TH'),
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           Builder(
             builder: (context) {
               final int currentSurahInt = int.tryParse(_currentSurah) ?? 1;

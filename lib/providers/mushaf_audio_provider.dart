@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../models/mushaf_models.dart';
+import 'settings_provider.dart';
 
 class MushafAudioProvider extends ChangeNotifier {
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -26,10 +27,36 @@ class MushafAudioProvider extends ChangeNotifier {
   StreamSubscription<int?>? _currentIndexSubscription;
 
   final Map<int, Map<String, dynamic>> _chapterDataCache = {};
+  int _reciterId = 7;
+
+  int get reciterId => _reciterId;
+
+  ReciterOption get currentReciter {
+    return kSupportedReciters.firstWhere(
+      (r) => r.id == _reciterId,
+      orElse: () => kSupportedReciters.first,
+    );
+  }
+
+  void setReciterId(int id) {
+    if (_reciterId != id) {
+      _reciterId = id;
+      _chapterDataCache.clear();
+      notifyListeners();
+    }
+  }
 
   MushafAudioProvider() {
     _initPlayerStateListener();
     _loadSavedVolume();
+    _loadReciterPreference();
+  }
+
+  Future<void> _loadReciterPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _reciterId = prefs.getInt('selected_reciter_id') ?? 7;
+    } catch (_) {}
   }
 
   double _volume = 1.0;
@@ -370,7 +397,7 @@ class MushafAudioProvider extends ChangeNotifier {
     }
     try {
       final data = await _audioRepository.fetchChapterRecitation(
-        reciterId: 161,
+        reciterId: _reciterId,
         chapterNumber: chapterNumber,
       );
       _chapterDataCache[chapterNumber] = data;
@@ -384,6 +411,7 @@ class MushafAudioProvider extends ChangeNotifier {
 
   Future<List<AudioSource>> _buildAudioSources(List<MushafVerse> verses) async {
     final List<AudioSource> sources = [];
+    final reciter = currentReciter;
     for (final verse in verses) {
       try {
         final surahNumber = int.parse(verse.surahId);
@@ -407,7 +435,7 @@ class MushafAudioProvider extends ChangeNotifier {
                 id: verse.verseKey,
                 album: "Mushaf Recitation",
                 title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
-                artist: "Khalifah Al Tunaiji",
+                artist: reciter.name,
                 artUri: Uri.parse(
                   "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
                 ),
@@ -417,7 +445,7 @@ class MushafAudioProvider extends ChangeNotifier {
         } else {
           // Fallback single-ayah source from Quran Foundation
           final fallbackUrl = await _audioRepository.fetchAyahRecitationUrl(
-            recitationId: 161,
+            recitationId: _reciterId,
             verseKey: verse.verseKey,
           );
           sources.add(
@@ -427,7 +455,7 @@ class MushafAudioProvider extends ChangeNotifier {
                 id: verse.verseKey,
                 album: "Mushaf Recitation (Fallback)",
                 title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
-                artist: "Khalifah Al Tunaiji",
+                artist: reciter.name,
                 artUri: Uri.parse(
                   "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
                 ),
@@ -437,10 +465,10 @@ class MushafAudioProvider extends ChangeNotifier {
         }
       } catch (e) {
         debugPrint('Timing error or fallback failed for ${verse.verseKey}: $e, trying EveryAyah...');
-        // EveryAyah Mishari Rashid Alafasy fallback
+        // EveryAyah reciter fallback
         final chapter = verse.surahId.padLeft(3, '0');
         final ayah = verse.verseId.padLeft(3, '0');
-        final fallbackUrl = 'https://everyayah.com/data/Alafasy_128kbps/$chapter$ayah.mp3';
+        final fallbackUrl = 'https://everyayah.com/data/${reciter.everyAyahFolder}/$chapter$ayah.mp3';
         sources.add(
           AudioSource.uri(
             Uri.parse(fallbackUrl),
@@ -448,7 +476,7 @@ class MushafAudioProvider extends ChangeNotifier {
               id: verse.verseKey,
               album: "Mushaf Recitation (Fallback)",
               title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
-              artist: "Mishari Alafasy",
+              artist: reciter.name,
               artUri: Uri.parse(
                 "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
               ),

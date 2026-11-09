@@ -31,9 +31,9 @@ class TranslationConstants {
   static const builtInThaiV3 = AppTranslationOption(
     id: 'thai_v3',
     apiId: null,
-    name: 'King Fahd Complex (The Arab Alumni Association - Revised)',
-    nameTh: 'ภาษาไทย (ฉบับสมาคมนักเรียนเก่าอาหรับ - ปรับปรุงภาษา / Revised)',
-    author: 'King Fahd Complex / สมาคมนักเรียนเก่าอาหรับ',
+    name: 'Thai (Arab Alumni Association - King Fahd Complex)',
+    nameTh: 'ภาษาไทย (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)',
+    author: 'สมาคมนักเรียนเก่าอาหรับฯ / ศูนย์กษัตริย์ฟะฮัด',
     language: 'thai',
     isBuiltIn: true,
   );
@@ -97,22 +97,6 @@ class TranslationConstants {
       nameTh: 'English - M.A.S. Abdel Haleem (อังกฤษ)',
       author: 'Abdul Haleem',
       language: 'english',
-    ),
-    AppTranslationOption(
-      id: '230',
-      apiId: 230,
-      name: 'Society of Institutes and Universities (Original)',
-      nameTh: 'ภาษาไทย (ฉบับสมาคมนักเรียนเก่าอาหรับ - ดั้งเดิม / Original)',
-      author: 'Society of Institutes and Universities',
-      language: 'thai',
-    ),
-    AppTranslationOption(
-      id: '51',
-      apiId: 51,
-      name: 'Thai Translation (King Fahad Quran Complex)',
-      nameTh: 'ภาษาไทย (ศูนย์กษัตริย์ฟะฮัดเพื่อการพิมพ์อัลกุรอาน)',
-      author: 'King Fahad Quran Complex',
-      language: 'thai',
     ),
   ];
 
@@ -198,9 +182,7 @@ class TranslationConstants {
         return '85';
       case 'thai_orig':
       case '230':
-        return '230';
       case '51':
-        return '51';
       case 'thai_v2':
       case 'thai_v3':
       case 'th':

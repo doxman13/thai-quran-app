@@ -184,8 +184,8 @@ const Map<String, Map<String, String>> _localizedValues = {
     'notes_count': '({count} บันทึก)',
     'qcf_v1': 'Mushaf Al Madinah (1405)',
     'qcf_v2': 'Mushaf Al Madinah (1421H)',
-    'thai_v3': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ปรับปรุงภาษา / Revised)',
-    'thai_v2': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับ - ดั้งเดิม / Original)',
+    'thai_v3': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)',
+    'thai_v2': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)',
     'english': 'Saheeh International (English Translation)',
     'en_hilali_khan': 'Al-Hilali & Muhsin Khan (King Fahd Complex - เชิงอรรถ)',
     'en_bridges': "Bridges' Translation (Fadel Soliman - 10 กิรออาต & เชิงอรรถ)",
@@ -450,9 +450,9 @@ const Map<String, Map<String, String>> _localizedValues = {
     'qcf_v1': 'Mushaf Al Madinah (1405)',
     'qcf_v2': 'Mushaf Al Madinah (1421H)',
     'thai_v3':
-        'King Fahd Complex (The Arab Alumni Association - Revised Edition)',
+        'King Fahd Complex (The Arab Alumni Association)',
     'thai_v2':
-        'King Fahd Complex (The Arab Alumni Association - Original Edition)',
+        'King Fahd Complex (The Arab Alumni Association)',
     'english': 'Saheeh International (English Translation)',
     'en_hilali_khan': 'Al-Hilali & Muhsin Khan (King Fahd Complex)',
     'en_bridges': "Bridges' Translation (Fadel Soliman - 10 Qira'at)",

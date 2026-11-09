@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../providers/local_reading_provider.dart';
+import '../providers/mushaf_audio_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
@@ -552,18 +553,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 isThai: isThai,
                 onTap: () => _openContinueMushaf(mushafProv),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
-              // ── 3. Daily Goal Card ───────────────────────────────────────
-              _buildDailyGoalCard(
-                statsProv: statsProv,
-                colors: colors,
-                isThai: isThai,
-                onTap: _openGoals,
-              ),
-              const SizedBox(height: 24),
-
-              // ── 4. Category: ACCOUNT ─────────────────────────────────────
+              // ── 3. Category: ACCOUNT ─────────────────────────────────────
               _buildSectionHeader(isThai ? 'บัญชีผู้ใช้' : 'ACCOUNT', colors),
               const SizedBox(height: 8),
               _buildGroupCard(
@@ -634,10 +626,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.timer_outlined,
                     iconBg: const Color(0xFFDCFCE7),
                     iconColor: const Color(0xFF16A34A),
-                    title: isThai ? 'เป้าหมายการอ่าน' : 'Daily Goal',
+                    title: isThai ? 'เป้าหมายการอ่าน' : 'Reading Goals',
                     subtitle: isThai
-                        ? 'อ่านสะสม & จัดการเป้าหมาย'
-                        : 'Reading targets & streaks',
+                        ? 'จัดการเป้าหมายและแผนการอ่าน'
+                        : 'Manage reading goals & plans',
                     onTap: _openGoals,
                   ),
                   _RevealListTile(
@@ -767,8 +759,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconBg: const Color(0xFFFCE7F3),
                     iconColor: const Color(0xFFDB2777),
                     title: isThai ? 'เสียงผู้อ่านกุรอาน' : 'Recitation Voice',
-                    subtitle: 'Mishary Rashid Alafasy',
-                    onTap: () => _showReciterSheet(context, colors, isThai),
+                    subtitle: settings.reciterName,
+                    onTap: () => _showReciterSheet(
+                      context,
+                      settings,
+                      colors,
+                      isThai,
+                    ),
                   ),
                   _RevealListTile(
                     icon: Icons.translate_rounded,
@@ -1313,89 +1310,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Daily Goal Card ────────────────────────────────────────────────────────
-  Widget _buildDailyGoalCard({
-    required StatsProvider statsProv,
-    required AppThemeColors colors,
-    required bool isThai,
-    required VoidCallback onTap,
-  }) {
-    final todayCount = statsProv.todayReadCount;
-    final streak = statsProv.streakDays;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radius),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: colors.borderSoft),
-        ),
-        child: Row(
-          children: [
-            // Target badge
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF9C3),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFDE68A)),
-              ),
-              child: Center(
-                child: Text(
-                  '$todayCount',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFB45309),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isThai ? 'เป้าหมายประจำวัน' : 'Daily Goal',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: colors.textStrong,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isThai
-                        ? 'อ่านแล้ว $todayCount อายะฮ์วันนี้ • ต่อเนื่อง $streak วัน'
-                        : '$todayCount ayahs today • $streak day streak',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      color: colors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: Color(0xFF9CA3AF),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ── Section Header ─────────────────────────────────────────────────────────
   Widget _buildSectionHeader(String title, AppThemeColors colors) {
     return Padding(
@@ -1451,8 +1365,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     return id == 'thai_v3'
         ? (langCode == 'th'
-            ? 'สมาคมนักเรียนเก่าอาหรับ (ฉบับปรับปรุง)'
-            : 'Arab Alumni Association (Revised)')
+            ? 'ภาษาไทย (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)'
+            : 'Thai (Arab Alumni Association - King Fahd Complex)')
         : id;
   }
 
@@ -2139,9 +2053,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ── Bottom Sheet: Reciter Audio ────────────────────────────────────────────
   void _showReciterSheet(
     BuildContext context,
+    SettingsProvider settings,
     AppThemeColors colors,
     bool isThai,
   ) {
+    final mushafAudio = Provider.of<MushafAudioProvider>(context, listen: false);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: colors.surface,
@@ -2175,42 +2092,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: colors.textStrong,
                   ),
                 ),
-                const SizedBox(height: 16),
-                ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFCE7F3),
-                      borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 12),
+                ...kSupportedReciters.map((reciter) {
+                  final isSelected = settings.reciterId == reciter.id;
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                    child: const Icon(
-                      Icons.graphic_eq_rounded,
-                      color: Color(0xFFDB2777),
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colors.primary.withValues(alpha: 0.12)
+                            : const Color(0xFFFCE7F3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.graphic_eq_rounded,
+                        color: isSelected
+                            ? colors.primary
+                            : const Color(0xFFDB2777),
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    'Mishary Rashid Alafasy',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: colors.textStrong,
+                    title: Text(
+                      reciter.displayName(settings.languageCode),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 14,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected ? colors.primary : colors.textStrong,
+                      ),
                     ),
-                  ),
-                  subtitle: Text(
-                    isThai
-                        ? 'เสียงอ่านมาตรฐานความคมชัดสูง (128 kbps)'
-                        : 'Default high fidelity stream (128 kbps)',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      color: colors.textMuted,
+                    subtitle: Text(
+                      reciter.style,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        color: colors.textMuted,
+                      ),
                     ),
-                  ),
-                  trailing: Icon(
-                    Icons.check_circle_rounded,
-                    color: colors.primary,
-                  ),
-                ),
+                    trailing: isSelected
+                        ? Icon(
+                            Icons.check_circle_rounded,
+                            color: colors.primary,
+                          )
+                        : null,
+                    onTap: () {
+                      settings.setReciterId(reciter.id);
+                      mushafAudio.setReciterId(reciter.id);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                }),
               ],
             ),
           ),

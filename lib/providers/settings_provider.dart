@@ -15,6 +15,62 @@ enum HifzInputMode {
   inAppTally,
 }
 
+class ReciterOption {
+  final int id;
+  final String name;
+  final String nameTh;
+  final String style;
+  final String everyAyahFolder;
+
+  const ReciterOption({
+    required this.id,
+    required this.name,
+    required this.nameTh,
+    required this.style,
+    required this.everyAyahFolder,
+  });
+
+  String displayName(String languageCode) => languageCode == 'th' ? nameTh : name;
+}
+
+const List<ReciterOption> kSupportedReciters = [
+  ReciterOption(
+    id: 7,
+    name: 'Mishary Rashid Alafasy',
+    nameTh: 'มิชารี รอชิด อัลอะฟาซี',
+    style: 'Murattal (128 kbps)',
+    everyAyahFolder: 'Alafasy_128kbps',
+  ),
+  ReciterOption(
+    id: 1,
+    name: 'Abdul Basit Abdul Samad',
+    nameTh: 'อับดุลบาซิต อับดุศศอมัด',
+    style: 'Murattal (192 kbps)',
+    everyAyahFolder: 'Abdul_Basit_Murattal_192kbps',
+  ),
+  ReciterOption(
+    id: 6,
+    name: 'Mahmoud Khalil Al-Husary',
+    nameTh: 'มะฮ์มูด เคาะลีล อัลฮุศอรี',
+    style: 'Murattal (128 kbps)',
+    everyAyahFolder: 'Husary_128kbps',
+  ),
+  ReciterOption(
+    id: 4,
+    name: 'Abu Bakr Al-Shatri',
+    nameTh: 'อบูบักร อัช-ชาตรี',
+    style: 'Murattal (128 kbps)',
+    everyAyahFolder: 'Abu_Bakr_Ash-Shaatree_128kbps',
+  ),
+  ReciterOption(
+    id: 161,
+    name: 'Khalifah Al Tunaiji',
+    nameTh: 'เคาะลีฟะฮ์ อัต-ตุนัยญี',
+    style: 'Murattal (64 kbps)',
+    everyAyahFolder: 'Tunaiji_64kbps',
+  ),
+];
+
 class SettingsProvider extends ChangeNotifier {
   static const quranOnlyMode = 'quran_only';
   static const translationOnlyMode = 'translation_only';
@@ -98,6 +154,30 @@ class SettingsProvider extends ChangeNotifier {
   // Footnotes display setting (default: true)
   bool _showFootnotes = true;
   bool get showFootnotes => _showFootnotes;
+
+  // Reciter Voice setting (default: 7 - Mishary Rashid Alafasy)
+  static const String _reciterIdKey = 'selected_reciter_id';
+  int _reciterId = 7;
+  int get reciterId => _reciterId;
+  String get reciterName {
+    final match = kSupportedReciters.firstWhere(
+      (r) => r.id == _reciterId,
+      orElse: () => kSupportedReciters.first,
+    );
+    return match.name;
+  }
+
+  Future<void> setReciterId(int id) async {
+    if (_reciterId == id) return;
+    _reciterId = id;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_reciterIdKey, id);
+    } catch (e) {
+      debugPrint('Error saving reciterId: $e');
+    }
+  }
 
   // New dual-slot getters
   String get primaryTranslationId => _primaryTranslationId;
@@ -361,6 +441,7 @@ class SettingsProvider extends ChangeNotifier {
     _arabicFontSize = prefs.getDouble('arabicFontSize') ?? 28.0;
     _translationFontSize = prefs.getDouble('translationFontSize') ?? 16.0;
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'teal');
+    _reciterId = prefs.getInt(_reciterIdKey) ?? 7;
     _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
     _settingsUpdatedAt =
         DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??

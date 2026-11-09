@@ -15,7 +15,7 @@ void main() {
       expect(TranslationConstants.resolveTranslationId('en_saheeh'), '20');
       expect(TranslationConstants.resolveTranslationId('en_hilali_khan'), '203');
       expect(TranslationConstants.resolveTranslationId('en_bridges'), '149');
-      expect(TranslationConstants.resolveTranslationId('thai_orig'), '230');
+      expect(TranslationConstants.resolveTranslationId('thai_orig'), 'thai_v3');
       expect(TranslationConstants.resolveTranslationId('thai_v3'), 'thai_v3');
       expect(TranslationConstants.resolveTranslationId('en_usmani'), 'en_usmani');
       expect(TranslationConstants.resolveTranslationId('ms_basmeih'), 'ms_basmeih');
@@ -45,8 +45,8 @@ void main() {
       expect(options.first.id, equals('thai_v3'));
       // All 3 built-ins and 6 downloadable translations must be present
       final ids = options.map((o) => o.id).toList();
-      expect(ids, containsAll(['thai_v3', 'en_usmani', 'ms_basmeih', '20', '203', '149', '85', '230', '51']));
-      expect(options.length, equals(9));
+      expect(ids, containsAll(['thai_v3', 'en_usmani', 'ms_basmeih', '20', '203', '149', '85']));
+      expect(options.length, equals(7));
     });
   });
 

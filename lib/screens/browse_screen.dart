@@ -6,14 +6,17 @@
 // access to Verse-by-Verse (Meaning), Mushaf reading, and Hifz memorization.
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 import '../data/medina_mushaf_pages.dart';
 import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
+import '../models/hifz_session_config.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
@@ -21,6 +24,7 @@ import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/voice_search_sheet.dart';
 import '../services/offline_quran_database_service.dart';
+import 'hifz_wizard_setup_screen.dart';
 import 'topic_verses_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'topics_screen.dart';
@@ -292,50 +296,14 @@ class BrowseScreenState extends State<BrowseScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => widget.onOpen(
-                  ref.surahId.toString(),
-                  ref.verseId.toString(),
-                ),
-                icon: const Icon(Icons.menu_book, size: 14),
-                label: Text(
-                  isThai ? 'อ่านฉบับแปล' : 'Read Meaning',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  minimumSize: const Size(0, 32),
-                  side: BorderSide(color: widget.colors.borderSoft),
-                  backgroundColor: widget.colors.surfaceMuted,
-                  foregroundColor: widget.colors.foreground,
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: () => _openMushafForVerse(
-                  ref.surahId.toString(),
-                  ref.verseId.toString(),
-                ),
-                icon: const Icon(Icons.import_contacts, size: 14),
-                label: Text(
-                  isThai
-                      ? 'เปิดในมุศหัฟ (หน้า ${ref.pageNumber})'
-                      : 'Open Mushaf (p.${ref.pageNumber})',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  minimumSize: const Size(0, 32),
-                  backgroundColor: const Color(0xFF0E5A4A),
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildVerseActionButtons(
+              context: context,
+              surahId: ref.surahId.toString(),
+              verseId: ref.verseId.toString(),
+              isThai: isThai,
+            ),
           ),
         ],
       ),
@@ -463,6 +431,108 @@ class BrowseScreenState extends State<BrowseScreen> {
           profileId: profile.id,
           initialPage: pageNumber,
           initialHighlightVerseKey: '$sId:$vId',
+        ),
+      ),
+    );
+  }
+
+  void _openHifzForVerse(String surahId, String verseId) {
+    final sId = int.tryParse(surahId) ?? 1;
+    final vId = int.tryParse(verseId) ?? 1;
+    final totalVerses = qcf.getVerseCount(sId);
+    final endVerse = math.min(vId + 4, totalVerses);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HifzWizardSetupScreen(
+          quranRepository: widget.repository,
+          foundationRepository: _foundationRepo,
+          initialMode: HifzSessionType.newVerses,
+          initialSurah: sId,
+          initialStartVerse: vId,
+          initialEndVerse: endVerse,
+          initialStep: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerseActionButtons({
+    required BuildContext context,
+    required String surahId,
+    required String verseId,
+    required bool isThai,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      alignment: WrapAlignment.end,
+      children: [
+        _buildModePill(
+          icon: Icons.menu_book_rounded,
+          label: isThai ? 'ฉบับแปล' : 'Meaning',
+          color: const Color(0xFF0E5A4A),
+          onTap: () {
+            if (widget.onOpenMeaning != null) {
+              widget.onOpenMeaning!(surahId, verseId);
+            } else {
+              widget.onOpen(surahId, verseId);
+            }
+          },
+        ),
+        _buildModePill(
+          icon: Icons.auto_stories_rounded,
+          label: isThai ? 'มุศหัฟ' : 'Mushaf',
+          color: const Color(0xFF8A6530),
+          onTap: () => _openMushafForVerse(surahId, verseId),
+        ),
+        _buildModePill(
+          icon: Icons.psychology_rounded,
+          label: isThai ? 'ท่องจำ' : 'Hifz',
+          color: const Color(0xFF2D6A4F),
+          onTap: () => _openHifzForVerse(surahId, verseId),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModePill({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: color.withValues(alpha: 0.28),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -707,6 +777,88 @@ class BrowseScreenState extends State<BrowseScreen> {
                                   isThai
                                       ? 'เปิดอ่าน 15 บรรทัดมาตรฐาน (หน้าที่ $startPage)'
                                       : 'Standard 15-line Medina Mushaf (Page $startPage)',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12,
+                                    color: colors.foreground.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: colors.foreground.withValues(alpha: 0.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    onTap: () {
+                      Navigator.pop(modalCtx);
+                      final sId = int.tryParse(surahId) ?? 1;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => HifzWizardSetupScreen(
+                            quranRepository: widget.repository,
+                            foundationRepository: _foundationRepo,
+                            initialMode: HifzSessionType.newVerses,
+                            initialSurah: sId,
+                            initialStartVerse: 1,
+                            initialEndVerse: math.min(5, verseCount),
+                            initialStep: 1,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2D6A4F).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(
+                          color: const Color(0xFF2D6A4F).withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2D6A4F),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.psychology_rounded,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isThai ? 'ท่องจำฮิฟซ์' : 'Hifz Memorize',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.textStrong,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isThai
+                                      ? 'ฝึกท่องจำซูเราะฮฺนี้ด้วยระบบตักราร (Takrar)'
+                                      : 'Memorize and review using spaced Takrar system',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     color: colors.foreground.withValues(alpha: 0.65),
@@ -1473,38 +1625,14 @@ class BrowseScreenState extends State<BrowseScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          onPressed: () => widget.onOpen(sId, vId),
-                                          icon: const Icon(Icons.menu_book, size: 14),
-                                          label: Text(isThai ? 'ฉบับแปล' : 'Meaning', style: const TextStyle(fontSize: 12)),
-                                          style: OutlinedButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            minimumSize: const Size(0, 32),
-                                            side: BorderSide.none,
-                                            backgroundColor: widget.colors.surfaceMuted,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        FilledButton.icon(
-                                          onPressed: () => _openMushafForVerse(sId, vId),
-                                          icon: const Icon(Icons.import_contacts, size: 14),
-                                          label: Text(
-                                            isThai ? 'อ่านในมุศหัฟ' : 'Mushaf',
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                          ),
-                                          style: FilledButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            minimumSize: const Size(0, 32),
-                                            backgroundColor: widget.colors.primary,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                        ),
-                                      ],
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: _buildVerseActionButtons(
+                                        context: context,
+                                        surahId: sId,
+                                        verseId: vId,
+                                        isThai: isThai,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1600,35 +1728,14 @@ class BrowseScreenState extends State<BrowseScreen> {
                                       ),
                                     ],
                                     const SizedBox(height: 10),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          onPressed: () => widget.onOpen(item.surahId, item.verseId),
-                                          icon: const Icon(Icons.menu_book, size: 14),
-                                          label: const Text('ฉบับแปล', style: TextStyle(fontSize: 12)),
-                                          style: OutlinedButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            minimumSize: const Size(0, 32),
-                                            side: BorderSide.none,
-                                            backgroundColor: widget.colors.surfaceMuted,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        FilledButton.icon(
-                                          onPressed: () => _openMushafForVerse(item.surahId, item.verseId),
-                                          icon: const Icon(Icons.import_contacts, size: 14),
-                                          label: const Text('อ่านในมุศหัฟ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                          style: FilledButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                            minimumSize: const Size(0, 32),
-                                            backgroundColor: widget.colors.primary,
-                                            foregroundColor: Colors.white,
-                                          ),
-                                        ),
-                                      ],
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: _buildVerseActionButtons(
+                                        context: context,
+                                        surahId: item.surahId,
+                                        verseId: item.verseId,
+                                        isThai: context.read<SettingsProvider>().languageCode == 'th',
+                                      ),
                                     ),
                                   ],
                                 ),
