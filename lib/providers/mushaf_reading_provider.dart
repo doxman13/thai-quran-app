@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../models/mushaf_models.dart';
+import '../services/guest_lifecycle_service.dart';
 
 class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<MushafProfile> _profiles = [];
@@ -203,6 +204,31 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _ensureDefaultProfile();
     _normalizeFreeReadProfiles();
+
+    // 30-Day Inactive Auto-Flush for Guest Data
+    final isGuestExpired =
+        await GuestLifecycleService.isGuestInactiveExpired(prefs);
+    if (isGuestExpired) {
+      debugPrint(
+        '[GuestLifecycle] Inactive for >= 30 days. Flushing local guest mushaf data.',
+      );
+      _pageBookmarks.clear();
+      _verseBookmarks.clear();
+      _recentReadings.clear();
+      _deletedPageBookmarkKeys.clear();
+      _deletedVerseBookmarkKeys.clear();
+      final now = DateTime.now();
+      _profiles = _profiles.map((p) {
+        if (p.isFreeRead) {
+          return p.copyWith(
+            currentPage: 1,
+            lastViewedPage: 1,
+            updatedAt: now,
+          );
+        }
+        return p;
+      }).toList();
+    }
     if (activeProfile == null) {
       _activeProfileId = _profiles.first.id;
     }

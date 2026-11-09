@@ -19,6 +19,7 @@ import '../theme/app_theme.dart';
 import '../widgets/support_dialog.dart';
 import '../widgets/tajweed_color_guide_sheet.dart';
 import '../widgets/translation_download_dialog.dart';
+import '../widgets/auth_bottom_sheet.dart';
 import 'bookmarks_screen.dart';
 import 'goals_screen.dart';
 import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
@@ -415,6 +416,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ── Navigation Shortcuts ───────────────────────────────────────────────────
   void _openGoals() {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'เป้าหมายการอ่าน (Reading Goals)',
+        reason:
+            'การสร้างและติดตามเป้าหมายการอ่านจำเป็นต้องเข้าสู่ระบบ เพื่อบันทึกความคืบหน้าบนคลาวด์',
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -438,6 +450,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _openTadabburNotes() {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกตะดับบุร (Tadabbur Notes)',
+        reason:
+            'การดูและจัดการบันทึกตะดับบุรจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างปลอดภัยบนคลาวด์',
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(

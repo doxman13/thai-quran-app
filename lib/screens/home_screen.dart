@@ -35,6 +35,7 @@ import 'mushaf_reader_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'tadabbur_community_screen.dart';
+import '../widgets/auth_bottom_sheet.dart';
 
 extension _TadabburNoteAuthorExt on TadabburNote {
   String get authorName {
@@ -350,6 +351,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await hifz.syncHistoryWithSupabase();
     await _saveQuickLinks();
     return true;
+  }
+
+  void _navigateToGoalsScreen(BuildContext context) {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'เป้าหมายการอ่าน (Reading Goals)',
+        reason:
+            'การสร้างและจัดการเป้าหมายการอ่านจำเป็นต้องเข้าสู่ระบบ เพื่อบันทึกความคืบหน้าบนคลาวด์',
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GoalsScreen(
+          repository: widget.repository,
+          foundationRepository: _foundationRepository,
+        ),
+      ),
+    );
   }
 
   String _quickLinksScope(String? userId) => userId ?? 'guest';
@@ -2421,17 +2445,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const Spacer(),
             TextButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => GoalsScreen(
-                      repository: widget.repository,
-                      foundationRepository: _foundationRepository,
-                    ),
-                  ),
-                );
-              },
+              onPressed: () => _navigateToGoalsScreen(context),
               icon: Text(
                 isThai ? 'จัดการเป้าหมาย' : 'Manage Goals',
                 style: GoogleFonts.notoSansThai(
@@ -2454,17 +2468,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SizedBox(height: 8),
         if (totalActive == 0)
           InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => GoalsScreen(
-                    repository: widget.repository,
-                    foundationRepository: _foundationRepository,
-                  ),
-                ),
-              );
-            },
+            onTap: () => _navigateToGoalsScreen(context),
             borderRadius: BorderRadius.circular(18),
             child: Container(
               padding: const EdgeInsets.all(16),

@@ -9,6 +9,8 @@ import '../models/mushaf_models.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/supabase_provider.dart';
+import '../widgets/auth_bottom_sheet.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
@@ -384,6 +386,18 @@ class _GoalsScreenState extends State<GoalsScreen> {
     MushafProfile? editingMushafProfile,
   }) async {
     final isThai = context.read<SettingsProvider>().languageCode == 'th';
+    final supabaseProv = context.read<SupabaseProvider>();
+    if (!supabaseProv.isLoggedIn) {
+      final loggedIn = await AuthRequiredDialog.show(
+        context,
+        featureName: isThai ? 'เป้าหมายการอ่าน' : 'Reading Goals',
+        reason: isThai
+            ? 'การสร้างและติดตามเป้าหมายการอ่านจำเป็นต้องเข้าสู่ระบบ เพื่อบันทึกความคืบหน้าบนคลาวด์'
+            : 'Creating and tracking reading goals requires signing in to save your progress in the cloud.',
+      );
+      if (!loggedIn || !mounted) return;
+    }
+
     final readingProv = context.read<LocalReadingProvider>();
     final mushafProv = context.read<MushafReadingProvider>();
 
@@ -1695,6 +1709,14 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   const SizedBox(height: 18),
                 ],
 
+                // Guest Info Banner (if not logged in)
+                if (!context.watch<SupabaseProvider>().isLoggedIn)
+                  _buildGuestGoalBanner(
+                    isThai: isThai,
+                    colorScheme: colorScheme,
+                    colors: colors,
+                  ),
+
                 // 1. Unified Continue Reading Hero Card (when active goals exist)
                 if (totalActive > 0) ...[
                   _buildContinueReadingCard(
@@ -2394,6 +2416,88 @@ class _GoalsScreenState extends State<GoalsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuestGoalBanner({
+    required bool isThai,
+    required ColorScheme colorScheme,
+    required AppThemeColors colors,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.lock_outline_rounded,
+              color: Color(0xFF2563EB),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isThai
+                      ? 'เข้าสู่ระบบเพื่อใช้งานเป้าหมาย'
+                      : 'Sign In Required for Goals',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textStrong,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isThai
+                      ? 'บันทึกความคืบหน้าอย่างปลอดภัยและซิงค์ข้ามอุปกรณ์'
+                      : 'Preserve reading progress permanently across devices.',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 11.5,
+                    color: colors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () => AuthBottomSheet.show(context),
+            child: Text(
+              isThai ? 'เข้าสู่ระบบ' : 'Sign In',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

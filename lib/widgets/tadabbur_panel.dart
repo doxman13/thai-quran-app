@@ -9,6 +9,8 @@ import '../models/tadabbur_note.dart';
 import '../data/tadabbur_repository.dart';
 import '../theme/app_theme.dart';
 import '../shared/localization.dart';
+import '../providers/supabase_provider.dart';
+import 'auth_bottom_sheet.dart';
 
 class TadabburPanel extends StatefulWidget {
   final String surahId;
@@ -88,6 +90,17 @@ class _TadabburPanelState extends State<TadabburPanel> {
   }
 
   Future<void> _save() async {
+    final supabaseProv = context.read<SupabaseProvider>();
+    if (!supabaseProv.isLoggedIn) {
+      final loggedIn = await AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกตะดับบุร',
+        reason:
+            'การบันทึกข้อคิดตะดับบุรจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างถาวรและซิงค์ข้ามอุปกรณ์',
+      );
+      if (!loggedIn || !mounted) return;
+    }
+
     final text = _controller.text.trim();
 
     setState(() => _isSaving = true);

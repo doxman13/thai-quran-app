@@ -97,21 +97,26 @@ void main() {
     });
 
     test('Metro tile source labels format correctly for goal vs free read', () {
-      // Goal case
-      const goalName = 'คอตัม 30 วัน';
-      const isThai = true;
-      final goalSourceLabel = isThai ? 'เป้าหมาย: $goalName' : 'Goal: $goalName';
-      final goalBadge = isThai ? '🎯 เป้าหมาย' : '🎯 Goal';
+      String getGoalSourceLabel(bool isThai, String goalName) =>
+          isThai ? 'เป้าหมาย: $goalName' : 'Goal: $goalName';
+      String getGoalBadge(bool isThai) =>
+          isThai ? '🎯 เป้าหมาย' : '🎯 Goal';
+      String getFreeReadSourceLabel(bool isThai) =>
+          isThai ? 'โหมดอ่านอิสระ' : 'Free Read';
+      String getFreeReadBadge(bool isThai) =>
+          isThai ? 'อ่านอิสระ' : 'Free Read';
 
-      expect(goalSourceLabel, 'เป้าหมาย: คอตัม 30 วัน');
-      expect(goalBadge, '🎯 เป้าหมาย');
+      // Thai case
+      expect(getGoalSourceLabel(true, 'คอตัม 30 วัน'), 'เป้าหมาย: คอตัม 30 วัน');
+      expect(getGoalBadge(true), '🎯 เป้าหมาย');
+      expect(getFreeReadSourceLabel(true), 'โหมดอ่านอิสระ');
+      expect(getFreeReadBadge(true), 'อ่านอิสระ');
 
-      // Free read case
-      final freeReadSourceLabel = isThai ? 'โหมดอ่านอิสระ' : 'Free Read';
-      final freeReadBadge = isThai ? 'อ่านอิสระ' : 'Free Read';
-
-      expect(freeReadSourceLabel, 'โหมดอ่านอิสระ');
-      expect(freeReadBadge, 'อ่านอิสระ');
+      // English case
+      expect(getGoalSourceLabel(false, 'Khatam 30 Days'), 'Goal: Khatam 30 Days');
+      expect(getGoalBadge(false), '🎯 Goal');
+      expect(getFreeReadSourceLabel(false), 'Free Read');
+      expect(getFreeReadBadge(false), 'Free Read');
     });
   });
 }

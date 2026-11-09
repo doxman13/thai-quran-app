@@ -17,7 +17,7 @@ import '../shared/shared.dart';
 import 'reading_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'tadabbur_community_screen.dart';
-import 'profile_screen.dart';
+import '../widgets/auth_bottom_sheet.dart';
 
 class TadabburPrivateScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -201,14 +201,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
   }
 
   void _openProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProfileScreen(
-          repository: widget.repository,
-        ),
-      ),
-    ).then((_) => _loadNotes());
+    AuthBottomSheet.show(context).then((_) => _loadNotes());
   }
 
   @override

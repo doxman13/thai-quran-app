@@ -27,6 +27,8 @@ import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import '../widgets/tadabbur_panel.dart';
+import '../widgets/auth_bottom_sheet.dart';
+import '../providers/supabase_provider.dart';
 import 'hifz_memorize_screen.dart';
 import 'hifz_mushaf_range_picker_screen.dart';
 import 'hifz_new_verses_setup_screen.dart';
@@ -535,6 +537,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     MushafProfile profile,
     String verseKey,
   ) async {
+    final isBookmarked = context
+        .read<MushafReadingProvider>()
+        .isVerseBookmarked(profile.mushafId, _pageNumber, verseKey);
+    if (!isBookmarked) {
+      final ok = await GuestBookmarkWarningDialog.checkAndPrompt(context);
+      if (!ok || !mounted) return;
+    }
+
     await context.read<MushafReadingProvider>().toggleVerseBookmark(
       mushafId: profile.mushafId,
       pageNumber: _pageNumber,
@@ -1097,6 +1107,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     String surahId,
     String verseId,
   ) async {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกตะดับบุร (Tadabbur Notes)',
+        reason:
+            'การบันทึกข้อคิดตะดับบุรจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างถาวรและซิงค์ข้ามอุปกรณ์',
+      );
+      return;
+    }
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1164,6 +1185,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     String? verseKey, {
     bool askForNote = false,
   }) async {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกอายะฮ์ที่ชอบ (Favorite Verse)',
+        reason:
+            'การบันทึกอายะฮ์ที่ชอบและข้อคิดจำเป็นต้องเข้าสู่ระบบ เพื่อซิงค์ข้อมูลกับบัญชีของคุณ',
+      );
+      return;
+    }
+
     final parts = verseKey?.split(':') ?? const <String>[];
     if (parts.length != 2) {
       ScaffoldMessenger.of(context)
@@ -1853,10 +1885,23 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             _pageNumber,
                           ),
                           onSettings: () => _showReaderSettings(profile),
-                          onBookmarkPage: () => provider.togglePageBookmark(
-                            displayMushafId,
-                            _pageNumber,
-                          ),
+                          onBookmarkPage: () async {
+                            final isBookmarked = provider.isPageBookmarked(
+                              displayMushafId,
+                              _pageNumber,
+                            );
+                            if (!isBookmarked) {
+                              final ok =
+                                  await GuestBookmarkWarningDialog.checkAndPrompt(
+                                    context,
+                                  );
+                              if (!ok) return;
+                            }
+                            await provider.togglePageBookmark(
+                              displayMushafId,
+                              _pageNumber,
+                            );
+                          },
                           verseFavorited: verseFavorited,
                           onFavoriteVerse: () => _toggleCurrentVerseFavorite(),
                           quranRepository: widget.quranRepository,

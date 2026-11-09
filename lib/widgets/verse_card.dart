@@ -31,6 +31,8 @@ import 'word_by_word_strip.dart';
 import 'mutashabihat_sheet.dart';
 import '../services/offline_quran_database_service.dart';
 import '../services/footnote_service.dart';
+import '../providers/supabase_provider.dart';
+import 'auth_bottom_sheet.dart';
 
 class VerseCardController extends ChangeNotifier {
   VoidCallback? toggleTafsir;
@@ -356,6 +358,16 @@ class _VerseCardState extends State<VerseCard> {
   }
 
   void _openTadabburModal() {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกตะดับบุร (Tadabbur Notes)',
+        reason: 'การบันทึกตะดับบุรจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างปลอดภัยบนคลาวด์',
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -380,6 +392,16 @@ class _VerseCardState extends State<VerseCard> {
     NotesProvider notesProv,
     TadabburNote? noteObj,
   ) async {
+    final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+    if (!supabaseProv.isLoggedIn) {
+      AuthRequiredDialog.show(
+        context,
+        featureName: 'บันทึกอายะฮ์ที่ชอบ (Favorite Verse)',
+        reason: 'การบันทึกอายะฮ์ที่ชอบและข้อคิดจำเป็นต้องเข้าสู่ระบบ เพื่อซิงค์ข้อมูลกับบัญชีของคุณ',
+      );
+      return;
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasNoteText = noteObj?.noteText.trim().isNotEmpty ?? false;
@@ -987,6 +1009,13 @@ class _VerseCardState extends State<VerseCard> {
                         active: isBookmarked,
                         color: colorScheme.tertiary,
                         onPressed: () async {
+                          if (!isBookmarked) {
+                            final ok =
+                                await GuestBookmarkWarningDialog.checkAndPrompt(
+                                  context,
+                                );
+                            if (!ok) return;
+                          }
                           await localReading.toggleBookmark(
                             verseRef.surahId,
                             verseRef.verseId,

@@ -7,6 +7,8 @@ import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/supabase_provider.dart';
+import '../widgets/auth_bottom_sheet.dart';
 import '../data/quran_repository.dart';
 import '../data/quran_foundation_repository.dart';
 import '../theme/app_theme.dart';
@@ -730,6 +732,58 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             color: colorScheme.onSurface,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildGuestRetentionNotice({
+    required bool isThai,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7).withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFD97706),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isThai
+                  ? 'ที่คั่นหน้าถูกเก็บในเครื่องนี้ (จะถูกล้างหากไม่ได้ใช้งานเกิน 30 วัน)'
+                  : 'Bookmarks are stored on this device only (cleared after 30 days inactive).',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11.5,
+                color: const Color(0xFF92400E),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => AuthBottomSheet.show(context),
+            child: Text(
+              isThai ? 'เข้าสู่ระบบ' : 'Sign In',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11.5,
+                color: const Color(0xFFB45309),
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1821,6 +1875,11 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   else
                     ...filteredRecent.map((e) => e.widget),
                 ] else if (_selectedMenuIndex == 1) ...[
+                  if (!context.watch<SupabaseProvider>().isLoggedIn)
+                    _buildGuestRetentionNotice(
+                      isThai: isThai,
+                      colorScheme: colorScheme,
+                    ),
                   _buildSearchBar(isThai: isThai, colorScheme: colorScheme),
                   _buildFilterChips(
                     activeFilter: _bookmarkFilter,

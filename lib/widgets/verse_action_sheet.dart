@@ -10,6 +10,7 @@ import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../models/verse.dart';
 import '../theme/app_theme.dart';
+import 'auth_bottom_sheet.dart';
 
 class VerseActionSheet extends StatelessWidget {
   final Verse verse;
@@ -85,9 +86,15 @@ class VerseActionSheet extends StatelessWidget {
               isBookmarked ? 'Remove Bookmark' : 'Bookmark Verse',
               style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
-            onTap: () {
-              Navigator.pop(context);
-              localReading.toggleBookmark(verse.surahId, verse.id);
+            onTap: () async {
+              if (!isBookmarked) {
+                final ok = await GuestBookmarkWarningDialog.checkAndPrompt(context);
+                if (!ok) return;
+              }
+              if (context.mounted) {
+                Navigator.pop(context);
+                localReading.toggleBookmark(verse.surahId, verse.id);
+              }
             },
           ),
           
@@ -112,6 +119,15 @@ class VerseActionSheet extends StatelessWidget {
               style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
+              final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+              if (!supabaseProv.isLoggedIn) {
+                AuthRequiredDialog.show(
+                  context,
+                  featureName: 'บันทึกตะดับบุร (Reflection)',
+                  reason: 'การบันทึกข้อคิดตะดับบุรจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างถาวรและซิงค์ข้ามอุปกรณ์',
+                );
+                return;
+              }
               Navigator.pop(context);
               if (onEditNoteSelected != null) onEditNoteSelected!();
             },
@@ -124,6 +140,15 @@ class VerseActionSheet extends StatelessWidget {
               style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
             ),
             onTap: () {
+              final supabaseProv = Provider.of<SupabaseProvider>(context, listen: false);
+              if (!supabaseProv.isLoggedIn) {
+                AuthRequiredDialog.show(
+                  context,
+                  featureName: 'ข้อคิดของฉัน (My Thoughts)',
+                  reason: 'การดูและบันทึกข้อคิดจำเป็นต้องเข้าสู่ระบบ เพื่อจัดเก็บข้อมูลอย่างถาวรและซิงค์ข้ามอุปกรณ์',
+                );
+                return;
+              }
               Navigator.pop(context);
               _showThoughtsModal(context, settings, note, verse.surahId, verse.id);
             },

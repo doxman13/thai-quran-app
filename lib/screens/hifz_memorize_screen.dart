@@ -34,6 +34,7 @@ import '../providers/translation_manager_provider.dart';
 import '../services/tajweed_service.dart';
 import '../widgets/mutashabihat_sheet.dart';
 import '../widgets/word_by_word_strip.dart';
+import '../widgets/auth_bottom_sheet.dart';
 import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
 import '../utils/html_parser.dart';
@@ -3043,6 +3044,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               );
                             }
                           } else if (val == 'bookmark') {
+                            if (!bookmarked) {
+                              final ok =
+                                  await GuestBookmarkWarningDialog.checkAndPrompt(
+                                    context,
+                                  );
+                              if (!ok) return;
+                            }
                             await readingProvider.toggleVerseBookmark(
                               mushafId: 1,
                               pageNumber: 1,
@@ -4941,6 +4949,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               );
                             }
                           } else if (val == 'bookmark') {
+                            if (!bookmarked) {
+                              final ok =
+                                  await GuestBookmarkWarningDialog.checkAndPrompt(
+                                    context,
+                                  );
+                              if (!ok) return;
+                            }
                             await readingProvider.toggleVerseBookmark(
                               mushafId: 1,
                               pageNumber: 1,

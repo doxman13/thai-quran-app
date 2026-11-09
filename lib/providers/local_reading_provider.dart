@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/guest_lifecycle_service.dart';
 import '../shared/shared.dart';
 
 const shortcutMulkId = '00000000-0000-0000-0000-000000000067';
@@ -2248,6 +2249,34 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
       _activeProfileId = decoded['activeProfileId']?.toString();
       _ensureDefaultProfile();
+
+      // 30-Day Inactive Auto-Flush for Guest Data
+      final isGuestExpired =
+          await GuestLifecycleService.isGuestInactiveExpired(prefs);
+      if (isGuestExpired) {
+        debugPrint(
+          '[GuestLifecycle] Inactive for >= 30 days. Flushing local guest bookmarks and history.',
+        );
+        _bookmarks.removeWhere((b) => b.userId == _localUserId);
+        _recentReadings.removeWhere((r) => r.userId == _localUserId);
+        _completedReadSurahs.clear();
+        _completedReadSurahCounts.clear();
+        final now = DateTime.now();
+        _profiles = _profiles.map((p) {
+          if (p.userId == _localUserId && isFreeReadProfile(p)) {
+            return p.copyWith(
+              current: toVerseRef('1', '1'),
+              lastViewed: toVerseRef('1', '1'),
+              updatedAt: now,
+            );
+          }
+          return p;
+        }).toList();
+        await _save(immediate: true);
+      } else {
+        await GuestLifecycleService.touchGuestActivity(prefs);
+      }
+
       _profiles = _profiles
           .map(
             (profile) =>

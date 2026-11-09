@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/tadabbur_repository.dart';
 import '../models/tadabbur_note.dart';
+import '../services/guest_lifecycle_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotesProvider extends ChangeNotifier {
@@ -82,6 +83,15 @@ class NotesProvider extends ChangeNotifier {
   Future<void> _loadNotes() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Flush local guest notes if inactive >= 30 days
+      if (await GuestLifecycleService.isGuestInactiveExpired(prefs)) {
+        await prefs.remove(_notesKey);
+        _personalNotes = {};
+        notifyListeners();
+        return;
+      }
+
       final savedData = prefs.getString(_notesKey);
       if (savedData != null) {
         final Map<String, dynamic> decoded = json.decode(savedData);
@@ -152,6 +162,7 @@ class NotesProvider extends ChangeNotifier {
     await _saveLocalCache();
 
     if (isGuest) {
+      await GuestLifecycleService.touchGuestActivity();
       return;
     }
 
