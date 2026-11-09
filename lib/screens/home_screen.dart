@@ -952,11 +952,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         (verseRecent == null || mushafRecent.at.isAfter(verseRecent.at));
 
     if (shouldOpenMushaf) {
-      final profile = mushafReading.profileById(mushafRecent.profileId);
-      if (profile != null) {
-        _navigateToMushafProfile(profile, initialPage: mushafRecent.pageNumber);
+      final page = mushafRecent.pageNumber;
+      final resolved = mushafRecent.profileId != null
+          ? mushafReading.profileById(mushafRecent.profileId!)
+          : null;
+      final isInside = resolved != null &&
+          page >= resolved.startPage &&
+          page <= resolved.targetPage;
+      final profile =
+          resolved != null && !resolved.isArchived && isInside ? resolved : null;
+      final isGoal = profile != null && !profile.isFreeRead;
+      if (isGoal) {
+        await _navigateToMushafProfile(profile, initialPage: page);
       } else {
-        await _navigateToMushafFreeReadPage(mushafRecent.pageNumber);
+        await _navigateToMushafFreeReadPage(page);
       }
       return;
     }
@@ -966,21 +975,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ? null
           : localReading.profileById(verseRecent.profileId!);
       // Never reactivate an archived goal through the Continue card.
+      final isInside = resolved != null &&
+          localReading.isVerseInsideProfile(
+            resolved,
+            verseRecent.verse.surahId,
+            verseRecent.verse.verseId,
+          );
       final profile =
-          resolved != null && !resolved.isArchived ? resolved : null;
-      if (profile != null) {
+          resolved != null && !resolved.isArchived && isInside ? resolved : null;
+      final isGoal = profile != null && !isFreeReadProfile(profile);
+      if (isGoal) {
         await localReading.setActiveProfile(profile.id);
+      } else {
+        final freeRead = localReading.freeReadProfile;
+        if (freeRead != null) {
+          await localReading.setActiveProfile(freeRead.id);
+        }
       }
       if (!mounted) return;
       _navigateToReading(
         context,
         verseRecent.verse.surahId,
         verseId: verseRecent.verse.verseId,
-        saveToFreeReadOnly: profile == null,
+        saveToFreeReadOnly: !isGoal,
+        shortcutId: isGoal ? profile.id : null,
       );
       return;
     }
 
+    final freeRead = localReading.freeReadProfile;
+    if (freeRead != null) {
+      await localReading.setActiveProfile(freeRead.id);
+    }
+    if (!mounted) return;
     _navigateToReading(context, '1', verseId: '1', saveToFreeReadOnly: true);
   }
 
@@ -1992,6 +2019,115 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final recentColor =
         isDark ? const Color(0xFF1F3A44) : const Color(0xFF264653);
 
+    // ── Meaning Reader state ──
+    final verseRecent = _latestVerseLastRead(readingProvider);
+    final LocalReadingProfile? meaningProfile;
+    final bool isMeaningGoal;
+    final String meaningSubtitle;
+    final String? meaningSourceLabel;
+    final String meaningBadge;
+    final Color meaningBadgeBg;
+    final Color meaningBadgeFg;
+    final Border? meaningBadgeBorder;
+
+    if (verseRecent != null) {
+      final sId = verseRecent.verse.surahId;
+      final vId = verseRecent.verse.verseId;
+      final surahName = surahDisplayName(sId, isThai: isThai);
+      final resolved = verseRecent.profileId != null
+          ? readingProvider.profileById(verseRecent.profileId!)
+          : null;
+      final isInside = resolved != null &&
+          readingProvider.isVerseInsideProfile(resolved, sId, vId);
+      meaningProfile =
+          resolved != null && !resolved.isArchived && isInside ? resolved : null;
+      isMeaningGoal =
+          meaningProfile != null && !isFreeReadProfile(meaningProfile);
+
+      meaningSubtitle = '$surahName • ${isThai ? 'อายะฮฺ' : 'Ayah'} $vId';
+      if (isMeaningGoal) {
+        meaningSourceLabel = isThai
+            ? 'เป้าหมาย: ${meaningProfile.name}'
+            : 'Goal: ${meaningProfile.name}';
+        meaningBadge = isThai ? '🎯 เป้าหมาย' : '🎯 Goal';
+        meaningBadgeBg = const Color(0xFFD4A853).withValues(alpha: 0.28);
+        meaningBadgeFg = const Color(0xFFFDE68A);
+        meaningBadgeBorder = Border.all(
+          color: const Color(0xFFD4A853).withValues(alpha: 0.6),
+          width: 0.8,
+        );
+      } else {
+        meaningSourceLabel = isThai ? 'โหมดอ่านอิสระ' : 'Free Read';
+        meaningBadge = isThai ? 'อ่านอิสระ' : 'Free Read';
+        meaningBadgeBg = Colors.white.withValues(alpha: 0.16);
+        meaningBadgeFg = Colors.white.withValues(alpha: 0.92);
+        meaningBadgeBorder = null;
+      }
+    } else {
+      meaningProfile = null;
+      isMeaningGoal = false;
+      meaningSubtitle = isThai ? 'แปลไทย & ตัฟซีร' : 'Translation & Tafsir';
+      meaningSourceLabel = null;
+      meaningBadge = isThai ? 'ความหมาย' : 'Meaning';
+      meaningBadgeBg = Colors.black.withValues(alpha: 0.2);
+      meaningBadgeFg = Colors.white.withValues(alpha: 0.9);
+      meaningBadgeBorder = null;
+    }
+
+    // ── Mushaf Reader state ──
+    final mushafRecent = _latestMushafLastRead(mushafReadingProvider);
+    final MushafProfile? mushafProfile;
+    final bool isMushafGoal;
+    final String mushafSubtitle;
+    final String? mushafSourceLabel;
+    final String mushafBadge;
+    final Color mushafBadgeBg;
+    final Color mushafBadgeFg;
+    final Border? mushafBadgeBorder;
+
+    if (mushafRecent != null) {
+      final page = mushafRecent.pageNumber;
+      final resolved = mushafRecent.profileId != null
+          ? mushafReadingProvider.profileById(mushafRecent.profileId!)
+          : null;
+      final isInside = resolved != null &&
+          page >= resolved.startPage &&
+          page <= resolved.targetPage;
+      mushafProfile =
+          resolved != null && !resolved.isArchived && isInside ? resolved : null;
+      isMushafGoal = mushafProfile != null && !mushafProfile.isFreeRead;
+
+      mushafSubtitle =
+          isThai ? 'หน้า $page (จาก 604)' : 'Page $page of 604';
+      if (isMushafGoal) {
+        mushafSourceLabel = isThai
+            ? 'เป้าหมาย: ${mushafProfile.name}'
+            : 'Goal: ${mushafProfile.name}';
+        mushafBadge = isThai ? '🎯 เป้าหมาย' : '🎯 Goal';
+        mushafBadgeBg = const Color(0xFFD4A853).withValues(alpha: 0.28);
+        mushafBadgeFg = const Color(0xFFFDE68A);
+        mushafBadgeBorder = Border.all(
+          color: const Color(0xFFD4A853).withValues(alpha: 0.6),
+          width: 0.8,
+        );
+      } else {
+        mushafSourceLabel = isThai ? 'โหมดอ่านอิสระ' : 'Free Read';
+        mushafBadge = isThai ? 'อ่านอิสระ' : 'Free Read';
+        mushafBadgeBg = Colors.white.withValues(alpha: 0.16);
+        mushafBadgeFg = Colors.white.withValues(alpha: 0.92);
+        mushafBadgeBorder = null;
+      }
+    } else {
+      mushafProfile = null;
+      isMushafGoal = false;
+      mushafSubtitle = isThai ? '15 บรรทัดมาตรฐาน' : '15-Line Standard';
+      mushafSourceLabel = null;
+      mushafBadge = isThai ? 'มุศหัฟ' : 'Mushaf';
+      mushafBadgeBg = Colors.black.withValues(alpha: 0.2);
+      mushafBadgeFg = Colors.white.withValues(alpha: 0.9);
+      mushafBadgeBorder = null;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2010,93 +2146,128 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ],
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMetroTile(
-                backgroundColor: meaningColor,
-                icon: Icons.menu_book_rounded,
-                title: isThai ? 'อ่านฉบับแปล' : 'Meaning Reader',
-                subtitle: isThai ? 'แปลไทย & ตัฟซีร' : 'Translation & Tafsir',
-                badgeText: isThai ? 'ความหมาย' : 'Meaning',
-                onTap: () {
-                  final verseRecent = _latestVerseLastRead(readingProvider);
-                  if (verseRecent != null) {
-                    final profile = verseRecent.profileId != null
-                        ? readingProvider.profileById(verseRecent.profileId!)
-                        : null;
-                    _navigateToReading(
-                      context,
-                      verseRecent.verse.surahId,
-                      verseId: verseRecent.verse.verseId,
-                      saveToFreeReadOnly:
-                          profile == null || isFreeReadProfile(profile),
-                    );
-                  } else {
-                    _navigateToReading(
-                      context,
-                      '1',
-                      verseId: '1',
-                      saveToFreeReadOnly: true,
-                    );
-                  }
-                },
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildMetroTile(
+                  backgroundColor: meaningColor,
+                  icon: Icons.menu_book_rounded,
+                  title: isThai ? 'อ่านฉบับแปล' : 'Meaning Reader',
+                  subtitle: meaningSubtitle,
+                  sourceLabel: meaningSourceLabel,
+                  badgeText: meaningBadge,
+                  badgeBackgroundColor: meaningBadgeBg,
+                  badgeTextColor: meaningBadgeFg,
+                  badgeBorder: meaningBadgeBorder,
+                  onTap: () async {
+                    if (verseRecent != null) {
+                      if (isMeaningGoal && meaningProfile != null) {
+                        await readingProvider.setActiveProfile(meaningProfile.id);
+                      } else {
+                        final freeRead = readingProvider.freeReadProfile;
+                        if (freeRead != null) {
+                          await readingProvider.setActiveProfile(freeRead.id);
+                        }
+                      }
+                      if (!mounted) return;
+                      _navigateToReading(
+                        context,
+                        verseRecent.verse.surahId,
+                        verseId: verseRecent.verse.verseId,
+                        saveToFreeReadOnly: !isMeaningGoal,
+                        shortcutId: isMeaningGoal ? meaningProfile?.id : null,
+                      );
+                    } else {
+                      final freeRead = readingProvider.freeReadProfile;
+                      if (freeRead != null) {
+                        await readingProvider.setActiveProfile(freeRead.id);
+                      }
+                      if (!mounted) return;
+                      _navigateToReading(
+                        context,
+                        '1',
+                        verseId: '1',
+                        saveToFreeReadOnly: true,
+                      );
+                    }
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildMetroTile(
-                backgroundColor: mushafColor,
-                icon: Icons.auto_stories_rounded,
-                title: isThai ? 'มุศหัฟมะดีนะฮฺ' : 'Medina Mushaf',
-                subtitle: isThai ? '15 บรรทัดมาตรฐาน' : '15-Line Standard',
-                badgeText: isThai ? 'มุศหัฟ' : 'Mushaf',
-                onTap: () {
-                  final mushafRecent =
-                      _latestMushafLastRead(mushafReadingProvider);
-                  _navigateToMushafFreeReadPage(mushafRecent?.pageNumber ?? 1);
-                },
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildMetroTile(
+                  backgroundColor: mushafColor,
+                  icon: Icons.auto_stories_rounded,
+                  title: isThai ? 'มุศหัฟมะดีนะฮฺ' : 'Medina Mushaf',
+                  subtitle: mushafSubtitle,
+                  sourceLabel: mushafSourceLabel,
+                  badgeText: mushafBadge,
+                  badgeBackgroundColor: mushafBadgeBg,
+                  badgeTextColor: mushafBadgeFg,
+                  badgeBorder: mushafBadgeBorder,
+                  onTap: () async {
+                    if (mushafRecent != null) {
+                      if (isMushafGoal && mushafProfile != null) {
+                        await _navigateToMushafProfile(
+                          mushafProfile,
+                          initialPage: mushafRecent.pageNumber,
+                        );
+                      } else {
+                        await _navigateToMushafFreeReadPage(
+                          mushafRecent.pageNumber,
+                        );
+                      }
+                    } else {
+                      await _navigateToMushafFreeReadPage(1);
+                    }
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildMetroTile(
-                backgroundColor: hifzColor,
-                icon: Icons.psychology_rounded,
-                title: isThai ? 'ท่องจำอัลกุรอาน' : 'Hifz Suite',
-                subtitle: isThai ? 'ทดสอบ & ทบทวน' : 'Tilawa & Review',
-                badgeText: isThai ? 'ท่องจำ' : 'Hifz',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => HifzLandingScreen(
-                        quranRepository: widget.repository,
-                        foundationRepository: _foundationRepository,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildMetroTile(
+                  backgroundColor: hifzColor,
+                  icon: Icons.psychology_rounded,
+                  title: isThai ? 'ท่องจำอัลกุรอาน' : 'Hifz Suite',
+                  subtitle: isThai ? 'ทดสอบ & ทบทวน' : 'Tilawa & Review',
+                  badgeText: isThai ? 'ท่องจำ' : 'Hifz',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HifzLandingScreen(
+                          quranRepository: widget.repository,
+                          foundationRepository: _foundationRepository,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildMetroTile(
-                backgroundColor: recentColor,
-                icon: Icons.history_rounded,
-                title: isThai ? 'อ่านล่าสุด' : 'Recent Reads',
-                subtitle: isThai ? 'ประวัติ & หน้าค้าง' : 'History & Resumes',
-                badgeText: isThai ? 'อ่านล่าสุด' : 'Recent',
-                onTap: () {
-                  setState(() => _navIndex = 2);
-                },
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildMetroTile(
+                  backgroundColor: recentColor,
+                  icon: Icons.history_rounded,
+                  title: isThai ? 'อ่านล่าสุด' : 'Recent Reads',
+                  subtitle: isThai ? 'ประวัติ & หน้าค้าง' : 'History & Resumes',
+                  badgeText: isThai ? 'อ่านล่าสุด' : 'Recent',
+                  onTap: () {
+                    setState(() => _navIndex = 2);
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -2109,6 +2280,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     required String subtitle,
     required String badgeText,
     required VoidCallback onTap,
+    String? sourceLabel,
+    Color? badgeBackgroundColor,
+    Color? badgeTextColor,
+    Border? badgeBorder,
   }) {
     return Material(
       color: backgroundColor,
@@ -2117,8 +2292,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: Container(
-          height: 108,
-          padding: const EdgeInsets.all(13),
+          constraints: const BoxConstraints(minHeight: 114),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radius),
             border: Border.all(
@@ -2145,24 +2320,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       color: Colors.white,
                     ),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      badgeText,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white.withValues(alpha: 0.9),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: badgeBackgroundColor ??
+                            Colors.black.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: badgeBorder,
+                      ),
+                      child: Text(
+                        badgeText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: badgeTextColor ??
+                              Colors.white.withValues(alpha: 0.9),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -2186,9 +2372,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     style: GoogleFonts.notoSansThai(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.78),
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
+                  if (sourceLabel != null) ...[
+                    const SizedBox(height: 1.5),
+                    Text(
+                      sourceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        color: sourceLabel.startsWith('เป้าหมาย') ||
+                                sourceLabel.startsWith('Goal')
+                            ? const Color(0xFFFDE68A)
+                            : Colors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
