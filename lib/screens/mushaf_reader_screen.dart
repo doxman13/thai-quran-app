@@ -35,9 +35,10 @@ import 'hifz_memorize_screen.dart';
 import 'hifz_mushaf_range_picker_screen.dart';
 import 'hifz_new_verses_setup_screen.dart';
 import 'hifz_review_setup_screen.dart';
-import 'hifz_settings_screen.dart';
 import 'reading_screen.dart';
+import 'settings_screen.dart';
 import '../models/hifz_session_config.dart';
+import '../widgets/word_by_word_strip.dart';
 
 class MushafReaderScreen extends StatefulWidget {
   final QuranRepository quranRepository;
@@ -1286,6 +1287,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
               .displayMushafId,
           currentPage: _pageNumber,
           profileName: profile.name,
+          quranRepository: widget.quranRepository,
           onDisplayMushafChanged: (mushafId) => context
               .read<MushafReadingProvider>()
               .setDisplayMushafId(mushafId),
@@ -2010,6 +2012,7 @@ class _MushafReaderSettingsSheet extends StatefulWidget {
   final String profileName;
   final ValueChanged<int> onDisplayMushafChanged;
   final VoidCallback onSeeAllProfiles;
+  final QuranRepository? quranRepository;
 
   const _MushafReaderSettingsSheet({
     required this.displayMushafId,
@@ -2017,6 +2020,7 @@ class _MushafReaderSettingsSheet extends StatefulWidget {
     required this.profileName,
     required this.onDisplayMushafChanged,
     required this.onSeeAllProfiles,
+    this.quranRepository,
   });
 
   @override
@@ -2173,6 +2177,46 @@ class _MushafReaderSettingsSheetState
               },
             ),
           ),
+          const SizedBox(height: 12),
+
+          // Word By Word Toggle Card (List View)
+          Container(
+            decoration: BoxDecoration(
+              color: colors.surfaceMuted,
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: SwitchListTile(
+              activeTrackColor: colors.primary,
+              secondary: Icon(
+                Icons.translate_rounded,
+                color: colors.primary,
+              ),
+              title: Text(
+                settings.languageCode == 'th'
+                    ? 'คำแปลทีละคำ (WBW)'
+                    : 'Word by Word',
+                style: GoogleFonts.notoSansThai(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: colors.textStrong,
+                ),
+              ),
+              subtitle: Text(
+                settings.languageCode == 'th'
+                    ? 'แสดงคำแปลใต้คำศัพท์ในมุมมองรายการ'
+                    : 'Show word-by-word translation in list view',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  color: colors.foreground,
+                ),
+              ),
+              value: settings.showWordByWord,
+              onChanged: (val) {
+                settings.toggleShowWordByWord(val);
+              },
+            ),
+          ),
           const SizedBox(height: 16),
 
           // Display Mushaf Selection Label
@@ -2250,7 +2294,9 @@ class _MushafReaderSettingsSheetState
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const HifzSettingsScreen(),
+                  builder: (_) => SettingsScreen(
+                    repository: widget.quranRepository,
+                  ),
                 ),
               );
             },
@@ -2332,10 +2378,11 @@ class _ReaderTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
     final surahName = getSurahNameForPage(pageNumber, quranRepository);
     final juz = getOfflineJuzForPage(pageNumber);
     final hizb = getOfflineHizbForPage(pageNumber);
-    final hizbLabel = context.read<SettingsProvider>().languageCode == 'th'
+    final hizbLabel = settings.languageCode == 'th'
         ? 'ฮิซบ์'
         : 'Hizb';
 
@@ -2421,6 +2468,21 @@ class _ReaderTopBar extends StatelessWidget {
                   color: colors.primary,
                 ),
         ),
+        if (showTranslationList)
+          IconButton(
+            tooltip: settings.languageCode == 'th'
+                ? 'คำแปลทีละคำ (WBW)'
+                : 'Word by Word',
+            icon: Icon(
+              Icons.translate_rounded,
+              color: settings.showWordByWord
+                  ? colors.primary
+                  : colors.foreground,
+            ),
+            onPressed: () {
+              settings.toggleShowWordByWord(!settings.showWordByWord);
+            },
+          ),
         IconButton(
           tooltip: 'Toggle Translation',
           icon: Icon(
@@ -5088,6 +5150,8 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final arabicStyle = TextStyle(
       fontFamily: 'UthmanicHafs',
       fontSize: widget.settings.arabicFontSize,
@@ -5207,6 +5271,13 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
                   );
                 },
               ),
+              if (settings.showWordByWord) ...[
+                const SizedBox(height: 12),
+                WordByWordView(
+                  verseKey: widget.verseKey,
+                  isDarkMode: isDark,
+                ),
+              ],
               const SizedBox(height: 16),
               Directionality(
                 textDirection: TextDirection.ltr,

@@ -2203,7 +2203,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   backgroundColor: Colors.transparent,
                                   elevation: 0,
                                   toolbarHeight: topMenuHeight,
-                                  centerTitle: false,
+                                  centerTitle: true,
                                   leading: IconButton(
                                     icon: Icon(
                                       Icons.arrow_back,

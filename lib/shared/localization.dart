@@ -182,7 +182,7 @@ const Map<String, Map<String, String>> _localizedValues = {
     'delete_goal_confirm': 'คุณต้องการลบแผนการอ่านนี้หรือไม่?',
     'all_notes': 'ทั้งหมด',
     'notes_count': '({count} บันทึก)',
-    'qcf_v1': 'Mushaf Al Madinah (1405)',
+    'qcf_v1': 'Mushaf Al Madinah 1405',
     'qcf_v2': 'Mushaf Al Madinah (1421H)',
     'thai_v3': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)',
     'thai_v2': 'King Fahd Complex (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)',
@@ -447,7 +447,7 @@ const Map<String, Map<String, String>> _localizedValues = {
     'delete_goal_confirm': 'Do you want to delete this reading plan?',
     'all_notes': 'All',
     'notes_count': '({count} reflections)',
-    'qcf_v1': 'Mushaf Al Madinah (1405)',
+    'qcf_v1': 'Mushaf Al Madinah 1405',
     'qcf_v2': 'Mushaf Al Madinah (1421H)',
     'thai_v3':
         'King Fahd Complex (The Arab Alumni Association)',

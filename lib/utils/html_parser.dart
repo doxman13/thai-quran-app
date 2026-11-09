@@ -78,22 +78,9 @@ class HtmlParser {
     final isDark = theme.brightness == Brightness.dark;
     final appColors = context.appColors;
     final fallbackTextColor = style.color ?? appColors.textStrong;
-
-    // Ensure linkColor has high contrast and is clearly distinct from body text in both modes.
-    Color effectiveLinkColor = linkColor;
-    if (isDark) {
-      if (effectiveLinkColor.computeLuminance() < 0.25 ||
-          effectiveLinkColor == theme.primaryColor ||
-          effectiveLinkColor == theme.colorScheme.primary) {
-        effectiveLinkColor = const Color(0xFFFBBF24); // Vibrant warm gold in dark mode
-      }
-    } else {
-      if (effectiveLinkColor.computeLuminance() < 0.12 ||
-          effectiveLinkColor == theme.primaryColor ||
-          effectiveLinkColor == theme.colorScheme.primary) {
-        effectiveLinkColor = const Color(0xFFB45309); // Rich amber bronze (high contrast against white and dark text)
-      }
-    }
+    final footnoteBadgeBg = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.07);
 
     final List<TextSpan> spans = [];
 
@@ -145,9 +132,9 @@ class HtmlParser {
         TextSpan(
           text: '[$fnId]',
           style: style.copyWith(
-            color: effectiveLinkColor,
-            backgroundColor: effectiveLinkColor.withValues(alpha: isDark ? 0.24 : 0.12),
-            fontWeight: FontWeight.w800,
+            color: fallbackTextColor,
+            backgroundColor: footnoteBadgeBg,
+            fontWeight: FontWeight.w700,
             fontSize: (style.fontSize ?? 14) * 0.70,
             letterSpacing: 0.5,
             fontFeatures: const [FontFeature.superscripts()],

@@ -58,7 +58,7 @@ const mushafTypes = [
   ),
   MushafType(
     id: 2,
-    name: 'Mushaf Al Madinah (1405)',
+    name: 'Mushaf Al Madinah 1405',
     pageCount: 604,
     description: 'Medina Mushaf printed in 1405H',
   ),
@@ -112,7 +112,7 @@ const mushafTypes = [
   ),
   MushafType(
     id: 21,
-    name: 'Tajweed (QUL)',
+    name: 'Tajweed QUL',
     pageCount: 604,
     description: 'Tarteel QUL Color-coded Tajweed layout (Trial)',
   ),

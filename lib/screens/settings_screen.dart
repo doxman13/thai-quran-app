@@ -14,7 +14,6 @@ import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/translation_manager_provider.dart';
-import '../services/remote_content_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import '../widgets/support_dialog.dart';
@@ -24,7 +23,6 @@ import '../widgets/auth_bottom_sheet.dart';
 import 'bookmarks_screen.dart';
 import 'goals_screen.dart';
 import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
-import 'tadabbur_admin_screen.dart';
 import 'tadabbur_private_screen.dart';
 
 const String _googleLogoSvg = '''
@@ -68,7 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
   bool _isSyncing = false;
-  bool _isCheckingContentUpdates = false;
 
   static const String _previewArabic = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
   static const String _previewTranslationTh =
@@ -781,36 +778,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildGroupCard(
                 colors: colors,
                 children: [
-                  _RevealListTile(
-                    icon: Icons.download_done_rounded,
-                    iconBg: const Color(0xFFE6FFFA),
-                    iconColor: const Color(0xFF0F766E),
-                    title: isThai ? 'เนื้อหาออฟไลน์' : 'Offline Content',
-                    subtitle: isThai
-                        ? '114 ซูเราะฮ์พร้อมใช้งานแบบออฟไลน์'
-                        : '114 Surahs available offline',
-                    onTap: () =>
-                        _showOfflineContentSheet(context, colors, isThai),
-                  ),
-                  _RevealListTile(
-                    icon: Icons.admin_panel_settings_outlined,
-                    iconBg: const Color(0xFFEAF2EE),
-                    iconColor: const Color(0xFF0E5A4A),
-                    title: isThai ? 'ตรวจสอบบันทึกสาธารณะ' : 'Tadabbur Moderation',
-                    subtitle: isThai
-                        ? 'ระบบดูแลและอนุมัติบันทึก'
-                        : 'Admin moderation panel',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TadabburAdminScreen(
-                            repository: widget.repository ?? QuranRepository(),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
                   _RevealListTile(
                     icon: Icons.restart_alt_rounded,
                     iconBg: const Color(0xFFF3F4F6),
@@ -2020,213 +1987,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-
-  // ── Bottom Sheet: Offline Content ──────────────────────────────────────────
-  void _showOfflineContentSheet(
-    BuildContext context,
-    AppThemeColors colors,
-    bool isThai,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: colors.borderSoft,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      isThai ? 'เนื้อหาออฟไลน์ในอุปกรณ์' : 'Offline Content',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: colors.textStrong,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF16A34A),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  isThai
-                                      ? 'อัลกุรอานครบถ้วน 114 ซูเราะฮ์'
-                                      : 'Complete 114 Surahs offline',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: colors.textStrong,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF16A34A),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  isThai
-                                      ? 'คำแปลไทยสมาคมนักเรียนเก่าอาหรับ & มุฟตีตากี'
-                                      : 'Thai Arab Alumni & Mufti Taqi translations',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: colors.textStrong,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: Color(0xFF16A34A),
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  isThai
-                                      ? 'คำแปลทีละคำ (WBW) ภาษาไทย & มลายู'
-                                      : 'Word-by-word Thai & Malay dictionaries',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: colors.textStrong,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.radius),
-                        ),
-                      ),
-                      icon: _isCheckingContentUpdates
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.sync_rounded, size: 18),
-                      label: Text(
-                        _isCheckingContentUpdates
-                            ? (isThai ? 'กำลังตรวจสอบ...' : 'Checking...')
-                            : (isThai
-                                ? 'ตรวจสอบการอัปเดตเนื้อหา'
-                                : 'Check for Content Updates'),
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      onPressed: _isCheckingContentUpdates
-                          ? null
-                          : () async {
-                              setSheetState(
-                                () => _isCheckingContentUpdates = true,
-                              );
-                              try {
-                                final updateResult =
-                                    await RemoteContentService.instance
-                                        .updateAll();
-                                if (context.mounted) {
-                                  Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isThai
-                                            ? 'ตรวจสอบเรียบร้อยแล้ว: ข้อมูลล่าสุด'
-                                            : 'Up to date: ${updateResult.updated} files synced',
-                                        style: GoogleFonts.notoSansThai(),
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isThai
-                                            ? 'ไม่สามารถตรวจสอบการอัปเดตได้'
-                                            : 'Update check failed: $e',
-                                        style: GoogleFonts.notoSansThai(),
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              } finally {
-                                setSheetState(
-                                  () => _isCheckingContentUpdates = false,
-                                );
-                              }
-                            },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         );
       },
     );

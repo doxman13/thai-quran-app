@@ -1127,7 +1127,9 @@ class _VerseCardState extends State<VerseCard> {
                 Divider(
                   height: 1,
                   thickness: 1,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.18),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : const Color(0xFFD5CEBE),
                 ),
                 const SizedBox(height: 16),
               ],
@@ -1457,10 +1459,7 @@ class _VerseCardState extends State<VerseCard> {
     Locale? locale,
     String? translationId,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final footnoteColor = isDark
-        ? const Color(0xFFFBBF24) // Vibrant warm gold in dark mode
-        : const Color(0xFFB45309); // Rich amber bronze in light mode
+    final footnoteColor = textStyle.color ?? Theme.of(context).colorScheme.onSurface;
 
     return RichText(
       locale: locale,
