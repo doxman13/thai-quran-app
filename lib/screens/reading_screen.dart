@@ -887,91 +887,134 @@ class _ReadingScreenState extends State<ReadingScreen> {
       builder: (context) {
         return Consumer2<SettingsProvider, TranslationManagerProvider>(
           builder: (context, settings, transManager, child) {
-            final colorScheme = Theme.of(context).colorScheme;
+            final colors = settings.getAppColors();
+            final isThai = settings.languageCode == 'th';
 
             return Container(
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
+                color: colors.surface,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radius),
+                  top: Radius.circular(20),
                 ),
               ),
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: 24.0,
-                  left: 24.0,
-                  right: 24.0,
-                  bottom: 24.0 + MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('display_settings'),
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Dark Mode Toggle
-                      SwitchListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        title: Text(
-                          context.tr('dark_mode'),
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                            color: colorScheme.onSurface,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    18,
+                    14,
+                    18,
+                    20 + MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Drag Handle
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: colors.borderSoft,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ),
-                        value: settings.isDarkMode,
-                        activeThumbColor: colorScheme.primary,
-                        onChanged: (val) => settings.toggleDarkMode(val),
-                      ),
-                      const SizedBox(height: 8),
 
-                      // Word-by-Word Toggle
-
-
-
-                      const Divider(height: 32),
-                      Text(
-                        context.tr('translations'),
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
+                        // Header Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isThai ? 'การตั้งค่าการอ่าน' : 'Reading Settings',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: colors.textStrong,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              onPressed: () => Navigator.pop(context),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(AppTheme.radius),
-                          border: Border.all(
-                            color: colorScheme.outline,
-                            width: 1,
+                        const SizedBox(height: 12),
+
+                        // ── 1. Display Toggles Group ──
+                        Container(
+                          decoration: BoxDecoration(
+                            color: colors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            border: Border.all(color: colors.borderSoft),
+                          ),
+                          child: Column(
+                            children: [
+                              _buildQuickSettingTile(
+                                icon: settings.isDarkMode
+                                    ? Icons.dark_mode_rounded
+                                    : Icons.light_mode_rounded,
+                                iconBg: const Color(0xFFFFEDD5),
+                                iconColor: const Color(0xFFEA580C),
+                                title: isThai ? 'โหมดมืด (Dark Mode)' : 'Dark Mode',
+                                colors: colors,
+                                trailing: Switch.adaptive(
+                                  value: settings.isDarkMode,
+                                  activeThumbColor: colors.primary,
+                                  onChanged: (val) => settings.toggleDarkMode(val),
+                                ),
+                              ),
+                              Divider(height: 1, thickness: 1, color: colors.borderSoft, indent: 56),
+                              _buildQuickSettingTile(
+                                icon: Icons.translate_rounded,
+                                iconBg: const Color(0xFFF0FDFA),
+                                iconColor: const Color(0xFF0F766E),
+                                title: isThai ? 'คำแปลทีละคำ (WBW)' : 'Word by Word',
+                                colors: colors,
+                                trailing: Switch.adaptive(
+                                  value: settings.showWordByWord,
+                                  activeThumbColor: colors.primary,
+                                  onChanged: (val) => settings.toggleShowWordByWord(val),
+                                ),
+                              ),
+                              Divider(height: 1, thickness: 1, color: colors.borderSoft, indent: 56),
+                              _buildQuickSettingTile(
+                                icon: Icons.auto_awesome_rounded,
+                                iconBg: const Color(0xFFFEF3C7),
+                                iconColor: const Color(0xFFB45309),
+                                title: isThai ? 'สัญลักษณ์สีตัจญ์วีด' : 'Tajweed Colors',
+                                colors: colors,
+                                trailing: Switch.adaptive(
+                                  value: settings.showTajweedColors,
+                                  activeThumbColor: colors.primary,
+                                  onChanged: (val) => settings.setShowTajweedColors(val),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
+                        const SizedBox(height: 14),
+
+                        // ── 2. Translations Group ──
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            border: Border.all(color: colors.borderSoft),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                context.tr('primary'),
+                                isThai ? 'ชุดคำแปลหลัก' : 'Primary Translation',
                                 style: GoogleFonts.notoSansThai(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textMuted,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -981,14 +1024,32 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     : TranslationConstants.resolveTranslationId(settings.primaryTranslationId),
                                 decoration: InputDecoration(
                                   filled: true,
-                                  fillColor: colorScheme.surfaceContainerLow,
+                                  fillColor: colors.surface,
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                    borderSide: BorderSide(color: colors.borderSoft),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                    borderSide: BorderSide(color: colors.borderSoft),
                                   ),
                                 ),
                                 isExpanded: true,
+                                selectedItemBuilder: (ctx) {
+                                  return _availableTranslationOptions(transManager).map((opt) {
+                                    return Text(
+                                      opt.displayName(settings.languageCode),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.textStrong,
+                                      ),
+                                    );
+                                  }).toList();
+                                },
                                 items: _availableTranslationOptions(transManager).map((opt) {
                                   final isDownloaded = transManager.isDownloaded(opt.id);
                                   return DropdownMenuItem<String>(
@@ -996,18 +1057,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     child: Row(
                                       children: [
                                         if (!isDownloaded) ...[
-                                          Icon(Icons.download_for_offline_outlined, size: 16, color: colorScheme.primary),
+                                          Icon(Icons.download_for_offline_outlined, size: 16, color: colors.primary),
                                           const SizedBox(width: 6),
                                         ],
                                         Expanded(
                                           child: Text(
                                             isDownloaded
                                                 ? opt.displayName(settings.languageCode)
-                                                : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                                                : '${opt.displayName(settings.languageCode)} (${isThai ? 'ดาวน์โหลด' : 'Download'})',
+                                            maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: GoogleFonts.notoSansThai(
                                               fontSize: 13,
-                                              color: isDownloaded ? colorScheme.onSurface : colorScheme.primary,
+                                              color: isDownloaded ? colors.textStrong : colors.primary,
                                               fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
                                             ),
                                           ),
@@ -1039,13 +1101,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   }
                                 },
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
                               Text(
-                                context.tr('secondary'),
+                                isThai ? 'ชุดคำแปลรอง (เปรียบเทียบ)' : 'Secondary Translation',
                                 style: GoogleFonts.notoSansThai(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textMuted,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -1058,19 +1120,45 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                         : ''),
                                 decoration: InputDecoration(
                                   filled: true,
-                                  fillColor: colorScheme.surfaceContainerLow,
+                                  fillColor: colors.surface,
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: colorScheme.outline, width: 1),
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                    borderSide: BorderSide(color: colors.borderSoft),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                    borderSide: BorderSide(color: colors.borderSoft),
                                   ),
                                 ),
                                 isExpanded: true,
+                                selectedItemBuilder: (ctx) {
+                                  return [
+                                    Text(
+                                      isThai ? 'ไม่เลือก' : 'None',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textMuted),
+                                    ),
+                                    ..._availableTranslationOptions(transManager).map((opt) {
+                                      return Text(
+                                        opt.displayName(settings.languageCode),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: colors.textStrong,
+                                        ),
+                                      );
+                                    }),
+                                  ];
+                                },
                                 items: [
                                   DropdownMenuItem<String>(
                                     value: '',
                                     child: Text(
-                                      settings.languageCode == 'th' ? 'ไม่เลือก' : 'None',
+                                      isThai ? 'ไม่เลือก' : 'None',
                                       style: GoogleFonts.notoSansThai(fontSize: 13),
                                     ),
                                   ),
@@ -1081,18 +1169,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       child: Row(
                                         children: [
                                           if (!isDownloaded) ...[
-                                            Icon(Icons.download_for_offline_outlined, size: 16, color: colorScheme.primary),
+                                            Icon(Icons.download_for_offline_outlined, size: 16, color: colors.primary),
                                             const SizedBox(width: 6),
                                           ],
                                           Expanded(
                                             child: Text(
                                               isDownloaded
                                                   ? opt.displayName(settings.languageCode)
-                                                  : '${opt.displayName(settings.languageCode)} (${settings.languageCode == 'th' ? 'แตะเพื่อโหลด' : 'Tap to download'})',
+                                                  : '${opt.displayName(settings.languageCode)} (${isThai ? 'ดาวน์โหลด' : 'Download'})',
+                                              maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: GoogleFonts.notoSansThai(
                                                 fontSize: 13,
-                                                color: isDownloaded ? colorScheme.onSurface : colorScheme.primary,
+                                                color: isDownloaded ? colors.textStrong : colors.primary,
                                                 fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
                                               ),
                                             ),
@@ -1130,102 +1219,133 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             ],
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 14),
 
-                      const Divider(height: 32),
-
-                      // Arabic Font Size Choice
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        // ── 3. Typography & Sizing Group ──
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceMuted,
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
+                            border: Border.all(color: colors.borderSoft),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                context.tr('arabic_font_size'),
-                                style: GoogleFonts.notoSansThai(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                  fontSize: 15,
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    isThai ? 'ขนาดตัวอักษรอาหรับ' : 'Arabic Size',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.textStrong,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${settings.arabicFontSize.round()} px',
+                                    style: GoogleFonts.notoSansThai(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${settings.arabicFontSize.round()} px',
-                                style: GoogleFonts.notoSansThai(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                              Slider(
+                                value: settings.arabicFontSize,
+                                min: 18.0,
+                                max: 44.0,
+                                activeColor: colors.primary,
+                                onChanged: (val) => settings.setArabicFontSize(val),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [22.0, 28.0, 34.0, 40.0].map((sz) {
+                                  final isSel = (settings.arabicFontSize - sz).abs() < 2;
+                                  return InkWell(
+                                    onTap: () => settings.setArabicFontSize(sz),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isSel ? colors.primary : colors.surface,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: colors.borderSoft),
+                                      ),
+                                      child: Text(
+                                        '${sz.round()}px',
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSel ? Colors.white : colors.textStrong,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    isThai ? 'ขนาดตัวอักษรคำแปล' : 'Translation Size',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.textStrong,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${settings.translationFontSize.round()} px',
+                                    style: GoogleFonts.notoSansThai(
+                                      color: colors.primary,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Slider(
+                                value: settings.translationFontSize,
+                                min: 12.0,
+                                max: 26.0,
+                                activeColor: colors.primary,
+                                onChanged: (val) => settings.setTranslationFontSize(val),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [13.0, 15.0, 18.0, 22.0].map((sz) {
+                                  final isSel = (settings.translationFontSize - sz).abs() < 1.5;
+                                  return InkWell(
+                                    onTap: () => settings.setTranslationFontSize(sz),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isSel ? colors.primary : colors.surface,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: colors.borderSoft),
+                                      ),
+                                      child: Text(
+                                        '${sz.round()}px',
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSel ? Colors.white : colors.textStrong,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                               ),
                             ],
                           ),
-                          SliderTheme(
-                            data: SliderThemeData(
-                              activeTrackColor: colorScheme.primary,
-                              inactiveTrackColor: colorScheme.outline,
-                              thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                            child: Slider(
-                              value: settings.arabicFontSize,
-                              min: 18.0,
-                              max: 48.0,
-                              onChanged: (val) =>
-                                  settings.setArabicFontSize(val),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Translation Font Size Choice
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                context.tr('translation_font_size'),
-                                style: GoogleFonts.notoSansThai(
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurface,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              Text(
-                                '${settings.translationFontSize.round()} px',
-                                style: GoogleFonts.notoSansThai(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SliderTheme(
-                            data: SliderThemeData(
-                              activeTrackColor: colorScheme.primary,
-                              inactiveTrackColor: colorScheme.outline,
-                              thumbColor: colorScheme.primary,
-                              overlayColor: colorScheme.primary.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                            child: Slider(
-                              value: settings.translationFontSize,
-                              min: 12.0,
-                              max: 32.0,
-                              onChanged: (val) =>
-                                  settings.setTranslationFontSize(val),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1238,6 +1358,48 @@ class _ReadingScreenState extends State<ReadingScreen> {
         _startAutoHideTimer();
       }
     });
+  }
+
+  Widget _buildQuickSettingTile({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String title,
+    required AppThemeColors colors,
+    required Widget trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colors.textStrong,
+              ),
+            ),
+          ),
+          trailing,
+        ],
+      ),
+    );
   }
 
   List<AppTranslationOption> _availableTranslationOptions(TranslationManagerProvider transManager) {

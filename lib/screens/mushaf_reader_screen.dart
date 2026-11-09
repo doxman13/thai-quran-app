@@ -2112,6 +2112,8 @@ class _MushafReaderSettingsSheetState
                       const SizedBox(height: 2),
                       Text(
                         widget.profileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -2193,6 +2195,8 @@ class _MushafReaderSettingsSheetState
                         value: type.id,
                         child: Text(
                           type.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.notoSansThai(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -2220,6 +2224,8 @@ class _MushafReaderSettingsSheetState
               },
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.notoSansThai(
               color: colors.foreground,
               fontSize: 12,

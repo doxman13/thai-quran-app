@@ -1252,9 +1252,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               label: isThai ? 'ที่คั่น & บันทึก' : 'Bookmarks',
             ),
             NavigationDestination(
-              icon: const Icon(Icons.settings_outlined),
-              selectedIcon: const Icon(Icons.settings_rounded),
-              label: isThai ? 'ตั้งค่า' : 'Settings',
+              icon: const Icon(Icons.person_outline_rounded),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: isThai ? 'โปรไฟล์' : 'Profile',
             ),
           ],
         ),
