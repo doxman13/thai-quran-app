@@ -251,6 +251,7 @@ class CtcMatcher {
     List<String> candWords,
     List<String> targetWords, {
     RecitationSensitivity sensitivity = RecitationSensitivity.balanced,
+    bool requireLastWord = true,
   }) {
     if (targetWords.isEmpty) return (true, 0);
     if (candWords.isEmpty) return (false, 0);
@@ -292,31 +293,47 @@ class CtcMatcher {
       }
     }
 
-    final bool lastWordMatched = matched.contains(targetWords.length - 1);
-    final double wordRecall = matched.length / targetWords.length;
+    const int longVerseWordThreshold = 6;
+    final int wordCount = targetWords.length;
+    final bool isLongVerse = wordCount >= longVerseWordThreshold;
+    final bool lastWordMatched = matched.contains(wordCount - 1);
+    final int lastMatchedTarget = matched.isEmpty ? -1 : matched.last;
+    // A long verse may be accepted when everything except the final word was
+    // recognized. The final-word verdict must not leave a correctly recited
+    // long verse stuck forever.
+    final bool missingLastWordAllowed =
+        !requireLastWord && isLongVerse && lastMatchedTarget >= wordCount - 2;
+
+    final double wordRecall = matched.length / wordCount;
 
     final double requiredWordRecall;
     switch (sensitivity) {
       case RecitationSensitivity.quickRecap:
-        requiredWordRecall = targetWords.length <= 2
-            ? 0.40
-            : (targetWords.length <= 4 ? 0.50 : 0.60);
+        requiredWordRecall = isLongVerse
+            ? 0.70
+            : (wordCount <= 2 ? 0.40 : (wordCount <= 4 ? 0.50 : 0.60));
         break;
       case RecitationSensitivity.strict:
-        requiredWordRecall = targetWords.length <= 2
-            ? 0.60
-            : (targetWords.length <= 4 ? 0.75 : 0.85);
+        requiredWordRecall = isLongVerse
+            ? 0.95
+            : (wordCount <= 2 ? 0.60 : (wordCount <= 4 ? 0.75 : 0.85));
         break;
       case RecitationSensitivity.balanced:
-        requiredWordRecall = targetWords.length <= 2
-            ? 0.50
-            : (targetWords.length <= 4 ? 0.65 : 0.75);
+        requiredWordRecall = isLongVerse
+            ? 0.85
+            : (wordCount <= 2 ? 0.50 : (wordCount <= 4 ? 0.65 : 0.75));
         break;
     }
 
-    final bool reached = lastWordMatched && (wordRecall >= requiredWordRecall);
+    final bool reachedEnd = lastWordMatched || missingLastWordAllowed;
+    final bool reached = reachedEnd && (wordRecall >= requiredWordRecall);
 
-    return (reached, lastCandIdx + 1);
+    // When accepted without the last word, consume the whole candidate so the
+    // next inference starts cleanly on the next ayah.
+    final int consumedWords =
+        (!lastWordMatched && missingLastWordAllowed) ? candWords.length : lastCandIdx + 1;
+
+    return (reached, consumedWords);
   }
 
   /// Sequentially checks if candidate words reach and match the end of target words.
@@ -324,11 +341,13 @@ class CtcMatcher {
     List<String> candWords,
     List<String> targetWords, {
     RecitationSensitivity sensitivity = RecitationSensitivity.balanced,
+    bool requireLastWord = true,
   }) {
     return checkReachesEndOfVerseWithEnd(
       candWords,
       targetWords,
       sensitivity: sensitivity,
+      requireLastWord: requireLastWord,
     ).$1;
   }
 
@@ -438,6 +457,7 @@ class CtcMatcher {
     double recallThreshold = 0.82,
     double scoreThreshold = 0.70,
     RecitationSensitivity sensitivity = RecitationSensitivity.balanced,
+    bool requireLastWord = true,
   }) {
     final candNorm = normalizeArabic(candidateRaw);
     if (candNorm.isEmpty || targetNormalized.isEmpty) {
@@ -464,6 +484,7 @@ class CtcMatcher {
       candWords,
       targetWords,
       sensitivity: sensitivity,
+      requireLastWord: requireLastWord,
     );
 
     if (recFull >= recallThreshold && f1Full >= scoreThreshold && reachesEndFull) {
@@ -500,6 +521,7 @@ class CtcMatcher {
             subWords,
             targetWords,
             sensitivity: sensitivity,
+            requireLastWord: requireLastWord,
           );
           if (!reachesEndSub) continue;
 
@@ -584,6 +606,7 @@ class CtcMatcher {
     double? recallThreshold,
     double? scoreThreshold,
     RecitationSensitivity sensitivity = RecitationSensitivity.balanced,
+    bool requireLastWord = true,
   }) {
     final (adaptiveRecall, adaptiveScore) = getAdaptiveThresholds(
       surah,
@@ -607,7 +630,12 @@ class CtcMatcher {
       final candWords = normalizeArabic(candText).split(' ').where((w) => w.isNotEmpty).toList();
       for (final tv in textVariants) {
         final targetWords = tv.split(' ').where((w) => w.isNotEmpty).toList();
-        if (checkReachesEndOfVerse(candWords, targetWords, sensitivity: sensitivity)) {
+        if (checkReachesEndOfVerse(
+          candWords,
+          targetWords,
+          sensitivity: sensitivity,
+          requireLastWord: requireLastWord,
+        )) {
           lastWordVerifiedByText = true;
           break;
         }
@@ -641,6 +669,7 @@ class CtcMatcher {
           recallThreshold: effectiveRecall,
           scoreThreshold: effectiveScore,
           sensitivity: sensitivity,
+          requireLastWord: requireLastWord,
         );
         if (align.recall >= effectiveRecall && align.score > bestScore) {
           bestScore = align.score;
@@ -677,6 +706,7 @@ class CtcMatcher {
     double? recallThreshold,
     double? scoreThreshold,
     RecitationSensitivity sensitivity = RecitationSensitivity.balanced,
+    bool requireLastWord = true,
   }) {
     if (candidateTokens.isEmpty && (candidateText == null || candidateText.isEmpty)) {
       return null;
@@ -701,6 +731,7 @@ class CtcMatcher {
       recallThreshold: effectiveExpRecall,
       scoreThreshold: effectiveExpScore,
       sensitivity: sensitivity,
+      requireLastWord: requireLastWord,
     );
 
     if (expectedAlign.recall >= effectiveExpRecall && expectedAlign.score >= effectiveExpScore) {
@@ -740,6 +771,7 @@ class CtcMatcher {
           recallThreshold: effectivePrevRecall,
           scoreThreshold: effectivePrevScore,
           sensitivity: sensitivity,
+          requireLastWord: requireLastWord,
         );
 
         if (prevAlign.recall >= effectivePrevRecall && prevAlign.score >= effectivePrevScore) {
@@ -780,6 +812,7 @@ class CtcMatcher {
         recallThreshold: effectiveSkipRecall,
         scoreThreshold: effectiveSkipScore,
         sensitivity: sensitivity,
+        requireLastWord: requireLastWord,
       );
 
       if (skipAlign.recall >= effectiveSkipRecall && skipAlign.score >= effectiveSkipScore) {

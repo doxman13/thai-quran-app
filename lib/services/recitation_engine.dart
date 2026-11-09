@@ -63,15 +63,42 @@ class RecitationEngine {
   static const int _maxSpeechSamples = 56000; // 3.5s maximum before forcing inference
   static const int _silenceFramesNeeded = 3; // ~180-220ms silence to catch quick natural pauses/breaths
   static const int _searchSilenceFramesNeeded = 8; // ~500ms silence in voice search before finalizing
+  static const Duration _staleBufferResetDelay = Duration(seconds: 5);
 
   final List<double> _speechBuffer = [];
   final List<int> _accumulatedTokens = [];
   int _trailingSilenceCount = 0;
   bool _speechActive = false;
+  Timer? _staleBufferTimer;
 
   bool get isInitialized => _isInitialized;
   bool get isListening => _isListening;
   int get currentExpectedAyah => _expectedAyah;
+
+  void _cancelStaleBufferTimer() {
+    _staleBufferTimer?.cancel();
+    _staleBufferTimer = null;
+  }
+
+  /// Keep a partial verse through natural pauses. Only discard the buffer
+  /// after five seconds of continuous silence with no further speech.
+  void _scheduleStaleBufferReset() {
+    _cancelStaleBufferTimer();
+    if (!_isListening || _accumulatedTokens.isEmpty) return;
+
+    _staleBufferTimer = Timer(_staleBufferResetDelay, () {
+      _staleBufferTimer = null;
+      if (!_isListening ||
+          _speechActive ||
+          _isInferring ||
+          _accumulatedTokens.isEmpty) {
+        return;
+      }
+      _accumulatedTokens.clear();
+      _trailingSilenceCount = 0;
+      _onEvent?.call(const RecitationBufferClearedEvent());
+    });
+  }
 
   Future<File> _ensureModelFile(String assetPath) async {
     final directFile = File(assetPath);
@@ -213,6 +240,7 @@ class RecitationEngine {
     _endAyah = endAyah;
     _onEvent = onEvent;
 
+    _cancelStaleBufferTimer();
     _speechBuffer.clear();
     _accumulatedTokens.clear();
     _trailingSilenceCount = 0;
@@ -253,6 +281,7 @@ class RecitationEngine {
   /// Updates current expected Ayah (e.g. when user scrolls or manually reveals).
   void setExpectedAyah(int ayah) {
     _expectedAyah = ayah;
+    _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
     _speechBuffer.clear();
     _onEvent?.call(RecitationStatusEvent(
@@ -268,6 +297,7 @@ class RecitationEngine {
     _startAyah = startAyah;
     _expectedAyah = initialExpectedAyah ?? startAyah;
     _endAyah = endAyah;
+    _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
     _speechBuffer.clear();
     _onEvent?.call(RecitationStatusEvent(
@@ -314,6 +344,7 @@ class RecitationEngine {
     _onSearchAudioLevel = onAudioLevel;
     _onSearchResults = onResults;
 
+    _cancelStaleBufferTimer();
     _speechBuffer.clear();
     _accumulatedTokens.clear();
     _trailingSilenceCount = 0;
@@ -354,6 +385,7 @@ class RecitationEngine {
     _onSearchAudioLevel = null;
     _onSearchResults = null;
     _trailingSilenceCount = 0;
+    _cancelStaleBufferTimer();
 
     await _audioSubscription?.cancel();
     _audioSubscription = null;
@@ -424,6 +456,7 @@ class RecitationEngine {
         : math.min(1.0, rms * 15.0);
 
     if (isVoice) {
+      _cancelStaleBufferTimer();
       _speechActive = true;
       _trailingSilenceCount = 0;
       _speechBuffer.addAll(samples);
@@ -472,6 +505,7 @@ class RecitationEngine {
       return;
     }
 
+    _cancelStaleBufferTimer();
     _isInferring = true;
     _onEvent?.call(RecitationStatusEvent(
       status: RecitationStatus.processing,
@@ -581,6 +615,9 @@ class RecitationEngine {
                   minAyah: _startAyah,
                   maxAyah: _endAyah,
                   sensitivity: _sensitivity,
+                  // Hifz parity with web: do not let a missing final-word
+                  // verdict keep a long, correctly recited verse stuck.
+                  requireLastWord: false,
                 );
 
                 if (match == null) {
@@ -664,6 +701,7 @@ class RecitationEngine {
           currentExpectedAyah: _expectedAyah,
         ));
       }
+      _scheduleStaleBufferReset();
     }
   }
 

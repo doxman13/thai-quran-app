@@ -96,6 +96,12 @@ class RecitationSkippedEvent extends RecitationEvent {
   });
 }
 
+/// Emitted when a partially accumulated buffer is discarded after a long
+/// silence, so the UI can tell the user they can start the verse again.
+class RecitationBufferClearedEvent extends RecitationEvent {
+  const RecitationBufferClearedEvent();
+}
+
 class RecitationErrorEvent extends RecitationEvent {
   final String message;
 

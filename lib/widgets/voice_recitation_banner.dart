@@ -10,7 +10,8 @@ class VoiceRecitationBanner extends StatelessWidget {
   final VoidCallback onDismissAlert;
   final void Function(int ayah)? onRetryVerse;
   final void Function(int fromAyah, int toAyah)? onAcceptSkip;
-  final VoidCallback? onSkipOrRevealNextVerse;
+  final VoidCallback? onHintCurrentVerse;
+  final VoidCallback? onSkipCurrentVerse;
   final bool isCurrentVerseHinted;
 
   const VoiceRecitationBanner({
@@ -20,7 +21,8 @@ class VoiceRecitationBanner extends StatelessWidget {
     required this.onDismissAlert,
     this.onRetryVerse,
     this.onAcceptSkip,
-    this.onSkipOrRevealNextVerse,
+    this.onHintCurrentVerse,
+    this.onSkipCurrentVerse,
     this.isCurrentVerseHinted = false,
   });
 
@@ -221,12 +223,19 @@ class VoiceRecitationBanner extends StatelessWidget {
           ? tracker.lastRecognizedText!
           : (isThai ? 'ระบบปัญญาประดิษฐ์กำลังวิเคราะห์เสียง' : 'FastConformer CTC neural engine running');
     } else if (isMatched) {
-      statusColor = Colors.teal;
+      statusColor = colorScheme.primary;
       statusIcon = Icons.check_circle_rounded;
       statusText = isThai ? 'อายะฮฺ ${tracker.lastMatchedAyah} ถูกต้อง!' : 'Verse ${tracker.lastMatchedAyah} Matched!';
       statusSubtext = tracker.lastRecognizedText != null && tracker.lastRecognizedText!.isNotEmpty
           ? tracker.lastRecognizedText!
           : (isThai ? 'แสดงอายะฮฺบนหน้าจอ...' : 'Revealing verse on screen...');
+    } else if (tracker.showAutoClearNotice) {
+      statusColor = colorScheme.primary;
+      statusIcon = Icons.refresh_rounded;
+      statusText = isThai ? 'พร้อมเริ่มท่องใหม่' : 'Ready to Retry';
+      statusSubtext = isThai
+          ? 'ล้างเสียงอ่านเดิมอัตโนมัติแล้ว เริ่มท่องใหม่ได้เลย'
+          : 'Stale recitation buffer cleared. Start the verse again.';
     } else {
       statusColor = colorScheme.primary;
       statusIcon = Icons.mic_rounded;
@@ -249,14 +258,6 @@ class VoiceRecitationBanner extends StatelessWidget {
               : colorScheme.outlineVariant.withValues(alpha: 0.25),
           width: 1.0,
         ),
-        boxShadow: [
-          if (isListening && tracker.audioLevel > 0.1)
-            BoxShadow(
-              color: statusColor.withValues(alpha: 0.12),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-        ],
       ),
       child: Row(
         children: [
@@ -317,40 +318,37 @@ class VoiceRecitationBanner extends StatelessWidget {
               },
             ),
             const SizedBox(width: 2),
-            if (onSkipOrRevealNextVerse != null) ...[
-              FilledButton.tonalIcon(
-                onPressed: onSkipOrRevealNextVerse,
-                icon: Icon(
-                  isCurrentVerseHinted ? Icons.arrow_forward_rounded : Icons.lightbulb_outline_rounded,
-                  size: 14,
-                ),
-                label: Text(
-                  isCurrentVerseHinted
-                      ? (isThai ? 'ข้ามอายะฮฺ >' : 'V${tracker.currentExpectedAyah} Skip >')
-                      : (isThai ? 'ใบ้คำแรก' : 'V${tracker.currentExpectedAyah} Hint'),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: isCurrentVerseHinted
-                      ? colorScheme.errorContainer.withValues(alpha: 0.8)
-                      : colorScheme.primaryContainer.withValues(alpha: 0.85),
-                  foregroundColor: isCurrentVerseHinted
-                      ? colorScheme.onErrorContainer
-                      : colorScheme.onPrimaryContainer,
+            if (onHintCurrentVerse != null)
+              Tooltip(
+                message: isCurrentVerseHinted
+                    ? (isThai ? 'ใบ้คำแรกแล้ว' : 'First word already hinted')
+                    : (isThai ? 'ใบ้คำแรก' : 'Hint first word'),
+                child: IconButton(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isCurrentVerseHinted
-                          ? colorScheme.error.withValues(alpha: 0.35)
-                          : colorScheme.primary.withValues(alpha: 0.35),
-                      width: 1,
-                    ),
+                  iconSize: 18,
+                  color: colorScheme.primary,
+                  disabledColor: colorScheme.onSurfaceVariant,
+                  onPressed: isCurrentVerseHinted ? null : onHintCurrentVerse,
+                  icon: Icon(
+                    isCurrentVerseHinted
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.lightbulb_outline_rounded,
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-            ],
+            if (onSkipCurrentVerse != null)
+              Tooltip(
+                message: isThai
+                    ? 'ข้ามอายะฮฺ ${tracker.currentExpectedAyah} (ถือว่าช่วย)'
+                    : 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  color: colorScheme.error,
+                  onPressed: onSkipCurrentVerse,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                ),
+              ),
           ],
           Material(
             color: Colors.transparent,
@@ -481,7 +479,7 @@ class VoiceRecitationBanner extends StatelessWidget {
                       ? 'การทดสอบความแม่นยำสูง ต้องออกเสียงชัดเจนและครบถ้วนจนจบอายะฮฺ'
                       : 'High precision testing, requires clear articulation and verse endings.',
                   icon: Icons.verified_rounded,
-                  iconColor: Colors.teal,
+                  iconColor: colorScheme.primary,
                   isSelected: tracker.sensitivity == RecitationSensitivity.strict,
                   onTap: () {
                     _selectSensitivity(
@@ -681,7 +679,7 @@ class _SensitivityPill extends StatelessWidget {
       case RecitationSensitivity.strict:
         icon = Icons.verified_rounded;
         label = 'Strict';
-        badgeColor = Colors.teal;
+        badgeColor = colorScheme.primary;
         break;
       case RecitationSensitivity.balanced:
         icon = Icons.balance_rounded;

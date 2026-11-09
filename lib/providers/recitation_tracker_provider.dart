@@ -22,9 +22,12 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   bool _isVoiceTrackingEnabled = true;
   RecitationSensitivity _sensitivity = RecitationSensitivity.balanced;
   bool _adaptiveNoise = true;
+  bool _bufferAutoCleared = false;
 
   Timer? _inactivityTimer;
+  Timer? _autoClearNoticeTimer;
   static const Duration _inactivityDuration = Duration(minutes: 1);
+  static const Duration _autoClearNoticeDuration = Duration(seconds: 4);
 
   // External UI callbacks
   void Function(int ayah)? _onVerseMatchedCallback;
@@ -44,6 +47,23 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   bool get isVoiceTrackingEnabled => _isVoiceTrackingEnabled;
   RecitationSensitivity get sensitivity => _sensitivity;
   bool get adaptiveNoise => _adaptiveNoise;
+  bool get showAutoClearNotice => _bufferAutoCleared;
+
+  void _dismissAutoClearNotice() {
+    _autoClearNoticeTimer?.cancel();
+    _autoClearNoticeTimer = null;
+    _bufferAutoCleared = false;
+  }
+
+  void _showAutoClearNotice() {
+    _autoClearNoticeTimer?.cancel();
+    _bufferAutoCleared = true;
+    _autoClearNoticeTimer = Timer(_autoClearNoticeDuration, () {
+      _autoClearNoticeTimer = null;
+      _bufferAutoCleared = false;
+      notifyListeners();
+    });
+  }
 
   void setSensitivity(RecitationSensitivity sensitivity) {
     if (_sensitivity == sensitivity) return;
@@ -109,6 +129,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _skippedFromAyah = null;
     _skippedToAyah = null;
     _errorMessage = null;
+    _dismissAutoClearNotice();
 
     try {
       if (!_engine.isInitialized) {
@@ -155,6 +176,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   /// Stops tracking.
   Future<void> stopTracking() async {
     _cancelInactivityTimer();
+    _dismissAutoClearNotice();
     await _engine.stopListening();
     _status = RecitationStatus.idle;
     _audioLevel = 0.0;
@@ -166,6 +188,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _currentExpectedAyah = ayah;
     _engine.setExpectedAyah(ayah);
     if (isListening) _startInactivityTimer();
+    _dismissAutoClearNotice();
     notifyListeners();
   }
 
@@ -175,6 +198,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _currentExpectedAyah = effectiveExpected;
     _engine.updateRange(surah: surah, startAyah: startAyah, endAyah: endAyah, initialExpectedAyah: effectiveExpected);
     if (isListening) _startInactivityTimer();
+    _dismissAutoClearNotice();
     notifyListeners();
   }
 
@@ -188,6 +212,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _skippedToAyah = null;
     _errorMessage = null;
     if (isListening) _startInactivityTimer();
+    _dismissAutoClearNotice();
     notifyListeners();
   }
 
@@ -199,6 +224,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _skippedToAyah = null;
     _errorMessage = null;
     if (isListening) _startInactivityTimer();
+    _dismissAutoClearNotice();
     notifyListeners();
   }
 
@@ -214,6 +240,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       _skippedToAyah = null;
       _errorMessage = null;
       if (isListening) _startInactivityTimer();
+      _dismissAutoClearNotice();
       notifyListeners();
       callback?.call(jumpedAyah);
     }
@@ -231,6 +258,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       _currentExpectedAyah = event.currentExpectedAyah;
       if (event.partialTranscript != null && event.partialTranscript!.isNotEmpty) {
         _lastRecognizedText = event.partialTranscript;
+        _dismissAutoClearNotice();
         _startInactivityTimer(); // Voice transcript arrived: reset inactivity timer!
       } else if (event.audioLevel > 0.08) {
         _startInactivityTimer(); // Voice audio activity detected: reset inactivity timer!
@@ -242,6 +270,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       _skippedFromAyah = null;
       _skippedToAyah = null;
       _status = RecitationStatus.matched;
+      _dismissAutoClearNotice();
       _startInactivityTimer(); // Activity detected: verse matched!
       notifyListeners();
 
@@ -250,9 +279,15 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       _skippedFromAyah = event.expectedAyah;
       _skippedToAyah = event.jumpedToAyah;
       _status = RecitationStatus.skipped;
+      _dismissAutoClearNotice();
       notifyListeners();
 
       _onVerseSkippedCallback?.call(event.expectedAyah, event.jumpedToAyah);
+    } else if (event is RecitationBufferClearedEvent) {
+      _lastRecognizedText = null;
+      _status = RecitationStatus.listening;
+      _showAutoClearNotice();
+      notifyListeners();
     } else if (event is RecitationErrorEvent) {
       _errorMessage = event.message;
       _status = RecitationStatus.error;
@@ -287,6 +322,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   /// Cleanly pauses listening when app goes into background or device is locked.
   Future<void> pauseForBackground() async {
     _cancelInactivityTimer();
+    _dismissAutoClearNotice();
     try {
       await _engine.stopListening().timeout(
         const Duration(milliseconds: 600),
@@ -306,6 +342,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cancelInactivityTimer();
+    _autoClearNoticeTimer?.cancel();
     _engine.dispose();
     super.dispose();
   }

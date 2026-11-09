@@ -1643,85 +1643,104 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4A853).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: const Color(0xFFD4A853).withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Icon(
-                            showMushaf
-                                ? Icons.import_contacts_rounded
-                                : Icons.menu_book_rounded,
-                            size: 13,
-                            color: const Color(0xFFF3D28A),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD4A853)
+                                  .withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFFD4A853)
+                                    .withValues(alpha: 0.45),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  showMushaf
+                                      ? Icons.import_contacts_rounded
+                                      : Icons.menu_book_rounded,
+                                  size: 13,
+                                  color: const Color(0xFFF3D28A),
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    modeBadge,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFF3D28A),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            modeBadge,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFFF3D28A),
+                          InkWell(
+                            onTap: () => _navigateToReading(
+                              context,
+                              recommendationSurah.toString(),
+                              verseId: '1',
+                              saveToFreeReadOnly: true,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 11,
+                                    color: Color(0xFFF3D28A),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      recommendationPill,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () => _navigateToReading(
-                        context,
-                        recommendationSurah.toString(),
-                        verseId: '1',
-                        saveToFreeReadOnly: true,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.auto_awesome_rounded,
-                              size: 11,
-                              color: Color(0xFFF3D28A),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              recommendationPill,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    if (hasHistory)
+                    if (hasHistory) ...[
+                      const SizedBox(width: 6),
                       InkWell(
                         onTap: () {
                           Navigator.push(
@@ -1750,6 +1769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -1771,62 +1791,82 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 18),
                 if (!hasHistory) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _navigateToReading(
-                            context,
-                            '1',
-                            verseId: '1',
-                            saveToFreeReadOnly: true,
-                          ),
-                          icon: const Icon(Icons.menu_book_rounded, size: 18),
-                          label: Text(
-                            isThai ? 'อ่านแบบความหมาย' : 'Read with Meaning',
-                            style: GoogleFonts.notoSansThai(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF0E5A4A),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSm),
-                            ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final meaningButton = FilledButton.icon(
+                        onPressed: () => _navigateToReading(
+                          context,
+                          '1',
+                          verseId: '1',
+                          saveToFreeReadOnly: true,
+                        ),
+                        icon: const Icon(Icons.menu_book_rounded, size: 18),
+                        label: Text(
+                          isThai ? 'อ่านแบบความหมาย' : 'Read with Meaning',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _navigateToMushafFreeReadPage(1),
-                          icon: const Icon(Icons.import_contacts_rounded, size: 18),
-                          label: Text(
-                            isThai ? 'เปิดมุศหัฟ' : 'Open Mushaf',
-                            style: GoogleFonts.notoSansThai(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.12),
-                            foregroundColor: Colors.white,
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.35),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSm),
-                            ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF0E5A4A),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
                           ),
                         ),
-                      ),
-                    ],
+                      );
+                      final mushafButton = OutlinedButton.icon(
+                        onPressed: () => _navigateToMushafFreeReadPage(1),
+                        icon: const Icon(
+                          Icons.import_contacts_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          isThai ? 'เปิดมุศหัฟ' : 'Open Mushaf',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              Colors.white.withValues(alpha: 0.12),
+                          foregroundColor: Colors.white,
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
+                          ),
+                        ),
+                      );
+                      if (constraints.maxWidth < 360) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            meaningButton,
+                            const SizedBox(height: 8),
+                            mushafButton,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: meaningButton),
+                          const SizedBox(width: 10),
+                          Expanded(child: mushafButton),
+                        ],
+                      );
+                    },
                   ),
                 ] else ...[
                   SizedBox(
@@ -1838,6 +1878,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         isThai
                             ? 'อ่านต่อจากจุดเดิม'
                             : 'Continue Where You Left Off',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -1893,6 +1935,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             : (isThai
                                 ? 'สลับไปเปิดหน้ามุศหัฟ'
                                 : 'Switch to Madinah Mushaf'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,

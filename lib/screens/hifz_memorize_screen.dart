@@ -875,7 +875,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     if (mounted) setState(() {});
   }
 
-  void _handleSkipOrRevealCurrentVerse(RecitationTrackerProvider tracker) {
+  void _handleHintCurrentVerse(RecitationTrackerProvider tracker) {
+    if (!tracker.isListening) return;
+    final stuckAyah = tracker.currentExpectedAyah;
+    if (_hintedVerse == stuckAyah) return;
+    setState(() {
+      _hintedVerse = stuckAyah;
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  void _handleSkipCurrentVerse(RecitationTrackerProvider tracker) {
     if (!tracker.isListening) return;
 
     final stuckAyah = tracker.currentExpectedAyah;
@@ -902,16 +912,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       totalNeeded = _selectedEndVerse - _selectedRepeatStart + 1;
     }
 
-    // Stage 1: If current stuck verse is not yet hinted, hint it (reveal 1st word, do NOT advance tracker)
-    if (_hintedVerse != stuckAyah) {
-      setState(() {
-        _hintedVerse = stuckAyah;
-      });
-      HapticFeedback.lightImpact();
-      return;
-    }
-
-    // Stage 2: Second tap -> Strikeout! Full reveal, mark as assisted/weakness, and advance tracker
+    // Full reveal, mark as assisted/weakness, and advance the tracker.
     setState(() {
       _voiceRevealedVerses.add(stuckAyah);
       _weakOrAssistedVerses.add(stuckAyah);
@@ -2275,7 +2276,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                       tracker.acceptSkip();
                                       setState(() => _lastSkippedVerse = null);
                                     },
-                                    onSkipOrRevealNextVerse: () => _handleSkipOrRevealCurrentVerse(tracker),
+                                    onHintCurrentVerse: () => _handleHintCurrentVerse(tracker),
+                                    onSkipCurrentVerse: () => _handleSkipCurrentVerse(tracker),
                                     isCurrentVerseHinted: _hintedVerse == tracker.currentExpectedAyah,
                                   );
                                 },
@@ -3841,15 +3843,21 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               _buildActionButton(
                                 context: context,
                                 icon: _hintedVerse == tracker.currentExpectedAyah
-                                    ? Icons.arrow_forward_rounded
+                                    ? Icons.check_rounded
                                     : Icons.lightbulb_outline_rounded,
                                 tooltip: _hintedVerse == tracker.currentExpectedAyah
-                                    ? 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)'
+                                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
                                     : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-                                accentColor: _hintedVerse == tracker.currentExpectedAyah
-                                    ? colorScheme.error
-                                    : colorScheme.primary,
-                                onTap: () => _handleSkipOrRevealCurrentVerse(tracker),
+                                accentColor: colorScheme.primary,
+                                onTap: () => _handleHintCurrentVerse(tracker),
+                              ),
+                              const SizedBox(width: 6),
+                              _buildActionButton(
+                                context: context,
+                                icon: Icons.arrow_forward_rounded,
+                                tooltip: 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
+                                accentColor: colorScheme.error,
+                                onTap: () => _handleSkipCurrentVerse(tracker),
                               ),
                             ],
                           ],
@@ -4030,15 +4038,21 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               _buildActionButton(
                                 context: context,
                                 icon: _hintedVerse == tracker.currentExpectedAyah
-                                    ? Icons.arrow_forward_rounded
+                                    ? Icons.check_rounded
                                     : Icons.lightbulb_outline_rounded,
                                 tooltip: _hintedVerse == tracker.currentExpectedAyah
-                                    ? 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)'
+                                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
                                     : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-                                accentColor: _hintedVerse == tracker.currentExpectedAyah
-                                    ? colorScheme.error
-                                    : colorScheme.primary,
-                                onTap: () => _handleSkipOrRevealCurrentVerse(tracker),
+                                accentColor: colorScheme.primary,
+                                onTap: () => _handleHintCurrentVerse(tracker),
+                              ),
+                              const SizedBox(width: 6),
+                              _buildActionButton(
+                                context: context,
+                                icon: Icons.arrow_forward_rounded,
+                                tooltip: 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
+                                accentColor: colorScheme.error,
+                                onTap: () => _handleSkipCurrentVerse(tracker),
                               ),
                             ],
                           ],
@@ -4780,9 +4794,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           : (isHinted
                               ? colorScheme.primary.withValues(alpha: 0.5)
                               : (isTarget
-                                  ? colorScheme.primary
+                                  ? Colors.transparent
                                   : colorScheme.outlineVariant.withValues(alpha: 0.3)))),
-                  width: (isWeak || isSkipped || isHinted) ? 2.0 : (isTarget ? 1.5 : 1.0),
+                  width: (isWeak || isSkipped || isHinted) ? 2.0 : 1.0,
                 ),
               ),
               child: Column(

@@ -110,4 +110,74 @@ void main() {
       expect(matchV4.isSkip, true, reason: 'Jumping to verse 4 while expecting 3 is a skip');
     });
   });
+
+  group('Long-verse final-word policy', () {
+    late CtcMatcher matcher;
+
+    setUpAll(() async {
+      matcher = await CtcMatcher.load();
+    });
+
+    test('accepts a long verse missing only the final word when gate is disabled', () async {
+      final variants = matcher.getTargetTextVariants(1, 7);
+      expect(variants, isNotEmpty, reason: 'Surah 1:7 text variants must be available');
+
+      final targetWords = variants.first.split(' ').where((w) => w.isNotEmpty).toList();
+      expect(targetWords.length, greaterThanOrEqualTo(6));
+      final partialText = targetWords.take(targetWords.length - 1).join(' ');
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 7,
+        candidateTokens: const [],
+        candidateText: partialText,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: false,
+      );
+
+      expect(match, isNotNull,
+          reason: 'A long verse at >=85% word recall should not stick on the final word');
+      expect(match!.detectedAyah, 7);
+      expect(match.isSkip, false);
+      expect(match.wordsConsumed, targetWords.length - 1,
+          reason: 'The accepted partial candidate must be fully consumed for a clean next-ayah start');
+    });
+
+    test('still requires the final word when the gate is enabled', () async {
+      final variants = matcher.getTargetTextVariants(1, 7);
+      final targetWords = variants.first.split(' ').where((w) => w.isNotEmpty).toList();
+      final partialText = targetWords.take(targetWords.length - 1).join(' ');
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 7,
+        candidateTokens: const [],
+        candidateText: partialText,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: true,
+      );
+
+      expect(match, isNull);
+    });
+
+    test('does not accept a long verse that stops halfway', () async {
+      final variants = matcher.getTargetTextVariants(1, 7);
+      final targetWords = variants.first.split(' ').where((w) => w.isNotEmpty).toList();
+      final halfText = targetWords.take((targetWords.length / 2).floor()).join(' ');
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 7,
+        candidateTokens: const [],
+        candidateText: halfText,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: false,
+      );
+
+      expect(match, isNull);
+    });
+  });
 }
