@@ -36,7 +36,10 @@ class SupabaseProvider extends ChangeNotifier {
       if (email != null && email.isNotEmpty) {
         return email.split('@')[0];
       }
-      return 'Apple User';
+      // Fallback for providers that may return neither a name nor an email
+      // (e.g. an Apple account where the user declined to share an email).
+      // Keep it provider-neutral.
+      return 'Reader';
     }
     return _guestName;
   }
