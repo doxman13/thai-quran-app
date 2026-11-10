@@ -148,14 +148,18 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final isFreeReadId =
         targetProfileId.startsWith('free-read') ||
         targetProfileId.startsWith('mushaf-free');
-    if (targetProfileId.isEmpty || isFreeReadId) {
-      final profile = await provider.openUnifiedFreeRead();
+    final existingProfile = targetProfileId.isEmpty
+        ? null
+        : provider.profileById(targetProfileId);
+    if (targetProfileId.isEmpty ||
+        isFreeReadId ||
+        existingProfile == null ||
+        existingProfile.isArchived) {
+      // Continue in Free Read of the same mushaf type.
+      final profile = await provider.openFreeRead(mushafId);
       targetProfileId = profile.id;
-    } else if (provider.profileById(targetProfileId) != null) {
-      await provider.setActiveProfile(targetProfileId);
     } else {
-      final profile = await provider.openUnifiedFreeRead();
-      targetProfileId = profile.id;
+      await provider.setActiveProfile(targetProfileId);
     }
 
     if (!mounted) return;
@@ -177,8 +181,12 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     MushafRecentReading reading,
     MushafReadingProvider provider,
   ) {
-    if (reading.profileId != null &&
-        provider.profileById(reading.profileId!) != null) {
+    final profile = reading.profileId != null
+        ? provider.profileById(reading.profileId!)
+        : null;
+    // Archived goals are history only. Never reactivate them from a recent
+    // reading; continue on the shared Free Read mushaf instead.
+    if (profile != null && !profile.isArchived && !profile.isFreeRead) {
       _openMushaf(
         reading.profileId,
         reading.mushafId,
@@ -211,7 +219,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             ? surahId == profile.start.surahId
             : (profile.target == null ||
                 provider.isVerseInsideProfile(profile, surahId, verseId)));
-    final hasProfile = profile != null && isInside;
+    final hasProfile = profile != null && !profile.isArchived && isInside;
     if (hasProfile) {
       await provider.setActiveProfile(profileId);
       if (!mounted) return;
@@ -832,6 +840,20 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           final profile = reading.profileId != null
               ? localReading.profileById(reading.profileId!)
               : null;
+          final hasGoalProfile = profile != null && !isFreeReadProfile(profile);
+          final isArchivedGoal = hasGoalProfile && profile.isArchived;
+          final profileLabel = isArchivedGoal
+              ? (isThai
+                    ? '${profile.name} · เก็บถาวร'
+                    : '${profile.name} · Archived')
+              : hasGoalProfile
+              ? profile.name
+              : (isThai ? 'ฉบับแปล' : 'Meaning');
+          final profileBadge = isArchivedGoal
+              ? (isThai ? 'เก็บถาวร · อ่านอิสระ' : 'Archived · Free read')
+              : hasGoalProfile
+              ? profile.name
+              : null;
           final sName = widget.repository.getSurahName(reading.verse.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '');
           final sNum = int.tryParse(reading.verse.surahId) ?? 1;
           final vNum = int.tryParse(reading.verse.verseId) ?? 1;
@@ -844,24 +866,18 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             title: isThai
                 ? 'ซูเราะฮฺ$sName (${reading.verse.surahId}:${reading.verse.verseId})'
                 : 'Surah $sName (${reading.verse.surahId}:${reading.verse.verseId})',
-            subtitle: (profile != null && !isFreeReadProfile(profile))
-                ? profile.name
-                : (isThai ? 'ฉบับแปล' : 'Meaning'),
+            subtitle: profileLabel,
             mode: 'meaning',
             widget: _buildVerseItem(
               colorScheme,
               title: isThai
                   ? 'ซูเราะฮฺ$sName (${reading.verse.surahId}:${reading.verse.verseId})'
                   : 'Surah $sName (${reading.verse.surahId}:${reading.verse.verseId})',
-              subtitle: (profile != null && !isFreeReadProfile(profile))
-                  ? profile.name
-                  : (isThai ? 'ฉบับแปล' : 'Meaning'),
+              subtitle: profileLabel,
               arabicTitle: arName,
               meaningSnippet: snippet,
               timestamp: reading.readAt,
-              badgeText: (profile != null && !isFreeReadProfile(profile))
-                  ? profile.name
-                  : null,
+              badgeText: profileBadge,
               readModeLabel: meaningfulReadLabel,
               isMushaf: false,
               isThai: isThai,
@@ -889,6 +905,15 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
             if (pageSurah != null) sId = pageSurah.toString();
           } catch (_) {}
           final arName = offlineSurahNamesAr[sId] ?? '';
+          final hasGoalProfile = profile != null && !profile.isFreeRead;
+          final isArchivedGoal = hasGoalProfile && profile.isArchived;
+          final profileBadge = isArchivedGoal
+              ? (isThai
+                    ? '${profile.name} · เก็บถาวร · อ่านอิสระ'
+                    : '${profile.name} · Archived · Free read')
+              : hasGoalProfile
+              ? profile.name
+              : null;
 
           return _UnifiedItem(
             timestamp: reading.updatedAt,
@@ -901,9 +926,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
               subtitle: surahName,
               arabicTitle: arName,
               timestamp: reading.updatedAt,
-              badgeText: (profile != null && !profile.isFreeRead)
-                  ? profile.name
-                  : null,
+              badgeText: profileBadge,
               readModeLabel: mushafReadLabel,
               isMushaf: true,
               isThai: isThai,

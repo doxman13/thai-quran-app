@@ -1,5 +1,5 @@
 const defaultReadingProfileSlugs = ['free_read', 'random_read'];
-const maxActiveReadingProfiles = 5;
+const maxActiveReadingProfiles = 10;
 const defaultBookmarkCategoryMaxItems = 9999;
 const defaultRecentReadingsLimit = 30;
 const translationVersions = ['thai_v3', 'english'];

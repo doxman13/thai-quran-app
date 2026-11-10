@@ -1,4 +1,4 @@
-const maxActiveMushafProfiles = 5;
+const maxActiveMushafProfiles = 10;
 const mushafStoreKey = 'thai_quran_mushaf_store_v1';
 const mushafFreeReadSlug = 'mushaf_free_read';
 const qcfPackageMushafId = 20;
@@ -332,6 +332,7 @@ class MushafProfile {
   final int lastViewedPage;
   final int sortOrder;
   final bool isArchived;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -348,6 +349,7 @@ class MushafProfile {
     int? lastViewedPage,
     required this.sortOrder,
     required this.isArchived,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   }) : lastViewedPage = lastViewedPage ?? currentPage;
@@ -368,6 +370,8 @@ class MushafProfile {
     int? currentPage,
     int? lastViewedPage,
     bool? isArchived,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
     DateTime? updatedAt,
   }) {
     return MushafProfile(
@@ -383,6 +387,7 @@ class MushafProfile {
       lastViewedPage: lastViewedPage ?? this.lastViewedPage,
       sortOrder: sortOrder,
       isArchived: isArchived ?? this.isArchived,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -403,6 +408,7 @@ class MushafProfile {
       'lastViewedPage': lastViewedPage,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
+      if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -450,6 +456,7 @@ class MushafProfile {
       lastViewedPage: lastViewedPage,
       sortOrder: int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
       isArchived: json['isArchived'] == true,
+      deletedAt: DateTime.tryParse(json['deletedAt']?.toString() ?? ''),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),

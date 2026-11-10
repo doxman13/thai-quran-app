@@ -39,6 +39,7 @@ class LocalReadingProfile {
   final VerseRef lastViewed;
   final int sortOrder;
   final bool isArchived;
+  final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -56,6 +57,7 @@ class LocalReadingProfile {
     VerseRef? lastViewed,
     required this.sortOrder,
     required this.isArchived,
+    this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
   }) : lastViewed = lastViewed ?? current;
@@ -78,6 +80,8 @@ class LocalReadingProfile {
     VerseRef? current,
     VerseRef? lastViewed,
     bool? isArchived,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
     DateTime? updatedAt,
   }) {
     return LocalReadingProfile(
@@ -94,6 +98,7 @@ class LocalReadingProfile {
       lastViewed: lastViewed ?? this.lastViewed,
       sortOrder: sortOrder,
       isArchived: isArchived ?? this.isArchived,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -120,6 +125,8 @@ class LocalReadingProfile {
       'lastViewedIndex': lastViewedIndex,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
+      if (deletedAt != null)
+        'deletedAt': deletedAt!.toUtc().toIso8601String(),
       'createdAt': createdAt.toUtc().toIso8601String(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
@@ -160,6 +167,7 @@ class LocalReadingProfile {
       lastViewed: lastViewed,
       sortOrder: int.tryParse(json['sortOrder']?.toString() ?? '') ?? 0,
       isArchived: json['isArchived'] == true,
+      deletedAt: DateTime.tryParse(json['deletedAt']?.toString() ?? ''),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
           DateTime.now(),
@@ -441,6 +449,19 @@ class LocalRecentReading {
     required this.readAt,
   });
 
+  LocalRecentReading copyWith({
+    String? profileId,
+    bool clearProfileId = false,
+  }) {
+    return LocalRecentReading(
+      id: id,
+      userId: userId,
+      verse: verse,
+      profileId: clearProfileId ? null : profileId ?? this.profileId,
+      readAt: readAt,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -493,6 +514,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? _pendingSyncUserId;
   String? _pendingSyncProfileId;
   bool _isFlushingProfileSync = false;
+  bool _isDeletedAtColumnSupported = true;
   final Map<String, LocalReadingProfile> _pendingProfileSyncs = {};
 
   Timer? _readingStateSyncTimer;
@@ -565,6 +587,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? get activeProfileId => _activeProfileId;
   LocalReadingProfile? get freeReadProfile => _profiles
       .where((profile) => profile.userId == currentUserId)
+      .where((profile) => profile.deletedAt == null)
       .where(isFreeReadProfile)
       .firstOrNull;
 
@@ -577,7 +600,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   LocalReadingProfile? get activeProfile {
     final allUserProfiles = _profiles
-        .where((p) => p.userId == currentUserId && !p.isArchived)
+        .where(
+          (p) =>
+              p.userId == currentUserId &&
+              !p.isArchived &&
+              p.deletedAt == null,
+        )
         .toList();
     final explicitActive = allUserProfiles
         .where((profile) => profile.id == _activeProfileId)
@@ -994,6 +1022,32 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       bool localStateChanged = false;
       bool hasRemoteUpdates = false;
 
+      // Purge tombstones after the 30-day retention window.
+      final purgeCutoff = DateTime.now().subtract(const Duration(days: 30));
+      final expiredTombstoneIds = _profiles
+          .where(
+            (p) =>
+                p.userId == userId &&
+                p.deletedAt != null &&
+                p.deletedAt!.isBefore(purgeCutoff),
+          )
+          .map((p) => p.id)
+          .toSet();
+      if (expiredTombstoneIds.isNotEmpty) {
+        _profiles = _profiles
+            .where((p) => !expiredTombstoneIds.contains(p.id))
+            .toList();
+        _recentReadings = _recentReadings
+            .map(
+              (reading) => reading.profileId != null &&
+                      expiredTombstoneIds.contains(reading.profileId)
+                  ? reading.copyWith(clearProfileId: true)
+                  : reading,
+            )
+            .toList();
+        localStateChanged = true;
+      }
+
       // Index remote profiles by id and slug/name for fast lookup.
       final Map<String, Map<String, dynamic>> remoteById = {};
       final Map<String, Map<String, dynamic>> remoteBySlug = {};
@@ -1023,6 +1077,31 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (matchedRemote != null) {
           final remoteId = matchedRemote['id'].toString();
           matchedRemoteIds.add(remoteId);
+
+          final remoteDeletedAt = DateTime.tryParse(
+            matchedRemote['deleted_at']?.toString() ?? '',
+          );
+
+          // Local tombstone: keep it and push the deletion to the cloud.
+          if (localP.deletedAt != null) {
+            reconciledProfiles.add(localP.copyWith(id: remoteId));
+            profilesToSync.add(remoteId);
+            continue;
+          }
+
+          // Remote tombstone is authoritative. Never let a stale active copy
+          // resurrect a goal deleted on another device.
+          if (remoteDeletedAt != null) {
+            reconciledProfiles.add(
+              localP.copyWith(
+                id: remoteId,
+                isArchived: true,
+                deletedAt: remoteDeletedAt,
+                updatedAt: remoteDeletedAt,
+              ),
+            );
+            continue;
+          }
 
           final remoteUpdatedAt =
               DateTime.tryParse(
@@ -1093,16 +1172,18 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             }
           }
         } else {
-          // Local-only: keep local and mark for sync to remote
+          // Local-only: keep local (including tombstones) and sync to remote.
           reconciledProfiles.add(localP);
           profilesToSync.add(localP.id);
         }
       }
 
-      // 3. Remote-only profiles: insert into local storage
+      // 3. Remote-only profiles: insert into local storage. Remote tombstones
+      // are not re-imported; matching local copies were handled above.
       for (final dbP in dbProfiles) {
         final remoteId = dbP['id'].toString();
         if (matchedRemoteIds.contains(remoteId)) continue;
+        if (dbP['deleted_at'] != null) continue;
 
         final rSlug = dbP['slug']?.toString() ?? '';
         // Double check we don't duplicate by name
@@ -1124,7 +1205,9 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       // Update active profile ID if needed
       final userProfiles = _profiles.where((p) => p.userId == userId).toList();
-      final belongsToUser = userProfiles.any((p) => p.id == _activeProfileId);
+      final belongsToUser = userProfiles.any(
+        (p) => p.id == _activeProfileId && p.deletedAt == null,
+      );
       if (!belongsToUser || hasRemoteUpdates) {
         final latest = _getLatestReadProfile(userProfiles);
         if (latest != null && latest.id != _activeProfileId) {
@@ -1138,12 +1221,22 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
       }
 
-      // Sync local-newer and local-only profiles to Supabase
+      // Sync local-newer, local-only, and tombstone profiles to Supabase.
       for (final id in profilesToSync) {
         final p = _profiles.where((p) => p.id == id).firstOrNull;
         if (p != null) {
           await _syncProfileToSupabase(p);
         }
+      }
+
+      try {
+        await client
+            .from('reading_profiles')
+            .delete()
+            .eq('user_id', userId)
+            .lt('deleted_at', purgeCutoff.toUtc().toIso8601String());
+      } catch (e) {
+        debugPrint('Error purging expired reading profile tombstones: $e');
       }
     } catch (e) {
       debugPrint('Error in reconcileProfilesOnBoot: $e');
@@ -1195,6 +1288,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       lastViewed: lastViewed,
       sortOrder: int.tryParse(dbP['sort_order']?.toString() ?? '') ?? 0,
       isArchived: dbP['is_archived'] == true,
+      deletedAt: DateTime.tryParse(dbP['deleted_at']?.toString() ?? ''),
       createdAt:
           DateTime.tryParse(dbP['created_at']?.toString() ?? '') ?? updatedAt,
       updatedAt: updatedAt,
@@ -1293,6 +1387,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       'last_viewed_index': p.lastViewedIndex,
       'sort_order': p.sortOrder,
       'is_archived': p.isArchived,
+      'deleted_at': p.deletedAt?.toUtc().toIso8601String(),
       'created_at': p.createdAt.toUtc().toIso8601String(),
       'updated_at': p.updatedAt.toUtc().toIso8601String(),
     };
@@ -1325,8 +1420,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           'last_viewed_index': p.lastViewedIndex,
           'sort_order': p.sortOrder,
           'is_archived': p.isArchived,
+          'deleted_at': p.deletedAt?.toUtc().toIso8601String(),
           'updated_at': p.updatedAt.toUtc().toIso8601String(),
         };
+        if (!_isDeletedAtColumnSupported) {
+          upsertData.remove('deleted_at');
+        }
 
         if (hasUuid) {
           upsertData['id'] = p.id;
@@ -1395,6 +1494,15 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
         }
       } catch (e) {
+        if (_isDeletedAtColumnSupported &&
+            e is PostgrestException &&
+            (e.message.contains('deleted_at') ||
+                e.code == 'PGRST204' ||
+                e.code == '42703')) {
+          // Backward compatibility while the deleted_at migration rolls out.
+          _isDeletedAtColumnSupported = false;
+          return _syncProfileToSupabase(p);
+        }
         debugPrint('Error syncing profile to Supabase: $e');
         rethrow;
       }
@@ -1623,13 +1731,50 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _queueProfileSync(updated, delay: Duration.zero);
   }
 
+  /// Soft-delete an archived goal. The tombstone is synced to Supabase and
+  /// purged after 30 days.
   Future<void> deleteProfile(String profileId) async {
-    await archiveProfile(profileId);
+    await _loadCompleter.future;
+    final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
+    if (profile == null ||
+        !profile.isArchived ||
+        profile.deletedAt != null ||
+        isFreeReadProfile(profile) ||
+        isShortcutProfile(profile)) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final updated = profile.copyWith(
+      isArchived: true,
+      deletedAt: now,
+      updatedAt: now,
+    );
+    _profiles = _profiles.map((p) => p.id == profileId ? updated : p).toList();
+    _recentReadings = _recentReadings.map((reading) {
+      if (reading.profileId != profileId) return reading;
+      return reading.copyWith(clearProfileId: true);
+    }).toList();
+
+    if (_activeProfileId == profileId) {
+      final latest = _getLatestReadProfile(
+        _profiles.where((p) => p.userId == currentUserId).toList(),
+      );
+      _activeProfileId = latest?.id;
+    }
+
+    await _save(immediate: true);
+    notifyListeners();
+    _queueProfileSync(updated, delay: Duration.zero);
   }
 
   Future<void> setActiveProfile(String profileId) async {
     await _loadCompleter.future;
-    if (!_profiles.any((profile) => profile.id == profileId)) return;
+    final profile = _profiles
+        .where((profile) => profile.id == profileId)
+        .firstOrNull;
+    // Archived goals are history-only until explicitly restored.
+    if (profile == null || profile.isArchived) return;
     _activeProfileId = profileId;
     await _save(immediate: true);
     notifyListeners();
@@ -1735,7 +1880,11 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> archiveProfile(String profileId) async {
     await _loadCompleter.future;
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
-    if (profile == null || isFreeReadProfile(profile)) return;
+    if (profile == null ||
+        profile.deletedAt != null ||
+        isFreeReadProfile(profile)) {
+      return;
+    }
 
     final updated = profile.copyWith(
       isArchived: true,
@@ -1766,7 +1915,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     final profile = _profiles.where((item) => item.id == profileId).firstOrNull;
-    if (profile == null) return;
+    if (profile == null || profile.deletedAt != null) return;
 
     final updated = profile.copyWith(
       isArchived: false,
@@ -2465,9 +2614,17 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   void _ensureDefaultProfile() {
     _ensureShortcutProfiles();
 
-    if (_profiles.any(
+    final freeReadIndex = _profiles.indexWhere(
       (p) => isFreeReadProfile(p) && p.userId == currentUserId,
-    )) {
+    );
+    if (freeReadIndex != -1) {
+      final freeRead = _profiles[freeReadIndex];
+      if (freeRead.isArchived || freeRead.deletedAt != null) {
+        _profiles[freeReadIndex] = freeRead.copyWith(
+          isArchived: false,
+          clearDeletedAt: true,
+        );
+      }
       return;
     }
 

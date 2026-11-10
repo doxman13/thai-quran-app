@@ -30,6 +30,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   int? _pendingRecentPageNumber;
   String? _pendingRecentProfileId;
   bool _isFlushingProfileSync = false;
+  bool _isDeletedAtColumnSupported = true;
   final Map<String, MushafProfile> _pendingProfileSyncs = {};
 
   MushafReadingProvider() {
@@ -81,7 +82,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<MushafProfile> get profiles => List.unmodifiable(_profiles);
   List<MushafProfile> get activeCustomProfiles =>
       _profiles
-          .where((profile) => !profile.isFreeRead && !profile.isArchived)
+          .where(
+            (profile) =>
+                profile.deletedAt == null &&
+                !profile.isFreeRead &&
+                !profile.isArchived,
+          )
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
   List<MushafPageBookmark> get pageBookmarks =>
@@ -90,7 +96,10 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       List.unmodifiable(_verseBookmarks);
   List<MushafRecentReading> get recentReadings =>
       List.unmodifiable(_recentReadings);
-  MushafProfile? get activeProfile => profileById(_activeProfileId);
+  MushafProfile? get activeProfile {
+    final profile = profileById(_activeProfileId);
+    return profile != null && profile.deletedAt == null ? profile : null;
+  }
   int get displayMushafId => _displayMushafId;
   bool get canCreateProfile =>
       activeCustomProfiles.length < maxActiveMushafProfiles;
@@ -108,13 +117,17 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       return profile.isFreeRead && profile.mushafId == mushafId;
     }).firstOrNull;
     if (existing != null) {
-      if (existing.name != 'Just Read') {
+      if (existing.name != 'Just Read' ||
+          existing.isArchived ||
+          existing.deletedAt != null) {
         final index = _profiles.indexWhere(
           (profile) => profile.id == existing.id,
         );
         if (index != -1) {
           final updated = existing.copyWith(
             name: 'Just Read',
+            isArchived: false,
+            clearDeletedAt: true,
             updatedAt: DateTime.now(),
           );
           _profiles[index] = updated;
@@ -263,7 +276,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         return profile;
       }
       changed = true;
-      return profile.copyWith(name: 'Just Read');
+      return profile.copyWith(
+        name: 'Just Read',
+        isArchived: false,
+        clearDeletedAt: true,
+      );
     }).toList();
     if (changed) {
       _save();
@@ -278,7 +295,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> setActiveProfile(String profileId) async {
-    if (profileById(profileId) == null) return;
+    final profile = profileById(profileId);
+    // Archived goals are history-only until explicitly restored.
+    if (profile == null || profile.isArchived || profile.deletedAt != null) return;
     _activeProfileId = profileId;
     await _save();
     notifyListeners();
@@ -289,7 +308,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     required int pageNumber,
   }) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
-    if (index == -1) return;
+    if (index == -1 || _profiles[index].deletedAt != null) return;
     final profile = _profiles[index];
     final page = _clampInt(pageNumber, profile.startPage, profile.targetPage);
     final furthestPage = page > profile.furthestUnreadPage
@@ -309,7 +328,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> updateProfile(String profileId, {required String name}) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
-    if (index == -1) return;
+    if (index == -1 || _profiles[index].deletedAt != null) return;
     final profile = _profiles[index];
     final updated = profile.copyWith(name: name, updatedAt: DateTime.now());
     _profiles[index] = updated;
@@ -327,7 +346,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     bool resetProgress = false,
   }) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
-    if (index == -1) return;
+    if (index == -1 || _profiles[index].deletedAt != null) return;
     final profile = _profiles[index];
     if (profile.isFreeRead) return;
 
@@ -364,8 +383,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String planMode,
   }) async {
     if (!canCreateProfile) {
-      throw const QuranFoundationException(
-        'Only 5 active Mushaf profiles are allowed.',
+      throw QuranFoundationException(
+        'Only $maxActiveMushafProfiles active Mushaf profiles are allowed.',
       );
     }
     final pageCount = mushafTypeById(mushafId).pageCount;
@@ -429,7 +448,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> archiveProfile(String profileId) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
-    if (index == -1 || _profiles[index].isFreeRead) return;
+    if (index == -1 ||
+        _profiles[index].isFreeRead ||
+        _profiles[index].deletedAt != null) {
+      return;
+    }
     final updated = _profiles[index].copyWith(
       isArchived: true,
       updatedAt: DateTime.now(),
@@ -445,10 +468,14 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> restoreProfile(String profileId) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
-    if (index == -1 || _profiles[index].isFreeRead) return;
+    if (index == -1 ||
+        _profiles[index].isFreeRead ||
+        _profiles[index].deletedAt != null) {
+      return;
+    }
     if (!canCreateProfile) {
-      throw const QuranFoundationException(
-        'Only 5 active Mushaf profiles are allowed.',
+      throw QuranFoundationException(
+        'Only $maxActiveMushafProfiles active Mushaf profiles are allowed.',
       );
     }
     final updated = _profiles[index].copyWith(
@@ -461,9 +488,44 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _queueProfileSync(updated, delay: Duration.zero);
   }
 
+  /// Soft-delete an archived Mushaf goal. The tombstone is synced to Supabase
+  /// and purged after 30 days.
+  Future<void> deleteProfile(String profileId) async {
+    final index = _profiles.indexWhere((profile) => profile.id == profileId);
+    if (index == -1) return;
+    final profile = _profiles[index];
+    if (profile.isFreeRead ||
+        profile.deletedAt != null ||
+        !profile.isArchived) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final updated = profile.copyWith(
+      isArchived: true,
+      deletedAt: now,
+      updatedAt: now,
+    );
+    _profiles[index] = updated;
+    _recentReadings = _recentReadings
+        .where((reading) => reading.profileId != profileId)
+        .toList();
+    if (_activeProfileId == profileId) {
+      _activeProfileId = freeReadProfileForMushaf(profile.mushafId).id;
+    }
+    await _save();
+    notifyListeners();
+    _queueProfileSync(updated, delay: Duration.zero);
+  }
+
   List<MushafProfile> get archivedCustomProfiles =>
       _profiles
-          .where((profile) => !profile.isFreeRead && profile.isArchived)
+          .where(
+            (profile) =>
+                profile.deletedAt == null &&
+                !profile.isFreeRead &&
+                profile.isArchived,
+          )
           .toList()
         ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
@@ -625,6 +687,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final base = preferCurrent ? profile : existing;
         byKey[key] = base.copyWith(
           isArchived: _resolveArchivedState(profile, existing),
+          deletedAt: profile.deletedAt ?? existing.deletedAt,
         );
       }
     }
@@ -778,6 +841,32 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             await _replaceProfileReferences(localP.id, remoteId);
           }
 
+          final remoteDeletedAt = DateTime.tryParse(
+            dbP['deleted_at']?.toString() ?? '',
+          );
+
+          // Local tombstone: keep it and push the deletion to the cloud.
+          if (localP.deletedAt != null) {
+            final tombstone = localP.copyWith(id: remoteId);
+            reconciledProfiles.add(tombstone);
+            await _syncProfileToSupabase(tombstone, userId: userId);
+            continue;
+          }
+
+          // Remote tombstone is authoritative; never resurrect with a stale
+          // active copy.
+          if (remoteDeletedAt != null) {
+            reconciledProfiles.add(
+              localP.copyWith(
+                id: remoteId,
+                isArchived: true,
+                deletedAt: remoteDeletedAt,
+                updatedAt: remoteDeletedAt,
+              ),
+            );
+            continue;
+          }
+
           final remoteUpdatedAt =
               DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
               DateTime.fromMillisecondsSinceEpoch(0);
@@ -885,6 +974,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       for (final dbP in dbProfiles) {
         final remoteId = dbP['id'].toString();
         if (matchedRemoteIds.contains(remoteId)) continue;
+        if (dbP['deleted_at'] != null) continue;
 
         final remoteProfile = MushafProfile(
           id: remoteId,
@@ -902,6 +992,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               dbP['current_page'],
           sortOrder: dbP['sort_order'],
           isArchived: dbP['is_archived'] ?? false,
+          deletedAt: DateTime.tryParse(dbP['deleted_at']?.toString() ?? ''),
           createdAt:
               DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
               DateTime.now(),
@@ -935,9 +1026,42 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       _profiles = _deduplicateProfiles(reconciledProfiles);
+
+      // Purge tombstones after the 30-day retention window.
+      final purgeCutoff = DateTime.now().subtract(const Duration(days: 30));
+      final expiredTombstoneIds = _profiles
+          .where(
+            (p) =>
+                p.deletedAt != null && p.deletedAt!.isBefore(purgeCutoff),
+          )
+          .map((p) => p.id)
+          .toSet();
+      if (expiredTombstoneIds.isNotEmpty) {
+        _profiles = _profiles
+            .where((p) => !expiredTombstoneIds.contains(p.id))
+            .toList();
+        _recentReadings = _recentReadings
+            .where(
+              (reading) =>
+                  reading.profileId == null ||
+                  !expiredTombstoneIds.contains(reading.profileId),
+            )
+            .toList();
+      }
+
       final active = profileById(_activeProfileId);
-      if (active == null || active.isArchived) {
+      if (active == null || active.isArchived || active.deletedAt != null) {
         _activeProfileId = freeReadProfileForMushaf(_displayMushafId).id;
+      }
+
+      try {
+        await client
+            .from('mushaf_profiles')
+            .delete()
+            .eq('user_id', userId)
+            .lt('deleted_at', purgeCutoff.toUtc().toIso8601String());
+      } catch (e) {
+        debugPrint('Error purging expired Mushaf tombstones: $e');
       }
 
       // 2. Sync Page Bookmarks
@@ -1171,8 +1295,12 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         'last_viewed_page': p.lastViewedPage,
         'sort_order': p.sortOrder,
         'is_archived': p.isArchived,
-        'updated_at': p.updatedAt.toIso8601String(),
+        'deleted_at': p.deletedAt?.toUtc().toIso8601String(),
+        'updated_at': p.updatedAt.toUtc().toIso8601String(),
       };
+      if (!_isDeletedAtColumnSupported) {
+        upsertData.remove('deleted_at');
+      }
 
       if (hasUuid) {
         upsertData['id'] = p.id;
@@ -1204,6 +1332,15 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
     } catch (e) {
+      if (_isDeletedAtColumnSupported &&
+          e is PostgrestException &&
+          (e.message.contains('deleted_at') ||
+              e.code == 'PGRST204' ||
+              e.code == '42703')) {
+        // Backward compatibility while the deleted_at migration rolls out.
+        _isDeletedAtColumnSupported = false;
+        return _syncProfileToSupabase(p, userId: userId);
+      }
       debugPrint('Error syncing Mushaf profile to Supabase: $e');
       rethrow;
     }

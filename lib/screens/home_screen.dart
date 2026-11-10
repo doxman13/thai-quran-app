@@ -774,10 +774,8 @@ class _HomeScreenState extends State<HomeScreen> {
     ({VerseRef verse, String? profileId, DateTime at})? latest;
 
     for (final reading in provider.recentReadings) {
-      final readingProfile = reading.profileId == null
-          ? null
-          : provider.profileById(reading.profileId!);
-      if (readingProfile != null && readingProfile.isArchived) continue;
+      // Keep archived-goal history visible as a recent item. Resolution below
+      // treats it as Free Read, so it never reactivates the archived goal.
       final normalizedReadAt = _normalizeDate(reading.readAt);
       if (latest == null || normalizedReadAt.isAfter(latest.at)) {
         latest = (

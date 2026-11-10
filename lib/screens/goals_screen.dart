@@ -1761,8 +1761,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       Expanded(
                         child: _FilterTabPill(
                           label: isThai
-                              ? 'ความหมาย (${meaningGoals.length})'
-                              : 'Meaning (${meaningGoals.length})',
+                              ? 'ความหมาย (${meaningGoals.length}/$maxActiveReadingProfiles)'
+                              : 'Meaning (${meaningGoals.length}/$maxActiveReadingProfiles)',
                           isSelected: _filterTab == GoalFilterTab.meaning,
                           activeColor: colorScheme.primary,
                           onTap: () => setState(
@@ -1773,8 +1773,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       Expanded(
                         child: _FilterTabPill(
                           label: isThai
-                              ? 'มุศหัฟ (${mushafGoals.length})'
-                              : 'Mushaf (${mushafGoals.length})',
+                              ? 'มุศหัฟ (${mushafGoals.length}/$maxActiveMushafProfiles)'
+                              : 'Mushaf (${mushafGoals.length}/$maxActiveMushafProfiles)',
                           isSelected: _filterTab == GoalFilterTab.mushaf,
                           activeColor: const Color(0xFF8A6530),
                           onTap: () =>
@@ -1796,8 +1796,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         ? 'เป้าหมายโหมดแปลความหมาย'
                         : 'Meaning Reading Goals',
                     countLabel: isThai
-                        ? '${meaningGoals.length} เป้าหมาย'
-                        : '${meaningGoals.length} active',
+                        ? '${meaningGoals.length}/$maxActiveReadingProfiles เป้าหมาย'
+                        : '${meaningGoals.length}/$maxActiveReadingProfiles active',
                     colorScheme: colorScheme,
                   ),
                   const SizedBox(height: 12),
@@ -1855,8 +1855,8 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         ? 'เป้าหมายโหมดมุศหัฟ 604 หน้า'
                         : 'Mushaf Reading Goals',
                     countLabel: isThai
-                        ? '${mushafGoals.length} เป้าหมาย'
-                        : '${mushafGoals.length} active',
+                        ? '${mushafGoals.length}/$maxActiveMushafProfiles เป้าหมาย'
+                        : '${mushafGoals.length}/$maxActiveMushafProfiles active',
                     colorScheme: colorScheme,
                   ),
                   const SizedBox(height: 12),
@@ -3031,6 +3031,41 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
   }
 
+  Future<bool> _confirmDeleteGoal({
+    required String name,
+    required bool isThai,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          isThai ? 'ลบเป้าหมายถาวร?' : 'Delete goal permanently?',
+          style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          isThai
+              ? '“$name” จะถูกซ่อนจากทุกอุปกรณ์และลบถาวรหลัง 30 วัน'
+              : '“$name” will be hidden on every device and permanently removed after 30 days.',
+          style: GoogleFonts.notoSansThai(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(isThai ? 'ยกเลิก' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(isThai ? 'ลบ' : 'Delete'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
   Widget _buildArchivedGoalsCard({
     required List<LocalReadingProfile> archivedMeaning,
     required List<MushafProfile> archivedMushaf,
@@ -3131,31 +3166,65 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         ],
                       ),
                     ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        try {
-                          await readingProv.restoreProfile(profile.id);
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () async {
+                            try {
+                              await readingProv.restoreProfile(profile.id);
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
+                              }
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'กู้คืน' : 'Restore',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        OutlinedButton(
+                          onPressed: () async {
+                            final confirmed = await _confirmDeleteGoal(
+                              name: profile.name,
+                              isThai: isThai,
                             );
-                          }
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                            if (confirmed) {
+                              await readingProv.deleteProfile(profile.id);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(
+                              color: colorScheme.error.withValues(alpha: 0.45),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'ลบ' : 'Delete',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        isThai ? 'กู้คืน' : 'Restore',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -3188,31 +3257,65 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         ],
                       ),
                     ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        try {
-                          await mushafProv.restoreProfile(profile.id);
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () async {
+                            try {
+                              await mushafProv.restoreProfile(profile.id);
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
+                              }
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'กู้คืน' : 'Restore',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        OutlinedButton(
+                          onPressed: () async {
+                            final confirmed = await _confirmDeleteGoal(
+                              name: profile.name,
+                              isThai: isThai,
                             );
-                          }
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                            if (confirmed) {
+                              await mushafProv.deleteProfile(profile.id);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(
+                              color: colorScheme.error.withValues(alpha: 0.45),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'ลบ' : 'Delete',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        isThai ? 'กู้คืน' : 'Restore',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
