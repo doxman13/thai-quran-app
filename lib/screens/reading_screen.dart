@@ -728,6 +728,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
     final progressProfile = _progressProfile(localReading);
     final currentVerse = verses[index];
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     final card = VerseCard(
       key: ValueKey('${currentVerse.surahId}_${currentVerse.id}'),
@@ -736,6 +738,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       index: index,
       progressProfileId: progressProfile?.id,
       useExplicitProgressProfile: true,
+      splitLandscape: isLandscape,
       controller: _verseCardController,
     );
 
@@ -750,7 +753,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
         builder: (context, constraints) {
           return SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: EdgeInsets.symmetric(
+              horizontal: isLandscape ? 28 : 20,
+              vertical: isLandscape ? 10 : 14,
+            ),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minHeight: (constraints.maxHeight - 48).clamp(
@@ -779,7 +785,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     return Column(
       children: [
-        if (showThemeHeader)
+        if (showThemeHeader && !isLandscape)
           Padding(
             padding: const EdgeInsets.only(left: 20, right: 20, top: 12),
             child: AnimatedBuilder(
@@ -2039,6 +2045,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = settings.getPrimaryColor();
     final colors = settings.getAppColors();
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     final localReading = Provider.of<LocalReadingProvider>(context);
     final progressProfile = _progressProfile(localReading);
@@ -2091,8 +2099,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
                               padding: EdgeInsets.only(
-                                top: _isMenuVisible ? topMenuHeight : 34,
-                                bottom: _isMenuVisible ? 128 : 64,
+                                top: _isMenuVisible
+                                    ? topMenuHeight
+                                    : (isLandscape ? 4 : 34),
+                                bottom: _isMenuVisible
+                                    ? (isLandscape ? 92 : 112)
+                                    : (isLandscape ? 8 : 64),
                               ),
                               child: Column(
                                 children: [
@@ -2114,33 +2126,99 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       final surahName = widget.repository
                                           .getSurahName(_currentSurah, isThai: !_isNonThaiPrimary(context));
                                       final theme = Theme.of(context);
+                                      final activeVerseNumber =
+                                          int.tryParse(activeVerseId) ?? -1;
+                                      final activeTheme = _getActiveTheme(
+                                        activeVerseNumber,
+                                      );
 
                                       return Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 20,
-                                          right: 20,
-                                          top: 12,
-                                          bottom: 4,
+                                        padding: EdgeInsets.only(
+                                          left: isLandscape ? 16 : 20,
+                                          right: isLandscape ? 12 : 20,
+                                          top: isLandscape ? 4 : 12,
+                                          bottom: isLandscape ? 2 : 4,
                                         ),
                                         child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
                                           children: [
-                                            Icon(
-                                              Icons.menu_book_rounded,
-                                              color: theme.colorScheme.primary,
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              '$surahName : $activeVerseId/$surahAyahCount',
-                                              style: GoogleFonts.notoSansThai(
-                                                color:
-                                                    theme.colorScheme.onSurface,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 13,
+                                            Expanded(
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    isLandscape
+                                                    ? MainAxisAlignment.start
+                                                    : MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.menu_book_rounded,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary,
+                                                    size: 16,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Flexible(
+                                                    child: Text(
+                                                      '$surahName : $activeVerseId/$surahAyahCount',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: GoogleFonts.notoSansThai(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .onSurface,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (isLandscape &&
+                                                      activeTheme !=
+                                                          null) ...[
+                                                    const SizedBox(width: 4),
+                                                    IconButton(
+                                                      tooltip:
+                                                          settings
+                                                                  .languageCode ==
+                                                              'th'
+                                                          ? 'หัวข้อและช่วงอายะฮ์'
+                                                          : 'Theme & verse range',
+                                                      visualDensity:
+                                                          VisualDensity.compact,
+                                                      padding:
+                                                          EdgeInsets.zero,
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                            minWidth: 30,
+                                                            minHeight: 30,
+                                                          ),
+                                                      icon: Icon(
+                                                        Icons
+                                                            .auto_stories_rounded,
+                                                        size: 16,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
+                                                      ),
+                                                      onPressed: () =>
+                                                          _showThemeDetailSheet(
+                                                            section: activeTheme,
+                                                            surahId:
+                                                                _currentSurah,
+                                                            surahName: surahName,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                             ),
+                                            if (isLandscape)
+                                              _buildFixedActionMenu(
+                                                context,
+                                                colors,
+                                                isDark,
+                                                compact: true,
+                                              ),
                                           ],
                                         ),
                                       );
@@ -2456,7 +2534,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           ),
                         ),
                       ),
-                      // 4. Floating Verse Action Menu (always visible, floats at bottom)
+                      // 4. Floating Verse Action Menu (portrait; landscape moves it into the top row)
+                      if (!isLandscape)
                       Consumer<ProgressProvider>(
                         builder: (context, progressProv, child) {
                           final currentIndex = progressProv.lastVerseIndex;
@@ -2740,17 +2819,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
   Widget _buildFixedActionMenu(
     BuildContext context,
     AppThemeColors colors,
-    bool isDark,
-  ) {
+    bool isDark, {
+    bool compact = false,
+  }) {
     return AnimatedBuilder(
       animation: _verseCardController,
       builder: (context, _) {
         final isThaiLang = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
         return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+          mainAxisAlignment: compact
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.spaceEvenly,
           children: [
             // 1. Play Audio (Clean prominent icon)
-            _buildPlayAudioButton(context, isThaiLang),
+            _buildPlayAudioButton(context, isThaiLang, compact: compact),
 
             // 2. Word by Word
             _buildMenuActionIcon(
@@ -2758,6 +2841,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               tooltip: isThaiLang ? 'แปลคำต่อคำ (Word by Word)' : 'Word by Word',
               icon: Icons.translate_rounded,
               active: false,
+              compact: compact,
               onPressed: _verseCardController.showWordByWord,
             ),
 
@@ -2767,6 +2851,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               tooltip: isThaiLang ? 'คำอธิบายอย่างย่อ (ตัฟซีร)' : 'Short tafsir',
               icon: Icons.menu_book_rounded,
               active: _verseCardController.showTafsirBox,
+              compact: compact,
               onPressed: _verseCardController.hasTafsir
                   ? _verseCardController.toggleTafsir
                   : null,
@@ -2778,6 +2863,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               tooltip: isThaiLang ? 'ตัวเลือกเพิ่มเติม' : 'More options',
               icon: Icons.more_horiz_rounded,
               active: false,
+              compact: compact,
               onPressed: () => _showMoreVerseActionsSheet(context, colors, isDark, isThaiLang),
             ),
           ],
@@ -2786,7 +2872,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
-  Widget _buildPlayAudioButton(BuildContext context, bool isThaiLang) {
+  Widget _buildPlayAudioButton(
+    BuildContext context,
+    bool isThaiLang, {
+    bool compact = false,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final isPlaying = _verseCardController.isAudioPlaying;
     final isLoading = _verseCardController.isAudioLoading;
@@ -2795,8 +2885,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
       tooltip: isPlaying
           ? (isThaiLang ? 'หยุดเล่นเสียงอายะฮฺ' : 'Stop Audio')
           : (isThaiLang ? 'เล่นเสียงอายะฮฺ' : 'Play Ayah'),
-      iconSize: 28,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      iconSize: compact ? 24 : 28,
+      constraints: BoxConstraints(
+        minWidth: compact ? 38 : 44,
+        minHeight: compact ? 38 : 44,
+      ),
       padding: EdgeInsets.zero,
       icon: isLoading
           ? SizedBox(
@@ -2811,7 +2904,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               isPlaying
                   ? Icons.pause_circle_filled_rounded
                   : Icons.play_circle_fill_rounded,
-              size: 32,
+              size: compact ? 28 : 32,
               color: colorScheme.primary,
             ),
       onPressed: _verseCardController.playAudio,
@@ -2920,6 +3013,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     required IconData icon,
     required VoidCallback? onPressed,
     bool active = false,
+    bool compact = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2927,8 +3021,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     return IconButton(
       tooltip: tooltip,
-      iconSize: 22,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      iconSize: compact ? 20 : 22,
+      constraints: BoxConstraints(
+        minWidth: compact ? 34 : 40,
+        minHeight: compact ? 34 : 40,
+      ),
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
         backgroundColor: active && !disabled

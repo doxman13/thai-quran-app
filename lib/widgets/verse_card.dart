@@ -105,6 +105,7 @@ class VerseCard extends StatefulWidget {
   final int index;
   final String? progressProfileId;
   final bool useExplicitProgressProfile;
+  final bool splitLandscape;
   final VerseCardController? controller;
 
   const VerseCard({
@@ -114,6 +115,7 @@ class VerseCard extends StatefulWidget {
     required this.index,
     this.progressProfileId,
     this.useExplicitProgressProfile = false,
+    this.splitLandscape = false,
     this.controller,
   });
 
@@ -857,6 +859,7 @@ class _VerseCardState extends State<VerseCard> {
         ? const Color(0xFFD7E0EA)
         : const Color(0xFF334155);
     final colorScheme = Theme.of(context).colorScheme;
+    final isLandscapeSplit = widget.splitLandscape;
 
     final showArabicText = true;
 
@@ -962,7 +965,128 @@ class _VerseCardState extends State<VerseCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header Row
+              if (isLandscapeSplit)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Color.alphaBlend(
+                            colors.primary.withValues(
+                              alpha: isDark ? 0.12 : 0.06,
+                            ),
+                            colors.background,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: colors.borderSoft,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          context.tr(
+                            'ayah_number',
+                            args: {'number': widget.verse.id},
+                          ),
+                          style: GoogleFonts.notoSansThai(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_shareStatus.isNotEmpty)
+                            Text(
+                              _shareStatus,
+                              style: GoogleFonts.notoSansThai(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          _buildActionIcon(
+                            tooltip: isBookmarked
+                                ? 'Remove bookmark'
+                                : 'Bookmark',
+                            icon: isBookmarked
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_border_rounded,
+                            active: isBookmarked,
+                            color: colorScheme.tertiary,
+                            onPressed: () async {
+                              if (!isBookmarked) {
+                                final ok = await GuestBookmarkWarningDialog
+                                    .checkAndPrompt(context);
+                                if (!ok) return;
+                              }
+                              await localReading.toggleBookmark(
+                                verseRef.surahId,
+                                verseRef.verseId,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          _buildActionIcon(
+                            tooltip: isFavorited
+                                ? 'Remove from favorites'
+                                : 'Add to favorites',
+                            icon: isFavorited
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            active: isFavorited,
+                            color: colorScheme.error,
+                            onPressed: () {
+                              final currentNoteObj = notesProv
+                                  .getNoteObjectForVerse(
+                                    widget.verse.surahId,
+                                    widget.verse.id,
+                                  );
+                              _handleFavoriteTap(notesProv, currentNoteObj);
+                            },
+                          ),
+                          if (OfflineQuranDatabaseService.hasMutashabihatSync(
+                            '${widget.verse.surahId}:${widget.verse.id}',
+                          )) ...[
+                            const SizedBox(width: 4),
+                            _buildActionIcon(
+                              tooltip: _isNonThaiPrimary()
+                                  ? 'Similar Verses (Mutashabihat)'
+                                  : 'โองการที่คล้ายคลึงกัน (มุตะชาบิฮาต)',
+                              icon: Icons.sync_alt_rounded,
+                              active: true,
+                              color: colorScheme.primary,
+                              onPressed: () {
+                                MutashabihatSheet.show(
+                                  context,
+                                  '${widget.verse.surahId}:${widget.verse.id}',
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                flex: isLandscapeSplit ? 6 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Header Row (landscape uses the full-width action bar above)
+                    if (!isLandscapeSplit)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1046,93 +1170,24 @@ class _VerseCardState extends State<VerseCard> {
                 ],
               ),
 
-              // Arabic Text Area
-              if (showArabicText) ...[
-                const SizedBox(height: 16),
-                if (widget.verse.isArabicLoading)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: colorScheme.primary,
-                        ),
+                    // Arabic Text Area (portrait only; landscape renders it in the left pane)
+                    if (showArabicText && !isLandscapeSplit) ...[
+                      _buildArabicPane(
+                        settings: settings,
+                        isDark: isDark,
+                        arabicStyle: arabicStyle,
+                        colorScheme: colorScheme,
                       ),
-                    ),
-                  )
-                else if (settings.showTajweedColors) ...[
-                  Builder(
-                    builder: (context) {
-                      final sId = int.tryParse(widget.verse.surahId) ?? 1;
-                      final vId = int.tryParse(widget.verse.id) ?? 1;
-                      final tajweedText = TajweedService.getVerse(sId, vId);
-                      if (tajweedText != null && tajweedText.isNotEmpty) {
-                        return Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: TajweedText(
-                            text: tajweedText,
-                            fontSize: arabicStyle.fontSize ?? 26.0,
-                          ),
-                        );
-                      }
-                      return Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: RichText(
-                          text: TextSpan(
-                            style: arabicStyle,
-                            children: [
-                              TextSpan(
-                                text: formatArabicAyahText(
-                                  widget.verse.arabic,
-                                  verseNumber: widget.verse.id,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ] else
-                  Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: RichText(
-                      text: TextSpan(
-                        style: arabicStyle,
-                        children: [
-                          TextSpan(
-                            text: formatArabicAyahText(
-                              widget.verse.arabic,
-                              verseNumber: widget.verse.id,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 16),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.14)
+                            : const Color(0xFFD5CEBE),
                       ),
-                    ),
-                  ),
-
-                // Inline Word By Word when enabled in settings
-                if (settings.showWordByWord) ...[
-                  const SizedBox(height: 14),
-                  WordByWordView(
-                    verseKey: '${widget.verse.surahId}:${widget.verse.id}',
-                    isDarkMode: isDark,
-                  ),
-                ],
-
-                const SizedBox(height: 16),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.14)
-                      : const Color(0xFFD5CEBE),
-                ),
-                const SizedBox(height: 16),
-              ],
+                      const SizedBox(height: 16),
+                    ],
 
               // Translations Container
               if (true) ...[
@@ -1160,7 +1215,8 @@ class _VerseCardState extends State<VerseCard> {
 
               const SizedBox(height: 12),
 
-              // Heart (favorite) button row
+              // Heart (favorite) button row (landscape moves this to the action bar)
+              if (!isLandscapeSplit)
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1336,10 +1392,121 @@ class _VerseCardState extends State<VerseCard> {
                   ),
                 ),
               ],
+                  ],
+                ),
+              ),
+              if (isLandscapeSplit) ...[
+                Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 18),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : const Color(0xFFD5CEBE),
+                ),
+                Expanded(
+                  flex: 5,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 36, left: 4),
+                    child: _buildArabicPane(
+                      settings: settings,
+                      isDark: isDark,
+                      arabicStyle: arabicStyle,
+                      colorScheme: colorScheme,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildArabicPane({
+    required SettingsProvider settings,
+    required bool isDark,
+    required TextStyle arabicStyle,
+    required ColorScheme colorScheme,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        if (widget.verse.isArabicLoading)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+          )
+        else if (settings.showTajweedColors) ...[
+          Builder(
+            builder: (context) {
+              final sId = int.tryParse(widget.verse.surahId) ?? 1;
+              final vId = int.tryParse(widget.verse.id) ?? 1;
+              final tajweedText = TajweedService.getVerse(sId, vId);
+              if (tajweedText != null && tajweedText.isNotEmpty) {
+                return Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: TajweedText(
+                    text: tajweedText,
+                    fontSize: arabicStyle.fontSize ?? 26.0,
+                  ),
+                );
+              }
+              return Directionality(
+                textDirection: TextDirection.rtl,
+                child: RichText(
+                  text: TextSpan(
+                    style: arabicStyle,
+                    children: [
+                      TextSpan(
+                        text: formatArabicAyahText(
+                          widget.verse.arabic,
+                          verseNumber: widget.verse.id,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ] else
+          Directionality(
+            textDirection: TextDirection.rtl,
+            child: RichText(
+              text: TextSpan(
+                style: arabicStyle,
+                children: [
+                  TextSpan(
+                    text: formatArabicAyahText(
+                      widget.verse.arabic,
+                      verseNumber: widget.verse.id,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (settings.showWordByWord) ...[
+          const SizedBox(height: 14),
+          WordByWordView(
+            verseKey: '${widget.verse.surahId}:${widget.verse.id}',
+            isDarkMode: isDark,
+          ),
+        ],
+      ],
     );
   }
 

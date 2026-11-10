@@ -1514,7 +1514,11 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ) !=
             null;
 
-    final topMenuInset = _isMenuVisible ? 56.0 : 36.0;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    // Landscape gives the page more vertical room: the top page indicator is
+    // hidden and the reading area starts much closer to the top edge.
+    final topMenuInset = _isMenuVisible ? 56.0 : (isLandscape ? 8.0 : 36.0);
     final bottomMenuInset = _isMenuVisible ? 64.0 : 8.0;
 
     return PopScope(
@@ -1800,7 +1804,8 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                           ),
                         ),
                       ),
-                      if (!_isMenuVisible &&
+                      if (!isLandscape &&
+                          !_isMenuVisible &&
                           _translationText == null &&
                           audioProvider.currentVerseKey == null)
                         Positioned(
@@ -2782,13 +2787,13 @@ class _QcfPackagePageView extends StatelessWidget {
         final bottomPadding = 44.0;
 
         final isLandscape = constraints.maxWidth > constraints.maxHeight;
+        // Landscape uses a centered 80% page width. QcfPage keeps its own
+        // vertical scroll, so the page still gets the larger type without
+        // shrinking to fit the short height.
         final responsiveMaxWidth = isLandscape
-            ? ((constraints.maxHeight - 8) * 0.74).clamp(320.0, 720.0)
-            : double.infinity;
-        final effectiveWidth =
-            isLandscape && responsiveMaxWidth < constraints.maxWidth
-                ? responsiveMaxWidth
-                : constraints.maxWidth;
+            ? (constraints.maxWidth * 0.8).clamp(280.0, constraints.maxWidth)
+            : constraints.maxWidth;
+        final effectiveWidth = responsiveMaxWidth;
 
         final paddedWidth = (effectiveWidth - (horizontalPadding * 2))
             .clamp(100.0, double.infinity);
@@ -2798,7 +2803,14 @@ class _QcfPackagePageView extends StatelessWidget {
               double.infinity,
             );
 
-        final qcfFontSize = (paddedWidth / 20.2).clamp(16.0, 21.0);
+        final landscapeScale = isLandscape
+            ? (paddedWidth / 390).clamp(1.0, 2.0)
+            : 1.0;
+        final qcfFontSize = (paddedWidth / 20.2).clamp(
+          16.0,
+          isLandscape ? 42.0 : 21.0,
+        );
+        final qcfScale = (0.93 * landscapeScale).clamp(0.93, 1.9);
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: responsiveMaxWidth),
@@ -2847,7 +2859,7 @@ class _QcfPackagePageView extends StatelessWidget {
                       child: QcfPage(
                         pageNumber: pageNumber,
                         fontSize: qcfFontSize,
-                        sp: 0.93,
+                        sp: qcfScale,
                         h: 0.94,
                         theme: QcfThemeData(
                           pageBackgroundColor: _mushafPageColor(context),
@@ -3064,29 +3076,49 @@ class MushafPageView extends StatelessWidget {
           ),
         );
         final topPadding = MediaQuery.paddingOf(context).top;
+        final isLandscape = constraints.maxWidth > constraints.maxHeight;
         final availableHeight = (constraints.maxHeight - 8 - topPadding).clamp(
           1.0,
           double.infinity,
         );
-
-        final isLandscape = constraints.maxWidth > constraints.maxHeight;
-        final responsiveMaxWidth = isLandscape
-            ? (availableHeight * 0.74).clamp(320.0, 720.0)
-            : double.infinity;
-        final effectiveWidth =
-            isLandscape && responsiveMaxWidth < constraints.maxWidth
-                ? responsiveMaxWidth
-                : constraints.maxWidth;
+        // Landscape uses a centered 80% page width: it keeps the larger type
+        // while leaving calm margins on both sides. Portrait stays edge-to-edge.
+        final pageWidth = isLandscape
+            ? (constraints.maxWidth * 0.8).clamp(280.0, constraints.maxWidth)
+            : (constraints.maxWidth - 8).clamp(1.0, double.infinity);
         final availableWidth =
-            (effectiveWidth - (layout.horizontalPadding * 2)).clamp(
+            (pageWidth - (layout.horizontalPadding * 2)).clamp(
               1.0,
               double.infinity,
             );
 
-        return Center(
+        // Landscape uses the full screen width. The page is scaled by width
+        // and becomes vertically scrollable instead of shrinking to fit height
+        // (which made the Quran text tiny on phones and tablets).
+        final pageBody = isLandscape
+            ? SizedBox(
+                width: availableWidth,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.topCenter,
+                  child: content,
+                ),
+              )
+            : SizedBox(
+                width: availableWidth,
+                height: availableHeight,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                  child: content,
+                ),
+              );
+
+        final pageWidget = Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: responsiveMaxWidth),
+            constraints: BoxConstraints(maxWidth: pageWidth),
             child: Container(
+              width: pageWidth,
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
                 color: _mushafPageColor(context),
@@ -3122,23 +3154,19 @@ class MushafPageView extends StatelessWidget {
                       left: layout.horizontalPadding,
                       right: layout.horizontalPadding,
                       top: 4 + topPadding,
-                      bottom: 4,
+                      bottom: isLandscape ? 12 : 4,
                     ),
-                    child: SizedBox(
-                      width: availableWidth,
-                      height: availableHeight,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        alignment: Alignment.center,
-                        child: content,
-                      ),
-                    ),
+                    child: pageBody,
                   ),
                 ],
               ),
             ),
           ),
         );
+
+        return isLandscape
+            ? SingleChildScrollView(child: pageWidget)
+            : pageWidget;
       },
     );
   }
