@@ -2857,7 +2857,31 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   : null,
             ),
 
-            // 4. '...' More Options
+            // Landscape top row: bookmark + favorite sit with the rest.
+            if (compact) ...[
+              _buildMenuActionIcon(
+                context: context,
+                tooltip: isThaiLang ? 'คั่นอายะฮ์' : 'Bookmark',
+                icon: _verseCardController.isBookmarked
+                    ? Icons.bookmark_rounded
+                    : Icons.bookmark_border_rounded,
+                active: _verseCardController.isBookmarked,
+                compact: true,
+                onPressed: _verseCardController.toggleBookmark,
+              ),
+              _buildMenuActionIcon(
+                context: context,
+                tooltip: isThaiLang ? 'อายะฮ์ที่ชอบ' : 'Favorite',
+                icon: _verseCardController.isFavorited
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                active: _verseCardController.isFavorited,
+                compact: true,
+                onPressed: _verseCardController.toggleFavorite,
+              ),
+            ],
+
+            // '...' More Options
             _buildMenuActionIcon(
               context: context,
               tooltip: isThaiLang ? 'ตัวเลือกเพิ่มเติม' : 'More options',
@@ -2919,17 +2943,26 @@ class _ReadingScreenState extends State<ReadingScreen> {
   ) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.85,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 Container(
                   width: 36,
                   height: 4,
@@ -2999,7 +3032,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     _verseCardController.toggleAudit?.call();
                   },
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         );

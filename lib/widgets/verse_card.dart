@@ -45,6 +45,8 @@ class VerseCardController extends ChangeNotifier {
   VoidCallback? shareImage;
   VoidCallback? showCommunityNotes;
   VoidCallback? showWordByWord;
+  VoidCallback? toggleBookmark;
+  VoidCallback? toggleFavorite;
 
   bool isAudioPlaying = false;
   bool isAudioLoading = false;
@@ -52,6 +54,8 @@ class VerseCardController extends ChangeNotifier {
   bool showAuditBox = false;
   bool hasTafsir = false;
   bool hasCommunityNotes = false;
+  bool isBookmarked = false;
+  bool isFavorited = false;
   Future<List<TadabburNote>>? communityNotesFuture;
 
   void updateState({
@@ -61,6 +65,8 @@ class VerseCardController extends ChangeNotifier {
     bool? showAuditBox,
     bool? hasTafsir,
     bool? hasCommunityNotes,
+    bool? isBookmarked,
+    bool? isFavorited,
     Future<List<TadabburNote>>? communityNotesFuture,
   }) {
     bool changed = false;
@@ -87,6 +93,14 @@ class VerseCardController extends ChangeNotifier {
     if (hasCommunityNotes != null &&
         this.hasCommunityNotes != hasCommunityNotes) {
       this.hasCommunityNotes = hasCommunityNotes;
+      changed = true;
+    }
+    if (isBookmarked != null && this.isBookmarked != isBookmarked) {
+      this.isBookmarked = isBookmarked;
+      changed = true;
+    }
+    if (isFavorited != null && this.isFavorited != isFavorited) {
+      this.isFavorited = isFavorited;
       changed = true;
     }
     if (communityNotesFuture != null) {
@@ -329,6 +343,35 @@ class _VerseCardState extends State<VerseCard> {
                       : widget.verse.english)),
         );
       };
+      widget.controller!.toggleBookmark = () async {
+        final localReading = Provider.of<LocalReadingProvider>(
+          context,
+          listen: false,
+        );
+        final isBookmarked = localReading.isBookmarked(
+          widget.verse.surahId,
+          widget.verse.id,
+        );
+        if (!isBookmarked) {
+          final ok = await GuestBookmarkWarningDialog.checkAndPrompt(context);
+          if (!ok) return;
+        }
+        await localReading.toggleBookmark(
+          widget.verse.surahId,
+          widget.verse.id,
+        );
+        if (mounted) _updateControllerState();
+      };
+      widget.controller!.toggleFavorite = () {
+        final notesProv = Provider.of<NotesProvider>(context, listen: false);
+        final noteObj = notesProv.getNoteObjectForVerse(
+          widget.verse.surahId,
+          widget.verse.id,
+        );
+        _handleFavoriteTap(notesProv, noteObj).then((_) {
+          if (mounted) _updateControllerState();
+        });
+      };
 
       _updateControllerState();
     }
@@ -343,6 +386,16 @@ class _VerseCardState extends State<VerseCard> {
         showAuditBox: _showAuditBox,
         hasTafsir: _getTafsir() != null,
         hasCommunityNotes: true,
+        isBookmarked: Provider.of<LocalReadingProvider>(
+          context,
+          listen: false,
+        ).isBookmarked(widget.verse.surahId, widget.verse.id),
+        isFavorited:
+            Provider.of<NotesProvider>(
+              context,
+              listen: false,
+            ).getNoteObjectForVerse(widget.verse.surahId, widget.verse.id) !=
+            null,
         communityNotesFuture: _communityNotesFuture,
       );
     }
@@ -1013,46 +1066,6 @@ class _VerseCardState extends State<VerseCard> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                          _buildActionIcon(
-                            tooltip: isBookmarked
-                                ? 'Remove bookmark'
-                                : 'Bookmark',
-                            icon: isBookmarked
-                                ? Icons.bookmark_rounded
-                                : Icons.bookmark_border_rounded,
-                            active: isBookmarked,
-                            color: colorScheme.tertiary,
-                            onPressed: () async {
-                              if (!isBookmarked) {
-                                final ok = await GuestBookmarkWarningDialog
-                                    .checkAndPrompt(context);
-                                if (!ok) return;
-                              }
-                              await localReading.toggleBookmark(
-                                verseRef.surahId,
-                                verseRef.verseId,
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          _buildActionIcon(
-                            tooltip: isFavorited
-                                ? 'Remove from favorites'
-                                : 'Add to favorites',
-                            icon: isFavorited
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            active: isFavorited,
-                            color: colorScheme.error,
-                            onPressed: () {
-                              final currentNoteObj = notesProv
-                                  .getNoteObjectForVerse(
-                                    widget.verse.surahId,
-                                    widget.verse.id,
-                                  );
-                              _handleFavoriteTap(notesProv, currentNoteObj);
-                            },
-                          ),
                           if (OfflineQuranDatabaseService.hasMutashabihatSync(
                             '${widget.verse.surahId}:${widget.verse.id}',
                           )) ...[
@@ -1406,12 +1419,13 @@ class _VerseCardState extends State<VerseCard> {
                 Expanded(
                   flex: 5,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 36, left: 4),
+                    padding: const EdgeInsets.only(left: 4),
                     child: _buildArabicPane(
                       settings: settings,
                       isDark: isDark,
                       arabicStyle: arabicStyle,
                       colorScheme: colorScheme,
+                      topSpacing: 8,
                     ),
                   ),
                 ),
@@ -1430,11 +1444,12 @@ class _VerseCardState extends State<VerseCard> {
     required bool isDark,
     required TextStyle arabicStyle,
     required ColorScheme colorScheme,
+    double topSpacing = 16,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
+        SizedBox(height: topSpacing),
         if (widget.verse.isArabicLoading)
           Center(
             child: Padding(

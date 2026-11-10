@@ -114,6 +114,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   // Controls whether the top/bottom UI chrome is visible
   bool _chromeVisible = true;
+  bool _landscapeChromeCollapsed = false;
   late AnimationController _chromeAnimController;
   late Animation<double> _chromeAnim;
 
@@ -497,6 +498,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        _syncChromeForOrientation();
         TajweedService.load();
         _applyInputModeSettings();
         if (widget.resumeSessionSnapshot == null) {
@@ -972,6 +974,31 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       _audioProvider?.removeListener(_onAudioStateChanged);
       _audioProvider = audio;
       _audioProvider?.addListener(_onAudioStateChanged);
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncChromeForOrientation();
+    });
+  }
+
+  // Landscape has very little vertical room, so start with the top chrome
+  // collapsed. The pull-down handle remains available to reveal it again.
+  void _syncChromeForOrientation() {
+    if (!mounted) return;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    if (isLandscape && !_landscapeChromeCollapsed) {
+      _landscapeChromeCollapsed = true;
+      if (_chromeVisible) {
+        setState(() => _chromeVisible = false);
+        _chromeAnimController.reverse();
+      }
+    } else if (!isLandscape) {
+      _landscapeChromeCollapsed = false;
     }
   }
 
@@ -2877,9 +2904,16 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       );
     }
 
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     return ListView.separated(
       controller: _listScrollController,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape
+            ? MediaQuery.sizeOf(context).width * 0.1
+            : 16,
+        vertical: 16,
+      ),
       itemCount: verses.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
@@ -3432,11 +3466,23 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       key: key,
       children: [
         Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: InteractiveViewer(
-              minScale: 1.0,
-            maxScale: 4.0,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isLandscape =
+                  constraints.maxWidth > constraints.maxHeight;
+              final pageWidth = isLandscape
+                  ? constraints.maxWidth * 0.8
+                  : constraints.maxWidth;
+              final pageHeight =
+                  isLandscape ? pageWidth * 1.5 : constraints.maxHeight;
+              final page = Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                child: SizedBox(
+                  width: pageWidth,
+                  height: pageHeight,
+                  child: InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 4.0,
             child: FutureBuilder<MushafPage>(
               future: widget.foundationRepository.fetchPage(
                   mushafId: _isTajweedMushaf ? 11 : 2, pageNumber: pageToShow),
@@ -3579,7 +3625,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             ),
           ),
         ),
-      ),
+      );
+
+              return isLandscape
+                  ? SingleChildScrollView(child: Center(child: page))
+                  : page;
+            },
+          ),
+        ),
 
         if (isHiddenPhase)
           Positioned(
@@ -3829,11 +3882,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
   }
 
-  Widget _buildTallyButton({required Color color, required String value}) {
+  Widget _buildTallyButton({
+    required Color color,
+    required String value,
+    bool compact = false,
+  }) {
     return Consumer<MushafAudioProvider>(
       builder: (context, audio, _) {
         return SizedBox(
-          width: 132,
+          width: compact ? 96 : 132,
           child: FilledButton(
             onPressed: (audio.isPlaying || _isTransitioningStep)
                 ? null
@@ -3845,16 +3902,18 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-              minimumSize: const Size(0, 44),
+              padding: EdgeInsets.symmetric(
+                vertical: compact ? 8 : 12,
+                horizontal: compact ? 8 : 10,
+              ),
+              minimumSize: Size(0, compact ? 38 : 44),
             ),
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 'Tally  $value',
                 style: GoogleFonts.notoSansThai(
-                  fontSize: 12.5,
+                  fontSize: compact ? 11.5 : 12.5,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -3964,6 +4023,90 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
   }
 
+  Widget _buildCompactBottomActionsRow({
+    required BuildContext context,
+    required HifzSessionProvider provider,
+    required Color accentColor,
+  }) {
+    return Consumer<RecitationTrackerProvider>(
+      builder: (context, tracker, _) {
+        final isListening = tracker.isListening;
+        final actions = <Widget>[
+          _buildActionButton(
+            context: context,
+            icon: Icons.undo_rounded,
+            tooltip: 'Undo last tally',
+            accentColor: accentColor,
+            compact: true,
+            onTap: _handleUndo,
+          ),
+          const SizedBox(width: 6),
+          _buildActionButton(
+            context: context,
+            icon: Icons.refresh_rounded,
+            tooltip: 'Reset count',
+            accentColor: accentColor,
+            compact: true,
+            onTap: () => _showResetDialog(context),
+          ),
+        ];
+
+        if (provider.isVoiceTrackingEligible) {
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            _buildActionButton(
+              context: context,
+              icon: tracker.isInitializing
+                  ? Icons.hourglass_top_rounded
+                  : (isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
+              tooltip: isListening
+                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
+                  : 'Start Voice Tracking (Hold for precision)',
+              accentColor:
+                  isListening ? Theme.of(context).colorScheme.primary : accentColor,
+              compact: true,
+              onTap: () => _toggleVoiceRecitationMic(tracker),
+              onLongPress: () =>
+                  VoiceRecitationBanner.showSensitivitySheet(context, tracker),
+            ),
+          );
+        }
+
+        if (isListening) {
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            _buildActionButton(
+              context: context,
+              icon: _hintedVerse == tracker.currentExpectedAyah
+                  ? Icons.check_rounded
+                  : Icons.lightbulb_outline_rounded,
+              tooltip: _hintedVerse == tracker.currentExpectedAyah
+                  ? 'Verse ${tracker.currentExpectedAyah} Hinted'
+                  : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
+              accentColor: Theme.of(context).colorScheme.primary,
+              compact: true,
+              onTap: () => _handleHintCurrentVerse(tracker),
+            ),
+          );
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            _buildActionButton(
+              context: context,
+              icon: Icons.arrow_forward_rounded,
+              tooltip:
+                  'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
+              accentColor: Theme.of(context).colorScheme.error,
+              compact: true,
+              onTap: () => _handleSkipCurrentVerse(tracker),
+            ),
+          );
+        }
+
+        return Row(mainAxisSize: MainAxisSize.min, children: actions);
+      },
+    );
+  }
+
   Widget _buildActionButton({
     required BuildContext context,
     required IconData icon,
@@ -3972,6 +4115,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required VoidCallback onTap,
     VoidCallback? onLongPress,
     String? label,
+    bool compact = false,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -3984,8 +4128,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         child: Tooltip(
           message: tooltip,
           child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+            width: compact ? null : double.infinity,
+            padding: compact
+                ? const EdgeInsets.all(8)
+                : const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
@@ -3993,26 +4139,28 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                 color: colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 18, color: accentColor),
-                if (label != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+            child: compact
+                ? Icon(icon, size: 20, color: accentColor)
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 18, color: accentColor),
+                      if (label != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
           ),
         ),
       ),
@@ -4034,6 +4182,49 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         phaseHidden ? colorScheme.error : colorScheme.primary;
     final stepLabel =
         'Step ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}';
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+
+    if (isLandscape) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            _buildBottomStatusPill(
+              icon: phaseHidden
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              label: phaseHidden ? 'Hidden' : 'Visible',
+              color: phaseColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                stepLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildTallyButton(
+              color: phaseColor,
+              value: '$tally/$target',
+              compact: true,
+            ),
+            const SizedBox(width: 8),
+            _buildCompactBottomActionsRow(
+              context: context,
+              provider: provider,
+              accentColor: phaseColor,
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -4099,6 +4290,49 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         : (currentTask.type == TaskType.singleVerse
             ? 'V${currentTask.verseNumbers.join(' · ')}'
             : 'V${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last}');
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+
+    if (isLandscape) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            _buildBottomStatusPill(
+              icon: isHiddenTask
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+              label: isHiddenTask ? 'Hidden' : 'Visible',
+              color: taskColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                taskLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildTallyButton(
+              color: taskColor,
+              value: '$progress/$target',
+              compact: true,
+            ),
+            const SizedBox(width: 8),
+            _buildCompactBottomActionsRow(
+              context: context,
+              provider: provider,
+              accentColor: taskColor,
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -4571,15 +4805,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   .toSet()
               : {};
           final availWidth = constraints.maxWidth;
+          final isLandscape = constraints.maxWidth > constraints.maxHeight;
           final isTablet = constraints.maxWidth > 600 || constraints.maxHeight > 900;
-          final double paddedWidth =
-              isTablet ? availWidth.clamp(300.0, 600.0) : availWidth;
-          return Stack(
-            children: [
-              Center(
+          final double paddedWidth = isLandscape
+              ? constraints.maxWidth * 0.8
+              : (isTablet ? availWidth.clamp(300.0, 600.0) : availWidth);
+          final pageHeight =
+              isLandscape ? paddedWidth * 1.5 : constraints.maxHeight;
+          final page = Center(
                 child: SizedBox(
                   width: paddedWidth,
-                  height: constraints.maxHeight,
+                  height: pageHeight,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     child: InteractiveViewer(
@@ -4738,8 +4974,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   ),
                 ),
               ),
-            ),
+          );
 
+          return Stack(
+            children: [
+              if (isLandscape)
+                SingleChildScrollView(child: page)
+              else
+                page,
             ],
           );
         },
@@ -4752,10 +4994,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final startDisplayVerse = _selectedRepeatStart < _selectedStartVerse
         ? _selectedRepeatStart
         : _selectedStartVerse;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return ListView.separated(
       controller: _listScrollController,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape
+            ? MediaQuery.sizeOf(context).width * 0.1
+            : 16,
+        vertical: 16,
+      ),
       itemCount: _selectedEndVerse - startDisplayVerse + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
