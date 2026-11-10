@@ -1049,8 +1049,19 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           );
 
           final remoteIsArchived = matchedRemote['is_archived'] == true;
-          if (!remoteIsArchived && localUpdatedAt.isAfter(remoteUpdatedAt)) {
-            // Local is newer: keep local with monotonic forward progress and mark for sync to remote
+
+          // Archive/restore is a normal last-write-wins field, resolved by
+          // `updatedAt`. On an exact tie the archived state wins so a stale
+          // active copy on another device cannot silently resurrect a goal.
+          final bool localWins =
+              localUpdatedAt.isAfter(remoteUpdatedAt) ||
+              (localUpdatedAt.isAtSameMomentAs(remoteUpdatedAt) &&
+                  localP.isArchived &&
+                  !remoteIsArchived);
+
+          if (localWins) {
+            // Local is newer: keep its archive state, merge monotonic forward
+            // progress, and push the result back to the cloud.
             reconciledProfiles.add(
               localP.copyWith(
                 id: remoteId,
@@ -1060,16 +1071,15 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             );
             profilesToSync.add(remoteId);
           } else {
-            // Remote is newer or equal: adopt remote metadata while preserving monotonic max progress.
+            // Remote is newer or equal: adopt remote metadata, including its
+            // archive state, while preserving monotonic max progress.
             if (remoteUpdatedAt.isAfter(localUpdatedAt)) {
               hasRemoteUpdates = true;
             }
 
-            final mergedIsArchived = localP.isArchived && remoteIsArchived;
             final mergedProfile = remoteProfile.copyWith(
               current: mergedCurrent,
               lastViewed: mergedLastViewed,
-              isArchived: mergedIsArchived,
             );
             reconciledProfiles.add(mergedProfile);
             localStateChanged = true;
@@ -1077,10 +1087,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             final bool localProgressAhead =
                 maxFurthestIndex > remoteFurthestIndex ||
                 maxLastViewedIndex > remoteLastViewedIndex;
-            final bool activeStateImproved =
-                !mergedIsArchived && remoteIsArchived;
 
-            if (localProgressAhead || activeStateImproved) {
+            if (localProgressAhead) {
               profilesToSync.add(remoteId);
             }
           }
@@ -1435,33 +1443,72 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _deleteProfileFromSupabase(LocalReadingProfile profile) async {
-    final user = Supabase.instance.client.auth.currentUser;
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
     if (user == null || profile.userId == 'local') return;
 
+    final archivedAt = profile.updatedAt.toUtc().toIso8601String();
+    final uuidRegExp = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    final bool hasUuid = uuidRegExp.hasMatch(profile.id);
+
     try {
-      final archivedAt = DateTime.now().toUtc().toIso8601String();
-      final uuidRegExp = RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-      );
-      if (uuidRegExp.hasMatch(profile.id)) {
-        await Supabase.instance.client
+      final List<dynamic> updatedRows;
+      if (hasUuid) {
+        updatedRows = await client
             .from('reading_profiles')
             .update({'is_archived': true, 'updated_at': archivedAt})
-            .eq('id', profile.id);
+            .eq('id', profile.id)
+            .select('id');
       } else {
-        await Supabase.instance.client
+        updatedRows = await client
             .from('reading_profiles')
             .update({'is_archived': true, 'updated_at': archivedAt})
             .eq('user_id', user.id)
-            .eq('slug', profile.slug);
+            .eq('slug', profile.slug)
+            .select('id');
       }
-      await Supabase.instance.client
+
+      // If the remote row was never created (or its slug/ID changed), upsert
+      // the archived profile instead of losing the archive silently.
+      if (updatedRows.isEmpty) {
+        await _syncProfileToSupabase(profile);
+      }
+
+      await client
           .from('user_reading_profiles')
           .delete()
           .eq('user_id', user.id)
           .eq('profile_name', profile.name);
+
+      if (hasUuid) {
+        // Also remove the legacy row by the IDs that can link it to this
+        // profile, so the web client cannot re-import it as an active goal.
+        try {
+          await client
+              .from('user_reading_profiles')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('id', profile.id);
+        } catch (_) {
+          // Name delete above remains the fallback.
+        }
+        try {
+          await client
+              .from('user_reading_profiles')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('web_profile_id', profile.id);
+        } catch (_) {
+          // Older deployments do not have web_profile_id; the name delete
+          // above is the fallback.
+        }
+      }
     } catch (e) {
-      debugPrint('Error deleting reading profile from Supabase: $e');
+      debugPrint('Error archiving reading profile in Supabase: $e');
+      // Queue the full-row upsert so the archive is retried later.
+      _queueProfileSync(profile, delay: Duration.zero);
     }
   }
 

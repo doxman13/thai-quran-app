@@ -622,12 +622,22 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final preferCurrent =
             (isUuid.hasMatch(profile.id) && !isUuid.hasMatch(existing.id)) ||
             profile.updatedAt.isAfter(existing.updatedAt);
-        if (preferCurrent) {
-          byKey[key] = profile;
-        }
+        final base = preferCurrent ? profile : existing;
+        byKey[key] = base.copyWith(
+          isArchived: _resolveArchivedState(profile, existing),
+        );
       }
     }
     return byKey.values.toList();
+  }
+
+  /// Resolve the archive flag independently of the row chosen as metadata base.
+  /// The newest write wins; an exact tie prefers "archived" so a stale active
+  /// copy cannot resurrect a goal that was just archived on another device.
+  bool _resolveArchivedState(MushafProfile a, MushafProfile b) {
+    if (a.updatedAt.isAfter(b.updatedAt)) return a.isArchived;
+    if (b.updatedAt.isAfter(a.updatedAt)) return b.isArchived;
+    return a.isArchived || b.isArchived;
   }
 
   List<MushafRecentReading> _deduplicateRecent(
@@ -796,7 +806,16 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           );
           final int mergedPage = math.max(maxFurthest, maxCurrent);
 
-          if (!remoteIsArchived && localP.updatedAt.isAfter(remoteUpdatedAt)) {
+          // Archive/restore resolves by `updatedAt` (last write wins). On an
+          // exact tie the archived state wins so a stale active copy on another
+          // device cannot silently resurrect a goal.
+          final bool localWins =
+              localP.updatedAt.isAfter(remoteUpdatedAt) ||
+              (localP.updatedAt.isAtSameMomentAs(remoteUpdatedAt) &&
+                  localP.isArchived &&
+                  !remoteIsArchived);
+
+          if (localWins) {
             final syncedLocal = localP.copyWith(
               id: remoteId,
               userId: userId,
@@ -806,7 +825,6 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             reconciledProfiles.add(syncedLocal);
             await _syncProfileToSupabase(syncedLocal, userId: userId);
           } else {
-            final mergedIsArchived = localP.isArchived && remoteIsArchived;
             final mergedProfile = MushafProfile(
               id: remoteId,
               userId: userId,
@@ -829,7 +847,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               sortOrder:
                   int.tryParse(dbP['sort_order']?.toString() ?? '') ??
                   localP.sortOrder,
-              isArchived: mergedIsArchived,
+              isArchived: remoteIsArchived,
               createdAt:
                   DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
                   localP.createdAt,
@@ -841,10 +859,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                 maxFurthest > remoteFurthest ||
                 maxCurrent > remoteCurrent ||
                 maxLastViewed > remoteLastViewed;
-            final bool activeStateImproved =
-                !mergedIsArchived && remoteIsArchived;
 
-            if (localProgressAhead || activeStateImproved) {
+            if (localProgressAhead) {
               await _syncProfileToSupabase(
                 mergedProfile.copyWith(updatedAt: DateTime.now()),
                 userId: userId,
@@ -909,7 +925,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                 existing.lastViewedPage,
                 remoteProfile.lastViewedPage,
               ),
-              isArchived: existing.isArchived && remoteProfile.isArchived,
+              isArchived: _resolveArchivedState(existing, remoteProfile),
             );
             continue;
           }
