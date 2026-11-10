@@ -2091,7 +2091,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
                               padding: EdgeInsets.only(
-                                top: _isMenuVisible ? topMenuHeight : 0,
+                                top: _isMenuVisible ? topMenuHeight : 34,
                                 bottom: _isMenuVisible ? 128 : 64,
                               ),
                               child: Column(
@@ -2513,6 +2513,77 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             ),
                           );
                         },
+                      ),
+                      // Small persistent "menu" handle when the chrome is hidden.
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Center(
+                            child: AnimatedOpacity(
+                              opacity: _isMenuVisible ? 0 : 1,
+                              duration: const Duration(milliseconds: 220),
+                              child: IgnorePointer(
+                                ignoring: _isMenuVisible,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _isMenuVisible = true;
+                                      _startAutoHideTimer();
+                                    });
+                                  },
+                                  behavior: HitTestBehavior.opaque,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.surface.withValues(
+                                        alpha: 0.94,
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: colors.borderSoft,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 16,
+                                          color: colors.primary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          context.tr('menu'),
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: colors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

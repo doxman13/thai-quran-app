@@ -101,12 +101,8 @@ class BrowseScreenState extends State<BrowseScreen> {
   static const Set<int> _medinanSurahs = {
     2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110,
   };
-  static const Set<int> _popularSurahs = {
-    1, 18, 36, 55, 56, 67,
-  };
-
   String _mode = 'surah';
-  String _surahFilter = 'all'; // 'all', 'juz30', 'popular', 'meccan', 'medinan', 'juz'
+  String _surahFilter = 'all'; // 'all', 'fav', 'juz'
 
   final TextEditingController _searchController = TextEditingController();
   late final QuranFoundationRepository _foundationRepo;
@@ -1101,6 +1097,42 @@ class BrowseScreenState extends State<BrowseScreen> {
     return completed;
   }
 
+  Widget _buildQuickFilterButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF0E5A4A) : widget.colors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF0E5A4A)
+                : widget.colors.borderSoft,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.notoSansThai(
+            fontSize: 11.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected ? Colors.white : widget.colors.foreground,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1109,9 +1141,12 @@ class BrowseScreenState extends State<BrowseScreen> {
     final isThai = settings.languageCode == 'th';
     final query = _searchController.text.toLowerCase();
     final isSearching = query.isNotEmpty;
-    final completedSurahs = _completedSurahs(
-      context.watch<LocalReadingProvider>(),
-    );
+    final readingProvider = context.watch<LocalReadingProvider>();
+    final completedSurahs = _completedSurahs(readingProvider);
+    final favoriteSurahIds = readingProvider.bookmarks
+        .map((bookmark) => int.tryParse(bookmark.verse.surahId))
+        .whereType<int>()
+        .toSet();
 
     // Build surah list with optional translation search and filter
     final surahs = [
@@ -1130,10 +1165,7 @@ class BrowseScreenState extends State<BrowseScreen> {
       if (isSearching) {
         return matchesSurahQuery(surah.id, query);
       }
-      if (_surahFilter == 'popular') return _popularSurahs.contains(surah.num);
-      if (_surahFilter == 'juz30') return surah.num >= 78 && surah.num <= 114;
-      if (_surahFilter == 'meccan') return !surah.isMedinan;
-      if (_surahFilter == 'medinan') return surah.isMedinan;
+      if (_surahFilter == 'fav') return favoriteSurahIds.contains(surah.num);
       return true;
     }).toList();
 
@@ -1258,116 +1290,57 @@ class BrowseScreenState extends State<BrowseScreen> {
               ),
             ),
 
-            // ── Filter Chips & Topics Sub-page Button ────────────────────────
+            // ── Fixed quick filters (no horizontal hiding) ──────────────────
             if (!isSearching) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ('all', isThai ? 'ทั้งหมด (114)' : 'All (114)'),
-                            ('popular', isThai ? 'ยอดนิยม' : 'Popular'),
-                            ('juz30', isThai ? 'ญุซอ์ 30' : 'Juz 30'),
-                            ('meccan', isThai ? 'มักกียะฮฺ' : 'Meccan'),
-                            ('medinan', isThai ? 'มะดะนียะฮฺ' : 'Medinan'),
-                            ('juz', isThai ? 'ตามญุซอ์ (30)' : 'By Juz (30)'),
-                          ].map((entry) {
-                            final isSelected = _surahFilter == entry.$1;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: InkWell(
-                                onTap: () => setState(() {
-                                  _surahFilter = entry.$1;
-                                  if (entry.$1 == 'juz') {
-                                    _mode = 'juz';
-                                  } else {
-                                    _mode = 'surah';
-                                  }
-                                }),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? const Color(0xFF0E5A4A)
-                                        : widget.colors.surface,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? const Color(0xFF0E5A4A)
-                                          : widget.colors.borderSoft,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    entry.$2,
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 12,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.w500,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : widget.colors.foreground,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
+                      child: _buildQuickFilterButton(
+                        label: isThai ? 'ทั้งหมด' : 'All',
+                        selected: _surahFilter == 'all' && _mode == 'surah',
+                        onTap: () => setState(() {
+                          _surahFilter = 'all';
+                          _mode = 'surah';
+                        }),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const TopicsScreen(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              colorScheme.primaryContainer.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: colorScheme.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.category_outlined,
-                              size: 14,
-                              color: colorScheme.primary,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildQuickFilterButton(
+                        label: isThai ? 'ญุซอ์' : 'Juz',
+                        selected: _mode == 'juz',
+                        onTap: () => setState(() {
+                          _surahFilter = 'juz';
+                          _mode = 'juz';
+                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildQuickFilterButton(
+                        label: isThai ? 'โปรด' : 'Fav',
+                        selected: _surahFilter == 'fav',
+                        onTap: () => setState(() {
+                          _surahFilter = 'fav';
+                          _mode = 'surah';
+                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _buildQuickFilterButton(
+                        label: isThai ? 'หัวข้อ' : 'Topics',
+                        selected: false,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TopicsScreen(),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              isThai ? 'หัวข้อ' : 'Topics',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -1793,6 +1766,25 @@ class BrowseScreenState extends State<BrowseScreen> {
                               endAyah: item.endAyah,
                               startPage: item.startPage,
                               endPage: item.endPage,
+                            ),
+                          ),
+                        )
+                      else if (surahs.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 48,
+                          ),
+                          child: Center(
+                            child: Text(
+                              isThai
+                                  ? 'ยังไม่มีซูเราะฮ์ที่บันทึกไว้'
+                                  : 'No bookmarked surahs yet.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.notoSansThai(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         )

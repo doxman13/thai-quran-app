@@ -2441,64 +2441,96 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   // ---------------------------------------------------------------------------
   Widget _buildCompactTopBar(BuildContext context, HifzSessionProvider provider,
       ColorScheme colorScheme, TextTheme textTheme, bool isReview) {
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final isThai = settings.languageCode == 'th';
     final modeColor = isReview ? colorScheme.secondary : colorScheme.primary;
-    final String modeLabel;
+    final eyebrow = isReview ? 'HIFZ · REVIEW' : 'HIFZ · MEMORIZE';
+
+    final String title;
     if (isReview) {
-      modeLabel = 'Review';
+      title = isThai
+          ? 'ทบทวน · ขั้น ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}'
+          : 'Review · Step ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}';
     } else {
       final startDisplayVerse = _selectedRepeatStart < _selectedStartVerse
           ? _selectedRepeatStart
           : _selectedStartVerse;
-      modeLabel = 'S.${provider.surahNumber} : $startDisplayVerse-$_selectedEndVerse';
+      final surahName = widget.quranRepository
+          .getSurahName(provider.surahNumber.toString())
+          .replaceFirst(RegExp(r'^\d+\.\s*'), '');
+      title = '$surahName ${provider.surahNumber}:$startDisplayVerse–$_selectedEndVerse';
+    }
+
+    Widget compactIcon({
+      required Widget icon,
+      required String tooltip,
+      VoidCallback? onPressed,
+      Color? color,
+    }) {
+      return IconButton(
+        icon: icon,
+        tooltip: tooltip,
+        onPressed: onPressed,
+        color: color,
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+      );
     }
 
     return Container(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 4,
-        left: 8,
-        right: 8,
-        bottom: 4,
+        top: MediaQuery.of(context).padding.top + 6,
+        left: 4,
+        right: 6,
+        bottom: 8,
       ),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.45),
           ),
-        ],
+        ),
       ),
       child: Row(
         children: [
-          // Back button
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          compactIcon(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+            tooltip: isThai ? 'ออก' : 'Exit',
             onPressed: () => _confirmExit(context),
-            tooltip: 'Back',
           ),
-
-          // Mode pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: modeColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: modeColor.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              modeLabel,
-              style: textTheme.labelMedium?.copyWith(
-                  color: modeColor, fontWeight: FontWeight.bold),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  eyebrow,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                    color: modeColor,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
             ),
           ),
-
-          const Spacer(),
-
-          // Audio recitation options button (for both New Verses & Review mode)
           Consumer<MushafAudioProvider>(
             builder: (context, audio, _) {
-              return IconButton(
+              return compactIcon(
                 icon: audio.isLoading
                     ? SizedBox(
                         width: 18,
@@ -2512,10 +2544,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         audio.isPlaying
                             ? Icons.pause_circle_filled_rounded
                             : Icons.volume_up_rounded,
-                        color: audio.isPlaying ? colorScheme.primary : null,
-                        size: 22,
+                        size: 21,
                       ),
-                tooltip: audio.isLoading ? 'Loading audio...' : 'Audio Recitation',
+                tooltip: audio.isLoading
+                    ? 'Loading audio...'
+                    : 'Audio Recitation',
+                color: audio.isPlaying ? colorScheme.primary : null,
                 onPressed: () {
                   if (isReview) {
                     _showReviewAudioOptionsDialog(context, provider);
@@ -2526,77 +2560,64 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               );
             },
           ),
-
-          // View toggle for both new verses & review modes
-          IconButton(
-            icon: Icon(
-              _isMushafView ? Icons.view_list_rounded : Icons.menu_book_rounded,
-              size: 20,
-            ),
-            tooltip: _isMushafView ? 'List View' : 'Mushaf View',
-            onPressed: _toggleMushafListView,
-          ),
-
-          // Visibility toggle (Show / Hide text override)
-          IconButton(
+          compactIcon(
             icon: Icon(
               provider.isTargetHidden
                   ? Icons.visibility_off_rounded
                   : Icons.visibility_rounded,
-              color: provider.isVisibilityOverridden
-                  ? colorScheme.primary
-                  : null,
               size: 20,
             ),
             tooltip: provider.isTargetHidden ? 'Show Text' : 'Hide Text',
+            color: provider.isVisibilityOverridden
+                ? colorScheme.primary
+                : null,
             onPressed: () => provider.toggleVisibilityOverride(),
           ),
-
-          // Voice Recitation toggle button (only in eligible hidden stages)
           if (provider.isVoiceTrackingEligible)
             Consumer<RecitationTrackerProvider>(
               builder: (context, tracker, _) {
-              final isListening = tracker.isListening;
-              final isInit = tracker.isInitializing;
-              return IconButton(
-                icon: isInit
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colorScheme.primary,
+                final isListening = tracker.isListening;
+                return compactIcon(
+                  icon: tracker.isInitializing
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: colorScheme.primary,
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: isListening
+                                ? colorScheme.primaryContainer
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isListening
+                                ? Icons.mic_rounded
+                                : Icons.mic_none_rounded,
+                            size: 20,
+                            color: isListening
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: isListening
-                              ? colorScheme.primaryContainer
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                          color: isListening
-                              ? colorScheme.primary
-                              : colorScheme.onSurfaceVariant,
-                          size: 20,
-                        ),
-                      ),
-                tooltip: isListening
-                    ? 'Voice Recitation Active (Tap to pause)'
-                    : 'Start Voice Recitation',
-                onPressed: () => _toggleVoiceRecitationMic(tracker),
-              );
-            },
-          ),
-
-          // Gear/more icon with popup menu (all settings consolidated)
+                  tooltip: isListening
+                      ? 'Voice Recitation Active (Tap to pause)'
+                      : 'Start Voice Recitation',
+                  onPressed: () => _toggleVoiceRecitationMic(tracker),
+                );
+              },
+            ),
           Consumer<SettingsProvider>(
-            builder: (context, settings, _) {
+            builder: (context, menuSettings, _) {
               return PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, size: 22),
+                icon: const Icon(Icons.more_vert_rounded, size: 21),
+                padding: EdgeInsets.zero,
+                iconSize: 21,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -2605,15 +2626,18 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     case 'switch_mode':
                       Navigator.pop(context);
                       break;
+                    case 'view_toggle':
+                      _toggleMushafListView();
+                      break;
                     case 'wbw':
                       final nextWbw = !_showWbw;
                       setState(() {
                         _showWbw = nextWbw;
                       });
-                      settings.toggleShowWordByWord(nextWbw);
+                      menuSettings.toggleShowWordByWord(nextWbw);
                       break;
                     case 'dark_mode':
-                      settings.toggleDarkMode(!settings.isDarkMode);
+                      menuSettings.toggleDarkMode(!menuSettings.isDarkMode);
                       break;
                     case 'range':
                       _openNewVersesSetup(context);
@@ -2661,15 +2685,22 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         _chunkLongVerses = newChunkVal;
                       });
                       final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('hifz_chunk_long_verses', newChunkVal);
+                      await prefs.setBool(
+                          'hifz_chunk_long_verses', newChunkVal);
                       await _loadVerseChunks(regenerate: true);
                       if (context.mounted) {
-                        final isThai = Localizations.localeOf(context).languageCode == 'th';
+                        final isThaiMenu = Localizations.localeOf(context)
+                                .languageCode ==
+                            'th';
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(newChunkVal
-                                ? (isThai ? 'เปิดการแบ่งย่อยอายะฮฺยาวแล้ว' : 'Chunk long verses enabled')
-                                : (isThai ? 'ปิดการแบ่งย่อยอายะฮฺยาวแล้ว' : 'Chunk long verses disabled')),
+                                ? (isThaiMenu
+                                    ? 'เปิดการแบ่งย่อยอายะฮฺยาวแล้ว'
+                                    : 'Chunk long verses enabled')
+                                : (isThaiMenu
+                                    ? 'ปิดการแบ่งย่อยอายะฮฺยาวแล้ว'
+                                    : 'Chunk long verses disabled')),
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -2678,31 +2709,51 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   }
                 },
                 itemBuilder: (_) => [
-                  _buildPopupItem('switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
+                  _buildPopupItem(
+                      'switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
+                  _buildPopupItem(
+                    'view_toggle',
+                    _isMushafView
+                        ? Icons.view_list_rounded
+                        : Icons.menu_book_rounded,
+                    _isMushafView ? 'List View' : 'Mushaf View',
+                  ),
                   if (!_isMushafView)
                     _buildPopupItem(
                       'wbw',
-                      _showWbw ? Icons.spellcheck_rounded : Icons.spellcheck_outlined,
+                      _showWbw
+                          ? Icons.spellcheck_rounded
+                          : Icons.spellcheck_outlined,
                       _showWbw ? 'Hide Word by Word' : 'Word by Word (WBW)',
                     ),
                   _buildPopupItem(
                     'dark_mode',
-                    settings.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                    settings.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                    menuSettings.isDarkMode
+                        ? Icons.light_mode_rounded
+                        : Icons.dark_mode_rounded,
+                    menuSettings.isDarkMode ? 'Light Mode' : 'Dark Mode',
                   ),
-                  _buildPopupItem('tajweed', Icons.font_download_outlined, _isTajweedMushaf ? 'Standard Mushaf' : 'Tajweed Mushaf'),
-                  _buildPopupItem('ble_settings', Icons.settings_outlined, 'Hifz & Translation Settings'),
+                  _buildPopupItem('tajweed', Icons.font_download_outlined,
+                      _isTajweedMushaf ? 'Standard Mushaf' : 'Tajweed Mushaf'),
+                  _buildPopupItem('ble_settings', Icons.settings_outlined,
+                      'Hifz & Translation Settings'),
                   if (!isReview)
                     _buildPopupItem(
                       'chunk_toggle',
                       Icons.auto_stories_rounded,
-                      _chunkLongVerses ? 'Chunk Long Verses (ON)' : 'Chunk Long Verses (OFF)',
+                      _chunkLongVerses
+                          ? 'Chunk Long Verses (ON)'
+                          : 'Chunk Long Verses (OFF)',
                     ),
                   if (!isReview)
-                    _buildPopupItem('range', Icons.tune_rounded, 'Select Range'),
-                  _buildPopupItem('report', Icons.analytics_outlined, 'Report'),
-                  _buildPopupItem('mastery', Icons.workspace_premium_outlined, 'Mastery'),
-                  _buildPopupItem('guide', Icons.menu_book_outlined, 'How to Hifz (Guide)'),
+                    _buildPopupItem(
+                        'range', Icons.tune_rounded, 'Select Range'),
+                  _buildPopupItem(
+                      'report', Icons.analytics_outlined, 'Report'),
+                  _buildPopupItem('mastery',
+                      Icons.workspace_premium_outlined, 'Mastery'),
+                  _buildPopupItem(
+                      'guide', Icons.menu_book_outlined, 'How to Hifz (Guide)'),
                 ],
               );
             },
@@ -3748,149 +3799,168 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
   }
 
-  Widget _buildReviewBottomBar(BuildContext context, HifzSessionProvider provider,
-      ColorScheme colorScheme, TextTheme textTheme) {
-    if (provider.isReviewSessionCompleted) {
-      return _buildCompletedBottomBar(
-          context, provider, colorScheme, textTheme, true);
-    }
-
-    final phase = provider.reviewPhase;
-    final tally = provider.reviewTally;
-    final target = provider.reviewTargetTally;
-    final phaseColor =
-        phase == ReviewPhase.hidden ? colorScheme.error : colorScheme.primary;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+  Widget _buildBottomStatusPill({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Phase indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: phaseColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: phaseColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          phase == ReviewPhase.hidden
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          size: 14,
-                          color: phaseColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          phase == ReviewPhase.hidden ? 'Hidden' : 'Visible',
-                          style: textTheme.labelMedium?.copyWith(
-                              color: phaseColor, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}',
-                    style: textTheme.bodySmall
-                        ?.copyWith(color: colorScheme.onSurfaceVariant),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionButton(
-                    context: context,
-                    icon: Icons.undo_rounded,
-                    tooltip: 'Undo last tally',
-                    accentColor: phaseColor,
-                    onTap: () => _handleUndo(),
-                  ),
-                  const SizedBox(width: 6),
-                  _buildActionButton(
-                    context: context,
-                    icon: Icons.refresh_rounded,
-                    tooltip: 'Reset count',
-                    accentColor: phaseColor,
-                    onTap: () => _showResetDialog(context),
-                  ),
-                  if (provider.isVoiceTrackingEligible) ...[
-                    const SizedBox(width: 6),
-                    Consumer<RecitationTrackerProvider>(
-                      builder: (context, tracker, _) {
-                        final isListening = tracker.isListening;
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildActionButton(
-                              context: context,
-                              icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                              tooltip: isListening
-                                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
-                                  : 'Start Voice Tracking (Hold for precision)',
-                              accentColor: isListening ? colorScheme.primary : phaseColor,
-                              onTap: () => _toggleVoiceRecitationMic(tracker),
-                              onLongPress: () => VoiceRecitationBanner.showSensitivitySheet(context, tracker),
-                            ),
-                            if (isListening) ...[
-                              const SizedBox(width: 6),
-                              _buildActionButton(
-                                context: context,
-                                icon: _hintedVerse == tracker.currentExpectedAyah
-                                    ? Icons.check_rounded
-                                    : Icons.lightbulb_outline_rounded,
-                                tooltip: _hintedVerse == tracker.currentExpectedAyah
-                                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
-                                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-                                accentColor: colorScheme.primary,
-                                onTap: () => _handleHintCurrentVerse(tracker),
-                              ),
-                              const SizedBox(width: 6),
-                              _buildActionButton(
-                                context: context,
-                                icon: Icons.arrow_forward_rounded,
-                                tooltip: 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
-                                accentColor: colorScheme.error,
-                                onTap: () => _handleSkipCurrentVerse(tracker),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ],
-              ),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: GoogleFonts.notoSansThai(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
-          ),
-          const SizedBox(width: 8),
-          Consumer<MushafAudioProvider>(
-            builder: (context, audio, _) {
-              return SizedBox(
-                width: MediaQuery.of(context).size.width / 3,
-                child: FilledButton(
-                  onPressed: (audio.isPlaying || _isTransitioningStep)
-                      ? null
-                      : () => _handleIncrementOrAdvance(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: phaseColor,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text('Tally  ·  $tally/$target'),
-                ),
-              );
-            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTallyButton({required Color color, required String value}) {
+    return Consumer<MushafAudioProvider>(
+      builder: (context, audio, _) {
+        return SizedBox(
+          width: 132,
+          child: FilledButton(
+            onPressed: (audio.isPlaying || _isTransitioningStep)
+                ? null
+                : () => _handleIncrementOrAdvance(),
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: color.withValues(alpha: 0.35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+              minimumSize: const Size(0, 44),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'Tally  $value',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomActionsRow({
+    required BuildContext context,
+    required HifzSessionProvider provider,
+    required Color accentColor,
+  }) {
+    return Consumer<RecitationTrackerProvider>(
+      builder: (context, tracker, _) {
+        final isListening = tracker.isListening;
+        final actions = <Widget>[
+          Expanded(
+            child: _buildActionButton(
+              context: context,
+              icon: Icons.undo_rounded,
+              tooltip: 'Undo last tally',
+              label: 'Undo',
+              accentColor: accentColor,
+              onTap: _handleUndo,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _buildActionButton(
+              context: context,
+              icon: Icons.refresh_rounded,
+              tooltip: 'Reset count',
+              label: 'Reset',
+              accentColor: accentColor,
+              onTap: () => _showResetDialog(context),
+            ),
+          ),
+        ];
+
+        if (provider.isVoiceTrackingEligible) {
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            Expanded(
+              child: _buildActionButton(
+                context: context,
+                icon: tracker.isInitializing
+                    ? Icons.hourglass_top_rounded
+                    : (isListening
+                        ? Icons.mic_rounded
+                        : Icons.mic_none_rounded),
+                tooltip: isListening
+                    ? 'Voice Tracking Active (Tap to stop, hold for precision)'
+                    : 'Start Voice Tracking (Hold for precision)',
+                label: isListening ? 'Mic On' : 'Mic',
+                accentColor:
+                    isListening ? Theme.of(context).colorScheme.primary : accentColor,
+                onTap: () => _toggleVoiceRecitationMic(tracker),
+                onLongPress: () =>
+                    VoiceRecitationBanner.showSensitivitySheet(context, tracker),
+              ),
+            ),
+          );
+        }
+
+        if (isListening) {
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            Expanded(
+              child: _buildActionButton(
+                context: context,
+                icon: _hintedVerse == tracker.currentExpectedAyah
+                    ? Icons.check_rounded
+                    : Icons.lightbulb_outline_rounded,
+                tooltip: _hintedVerse == tracker.currentExpectedAyah
+                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
+                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
+                label: _hintedVerse == tracker.currentExpectedAyah
+                    ? 'Hinted'
+                    : 'Hint',
+                accentColor: Theme.of(context).colorScheme.primary,
+                onTap: () => _handleHintCurrentVerse(tracker),
+              ),
+            ),
+          );
+          actions.add(const SizedBox(width: 6));
+          actions.add(
+            Expanded(
+              child: _buildActionButton(
+                context: context,
+                icon: Icons.arrow_forward_rounded,
+                tooltip:
+                    'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
+                label: 'Skip',
+                accentColor: Theme.of(context).colorScheme.error,
+                onTap: () => _handleSkipCurrentVerse(tracker),
+              ),
+            ),
+          );
+        }
+
+        return Row(children: actions);
+      },
     );
   }
 
@@ -3901,6 +3971,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required Color accentColor,
     required VoidCallback onTap,
     VoidCallback? onLongPress,
+    String? label,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -3909,21 +3980,101 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         child: Tooltip(
           message: tooltip,
           child: Container(
-            padding: const EdgeInsets.all(7),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
             ),
-            child: Icon(icon, size: 16, color: accentColor),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: accentColor),
+                if (label != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildReviewBottomBar(BuildContext context,
+      HifzSessionProvider provider, ColorScheme colorScheme, TextTheme textTheme) {
+    if (provider.isReviewSessionCompleted) {
+      return _buildCompletedBottomBar(
+          context, provider, colorScheme, textTheme, true);
+    }
+
+    final phase = provider.reviewPhase;
+    final tally = provider.reviewTally;
+    final target = provider.reviewTargetTally;
+    final phaseHidden = phase == ReviewPhase.hidden;
+    final phaseColor =
+        phaseHidden ? colorScheme.error : colorScheme.primary;
+    final stepLabel =
+        'Step ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _buildBottomStatusPill(
+                icon: phaseHidden
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                label: phaseHidden ? 'Hidden' : 'Visible',
+                color: phaseColor,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  stepLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _buildTallyButton(
+                color: phaseColor,
+                value: '$tally/$target',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildBottomActionsRow(
+            context: context,
+            provider: provider,
+            accentColor: phaseColor,
+          ),
+        ],
       ),
     );
   }
@@ -3941,148 +4092,52 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final taskColor = isHiddenTask ? colorScheme.error : colorScheme.primary;
     final progress = currentTask.currentProgress;
     final target = currentTask.targetRepetitions;
+    final taskLabel = currentTask.isChunk
+        ? (currentTask.type == TaskType.singleVerse
+            ? 'V${currentTask.verseNumbers.first} · ${currentTask.chunkIndex}/${currentTask.totalChunks}'
+            : 'V${currentTask.verseNumbers.first} · 1–${currentTask.chunkIndex}/${currentTask.totalChunks}')
+        : (currentTask.type == TaskType.singleVerse
+            ? 'V${currentTask.verseNumbers.join(' · ')}'
+            : 'V${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last}');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Task info
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: taskColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: taskColor.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isHiddenTask
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          size: 14,
-                          color: taskColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          currentTask.isChunk
-                              ? (currentTask.type == TaskType.singleVerse
-                                  ? 'V${currentTask.verseNumbers.first} (${currentTask.chunkIndex}/${currentTask.totalChunks})'
-                                  : 'V${currentTask.verseNumbers.first} (1–${currentTask.chunkIndex}/${currentTask.totalChunks})')
-                              : (currentTask.type == TaskType.singleVerse
-                                  ? 'V${currentTask.verseNumbers.join()}'
-                                  : 'V${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last}'),
-                          style: textTheme.labelMedium?.copyWith(
-                              color: taskColor, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildActionButton(
-                    context: context,
-                    icon: Icons.undo_rounded,
-                    tooltip: 'Undo last tally',
-                    accentColor: taskColor,
-                    onTap: () => _handleUndo(),
-                  ),
-                  const SizedBox(width: 6),
-                  _buildActionButton(
-                    context: context,
-                    icon: Icons.refresh_rounded,
-                    tooltip: 'Reset count',
-                    accentColor: taskColor,
-                    onTap: () => _showResetDialog(context),
-                  ),
-                  if (provider.isVoiceTrackingEligible) ...[
-                    const SizedBox(width: 6),
-                    Consumer<RecitationTrackerProvider>(
-                      builder: (context, tracker, _) {
-                        final isListening = tracker.isListening;
-                        final isInit = tracker.isInitializing;
-                        if (isInit) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          );
-                        }
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildActionButton(
-                              context: context,
-                              icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                              tooltip: isListening
-                                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
-                                  : 'Start Voice Tracking (Hold for precision)',
-                              accentColor: isListening ? colorScheme.primary : taskColor,
-                              onTap: () => _toggleVoiceRecitationMic(tracker),
-                              onLongPress: () => VoiceRecitationBanner.showSensitivitySheet(context, tracker),
-                            ),
-                            if (isListening) ...[
-                              const SizedBox(width: 6),
-                              _buildActionButton(
-                                context: context,
-                                icon: _hintedVerse == tracker.currentExpectedAyah
-                                    ? Icons.check_rounded
-                                    : Icons.lightbulb_outline_rounded,
-                                tooltip: _hintedVerse == tracker.currentExpectedAyah
-                                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
-                                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-                                accentColor: colorScheme.primary,
-                                onTap: () => _handleHintCurrentVerse(tracker),
-                              ),
-                              const SizedBox(width: 6),
-                              _buildActionButton(
-                                context: context,
-                                icon: Icons.arrow_forward_rounded,
-                                tooltip: 'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
-                                accentColor: colorScheme.error,
-                                onTap: () => _handleSkipCurrentVerse(tracker),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ],
+          Row(
+            children: [
+              _buildBottomStatusPill(
+                icon: isHiddenTask
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                label: isHiddenTask ? 'Hidden' : 'Visible',
+                color: taskColor,
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Consumer<MushafAudioProvider>(
-            builder: (context, audio, _) {
-              return SizedBox(
-                width: MediaQuery.of(context).size.width / 3,
-                child: FilledButton(
-                  onPressed: (audio.isPlaying || _isTransitioningStep)
-                      ? null
-                      : () => _handleIncrementOrAdvance(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: taskColor,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  taskLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
-                  child: Text('Tally  ·  $progress/$target'),
                 ),
-              );
-            },
+              ),
+              const SizedBox(width: 10),
+              _buildTallyButton(
+                color: taskColor,
+                value: '$progress/$target',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _buildBottomActionsRow(
+            context: context,
+            provider: provider,
+            accentColor: taskColor,
           ),
         ],
       ),
