@@ -3415,6 +3415,11 @@ class MushafLine extends StatelessWidget {
   final bool Function(String verseKey, int wordPosition)? isWordDimmed;
   final bool isPeekActive;
 
+  /// When true, a short tap on a word selects its verse. Used by the visual
+  /// Hifz range picker. Reader screens keep this false so tapping falls
+  /// through to the surrounding menu toggle.
+  final bool enableVerseTap;
+
   const MushafLine({
     super.key,
     required this.line,
@@ -3439,6 +3444,7 @@ class MushafLine extends StatelessWidget {
     this.isWordHighlighted,
     this.isWordDimmed,
     this.isPeekActive = false,
+    this.enableVerseTap = false,
   });
 
   @override
@@ -3519,12 +3525,44 @@ class MushafLine extends StatelessWidget {
           ? Colors.transparent
           : null;
 
-      final recognizer = LongPressGestureRecognizer()
-        ..onLongPress = () {
-          HapticFeedback.lightImpact();
-          onVerseLongPressStart(word.verseKey);
-          onVerseLongPress(word.verseKey);
-        };
+      // In selection mode (visual range picker) a short tap selects the verse.
+      // Otherwise keep the original long-press-only behavior so tapping the
+      // mushaf still falls through to the reader's menu toggle.
+      final GestureRecognizer recognizer;
+      if (enableVerseTap) {
+        Timer? longPressTimer;
+        bool longPressFired = false;
+        recognizer = TapGestureRecognizer()
+          ..onTapDown = (_) {
+            longPressFired = false;
+            longPressTimer?.cancel();
+            longPressTimer = Timer(const Duration(milliseconds: 480), () {
+              longPressFired = true;
+              HapticFeedback.lightImpact();
+              onVerseLongPressStart(word.verseKey);
+              onVerseLongPress(word.verseKey);
+            });
+          }
+          ..onTapUp = (_) {
+            longPressTimer?.cancel();
+          }
+          ..onTapCancel = () {
+            longPressTimer?.cancel();
+          }
+          ..onTap = () {
+            longPressTimer?.cancel();
+            if (!longPressFired) {
+              onVerseTap(word.verseKey);
+            }
+          };
+      } else {
+        recognizer = LongPressGestureRecognizer()
+          ..onLongPress = () {
+            HapticFeedback.lightImpact();
+            onVerseLongPressStart(word.verseKey);
+            onVerseLongPress(word.verseKey);
+          };
+      }
 
       if ((mushafId == 11 || mushafId == 21) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {

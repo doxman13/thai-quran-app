@@ -28,6 +28,7 @@ import '../providers/ble_remote_provider.dart';
 import 'hifz_mastery_list_screen.dart';
 import 'hifz_settings_screen.dart';
 import 'hifz_guide_screen.dart';
+import 'settings_screen.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
@@ -39,6 +40,7 @@ import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
 import '../utils/html_parser.dart';
 import '../providers/recitation_tracker_provider.dart';
+import '../models/recitation_event.dart';
 import '../widgets/voice_recitation_banner.dart';
 import '../models/hifz_verse_chunk.dart';
 import '../services/waqf_chunker_service.dart';
@@ -2277,14 +2279,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                   context, provider, colorScheme, textTheme, isReview),
                               Consumer<RecitationTrackerProvider>(
                                 builder: (context, tracker, _) {
-                                  if (!provider.isVoiceTrackingEligible &&
-                                      !tracker.isListening &&
-                                      tracker.errorMessage == null) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  if (!tracker.isListening &&
-                                      tracker.skippedFromAyah == null &&
-                                      !tracker.isInitializing &&
+                                  // Normal listening feedback lives in the
+                                  // compact mic droplet menu now. Keep the
+                                  // banner only for actionable alerts/errors.
+                                  if (tracker.skippedFromAyah == null &&
                                       tracker.errorMessage == null) {
                                     return const SizedBox.shrink();
                                   }
@@ -2505,6 +2503,63 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       );
     }
 
+    Widget railButton({
+      required Widget icon,
+      required String label,
+      required String tooltip,
+      required VoidCallback onPressed,
+      bool active = false,
+    }) {
+      final foreground =
+          active ? colorScheme.primary : colorScheme.onSurfaceVariant;
+      return Expanded(
+        child: Tooltip(
+          message: tooltip,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: active
+                      ? colorScheme.primary.withValues(alpha: 0.10)
+                      : colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  border: Border.all(
+                    color: active
+                        ? colorScheme.primary.withValues(alpha: 0.35)
+                        : colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    icon,
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: foreground,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 6,
@@ -2520,7 +2575,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           ),
         ),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
         children: [
           compactIcon(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
@@ -2555,106 +2614,42 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               ],
             ),
           ),
-          Consumer<MushafAudioProvider>(
-            builder: (context, audio, _) {
-              return compactIcon(
-                icon: audio.isLoading
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colorScheme.primary,
-                        ),
-                      )
-                    : Icon(
-                        audio.isPlaying
-                            ? Icons.pause_circle_filled_rounded
-                            : Icons.volume_up_rounded,
-                        size: 21,
-                      ),
-                tooltip: audio.isLoading
-                    ? 'Loading audio...'
-                    : 'Audio Recitation',
-                color: audio.isPlaying ? colorScheme.primary : null,
-                onPressed: () {
-                  if (isReview) {
-                    _showReviewAudioOptionsDialog(context, provider);
-                  } else {
-                    _showNewVersesAudioOptionsDialog(context, provider);
-                  }
-                },
-              );
-            },
+          compactIcon(
+            icon: const Icon(Icons.undo_rounded, size: 20),
+            tooltip: isThai ? 'ย้อนการนับครั้งล่าสุด' : 'Undo last tally',
+            color: colorScheme.onSurfaceVariant,
+            onPressed: _handleUndo,
           ),
           compactIcon(
-            icon: Icon(
-              provider.isTargetHidden
-                  ? Icons.visibility_off_rounded
-                  : Icons.visibility_rounded,
-              size: 20,
-            ),
-            tooltip: provider.isTargetHidden ? 'Show Text' : 'Hide Text',
-            color: provider.isVisibilityOverridden
-                ? colorScheme.primary
-                : null,
-            onPressed: () => provider.toggleVisibilityOverride(),
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            tooltip: isThai ? 'รีเซ็ตจำนวนรอบ' : 'Reset count',
+            color: colorScheme.onSurfaceVariant,
+            onPressed: () => _showResetDialog(context),
           ),
-          if (provider.isVoiceTrackingEligible)
-            Consumer<RecitationTrackerProvider>(
-              builder: (context, tracker, _) {
-                final isListening = tracker.isListening;
-                return compactIcon(
-                  icon: tracker.isInitializing
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: isListening
-                                ? colorScheme.primaryContainer
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            isListening
-                                ? Icons.mic_rounded
-                                : Icons.mic_none_rounded,
-                            size: 20,
-                            color: isListening
-                                ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                  tooltip: isListening
-                      ? 'Voice Recitation Active (Tap to pause)'
-                      : 'Start Voice Recitation',
-                  onPressed: () => _toggleVoiceRecitationMic(tracker),
-                );
-              },
-            ),
           Consumer<SettingsProvider>(
             builder: (context, menuSettings, _) {
               return PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, size: 21),
+                icon: const Icon(Icons.settings_rounded, size: 20),
                 padding: EdgeInsets.zero,
-                iconSize: 21,
+                iconSize: 20,
+                tooltip: menuSettings.languageCode == 'th'
+                    ? 'ตั้งค่าด่วน'
+                    : 'Quick settings',
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
                 onSelected: (val) async {
                   switch (val) {
                     case 'switch_mode':
-                      Navigator.pop(context);
+                      await _confirmExit(context);
                       break;
                     case 'view_toggle':
                       _toggleMushafListView();
+                      break;
+                    case 'translation':
+                      menuSettings.toggleAlwaysShowTranslation(
+                          !menuSettings.showTranslationText);
+                      setState(() {});
                       break;
                     case 'wbw':
                       final nextWbw = !_showWbw;
@@ -2698,6 +2693,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         setState(() {});
                       }
                       break;
+                    case 'main_settings':
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                      if (mounted) setState(() {});
+                      break;
                     case 'guide':
                       Navigator.push(
                         context,
@@ -2737,53 +2741,164 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                 },
                 itemBuilder: (_) => [
                   _buildPopupItem(
-                      'switch_mode', Icons.swap_horiz_rounded, 'Switch Mode'),
-                  _buildPopupItem(
-                    'view_toggle',
-                    _isMushafView
-                        ? Icons.view_list_rounded
-                        : Icons.menu_book_rounded,
-                    _isMushafView ? 'List View' : 'Mushaf View',
+                    'translation',
+                    Icons.translate_rounded,
+                    menuSettings.showTranslationText
+                        ? (isThai ? 'ซ่อนคำแปล' : 'Hide Translation')
+                        : (isThai ? 'แสดงคำแปล' : 'Show Translation'),
                   ),
-                  if (!_isMushafView)
-                    _buildPopupItem(
-                      'wbw',
-                      _showWbw
-                          ? Icons.spellcheck_rounded
-                          : Icons.spellcheck_outlined,
-                      _showWbw ? 'Hide Word by Word' : 'Word by Word (WBW)',
-                    ),
+                  _buildPopupItem(
+                    'wbw',
+                    _showWbw
+                        ? Icons.spellcheck_rounded
+                        : Icons.spellcheck_outlined,
+                    _showWbw
+                        ? (isThai ? 'ซ่อนคำต่อคำ' : 'Hide Word by Word')
+                        : (isThai ? 'แสดงคำต่อคำ' : 'Word by Word (WBW)'),
+                  ),
+                  _buildPopupItem('tajweed', Icons.color_lens_outlined,
+                      _isTajweedMushaf
+                          ? (isThai ? 'มุศหัฟมาตรฐาน' : 'Standard Mushaf')
+                          : (isThai ? 'มุศหัฟตัจญ์วีด' : 'Tajweed Mushaf')),
                   _buildPopupItem(
                     'dark_mode',
                     menuSettings.isDarkMode
                         ? Icons.light_mode_rounded
                         : Icons.dark_mode_rounded,
-                    menuSettings.isDarkMode ? 'Light Mode' : 'Dark Mode',
+                    menuSettings.isDarkMode
+                        ? (isThai ? 'โหมดสว่าง' : 'Light Mode')
+                        : (isThai ? 'โหมดมืด' : 'Dark Mode'),
                   ),
-                  _buildPopupItem('tajweed', Icons.font_download_outlined,
-                      _isTajweedMushaf ? 'Standard Mushaf' : 'Tajweed Mushaf'),
-                  _buildPopupItem('ble_settings', Icons.settings_outlined,
-                      'Hifz & Translation Settings'),
+                  _buildPopupItem(
+                      'ble_settings',
+                      Icons.bluetooth_connected_rounded,
+                      isThai
+                          ? 'ตั้งค่าฮิฟซ์และรีโมต'
+                          : 'Hifz & Remote Options'),
                   if (!isReview)
                     _buildPopupItem(
                       'chunk_toggle',
                       Icons.auto_stories_rounded,
                       _chunkLongVerses
-                          ? 'Chunk Long Verses (ON)'
-                          : 'Chunk Long Verses (OFF)',
+                          ? (isThai
+                              ? 'แบ่งอายะฮฺยาว (เปิด)'
+                              : 'Chunk Long Verses (ON)')
+                          : (isThai
+                              ? 'แบ่งอายะฮฺยาว (ปิด)'
+                              : 'Chunk Long Verses (OFF)'),
                     ),
                   if (!isReview)
                     _buildPopupItem(
-                        'range', Icons.tune_rounded, 'Select Range'),
+                        'range',
+                        Icons.tune_rounded,
+                        isThai ? 'เลือกช่วงอายะฮฺ' : 'Select Range'),
                   _buildPopupItem(
-                      'report', Icons.analytics_outlined, 'Report'),
-                  _buildPopupItem('mastery',
-                      Icons.workspace_premium_outlined, 'Mastery'),
+                      'report',
+                      Icons.analytics_outlined,
+                      isThai ? 'รายงานการท่อง' : 'Repetition Report'),
                   _buildPopupItem(
-                      'guide', Icons.menu_book_outlined, 'How to Hifz (Guide)'),
+                      'mastery',
+                      Icons.workspace_premium_outlined,
+                      isThai ? 'รายการที่แม่นยำ' : 'Mastery List'),
+                  _buildPopupItem(
+                      'main_settings',
+                      Icons.settings_outlined,
+                      isThai ? 'ตั้งค่าหลัก' : 'Main Settings'),
+                  _buildPopupItem(
+                      'guide',
+                      Icons.menu_book_outlined,
+                      isThai ? 'วิธีท่องจำ (คู่มือ)' : 'How to Hifz (Guide)'),
+                  _buildPopupItem(
+                      'switch_mode',
+                      Icons.logout_rounded,
+                      isThai ? 'ออกจากรอบนี้' : 'Exit Session'),
                 ],
               );
             },
+          ),
+        ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              railButton(
+                icon: Icon(
+                  _isMushafView
+                      ? Icons.view_list_rounded
+                      : Icons.menu_book_rounded,
+                  size: 16,
+                  color: colorScheme.primary,
+                ),
+                label: isThai
+                    ? (_isMushafView ? 'รายการ' : 'มุศหัฟ')
+                    : (_isMushafView ? 'List' : 'Mushaf'),
+                tooltip: isThai
+                    ? (_isMushafView
+                        ? 'สลับเป็นมุมมองรายการ'
+                        : 'สลับเป็นมุมมองมุศหัฟ')
+                    : (_isMushafView
+                        ? 'Switch to List View'
+                        : 'Switch to Mushaf View'),
+                onPressed: _toggleMushafListView,
+              ),
+              if (!provider.isSessionCompleted &&
+                  provider.isCurrentStepDefaultHidden) ...[
+                const SizedBox(width: 8),
+                railButton(
+                  icon: Icon(
+                    provider.isTargetHidden
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    size: 16,
+                    color: provider.isVisibilityOverridden
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  label: provider.isTargetHidden
+                      ? (isThai ? 'แสดง' : 'Show')
+                      : (isThai ? 'ซ่อน' : 'Hide'),
+                  tooltip: isThai
+                      ? (provider.isTargetHidden ? 'แสดงอายะฮฺ' : 'ซ่อนอายะฮฺ')
+                      : (provider.isTargetHidden ? 'Show Verse' : 'Hide Verse'),
+                  active: provider.isVisibilityOverridden,
+                  onPressed: () => provider.toggleVisibilityOverride(),
+                ),
+              ],
+              const SizedBox(width: 8),
+              Consumer<MushafAudioProvider>(
+                builder: (context, audio, _) {
+                  return railButton(
+                    icon: audio.isLoading
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.primary,
+                            ),
+                          )
+                        : Icon(
+                            audio.isPlaying
+                                ? Icons.pause_circle_filled_rounded
+                                : Icons.volume_up_rounded,
+                            size: 16,
+                          ),
+                    label: isThai ? 'เสียง' : 'Audio',
+                    tooltip: audio.isLoading
+                        ? 'Loading audio...'
+                        : (isThai ? 'เสียงอ่าน' : 'Audio Recitation'),
+                    active: audio.isPlaying,
+                    onPressed: () {
+                      if (isReview) {
+                        _showReviewAudioOptionsDialog(context, provider);
+                      } else {
+                        _showNewVersesAudioOptionsDialog(context, provider);
+                      }
+                    },
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -3385,7 +3500,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           Theme.of(context).brightness == Brightness.dark,
                     ),
                   ],
-                  if (translation.isNotEmpty) ...[
+                  if (settings.showTranslationText && translation.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Divider(
                       height: 1,
@@ -3559,7 +3674,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                     ? {'$activeSurah:$_hintedVerse'}
                                     : null,
                                 onVerseTap: (verseKey) {
-                                  if (highlightedVerseKeys.contains(verseKey)) {
+                                  if (provider.isCurrentStepDefaultHidden &&
+                                      highlightedVerseKeys
+                                          .contains(verseKey)) {
                                     provider.toggleVisibilityOverride();
                                   } else {
                                     _toggleChrome();
@@ -3856,25 +3973,33 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     required IconData icon,
     required String label,
     required Color color,
+    bool onFilled = false,
   }) {
+    final foreground = onFilled ? Colors.white : color;
+    final background = onFilled
+        ? Colors.white.withValues(alpha: 0.16)
+        : color.withValues(alpha: 0.10);
+    final borderColor = onFilled
+        ? Colors.white.withValues(alpha: 0.28)
+        : color.withValues(alpha: 0.30);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.30)),
+        color: background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: 14, color: foreground),
           const SizedBox(width: 4),
           Text(
             label,
             style: GoogleFonts.notoSansThai(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: color,
+              color: foreground,
             ),
           ),
         ],
@@ -3885,12 +4010,19 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   Widget _buildTallyButton({
     required Color color,
     required String value,
+    required String stateLabel,
+    required IconData stateIcon,
+    required String taskLabel,
     bool compact = false,
   }) {
     return Consumer<MushafAudioProvider>(
       builder: (context, audio, _) {
+        final isThai =
+            Provider.of<SettingsProvider>(context, listen: false)
+                    .languageCode ==
+                'th';
         return SizedBox(
-          width: compact ? 96 : 132,
+          width: double.infinity,
           child: FilledButton(
             onPressed: (audio.isPlaying || _isTransitioningStep)
                 ? null
@@ -3899,25 +4031,51 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               backgroundColor: color,
               foregroundColor: Colors.white,
               disabledBackgroundColor: color.withValues(alpha: 0.35),
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppTheme.radius),
               ),
               padding: EdgeInsets.symmetric(
-                vertical: compact ? 8 : 12,
-                horizontal: compact ? 8 : 10,
+                vertical: compact ? 9 : 12,
+                horizontal: compact ? 10 : 14,
               ),
-              minimumSize: Size(0, compact ? 38 : 44),
+              minimumSize: Size(0, compact ? 46 : 56),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
             ),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'Tally  $value',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: compact ? 11.5 : 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+            child: Row(
+              children: [
+                _buildBottomStatusPill(
+                  icon: stateIcon,
+                  label: stateLabel,
+                  color: color,
+                  onFilled: true,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    taskLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: compact ? 10.5 : 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.92),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${isThai ? 'นับ' : 'Tally'}  $value',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: compact ? 13 : 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.1,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Icon(Icons.add_rounded, size: compact ? 17 : 20),
+              ],
             ),
           ),
         );
@@ -3925,244 +4083,40 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
   }
 
-  Widget _buildBottomActionsRow({
+  Widget _buildSessionTallyBar({
     required BuildContext context,
     required HifzSessionProvider provider,
+    required ColorScheme colorScheme,
     required Color accentColor,
+    required String stateLabel,
+    required IconData stateIcon,
+    required String taskLabel,
+    required String value,
   }) {
-    return Consumer<RecitationTrackerProvider>(
-      builder: (context, tracker, _) {
-        final isListening = tracker.isListening;
-        final actions = <Widget>[
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLandscape ? 6 : 10),
+      child: Row(
+        children: [
           Expanded(
-            child: _buildActionButton(
-              context: context,
-              icon: Icons.undo_rounded,
-              tooltip: 'Undo last tally',
-              label: 'Undo',
-              accentColor: accentColor,
-              onTap: _handleUndo,
+            child: _buildTallyButton(
+              color: accentColor,
+              value: value,
+              stateLabel: stateLabel,
+              stateIcon: stateIcon,
+              taskLabel: taskLabel,
+              compact: isLandscape,
             ),
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: _buildActionButton(
-              context: context,
-              icon: Icons.refresh_rounded,
-              tooltip: 'Reset count',
-              label: 'Reset',
-              accentColor: accentColor,
-              onTap: () => _showResetDialog(context),
+          if (provider.isVoiceTrackingEligible) ...[
+            const SizedBox(width: 6),
+            Consumer<RecitationTrackerProvider>(
+              builder: (context, tracker, _) =>
+                  _buildMicDroplet(context, tracker, colorScheme),
             ),
-          ),
-        ];
-
-        if (provider.isVoiceTrackingEligible) {
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            Expanded(
-              child: _buildActionButton(
-                context: context,
-                icon: tracker.isInitializing
-                    ? Icons.hourglass_top_rounded
-                    : (isListening
-                        ? Icons.mic_rounded
-                        : Icons.mic_none_rounded),
-                tooltip: isListening
-                    ? 'Voice Tracking Active (Tap to stop, hold for precision)'
-                    : 'Start Voice Tracking (Hold for precision)',
-                label: isListening ? 'Mic On' : 'Mic',
-                accentColor:
-                    isListening ? Theme.of(context).colorScheme.primary : accentColor,
-                onTap: () => _toggleVoiceRecitationMic(tracker),
-                onLongPress: () =>
-                    VoiceRecitationBanner.showSensitivitySheet(context, tracker),
-              ),
-            ),
-          );
-        }
-
-        if (isListening) {
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            Expanded(
-              child: _buildActionButton(
-                context: context,
-                icon: _hintedVerse == tracker.currentExpectedAyah
-                    ? Icons.check_rounded
-                    : Icons.lightbulb_outline_rounded,
-                tooltip: _hintedVerse == tracker.currentExpectedAyah
-                    ? 'Verse ${tracker.currentExpectedAyah} Hinted'
-                    : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-                label: _hintedVerse == tracker.currentExpectedAyah
-                    ? 'Hinted'
-                    : 'Hint',
-                accentColor: Theme.of(context).colorScheme.primary,
-                onTap: () => _handleHintCurrentVerse(tracker),
-              ),
-            ),
-          );
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            Expanded(
-              child: _buildActionButton(
-                context: context,
-                icon: Icons.arrow_forward_rounded,
-                tooltip:
-                    'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
-                label: 'Skip',
-                accentColor: Theme.of(context).colorScheme.error,
-                onTap: () => _handleSkipCurrentVerse(tracker),
-              ),
-            ),
-          );
-        }
-
-        return Row(children: actions);
-      },
-    );
-  }
-
-  Widget _buildCompactBottomActionsRow({
-    required BuildContext context,
-    required HifzSessionProvider provider,
-    required Color accentColor,
-  }) {
-    return Consumer<RecitationTrackerProvider>(
-      builder: (context, tracker, _) {
-        final isListening = tracker.isListening;
-        final actions = <Widget>[
-          _buildActionButton(
-            context: context,
-            icon: Icons.undo_rounded,
-            tooltip: 'Undo last tally',
-            accentColor: accentColor,
-            compact: true,
-            onTap: _handleUndo,
-          ),
-          const SizedBox(width: 6),
-          _buildActionButton(
-            context: context,
-            icon: Icons.refresh_rounded,
-            tooltip: 'Reset count',
-            accentColor: accentColor,
-            compact: true,
-            onTap: () => _showResetDialog(context),
-          ),
-        ];
-
-        if (provider.isVoiceTrackingEligible) {
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            _buildActionButton(
-              context: context,
-              icon: tracker.isInitializing
-                  ? Icons.hourglass_top_rounded
-                  : (isListening ? Icons.mic_rounded : Icons.mic_none_rounded),
-              tooltip: isListening
-                  ? 'Voice Tracking Active (Tap to stop, hold for precision)'
-                  : 'Start Voice Tracking (Hold for precision)',
-              accentColor:
-                  isListening ? Theme.of(context).colorScheme.primary : accentColor,
-              compact: true,
-              onTap: () => _toggleVoiceRecitationMic(tracker),
-              onLongPress: () =>
-                  VoiceRecitationBanner.showSensitivitySheet(context, tracker),
-            ),
-          );
-        }
-
-        if (isListening) {
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            _buildActionButton(
-              context: context,
-              icon: _hintedVerse == tracker.currentExpectedAyah
-                  ? Icons.check_rounded
-                  : Icons.lightbulb_outline_rounded,
-              tooltip: _hintedVerse == tracker.currentExpectedAyah
-                  ? 'Verse ${tracker.currentExpectedAyah} Hinted'
-                  : 'Hint 1st Word of Verse ${tracker.currentExpectedAyah}',
-              accentColor: Theme.of(context).colorScheme.primary,
-              compact: true,
-              onTap: () => _handleHintCurrentVerse(tracker),
-            ),
-          );
-          actions.add(const SizedBox(width: 6));
-          actions.add(
-            _buildActionButton(
-              context: context,
-              icon: Icons.arrow_forward_rounded,
-              tooltip:
-                  'Skip Verse ${tracker.currentExpectedAyah} (Mark Assisted)',
-              accentColor: Theme.of(context).colorScheme.error,
-              compact: true,
-              onTap: () => _handleSkipCurrentVerse(tracker),
-            ),
-          );
-        }
-
-        return Row(mainAxisSize: MainAxisSize.min, children: actions);
-      },
-    );
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required String tooltip,
-    required Color accentColor,
-    required VoidCallback onTap,
-    VoidCallback? onLongPress,
-    String? label,
-    bool compact = false,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
-        child: Tooltip(
-          message: tooltip,
-          child: Container(
-            width: compact ? null : double.infinity,
-            padding: compact
-                ? const EdgeInsets.all(8)
-                : const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            child: compact
-                ? Icon(icon, size: 20, color: accentColor)
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 18, color: accentColor),
-                      if (label != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }
@@ -4174,99 +4128,32 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           context, provider, colorScheme, textTheme, true);
     }
 
+    final isThai =
+        Provider.of<SettingsProvider>(context, listen: false).languageCode ==
+            'th';
     final phase = provider.reviewPhase;
     final tally = provider.reviewTally;
     final target = provider.reviewTargetTally;
     final phaseHidden = phase == ReviewPhase.hidden;
     final phaseColor =
         phaseHidden ? colorScheme.error : colorScheme.primary;
-    final stepLabel =
-        'Step ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}';
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final stepLabel = isThai
+        ? 'ขั้น ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}'
+        : 'Step ${provider.reviewStepIndex + 1}/${provider.reviewSteps.length}';
 
-    if (isLandscape) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          children: [
-            _buildBottomStatusPill(
-              icon: phaseHidden
-                  ? Icons.visibility_off_rounded
-                  : Icons.visibility_rounded,
-              label: phaseHidden ? 'Hidden' : 'Visible',
-              color: phaseColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                stepLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildTallyButton(
-              color: phaseColor,
-              value: '$tally/$target',
-              compact: true,
-            ),
-            const SizedBox(width: 8),
-            _buildCompactBottomActionsRow(
-              context: context,
-              provider: provider,
-              accentColor: phaseColor,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              _buildBottomStatusPill(
-                icon: phaseHidden
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                label: phaseHidden ? 'Hidden' : 'Visible',
-                color: phaseColor,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  stepLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _buildTallyButton(
-                color: phaseColor,
-                value: '$tally/$target',
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildBottomActionsRow(
-            context: context,
-            provider: provider,
-            accentColor: phaseColor,
-          ),
-        ],
-      ),
+    return _buildSessionTallyBar(
+      context: context,
+      provider: provider,
+      colorScheme: colorScheme,
+      accentColor: phaseColor,
+      stateLabel: phaseHidden
+          ? (isThai ? 'ซ่อน' : 'Hidden')
+          : (isThai ? 'แสดง' : 'Visible'),
+      stateIcon: phaseHidden
+          ? Icons.visibility_off_rounded
+          : Icons.visibility_rounded,
+      taskLabel: stepLabel,
+      value: '$tally/$target',
     );
   }
 
@@ -4279,6 +4166,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           context, provider, colorScheme, textTheme, false);
     }
 
+    final isThai =
+        Provider.of<SettingsProvider>(context, listen: false).languageCode ==
+            'th';
     final isHiddenTask = currentTask.mode == TextVisibilityMode.hidden;
     final taskColor = isHiddenTask ? colorScheme.error : colorScheme.primary;
     final progress = currentTask.currentProgress;
@@ -4290,91 +4180,600 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         : (currentTask.type == TaskType.singleVerse
             ? 'V${currentTask.verseNumbers.join(' · ')}'
             : 'V${currentTask.verseNumbers.first}–${currentTask.verseNumbers.last}');
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    return _buildSessionTallyBar(
+      context: context,
+      provider: provider,
+      colorScheme: colorScheme,
+      accentColor: taskColor,
+      stateLabel: isHiddenTask
+          ? (isThai ? 'ซ่อน' : 'Hidden')
+          : (isThai ? 'แสดง' : 'Visible'),
+      stateIcon: isHiddenTask
+          ? Icons.visibility_off_rounded
+          : Icons.visibility_rounded,
+      taskLabel: taskLabel,
+      value: '$progress/$target',
+    );
+  }
 
-    if (isLandscape) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          children: [
-            _buildBottomStatusPill(
-              icon: isHiddenTask
-                  ? Icons.visibility_off_rounded
-                  : Icons.visibility_rounded,
-              label: isHiddenTask ? 'Hidden' : 'Visible',
-              color: taskColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                taskLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildTallyButton(
-              color: taskColor,
-              value: '$progress/$target',
-              compact: true,
-            ),
-            const SizedBox(width: 8),
-            _buildCompactBottomActionsRow(
-              context: context,
-              provider: provider,
-              accentColor: taskColor,
-            ),
-          ],
-        ),
-      );
-    }
+  // ---------------------------------------------------------------------------
+  // Mic droplet status + full mic options sheet
+  // ---------------------------------------------------------------------------
+  Widget _buildMicDroplet(
+    BuildContext context,
+    RecitationTrackerProvider tracker,
+    ColorScheme colorScheme,
+  ) {
+    final isThai =
+        Provider.of<SettingsProvider>(context, listen: false).languageCode ==
+            'th';
+    final isListening = tracker.isListening;
+    final isInitializing = tracker.isInitializing;
+    final accent = isListening
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    final level = tracker.audioLevel.clamp(0.0, 1.0);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              _buildBottomStatusPill(
-                icon: isHiddenTask
-                    ? Icons.visibility_off_rounded
-                    : Icons.visibility_rounded,
-                label: isHiddenTask ? 'Hidden' : 'Visible',
-                color: taskColor,
+      padding: const EdgeInsets.only(left: 6),
+      child: Tooltip(
+        message: isListening
+            ? (isThai ? 'ไมโครโฟนเปิดอยู่ · แตะเพื่อตั้งค่า' : 'Mic is on · Tap for options')
+            : (isThai ? 'ไมโครโฟนปิด · แตะเพื่อเปิด' : 'Mic is off · Tap for options'),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _showMicOptionsSheet(context, tracker),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(18),
+              topRight: Radius.circular(18),
+              bottomLeft: Radius.circular(18),
+              bottomRight: Radius.circular(5),
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isListening
+                    ? colorScheme.primary.withValues(alpha: 0.12)
+                    : colorScheme.surfaceContainerHigh,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(5),
+                ),
+                border: Border.all(
+                  color: isListening
+                      ? colorScheme.primary.withValues(alpha: 0.55)
+                      : colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  width: isListening ? 1.4 : 1.0,
+                ),
               ),
-              const SizedBox(width: 10),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (isInitializing)
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    )
+                  else
+                    AnimatedScale(
+                      scale: isListening ? 1.0 + (level * 0.18) : 1.0,
+                      duration: const Duration(milliseconds: 90),
+                      child: Icon(
+                        isListening
+                            ? Icons.mic_rounded
+                            : Icons.mic_off_rounded,
+                        size: 20,
+                        color: accent,
+                      ),
+                    ),
+                  if (isListening)
+                    Positioned(
+                      right: 7,
+                      bottom: 7,
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMicLevelBars(
+    double level,
+    Color color, {
+    bool compact = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(5, (index) {
+        final threshold = 0.06 + (index * 0.16);
+        final active = level >= threshold;
+        final height = compact ? 8.0 + (index * 2.5) : 10.0 + (index * 4.0);
+        return Container(
+          width: compact ? 3 : 4,
+          height: height,
+          margin: const EdgeInsets.only(right: 3),
+          decoration: BoxDecoration(
+            color: active ? color : color.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildMicOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    String? trailingLabel,
+    Color? iconColor,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final enabled = onTap != null;
+    final resolvedColor = enabled
+        ? (iconColor ?? colorScheme.primary)
+        : colorScheme.onSurfaceVariant.withValues(alpha: 0.45);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: resolvedColor.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 19, color: resolvedColor),
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  taskLabel,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: enabled
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailingLabel != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  trailingLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: resolvedColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _buildTallyButton(
-                color: taskColor,
-                value: '$progress/$target',
+              ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: enabled
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _buildBottomActionsRow(
-            context: context,
-            provider: provider,
-            accentColor: taskColor,
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showMicOptionsSheet(
+    BuildContext context,
+    RecitationTrackerProvider tracker,
+  ) {
+    final isThai =
+        Provider.of<SettingsProvider>(context, listen: false).languageCode ==
+            'th';
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final hostContext = context;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLg)),
+      ),
+      builder: (sheetContext) {
+        return AnimatedBuilder(
+          animation: Listenable.merge([tracker, _hifzProvider]),
+          builder: (context, _) {
+            final listening = tracker.isListening;
+            final initializing = tracker.isInitializing;
+            final expected = tracker.currentExpectedAyah;
+            final sensitivity = tracker.sensitivity;
+            final sensitivityLabel = switch (sensitivity) {
+              RecitationSensitivity.quickRecap =>
+                isThai ? 'รวดเร็ว' : 'Quick',
+              RecitationSensitivity.strict => isThai ? 'เข้มงวด' : 'Strict',
+              RecitationSensitivity.balanced => isThai ? 'สมดุล' : 'Balanced',
+            };
+            final statusTitle = initializing
+                ? (isThai ? 'กำลังเตรียมไมโครโฟน...' : 'Preparing microphone...')
+                : listening
+                    ? (isThai
+                        ? 'กำลังฟังอายะฮฺที่ $expected'
+                        : 'Listening for verse $expected')
+                    : (isThai
+                        ? 'ไมโครโฟนปิดอยู่'
+                        : 'Microphone is paused');
+            final statusSubtitle = listening
+                ? (tracker.lastRecognizedText?.isNotEmpty == true
+                    ? tracker.lastRecognizedText!
+                    : (isThai
+                        ? 'อ่านอายะฮฺนี้เพื่อให้ระบบตรวจพบและแสดงผลอัตโนมัติ'
+                        : 'Recite the verse to reveal it automatically.'))
+                : (isThai
+                    ? 'เปิดไมโครโฟนเพื่อให้ระบบช่วยฟังการท่องจำ'
+                    : 'Turn the microphone on to track your recitation.');
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.outlineVariant
+                              .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: listening
+                                ? colorScheme.primary.withValues(alpha: 0.12)
+                                : colorScheme.surfaceContainerHigh,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(18),
+                              topRight: Radius.circular(18),
+                              bottomLeft: Radius.circular(18),
+                              bottomRight: Radius.circular(5),
+                            ),
+                            border: Border.all(
+                              color: listening
+                                  ? colorScheme.primary.withValues(alpha: 0.55)
+                                  : colorScheme.outlineVariant
+                                      .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          child: Icon(
+                            listening ? Icons.mic_rounded : Icons.mic_off_rounded,
+                            size: 21,
+                            color: listening
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                isThai ? 'ไมโครโฟน' : 'Microphone',
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                isThai
+                                    ? 'ตัวช่วยฟังเสียงท่องจำ'
+                                    : 'Recitation listening controls',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: listening
+                                ? colorScheme.primary.withValues(alpha: 0.10)
+                                : colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            border: Border.all(
+                              color: listening
+                                  ? colorScheme.primary.withValues(alpha: 0.35)
+                                  : colorScheme.outlineVariant
+                                      .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildMicLevelBars(
+                                tracker.audioLevel,
+                                colorScheme.primary,
+                                compact: true,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                listening
+                                    ? (isThai ? 'เปิด' : 'ON')
+                                    : (isThai ? 'ปิด' : 'OFF'),
+                                style: textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: listening
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: listening
+                            ? colorScheme.primary.withValues(alpha: 0.05)
+                            : colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(AppTheme.radius),
+                        border: Border.all(
+                          color: listening
+                              ? colorScheme.primary.withValues(alpha: 0.28)
+                              : colorScheme.outlineVariant
+                                  .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            listening
+                                ? Icons.graphic_eq_rounded
+                                : Icons.mic_off_rounded,
+                            size: 20,
+                            color: listening
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  statusTitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  statusSubtitle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: initializing
+                          ? null
+                          : () => _toggleVoiceRecitationMic(tracker),
+                      icon: Icon(
+                        listening
+                            ? Icons.pause_rounded
+                            : Icons.mic_rounded,
+                        size: 20,
+                      ),
+                      label: Text(
+                        listening
+                            ? (isThai ? 'หยุดฟังชั่วคราว' : 'Pause Microphone')
+                            : (isThai ? 'เปิดไมโครโฟน' : 'Turn Microphone On'),
+                      ),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        backgroundColor: listening
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildMicOptionTile(
+                      context: context,
+                      icon: Icons.tune_rounded,
+                      title: isThai ? 'ความแม่นยำการตรวจจับ' : 'Detection Precision',
+                      subtitle: isThai
+                          ? 'ปรับความไวให้เหมาะกับความเร็วในการอ่านของคุณ'
+                          : 'Tune sensitivity for your recitation pace.',
+                      trailingLabel: sensitivityLabel,
+                      onTap: () {
+                        Navigator.of(sheetContext).pop();
+                        Future.microtask(() {
+                          if (!mounted || !hostContext.mounted) return;
+                          VoiceRecitationBanner.showSensitivitySheet(
+                              hostContext, tracker);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMicOptionTile(
+                      context: context,
+                      icon: Icons.lightbulb_outline_rounded,
+                      title: isThai ? 'ใบ้คำแรกของอายะฮฺ' : 'Hint First Word',
+                      subtitle: isThai
+                          ? 'เผยคำแรกของอายะฮฺที่กำลังฟังอยู่'
+                          : 'Reveal the first word of the expected verse.',
+                      onTap: listening
+                          ? () {
+                              Navigator.of(sheetContext).pop();
+                              _handleHintCurrentVerse(tracker);
+                            }
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMicOptionTile(
+                      context: context,
+                      icon: Icons.arrow_forward_rounded,
+                      iconColor: colorScheme.error,
+                      title: isThai ? 'ข้ามอายะฮฺนี้' : 'Skip This Verse',
+                      subtitle: isThai
+                          ? 'บันทึกว่าอายะฮฺนี้ได้รับการช่วยเหลือ แล้วไปต่อ'
+                          : 'Mark this verse assisted and move to the next one.',
+                      onTap: listening
+                          ? () {
+                              Navigator.of(sheetContext).pop();
+                              _handleSkipCurrentVerse(tracker);
+                            }
+                          : null,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildMicOptionTile(
+                      context: context,
+                      icon: Icons.refresh_rounded,
+                      title: isThai ? 'ล้างเสียงอ่านและลองใหม่' : 'Reset & Retry',
+                      subtitle: isThai
+                          ? 'ล้างบัฟเฟอร์เสียงล่าสุด แล้วเริ่มฟังอายะฮฺนี้ใหม่'
+                          : 'Clear the recent audio buffer and retry this verse.',
+                      onTap: listening
+                          ? () {
+                              tracker.retryVerse(tracker.currentExpectedAyah);
+                              Navigator.of(sheetContext).pop();
+                            }
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMicOptionTile(
+                      context: context,
+                      icon: Icons.settings_outlined,
+                      title: isThai
+                          ? 'ตั้งค่าฮิฟซ์และรีโมต'
+                          : 'Hifz & Remote Options',
+                      subtitle: isThai
+                          ? 'โหมดปุ่มกด รีโมตบลูทูธ และการตั้งค่าเสียง'
+                          : 'Input mode, Bluetooth remote and voice settings.',
+                      onTap: () async {
+                        Navigator.of(sheetContext).pop();
+                        await Navigator.push(
+                          hostContext,
+                          MaterialPageRoute(
+                            builder: (_) => const HifzSettingsScreen(),
+                          ),
+                        );
+                        if (mounted) {
+                          _applyInputModeSettings();
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -4888,7 +5287,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                                         ? {'${provider.surahNumber}:$_hintedVerse'}
                                         : null,
                                     onVerseTap: (verseKey) {
-                                      if (highlightedKeys.contains(verseKey)) {
+                                      if (provider
+                                              .isCurrentStepDefaultHidden &&
+                                          highlightedKeys
+                                              .contains(verseKey)) {
                                         provider.toggleVisibilityOverride();
                                       } else {
                                         _toggleChrome();
@@ -4996,6 +5398,18 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         : _selectedStartVerse;
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    // Focused list view: while a single verse is being repeated (10x visible /
+    // 5x hidden), only that verse is shown. During range/cumulative repeats,
+    // show the whole selected range so the flow of ayat stays visible.
+    final focusSingleVerse =
+        currentTask != null && currentTask.type == TaskType.singleVerse;
+    final List<int> displayVerses = focusSingleVerse
+        ? (currentTask.verseNumbers.isEmpty
+            ? <int>[startDisplayVerse]
+            : currentTask.verseNumbers)
+        : <int>[
+            for (int v = startDisplayVerse; v <= _selectedEndVerse; v++) v
+          ];
 
     return ListView.separated(
       controller: _listScrollController,
@@ -5005,10 +5419,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             : 16,
         vertical: 16,
       ),
-      itemCount: _selectedEndVerse - startDisplayVerse + 1,
+      itemCount: displayVerses.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final verseNum = startDisplayVerse + index;
+        final verseNum = displayVerses[index];
         final isTarget =
             currentTask != null && currentTask.verseNumbers.contains(verseNum);
         final isHidden = _isVerseHidden(verseNum, currentTask);
@@ -5067,7 +5481,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               verseKey,
             );
 
-            final showBismillah = (index == 0 || verseNum == 1) &&
+            final showBismillah = verseNum == 1 &&
                 provider.surahNumber != 1 &&
                 provider.surahNumber != 9;
 
@@ -5550,7 +5964,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       isDarkMode: Theme.of(context).brightness == Brightness.dark,
                     ),
                   ],
-                  if (translation.isNotEmpty) ...[
+                  if (settings.showTranslationText && translation.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Divider(
                       height: 1,

@@ -85,6 +85,15 @@ class _HifzMushafRangePickerScreenState
       _currentPage = getMedinaMushafPageNumber(_selectedSurah, 1);
     }
 
+    // Page-targeted pickers don't pass a surah. Derive the header surah from
+    // the page so it never says "Surah 1" while showing page 300.
+    if (_startVerse == null) {
+      final pageData = getMedinaMushafPageData(_currentPage);
+      if (pageData.isNotEmpty) {
+        _selectedSurah = pageData.first['surah']!;
+      }
+    }
+
     _pageController =
         PageController(initialPage: (_currentPage - 1).clamp(0, 603));
     _updateHighlightedKeys();
@@ -235,7 +244,15 @@ class _HifzMushafRangePickerScreenState
                 final page = int.tryParse(controller.text);
                 if (page != null && page >= 1 && page <= 604) {
                   Navigator.pop(ctx);
-                  setState(() => _currentPage = page);
+                  setState(() {
+                    _currentPage = page;
+                    if (_startVerse == null) {
+                      final pageData = getMedinaMushafPageData(page);
+                      if (pageData.isNotEmpty) {
+                        _selectedSurah = pageData.first['surah']!;
+                      }
+                    }
+                  });
                   if (_pageController.hasClients) {
                     _pageController.jumpToPage(page - 1);
                   }
@@ -332,6 +349,7 @@ class _HifzMushafRangePickerScreenState
                                 surahStartsByLine: surahStartsByLine,
                                 highlightedVerseKey: null,
                                 highlightedVerseKeys: _highlightedVerseKeys,
+                                enableVerseTap: true,
                                 onVerseTap: _handleVerseTap,
                                 onVerseLongPressStart: (_) {},
                                 onVerseLongPress: (_) {},
@@ -816,8 +834,15 @@ class _HifzMushafRangePickerScreenState
                 reverse: true,
                 itemCount: 604,
                 onPageChanged: (index) {
+                  final page = index + 1;
                   setState(() {
-                    _currentPage = index + 1;
+                    _currentPage = page;
+                    if (_startVerse == null) {
+                      final pageData = getMedinaMushafPageData(page);
+                      if (pageData.isNotEmpty) {
+                        _selectedSurah = pageData.first['surah']!;
+                      }
+                    }
                   });
                 },
                 itemBuilder: (context, index) {
