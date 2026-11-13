@@ -12,10 +12,45 @@ import '../shared/shared.dart';
 const shortcutMulkId = '00000000-0000-0000-0000-000000000067';
 const shortcutKahfId = '00000000-0000-0000-0000-000000000018';
 
+const Map<int, ({String slug, String name, int lastVerse})> _systemShortcutMeta = {
+  67: (slug: 'shortcut_mulk', name: 'Al-Mulk Shortcut', lastVerse: 30),
+  18: (slug: 'shortcut_kahf', name: 'Al-Kahf Shortcut', lastVerse: 110),
+  36: (slug: 'shortcut_yasin', name: 'Ya-Sin Shortcut', lastVerse: 83),
+  78: (slug: 'shortcut_naba', name: 'An-Naba Shortcut', lastVerse: 40),
+  55: (slug: 'shortcut_rahman', name: 'Ar-Rahman Shortcut', lastVerse: 78),
+  12: (slug: 'shortcut_yusuf', name: 'Yusuf Shortcut', lastVerse: 111),
+  27: (slug: 'shortcut_naml', name: 'An-Naml Shortcut', lastVerse: 93),
+  56: (slug: 'shortcut_waqiah', name: "Al-Waqi'ah Shortcut", lastVerse: 96),
+  2: (slug: 'shortcut_baqarah', name: 'Al-Baqarah Shortcut', lastVerse: 286),
+};
+
+bool isShortcutProfileId(String? profileId) {
+  if (profileId == null || profileId.isEmpty) return false;
+  return profileId == shortcutMulkId ||
+      profileId == shortcutKahfId ||
+      profileId.startsWith('00000000-0000-0000-0000-00000000');
+}
+
+bool isShortcutProfileMeta({
+  required String id,
+  required String name,
+  required String slug,
+}) {
+  final trimmedId = id.trim();
+  final lowerName = name.trim().toLowerCase();
+  final lowerSlug = slug.trim().toLowerCase();
+  return isShortcutProfileId(trimmedId) ||
+      lowerSlug.startsWith('shortcut_') ||
+      lowerName.endsWith(' shortcut') ||
+      _systemShortcutMeta.values.any((m) => m.name.toLowerCase() == lowerName);
+}
+
 bool isShortcutProfile(LocalReadingProfile profile) {
-  return profile.id == shortcutMulkId ||
-      profile.id == shortcutKahfId ||
-      profile.slug.startsWith('shortcut_');
+  return isShortcutProfileMeta(
+    id: profile.id,
+    name: profile.name,
+    slug: profile.slug,
+  );
 }
 
 class StorageException implements Exception {
@@ -891,36 +926,56 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
 
           final otherRecent = _recentReadings
-              .where((r) => r.userId != userId)
+              .where(
+                (r) => r.userId != userId && !isShortcutProfileId(r.profileId),
+              )
               .toList();
           final userRecent = _recentReadings
-              .where((r) => r.userId == userId)
+              .where(
+                (r) => r.userId == userId && !isShortcutProfileId(r.profileId),
+              )
               .toList();
 
           final List<LocalRecentReading> reconciledRecent = [];
-          final Set<String> matchedKeys = {};
+          final Set<String> matchedSurahs = {};
 
+          final syncNow = DateTime.now().toUtc();
           for (final localR in userRecent) {
+            final localDate = sanitizeSyncTimestamp(localR.readAt, now: syncNow)
+                .normalized;
             final dbR = _firstMapWhereOrNull(
               dbRecent,
               (item) =>
                   item['surah_id'].toString() == localR.verse.surahId &&
-                  item['profile_id']?.toString() == localR.profileId,
+                  !isShortcutProfileId(item['profile_id']?.toString()),
             );
 
             if (dbR != null) {
-              matchedKeys.add('${localR.verse.surahId}-${localR.profileId}');
-              final remoteDate =
-                  DateTime.tryParse(
-                    (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
-                  ) ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
+              matchedSurahs.add(localR.verse.surahId);
+              final rawRemoteDate = DateTime.tryParse(
+                (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
+              );
+              final remoteDateCheck = sanitizeSyncTimestamp(
+                rawRemoteDate,
+                now: syncNow,
+              );
+              final remoteDate = rawRemoteDate == null
+                  ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)
+                  : remoteDateCheck.normalized;
               final remoteVerseId = (dbR['verse_id'] ?? dbR['last_read_verse'])
                   .toString();
 
-              if (localR.readAt.isAfter(remoteDate)) {
+              if (localDate.isAfter(remoteDate)) {
                 // Local is newer, keep it and push it
-                reconciledRecent.add(localR);
+                reconciledRecent.add(
+                  LocalRecentReading(
+                    id: localR.id,
+                    userId: localR.userId,
+                    verse: localR.verse,
+                    profileId: localR.profileId,
+                    readAt: localDate,
+                  ),
+                );
                 _debounceRecentReadingSync(
                   userId,
                   localR.verse.surahId,
@@ -938,10 +993,27 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                     readAt: remoteDate,
                   ),
                 );
+                if (remoteDateCheck.wasFuture) {
+                  _debounceRecentReadingSync(
+                    userId,
+                    dbR['surah_id'].toString(),
+                    remoteVerseId,
+                    dbR['profile_id']?.toString(),
+                  );
+                }
               }
             } else {
               // Local only, keep it and push it
-              reconciledRecent.add(localR);
+              matchedSurahs.add(localR.verse.surahId);
+              reconciledRecent.add(
+                LocalRecentReading(
+                  id: localR.id,
+                  userId: localR.userId,
+                  verse: localR.verse,
+                  profileId: localR.profileId,
+                  readAt: localDate,
+                ),
+              );
               _debounceRecentReadingSync(
                 userId,
                 localR.verse.surahId,
@@ -952,24 +1024,37 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           }
 
           for (final dbR in dbRecent) {
-            final key = '${dbR['surah_id']}-${dbR['profile_id']}';
-            if (matchedKeys.contains(key)) continue;
+            final surahKey = dbR['surah_id'].toString();
+            final remoteProfileId = dbR['profile_id']?.toString();
+            if (isShortcutProfileId(remoteProfileId)) continue;
+            if (matchedSurahs.contains(surahKey)) continue;
+            matchedSurahs.add(surahKey);
             final remoteVerseId = (dbR['verse_id'] ?? dbR['last_read_verse'])
                 .toString();
+            final remoteDateCheck = sanitizeSyncTimestamp(
+              DateTime.tryParse(
+                (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
+              ),
+              now: syncNow,
+            );
 
             reconciledRecent.add(
               LocalRecentReading(
                 id: dbR['id'].toString(),
                 userId: userId,
                 verse: toVerseRef(dbR['surah_id'], remoteVerseId),
-                profileId: dbR['profile_id']?.toString(),
-                readAt:
-                    DateTime.tryParse(
-                      (dbR['read_at'] ?? dbR['updated_at'])?.toString() ?? '',
-                    ) ??
-                    DateTime.now(),
+                profileId: remoteProfileId,
+                readAt: remoteDateCheck.normalized,
               ),
             );
+            if (remoteDateCheck.wasFuture) {
+              _debounceRecentReadingSync(
+                userId,
+                surahKey,
+                remoteVerseId,
+                remoteProfileId,
+              );
+            }
           }
 
           reconciledRecent.sort((a, b) => b.readAt.compareTo(a.readAt));
@@ -1003,6 +1088,13 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       final List<Map<String, dynamic>> dbProfiles = response
           .whereType<Map>()
           .map((item) => item.cast<String, dynamic>())
+          .where(
+            (row) => !isShortcutProfileMeta(
+              id: row['id']?.toString() ?? '',
+              name: row['name']?.toString() ?? '',
+              slug: row['slug']?.toString() ?? '',
+            ),
+          )
           .toList();
       await _promoteLegacyReadingProfiles(
         client: client,
@@ -1054,12 +1146,26 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       for (final dbP in dbProfiles) {
         final rId = dbP['id']?.toString();
         final rSlug = dbP['slug']?.toString();
+        final rName = dbP['name']?.toString() ?? '';
         if (rId != null) remoteById[rId] = dbP;
         if (rSlug != null) remoteBySlug[rSlug.toLowerCase()] = dbP;
+        if (rSlug == 'free_read' ||
+            rSlug == 'main_read' ||
+            isFreeReadProfileName(rName)) {
+          if (rSlug == 'free_read') {
+            remoteBySlug['free_read'] = dbP;
+          } else {
+            remoteBySlug.putIfAbsent('free_read', () => dbP);
+          }
+        }
       }
 
       // Iterate through local profiles
       for (final localP in _profiles) {
+        if (isShortcutProfile(localP)) {
+          localStateChanged = true;
+          continue;
+        }
         if (localP.userId != userId) {
           // Keep other users' or local guest profiles untouched
           reconciledProfiles.add(localP);
@@ -1070,6 +1176,9 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         Map<String, dynamic>? matchedRemote;
         if (isValidUuid(localP.id) && remoteById.containsKey(localP.id)) {
           matchedRemote = remoteById[localP.id];
+        } else if (isFreeReadProfile(localP) &&
+            remoteBySlug.containsKey('free_read')) {
+          matchedRemote = remoteBySlug['free_read'];
         } else if (remoteBySlug.containsKey(localP.slug.toLowerCase())) {
           matchedRemote = remoteBySlug[localP.slug.toLowerCase()];
         }
@@ -1319,7 +1428,16 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         final legacyId = row['id']?.toString();
         final name = row['profile_name']?.toString() ?? 'Free Read';
         final slug = slugifyReadingProfileName(name);
+        final effectiveSlug = isFreeReadProfileName(name) ? 'free_read' : slug;
+        if (isShortcutProfileMeta(
+              id: legacyId ?? '',
+              name: name,
+              slug: slug,
+            )) {
+          continue;
+        }
         if (existingSlugs.contains(slug.toLowerCase()) ||
+            existingSlugs.contains(effectiveSlug.toLowerCase()) ||
             (legacyId != null && existingIds.contains(legacyId))) {
           continue;
         }
@@ -1393,6 +1511,167 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     };
   }
 
+  String _nextAvailableSlug(String baseSlug, Set<String> existingSlugs) {
+    if (!existingSlugs.contains(baseSlug)) return baseSlug;
+    var index = 2;
+    var candidate = '${baseSlug}_$index';
+    while (existingSlugs.contains(candidate)) {
+      index += 1;
+      candidate = '${baseSlug}_$index';
+    }
+    return candidate;
+  }
+
+  Future<Map<String, dynamic>> _resolveReadingProfileSlugConflict({
+    required SupabaseClient client,
+    required String userId,
+    required LocalReadingProfile profile,
+    required bool isFreeRead,
+    required String effectiveSlug,
+    required Map<String, dynamic> upsertData,
+  }) async {
+    Future<List<Map<String, dynamic>>> fetchRows() async {
+      try {
+        final cols = _isDeletedAtColumnSupported
+            ? 'id, slug, deleted_at'
+            : 'id, slug';
+        final rows = await client
+            .from('reading_profiles')
+            .select(cols)
+            .eq('user_id', userId);
+        return (rows as List)
+            .whereType<Map>()
+            .map((e) => e.cast<String, dynamic>())
+            .toList();
+      } on PostgrestException catch (err) {
+        if (_isDeletedAtColumnSupported &&
+            (err.message.contains('deleted_at') ||
+                err.code == 'PGRST204' ||
+                err.code == '42703')) {
+          _isDeletedAtColumnSupported = false;
+          final rows = await client
+              .from('reading_profiles')
+              .select('id, slug')
+              .eq('user_id', userId);
+          return (rows as List)
+              .whereType<Map>()
+              .map((e) => e.cast<String, dynamic>())
+              .toList();
+        }
+        return const [];
+      } catch (_) {
+        return const [];
+      }
+    }
+
+    final fallbackWithoutId = Map<String, dynamic>.from(upsertData)
+      ..remove('id');
+
+    if (isFreeRead) {
+      final response = await client
+          .from('reading_profiles')
+          .upsert(fallbackWithoutId, onConflict: 'user_id,slug')
+          .select('id, slug')
+          .single();
+      final canonicalId = response['id']?.toString();
+      if (canonicalId != null && canonicalId != profile.id) {
+        try {
+          await client
+              .from('recent_readings')
+              .update({'profile_id': canonicalId})
+              .eq('user_id', userId)
+              .eq('profile_id', profile.id);
+        } catch (_) {}
+        try {
+          await client
+              .from('user_reading_profiles')
+              .update({'web_profile_id': canonicalId})
+              .eq('user_id', userId)
+              .eq('web_profile_id', profile.id);
+        } catch (_) {}
+        try {
+          await client
+              .from('reading_profiles')
+              .delete()
+              .eq('id', profile.id)
+              .eq('user_id', userId);
+        } catch (_) {}
+      }
+      return response;
+    }
+
+    final userRows = await fetchRows();
+    final existingIds = userRows.map((r) => r['id']?.toString()).toSet();
+    final existingSlugs = userRows
+        .map((r) => r['slug']?.toString())
+        .whereType<String>()
+        .toSet();
+    final slugOwner = userRows
+        .where(
+          (r) =>
+              r['slug']?.toString() == effectiveSlug &&
+              r['id']?.toString() != profile.id,
+        )
+        .firstOrNull;
+
+    if (profile.deletedAt != null) {
+      final sanitized = profile.id.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final shortId =
+          sanitized.length >= 8 ? sanitized.substring(0, 8) : (sanitized.isEmpty ? 'old' : sanitized);
+      final tombSlug = _nextAvailableSlug(
+        '${effectiveSlug}_deleted_$shortId',
+        existingSlugs,
+      );
+      final retryPayload = Map<String, dynamic>.from(upsertData)
+        ..['slug'] = tombSlug;
+      return client
+          .from('reading_profiles')
+          .upsert(retryPayload, onConflict: 'id')
+          .select('id, slug')
+          .single();
+    }
+
+    if (slugOwner != null && slugOwner['deleted_at'] != null) {
+      final ownerId = slugOwner['id'].toString();
+      final ownerShort = ownerId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+      final ownerSuffix =
+          ownerShort.length >= 8 ? ownerShort.substring(0, 8) : 'old';
+      final movedSlug = _nextAvailableSlug(
+        '${effectiveSlug}_deleted_$ownerSuffix',
+        existingSlugs,
+      );
+      try {
+        await client
+            .from('reading_profiles')
+            .update({'slug': movedSlug})
+            .eq('id', ownerId)
+            .eq('user_id', userId);
+        return await client
+            .from('reading_profiles')
+            .upsert(upsertData, onConflict: 'id')
+            .select('id, slug')
+            .single();
+      } catch (_) {}
+    }
+
+    if (existingIds.contains(profile.id)) {
+      final disambiguated = _nextAvailableSlug(effectiveSlug, existingSlugs);
+      final retryPayload = Map<String, dynamic>.from(upsertData)
+        ..['slug'] = disambiguated;
+      return client
+          .from('reading_profiles')
+          .upsert(retryPayload, onConflict: 'id')
+          .select('id, slug')
+          .single();
+    }
+
+    return client
+        .from('reading_profiles')
+        .upsert(fallbackWithoutId, onConflict: 'user_id,slug')
+        .select('id, slug')
+        .single();
+  }
+
   Future<void> _syncProfileToSupabase(LocalReadingProfile p) async {
     final client = Supabase.instance.client;
     final user = client.auth.currentUser;
@@ -1403,11 +1682,13 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
         final bool hasUuid = uuidRegExp.hasMatch(p.id);
 
+        final bool isFreeRead = isFreeReadProfile(p);
+        final String effectiveSlug = isFreeRead ? 'free_read' : p.slug;
         final upsertData = {
           'user_id': user.id,
           'name': p.name,
-          'slug': p.slug,
-          'plan_mode': isFreeReadProfile(p) ? null : p.planMode,
+          'slug': effectiveSlug,
+          'plan_mode': isFreeRead ? null : p.planMode,
           'start_juz': p.startJuz,
           'target_juz': p.targetJuz,
           'start_surah_id': p.start.surahId,
@@ -1437,42 +1718,46 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             response = await client
                 .from('reading_profiles')
                 .upsert(upsertData, onConflict: 'id')
-                .select('id')
+                .select('id, slug')
                 .single();
           } on PostgrestException catch (pgErr) {
-            if (pgErr.code == '23505' ||
-                pgErr.code == 'PGRST204' ||
-                pgErr.message.contains('web_profile_id')) {
-              final fallbackData = Map<String, dynamic>.from(upsertData)
-                ..remove('id');
-              response = await client
-                  .from('reading_profiles')
-                  .upsert(fallbackData, onConflict: 'user_id,slug')
-                  .select('id')
-                  .single();
-            } else {
+            final isSlugConflict =
+                pgErr.code == '23505' ||
+                pgErr.message.contains('reading_profiles_user_id_slug_key');
+            if (!isSlugConflict && !pgErr.message.contains('web_profile_id')) {
               rethrow;
             }
+            response = await _resolveReadingProfileSlugConflict(
+              client: client,
+              userId: user.id,
+              profile: p,
+              isFreeRead: isFreeRead,
+              effectiveSlug: effectiveSlug,
+              upsertData: upsertData,
+            );
           }
         } else {
           response = await client
               .from('reading_profiles')
               .upsert(upsertData, onConflict: 'user_id,slug')
-              .select('id')
+              .select('id, slug')
               .single();
         }
 
         final returnedId = response['id']?.toString();
-        if (returnedId != null && returnedId != p.id) {
-          // Update profile ID locally
+        final returnedSlug = response['slug']?.toString() ?? effectiveSlug;
+        if ((returnedId != null && returnedId != p.id) ||
+            returnedSlug != p.slug) {
+          // Update profile ID/slug locally
+          final nextId = returnedId ?? p.id;
           final index = _profiles.indexWhere((item) => item.id == p.id);
           if (index != -1) {
             final oldP = _profiles[index];
             final newP = LocalReadingProfile(
-              id: returnedId,
+              id: nextId,
               userId: oldP.userId,
               name: oldP.name,
-              slug: oldP.slug,
+              slug: returnedSlug,
               planMode: oldP.planMode,
               startJuz: oldP.startJuz,
               targetJuz: oldP.targetJuz,
@@ -1482,12 +1767,24 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               lastViewed: oldP.lastViewed,
               sortOrder: oldP.sortOrder,
               isArchived: oldP.isArchived,
+              deletedAt: oldP.deletedAt,
               createdAt: oldP.createdAt,
               updatedAt: oldP.updatedAt,
             );
             _profiles[index] = newP;
+            if (nextId != p.id) {
+              _profiles = _profiles
+                  .asMap()
+                  .entries
+                  .where(
+                    (entry) =>
+                        entry.key == index || entry.value.id != nextId,
+                  )
+                  .map((entry) => entry.value)
+                  .toList();
+            }
             if (_activeProfileId == p.id) {
-              _activeProfileId = returnedId;
+              _activeProfileId = nextId;
             }
             await _save(immediate: true);
             notifyListeners();
@@ -2114,30 +2411,24 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   ) async {
     final client = Supabase.instance.client;
     final now = DateTime.now().toUtc().toIso8601String();
+    final uuidRegExp = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    final String? safeProfileId =
+        (profileId != null &&
+            uuidRegExp.hasMatch(profileId) &&
+            !isShortcutProfileId(profileId))
+        ? profileId
+        : null;
 
     try {
-      final existing = await client
-          .from('recent_readings')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('surah_id', surahId)
-          .maybeSingle();
-
-      if (existing != null && existing['id'] != null) {
-        await client.from('recent_readings').update({
-          'verse_id': verseId,
-          'profile_id': ?profileId,
-          'read_at': now,
-        }).eq('id', existing['id']);
-      } else {
-        await client.from('recent_readings').insert({
-          'user_id': userId,
-          'surah_id': surahId,
-          'verse_id': verseId,
-          'profile_id': ?profileId,
-          'read_at': now,
-        });
-      }
+      await client.from('recent_readings').upsert({
+        'user_id': userId,
+        'surah_id': surahId,
+        'verse_id': verseId,
+        'profile_id': safeProfileId,
+        'read_at': now,
+      }, onConflict: 'user_id,surah_id');
     } catch (e) {
       // Fallback for legacy schema column names (last_read_verse / updated_at)
       try {
@@ -2146,12 +2437,13 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             .select('id')
             .eq('user_id', userId)
             .eq('surah_id', surahId)
+            .limit(1)
             .maybeSingle();
 
         if (existing != null && existing['id'] != null) {
           await client.from('recent_readings').update({
             'last_read_verse': verseId,
-            'profile_id': ?profileId,
+            'profile_id': safeProfileId,
             'updated_at': now,
           }).eq('id', existing['id']);
         } else {
@@ -2159,7 +2451,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             'user_id': userId,
             'surah_id': surahId,
             'last_read_verse': verseId,
-            'profile_id': ?profileId,
+            'profile_id': safeProfileId,
             'updated_at': now,
           });
         }
@@ -2186,28 +2478,54 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _syncRecentReadingToSupabase(userId, surahId, verseId, profileId);
   }
 
+  LocalRecentReading? latestRecentForSurah(int surahNumber) {
+    final now = DateTime.now().toUtc();
+    final uid = currentUserId;
+    final candidates = _recentReadings.where((item) {
+      if (item.userId != uid) return false;
+      if (isShortcutProfileId(item.profileId)) return false;
+      return int.tryParse(item.verse.surahId) == surahNumber;
+    }).toList()
+      ..sort(
+        (a, b) => sanitizeSyncTimestamp(b.readAt, now: now).normalized
+            .compareTo(sanitizeSyncTimestamp(a.readAt, now: now).normalized),
+      );
+
+    final newest = candidates.firstOrNull;
+    if (newest == null) return null;
+    final verseNum = int.tryParse(newest.verse.verseId) ?? 1;
+    return verseNum > 1 ? newest : null;
+  }
+
   Future<void> addRecentReading({
     required VerseRef verse,
     String? profileId,
+    bool forceFreeRead = false,
+    bool immediateSync = false,
     int limit = defaultRecentReadingsLimit,
   }) async {
     await _loadCompleter.future;
     final client = Supabase.instance.client;
     final currentUser = client.auth.currentUser;
     final String currentUserId = currentUser?.id ?? _localUserId;
-    final taggedProfile = profileId == null ? null : profileById(profileId);
-    final safeProfileId =
-        taggedProfile != null &&
-            isVerseInsideProfile(taggedProfile, verse.surahId, verse.verseId)
-        ? profileId
-        : null;
+    final effectiveProfileId = forceFreeRead ? freeReadProfile?.id : profileId;
+    final taggedProfile =
+        effectiveProfileId == null ? null : profileById(effectiveProfileId);
+    final safeProfileId = forceFreeRead
+        ? (taggedProfile != null && !isShortcutProfile(taggedProfile)
+            ? taggedProfile.id
+            : null)
+        : (taggedProfile != null &&
+                !isShortcutProfile(taggedProfile) &&
+                isVerseInsideProfile(taggedProfile, verse.surahId, verse.verseId)
+            ? effectiveProfileId
+            : null);
 
-    // Local update: find if there is an existing entry for this user_id, surah_id and profileId
+    // Local update: keep one latest entry per (user_id, surah_id) matching DB
     final existingIndex = _recentReadings.indexWhere(
       (item) =>
           item.userId == currentUserId &&
-          item.verse.surahId == verse.surahId &&
-          item.profileId == safeProfileId,
+          item.verse.surahId == verse.surahId,
     );
 
     final updatedReading = LocalRecentReading(
@@ -2233,7 +2551,26 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
 
     if (currentUser != null) {
-      _debounceRecentReadingSync(currentUser.id, verse.surahId, verse.verseId, safeProfileId);
+      if (immediateSync) {
+        _recentReadingSyncTimer?.cancel();
+        _pendingSyncUserId = null;
+        _pendingSyncSurahId = null;
+        _pendingSyncVerseId = null;
+        _pendingSyncProfileId = null;
+        await _syncRecentReadingToSupabase(
+          currentUser.id,
+          verse.surahId,
+          verse.verseId,
+          safeProfileId,
+        );
+      } else {
+        _debounceRecentReadingSync(
+          currentUser.id,
+          verse.surahId,
+          verse.verseId,
+          safeProfileId,
+        );
+      }
     }
   }
 
@@ -2406,7 +2743,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       var loadedProfiles = _decodeList(
         decoded['profiles'],
         LocalReadingProfile.fromJson,
-      );
+      ).where((p) => !isShortcutProfile(p)).toList();
 
       // Deduplicate "Free Read" profiles (keep the oldest/first one)
       final freeReads = loadedProfiles
@@ -2428,7 +2765,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _recentReadings = _decodeList(
         decoded['recentReadings'],
         LocalRecentReading.fromJson,
-      );
+      ).where((r) => !isShortcutProfileId(r.profileId)).toList();
       if (decoded['readDates'] != null) {
         _readDates = Set<String>.from(decoded['readDates'] as List);
       }
@@ -2597,23 +2934,13 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   String _uniqueSlug(String slug) {
     final existingSlugs = _profiles.map((profile) => profile.slug).toSet();
-    if (!existingSlugs.contains(slug)) return slug;
-
-    var index = 2;
-    var next = '${slug}_$index';
-    while (existingSlugs.contains(next)) {
-      index += 1;
-      next = '${slug}_$index';
-    }
-    return next;
+    return _nextAvailableSlug(slug, existingSlugs);
   }
 
   String _createLocalId() =>
       '${DateTime.now().microsecondsSinceEpoch}_${_profiles.length}_${_bookmarks.length}';
 
   void _ensureDefaultProfile() {
-    _ensureShortcutProfiles();
-
     final freeReadIndex = _profiles.indexWhere(
       (p) => isFreeReadProfile(p) && p.userId == currentUserId,
     );
@@ -2644,191 +2971,6 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     _profiles.insert(0, profile);
     _activeProfileId ??= profile.id;
-  }
-
-  void _ensureShortcutProfiles() {
-    final now = DateTime.now();
-    
-    // 1. Al-Mulk
-    final hasMulk = _profiles.any((p) => p.id == shortcutMulkId);
-    if (!hasMulk) {
-      _profiles.add(LocalReadingProfile(
-        id: shortcutMulkId,
-        userId: currentUserId,
-        name: 'Al-Mulk Shortcut',
-        slug: 'shortcut_mulk',
-        start: toVerseRef(67, 1),
-        target: toVerseRef(67, 30),
-        current: toVerseRef(67, 1),
-        sortOrder: 1000,
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      ));
-    } else {
-      final idx = _profiles.indexWhere((p) => p.id == shortcutMulkId);
-      if (idx != -1 && _profiles[idx].userId != currentUserId) {
-        _profiles[idx] = _profiles[idx].copyWith(userId: currentUserId);
-      }
-    }
-
-    // 2. Al-Kahf
-    final hasKahf = _profiles.any((p) => p.id == shortcutKahfId);
-    if (!hasKahf) {
-      _profiles.add(LocalReadingProfile(
-        id: shortcutKahfId,
-        userId: currentUserId,
-        name: 'Al-Kahf Shortcut',
-        slug: 'shortcut_kahf',
-        start: toVerseRef(18, 1),
-        target: toVerseRef(18, 110),
-        current: toVerseRef(18, 1),
-        sortOrder: 1001,
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      ));
-    } else {
-      final idx = _profiles.indexWhere((p) => p.id == shortcutKahfId);
-      if (idx != -1 && _profiles[idx].userId != currentUserId) {
-        _profiles[idx] = _profiles[idx].copyWith(userId: currentUserId);
-      }
-    }
-  }
-
-  DateTime getLastMulkResetTime(DateTime now) {
-    final todayReset = DateTime(now.year, now.month, now.day, 19, 45); // 7:45 PM
-    if (now.isAfter(todayReset) || now.isAtSameMomentAs(todayReset)) {
-      return todayReset;
-    } else {
-      return todayReset.subtract(const Duration(days: 1));
-    }
-  }
-
-  DateTime getLastKahfResetTime(DateTime now) {
-    var temp = DateTime(now.year, now.month, now.day, 19, 45); // Thursday 7:45 PM
-    while (temp.weekday != DateTime.thursday) {
-      temp = temp.subtract(const Duration(days: 1));
-    }
-    if (now.isBefore(temp)) {
-      temp = temp.subtract(const Duration(days: 7));
-    }
-    return temp;
-  }
-
-  void checkAndResetShortcutProfiles() {
-    final now = DateTime.now();
-    var changed = false;
-
-    // Check Mulk
-    final mulkIndex = _profiles.indexWhere((p) => p.id == shortcutMulkId);
-    if (mulkIndex != -1) {
-      final p = _profiles[mulkIndex];
-      final resetTime = getLastMulkResetTime(now);
-      if (p.updatedAt.isBefore(resetTime)) {
-        _profiles[mulkIndex] = p.copyWith(
-          current: toVerseRef(67, 1),
-          lastViewed: toVerseRef(67, 1),
-          updatedAt: resetTime,
-        );
-        changed = true;
-      }
-    }
-
-    // Check Kahf
-    final kahfIndex = _profiles.indexWhere((p) => p.id == shortcutKahfId);
-    if (kahfIndex != -1) {
-      final p = _profiles[kahfIndex];
-      final resetTime = getLastKahfResetTime(now);
-      if (p.updatedAt.isBefore(resetTime)) {
-        _profiles[kahfIndex] = p.copyWith(
-          current: toVerseRef(18, 1),
-          lastViewed: toVerseRef(18, 1),
-          updatedAt: resetTime,
-        );
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      _save(immediate: true);
-      notifyListeners();
-      // Sync reset to Supabase
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        if (mulkIndex != -1) _queueProfileSync(_profiles[mulkIndex], delay: Duration.zero);
-        if (kahfIndex != -1) _queueProfileSync(_profiles[kahfIndex], delay: Duration.zero);
-      }
-    }
-  }
-
-  Future<void> updateShortcutProgress(String shortcutId, VerseRef current) async {
-    await _loadCompleter.future;
-    final idx = _profiles.indexWhere((p) => p.id == shortcutId);
-    if (idx == -1) return;
-
-    final now = DateTime.now();
-    final profile = _profiles[idx];
-    
-    final currentIndex = absoluteVerseIndex(current);
-    final furthestIndex = profile.furthestUnreadIndex;
-    final shouldAdvanceFurthest = currentIndex > furthestIndex;
-
-    final updated = profile.copyWith(
-      current: shouldAdvanceFurthest ? current : profile.current,
-      lastViewed: current,
-      updatedAt: now,
-    );
-    _profiles[idx] = updated;
-
-    await _save(immediate: true);
-    notifyListeners();
-
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      _queueProfileSync(updated, delay: Duration.zero);
-    }
-  }
-
-  Future<LocalReadingProfile> ensureShortcutProfile(String shortcutId, int surahNumber) async {
-    await _loadCompleter.future;
-    final existing = profileById(shortcutId);
-    if (existing != null) {
-      if (existing.userId != currentUserId) {
-        final updated = existing.copyWith(userId: currentUserId);
-        final index = _profiles.indexWhere((p) => p.id == shortcutId);
-        if (index != -1) {
-          _profiles[index] = updated;
-          await _save(immediate: true);
-          notifyListeners();
-        }
-        return updated;
-      }
-      return existing;
-    }
-
-    final p = LocalReadingProfile(
-      id: shortcutId,
-      userId: currentUserId,
-      name: 'Shortcut Surah $surahNumber',
-      slug: 'shortcut_$surahNumber',
-      start: toVerseRef(surahNumber.toString(), '1'),
-      current: toVerseRef(surahNumber.toString(), '1'),
-      lastViewed: toVerseRef(surahNumber.toString(), '1'),
-      sortOrder: 0,
-      isArchived: false,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    _profiles.add(p);
-    await _save(immediate: true);
-    notifyListeners();
-
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      _queueProfileSync(p, delay: Duration.zero);
-    }
-    return p;
   }
 }
 

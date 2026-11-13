@@ -408,9 +408,9 @@ class MushafProfile {
       'lastViewedPage': lastViewedPage,
       'sortOrder': sortOrder,
       'isArchived': isArchived,
-      if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt.toIso8601String(),
+      if (deletedAt != null) 'deletedAt': deletedAt!.toUtc().toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
   }
 
@@ -491,7 +491,7 @@ class MushafPageBookmark {
       'id': id,
       'mushafId': mushafId,
       'pageNumber': pageNumber,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
     };
   }
 
@@ -528,7 +528,7 @@ class MushafVerseBookmark {
       'mushafId': mushafId,
       'pageNumber': pageNumber,
       'verseKey': verseKey,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
     };
   }
 
@@ -549,25 +549,53 @@ class MushafRecentReading {
   final int mushafId;
   final int pageNumber;
   final String? profileId;
+  final int? surahId;
+  final String? recentKey;
   final DateTime updatedAt;
 
   const MushafRecentReading({
     required this.mushafId,
     required this.pageNumber,
     this.profileId,
+    this.surahId,
+    this.recentKey,
     required this.updatedAt,
   });
+
+  MushafRecentReading copyWith({
+    int? mushafId,
+    int? pageNumber,
+    String? profileId,
+    int? surahId,
+    String? recentKey,
+    DateTime? updatedAt,
+  }) {
+    return MushafRecentReading(
+      mushafId: mushafId ?? this.mushafId,
+      pageNumber: pageNumber ?? this.pageNumber,
+      profileId: profileId ?? this.profileId,
+      surahId: surahId ?? this.surahId,
+      recentKey: recentKey ?? this.recentKey,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
       'mushafId': mushafId,
       'pageNumber': pageNumber,
       if (profileId != null) 'profileId': profileId,
-      'updatedAt': updatedAt.toIso8601String(),
+      if (surahId != null) 'surahId': surahId,
+      if (recentKey != null) 'recentKey': recentKey,
+      'updatedAt': updatedAt.toUtc().toIso8601String(),
     };
   }
 
   factory MushafRecentReading.fromJson(Map<String, dynamic> json) {
+    final parsedSurahId = int.tryParse(
+      (json['surahId'] ?? json['surah_id'])?.toString() ?? '',
+    );
+    final rawRecentKey = (json['recentKey'] ?? json['recent_key'])?.toString();
     return MushafRecentReading(
       mushafId: int.tryParse(
             json['mushafId']?.toString() ?? json['mushaf_id']?.toString() ?? '',
@@ -580,6 +608,12 @@ class MushafRecentReading {
           ) ??
           1,
       profileId: (json['profileId'] ?? json['profile_id'])?.toString(),
+      surahId: parsedSurahId != null && parsedSurahId >= 1 && parsedSurahId <= 114
+          ? parsedSurahId
+          : null,
+      recentKey: rawRecentKey != null && rawRecentKey.isNotEmpty
+          ? rawRecentKey
+          : null,
       updatedAt:
           DateTime.tryParse(
             (json['updatedAt'] ?? json['updated_at'])?.toString() ?? '',

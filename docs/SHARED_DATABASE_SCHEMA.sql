@@ -229,8 +229,10 @@ create table if not exists public.mushaf_recent_readings (
   mushaf_id integer not null,
   page_number integer not null check (page_number > 0),
   profile_id uuid references public.mushaf_profiles(id) on delete set null,
+  surah_id integer check (surah_id is null or (surah_id >= 1 and surah_id <= 114)),
+  recent_key text not null default '',
   updated_at timestamptz not null default now(),
-  unique (user_id, mushaf_id, profile_id)
+  unique (user_id, mushaf_id, recent_key)
 );
 
 create table if not exists public.translation_reports (

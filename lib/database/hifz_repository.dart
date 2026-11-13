@@ -114,7 +114,7 @@ class HifzRepository {
         'session_type': type.name,
         'surah_number': surahNumber,
         'title': title,
-        'completed_at': DateTime.now().toIso8601String(),
+        'completed_at': DateTime.now().toUtc().toIso8601String(),
         'synced_to_cloud': 0,
       });
       _pushHistoryToSupabaseIfLoggedIn();
@@ -304,20 +304,20 @@ class HifzRepository {
           'surah_number': surahNumber,
           'new_verses_completed': 1,
           'review_count': 0,
-          'last_completed_at': DateTime.now().toIso8601String(),
+          'last_completed_at': DateTime.now().toUtc().toIso8601String(),
         });
       } else {
         await db.update(
           'completed_surahs',
           {
             'new_verses_completed': 1,
-            'last_completed_at': DateTime.now().toIso8601String(),
+            'last_completed_at': DateTime.now().toUtc().toIso8601String(),
           },
           where: 'surah_number = ?',
           whereArgs: [surahNumber],
         );
       }
-      
+
       // Push update to cloud if logged in
       _pushToSupabaseIfLoggedIn(surahNumber);
     } catch (e) {
@@ -335,7 +335,7 @@ class HifzRepository {
           'surah_number': surahNumber,
           'new_verses_completed': 0,
           'review_count': 1,
-          'last_completed_at': DateTime.now().toIso8601String(),
+          'last_completed_at': DateTime.now().toUtc().toIso8601String(),
         });
       } else {
         final currentCount = (existing['review_count'] as int?) ?? 0;
@@ -343,7 +343,7 @@ class HifzRepository {
           'completed_surahs',
           {
             'review_count': currentCount + 1,
-            'last_completed_at': DateTime.now().toIso8601String(),
+            'last_completed_at': DateTime.now().toUtc().toIso8601String(),
           },
           where: 'surah_number = ?',
           whereArgs: [surahNumber],
@@ -442,7 +442,7 @@ class HifzRepository {
               'surah_number': surah,
               'new_verses_completed': mergedNewVerses ? 1 : 0,
               'review_count': mergedReviewCount,
-              'last_completed_at': DateTime.now().toIso8601String(),
+              'last_completed_at': DateTime.now().toUtc().toIso8601String(),
             });
           } else {
             await db.update(
@@ -450,7 +450,7 @@ class HifzRepository {
               {
                 'new_verses_completed': mergedNewVerses ? 1 : 0,
                 'review_count': mergedReviewCount,
-                'last_completed_at': DateTime.now().toIso8601String(),
+                'last_completed_at': DateTime.now().toUtc().toIso8601String(),
               },
               where: 'surah_number = ?',
               whereArgs: [surah],
@@ -465,8 +465,8 @@ class HifzRepository {
             'surah_number': surah,
             'new_verses_completed': mergedNewVerses,
             'review_count': mergedReviewCount,
-            'last_completed_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
+            'last_completed_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           }, onConflict: 'user_id,surah_number');
         }
       }
@@ -490,8 +490,8 @@ class HifzRepository {
           'surah_number': surahNumber,
           'new_verses_completed': (row['new_verses_completed'] as int) == 1,
           'review_count': row['review_count'] as int,
-          'last_completed_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'last_completed_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
         }, onConflict: 'user_id,surah_number');
       }
     } catch (e) {

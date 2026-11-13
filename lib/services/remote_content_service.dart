@@ -145,7 +145,7 @@ class RemoteContentService {
       return null;
     }
 
-    await prefs.setString(_lastAutoCheckKey, now.toIso8601String());
+    await prefs.setString(_lastAutoCheckKey, now.toUtc().toIso8601String());
     return updateAll();
   }
 

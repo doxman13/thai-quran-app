@@ -639,3 +639,67 @@ List<Map<String, int>> getMedinaMushafPageData(int page) {
   if (page < 1 || page > medinaMushafPages.length) return const [];
   return medinaMushafPages[page - 1];
 }
+
+/// Returns the distinct Surah numbers appearing on a 1-indexed Medina [page].
+List<int> getSurahsOnMedinaPage(int page) {
+  final portions = getMedinaMushafPageData(page);
+  final seen = <int>{};
+  final surahs = <int>[];
+  for (final portion in portions) {
+    final s = portion['surah'];
+    if (s != null && seen.add(s)) {
+      surahs.add(s);
+    }
+  }
+  return surahs.isEmpty ? const [1] : surahs;
+}
+
+/// Returns the 1-indexed starting page (1..604) of [surahNumber] in the Medina Mushaf.
+int getMedinaMushafStartPageForSurah(int surahNumber) {
+  final s = surahNumber.clamp(1, 114);
+  for (int p = 0; p < medinaMushafPages.length; p++) {
+    for (final portion in medinaMushafPages[p]) {
+      if (portion['surah'] == s) {
+        return p + 1;
+      }
+    }
+  }
+  return 1;
+}
+
+/// Returns the 1-indexed ending page (1..604) of [surahNumber] in the Medina Mushaf.
+int getMedinaMushafEndPageForSurah(int surahNumber) {
+  final s = surahNumber.clamp(1, 114);
+  int lastPage = getMedinaMushafStartPageForSurah(s);
+  for (int p = lastPage - 1; p < medinaMushafPages.length; p++) {
+    for (final portion in medinaMushafPages[p]) {
+      if (portion['surah'] == s) {
+        lastPage = p + 1;
+      }
+    }
+  }
+  return lastPage;
+}
+
+/// Returns both start and end pages for [surahNumber] in the Medina 604-page Mushaf.
+({int startPage, int endPage}) getMedinaSurahPageRange(int surahNumber) {
+  return (
+    startPage: getMedinaMushafStartPageForSurah(surahNumber),
+    endPage: getMedinaMushafEndPageForSurah(surahNumber),
+  );
+}
+
+/// Resolves the primary Surah for [page], preferring [preferredSurahId] when present on that page.
+int getPrimarySurahOnMedinaPage(int page, {int? preferredSurahId}) {
+  final surahs = getSurahsOnMedinaPage(page);
+  if (preferredSurahId != null && surahs.contains(preferredSurahId)) {
+    return preferredSurahId;
+  }
+  final clampedPage = page.clamp(1, 604);
+  for (final s in surahs) {
+    if (getMedinaMushafStartPageForSurah(s) == clampedPage) {
+      return s;
+    }
+  }
+  return surahs.first;
+}

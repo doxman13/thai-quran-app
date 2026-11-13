@@ -85,9 +85,9 @@ class TadabburRepository {
       final data = note.toJson();
       // Remove created_at if we are updating, or let DB handle defaults
       if (!data.containsKey('created_at') || data['created_at'] == null) {
-        data['created_at'] = DateTime.now().toIso8601String();
+        data['created_at'] = DateTime.now().toUtc().toIso8601String();
       }
-      data['updated_at'] = DateTime.now().toIso8601String();
+      data['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
       // If id is empty or a placeholder, remove it so DB generates one
       if (data['id'] == '' || data['id'].startsWith('temp-')) {
@@ -309,7 +309,7 @@ class TadabburRepository {
           .from('translation_reports')
           .update({
             'status': 'accepted',
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', reportId);
 
@@ -317,7 +317,7 @@ class TadabburRepository {
           .from('tadabbur_notes')
           .update({
             'is_public': true,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', noteId);
       return true;
@@ -367,7 +367,7 @@ class TadabburRepository {
           .update({
             'status': 'rejected',
             'reviewer_note': reviewerNote,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', reportId);
 
@@ -375,7 +375,7 @@ class TadabburRepository {
           .from('tadabbur_notes')
           .update({
             'is_public': false,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', noteId);
       return true;

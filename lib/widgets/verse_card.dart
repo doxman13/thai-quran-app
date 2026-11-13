@@ -940,9 +940,7 @@ class _VerseCardState extends State<VerseCard> {
             : localReading.activeProfile;
 
         if (progressProfile != null && isShortcutProfile(progressProfile)) {
-          if (widget.verse.surahId != progressProfile.start.surahId) {
-            progressProfile = null;
-          }
+          progressProfile = localReading.freeReadProfile;
         }
 
         if (progressProfile != null) {

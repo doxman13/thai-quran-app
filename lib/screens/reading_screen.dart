@@ -32,7 +32,7 @@ class ReadingScreen extends StatefulWidget {
   final String? initialVerseId;
   final bool openSettingsPanel;
   final bool saveToFreeReadOnly;
-  final String? shortcutId;
+  final String? goalProfileId;
 
   const ReadingScreen({
     super.key,
@@ -43,7 +43,7 @@ class ReadingScreen extends StatefulWidget {
     this.initialVerseId,
     this.openSettingsPanel = false,
     this.saveToFreeReadOnly = false,
-    this.shortcutId,
+    this.goalProfileId,
   });
 
   @override
@@ -832,11 +832,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   LocalReadingProfile? _progressProfile(LocalReadingProvider localReading) {
-    if (widget.shortcutId != null) {
-      return localReading.profileById(widget.shortcutId!);
-    }
     if (widget.saveToFreeReadOnly) {
       return localReading.freeReadProfile;
+    }
+    if (widget.goalProfileId != null) {
+      return localReading.profileById(widget.goalProfileId!);
     }
     return localReading.activeProfile;
   }
@@ -2426,30 +2426,24 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                                 'save_progress',
                                               ),
                                               onPressed: () async {
-                                                var progressProfile =
-                                                     _progressProfile(
-                                                       localReading,
-                                                     );
-                                                 final currentIndex =
-                                                     progressProv.lastVerseIndex;
-                                                 if (progressProfile != null &&
-                                                     isShortcutProfile(progressProfile)) {
-                                                   if (currentIndex >= 0 &&
-                                                       currentIndex <
-                                                           verses.length) {
-                                                     final currentVerse =
-                                                         verses[currentIndex];
-                                                     if (currentVerse.surahId !=
-                                                         progressProfile
-                                                             .start.surahId) {
-                                                       progressProfile = null;
-                                                     }
-                                                   }
-                                                 }
-                                                 if (progressProfile != null &&
-                                                    currentIndex >= 0 &&
-                                                    currentIndex <
-                                                        verses.length) {
+                                                  var progressProfile =
+                                                      _progressProfile(
+                                                        localReading,
+                                                      );
+                                                  final currentIndex =
+                                                      progressProv.lastVerseIndex;
+                                                  if (progressProfile != null &&
+                                                      isShortcutProfile(
+                                                        progressProfile,
+                                                      )) {
+                                                    progressProfile =
+                                                        localReading
+                                                            .freeReadProfile;
+                                                  }
+                                                  if (progressProfile != null &&
+                                                      currentIndex >= 0 &&
+                                                      currentIndex <
+                                                          verses.length) {
                                                   final currentVerse =
                                                       verses[currentIndex];
                                                   final verseRef = toVerseRef(

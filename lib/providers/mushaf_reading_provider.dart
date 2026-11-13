@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/medina_mushaf_pages.dart';
 import '../data/quran_foundation_repository.dart';
 import '../models/mushaf_models.dart';
 import '../services/guest_lifecycle_service.dart';
+import '../shared/quran_contract.dart';
 
 class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   List<MushafProfile> _profiles = [];
@@ -25,12 +27,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _recentReadingSyncTimer;
   Timer? _profileSyncTimer;
   final Completer<void> _loadCompleter = Completer<void>();
-  String? _pendingRecentUserId;
-  int? _pendingRecentMushafId;
-  int? _pendingRecentPageNumber;
-  String? _pendingRecentProfileId;
+  final Map<String, ({String userId, MushafRecentReading recent})>
+  _pendingRecentSyncs = {};
   bool _isFlushingProfileSync = false;
   bool _isDeletedAtColumnSupported = true;
+  bool _isRecentKeyColumnSupported = true;
   final Map<String, MushafProfile> _pendingProfileSyncs = {};
 
   MushafReadingProvider() {
@@ -303,9 +304,15 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  int preferredMedinaMushafId() {
+    final current = mushafTypeById(_displayMushafId);
+    return current.pageCount == 604 ? _displayMushafId : 2;
+  }
+
   Future<void> updateProgress({
     required String profileId,
     required int pageNumber,
+    int? surahId,
   }) async {
     final index = _profiles.indexWhere((profile) => profile.id == profileId);
     if (index == -1 || _profiles[index].deletedAt != null) return;
@@ -320,10 +327,98 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       updatedAt: DateTime.now(),
     );
     _profiles[index] = updated;
-    _upsertRecentReading(updated);
+    _upsertRecentReading(updated, preferredSurahId: surahId);
     await _save();
     notifyListeners();
     _queueProfileSync(updated, delay: Duration.zero);
+  }
+
+  Future<void> recordFreeReadPage({
+    required int pageNumber,
+    int? mushafId,
+    int? surahId,
+    bool immediateSync = false,
+  }) async {
+    final targetMushafId = mushafId ?? preferredMedinaMushafId();
+    final freeProfile = freeReadProfileForMushaf(targetMushafId);
+    final pageCount = mushafTypeById(targetMushafId).pageCount;
+    final page = _clampInt(pageNumber, 1, pageCount);
+    final furthestPage = page > freeProfile.furthestUnreadPage
+        ? page
+        : freeProfile.furthestUnreadPage;
+    final updated = freeProfile.copyWith(
+      currentPage: furthestPage,
+      lastViewedPage: page,
+      updatedAt: DateTime.now(),
+    );
+    final index = _profiles.indexWhere((p) => p.id == freeProfile.id);
+    if (index != -1) {
+      _profiles[index] = updated;
+    }
+    _upsertRecentReading(updated, preferredSurahId: surahId);
+    await _save();
+    notifyListeners();
+    _queueProfileSync(updated, delay: Duration.zero);
+    if (immediateSync) {
+      try {
+        await flushPendingRecentReadingSync();
+      } catch (e) {
+        debugPrint('Error flushing Mushaf recent reading: $e');
+      }
+    }
+  }
+
+  MushafRecentReading? latestRecentForSurah(int surahNumber) {
+    final now = DateTime.now().toUtc();
+    final range = getMedinaSurahPageRange(surahNumber);
+    final candidates = _recentReadings.where((reading) {
+      final mType = mushafTypeById(reading.mushafId);
+      if (mType.pageCount != 604) return false;
+      if (reading.pageNumber < range.startPage ||
+          reading.pageNumber > range.endPage) {
+        return false;
+      }
+      if (reading.surahId != null &&
+          reading.surahId! >= 1 &&
+          reading.surahId! <= 114) {
+        return reading.surahId == surahNumber;
+      }
+      return getSurahsOnMedinaPage(reading.pageNumber).contains(surahNumber);
+    }).toList()
+      ..sort(
+        (a, b) => sanitizeSyncTimestamp(b.updatedAt, now: now).normalized
+            .compareTo(sanitizeSyncTimestamp(a.updatedAt, now: now).normalized),
+      );
+
+    var newest = candidates.firstOrNull;
+
+    // Check if active profiles have higher progress in this Surah
+    for (final p in _profiles) {
+      if (p.deletedAt != null || p.isArchived) continue;
+      final pPage = p.lastViewedPage;
+      if (pPage > range.startPage && pPage <= range.endPage) {
+        if (newest == null ||
+            pPage > newest.pageNumber ||
+            p.updatedAt.isAfter(newest.updatedAt)) {
+          newest = MushafRecentReading(
+            mushafId: p.mushafId,
+            pageNumber: pPage,
+            profileId: p.id,
+            surahId: surahNumber,
+            recentKey:
+                p.isFreeRead ? 'free:surah:$surahNumber' : 'profile:${p.id}',
+            updatedAt: p.updatedAt,
+          );
+        }
+      }
+    }
+
+    if (newest == null) return null;
+    // Only offer resume when progress moved past the Surah's opening page.
+    return newest.pageNumber > range.startPage &&
+            newest.pageNumber <= range.endPage
+        ? newest
+        : null;
   }
 
   Future<void> updateProfile(String profileId, {required String name}) async {
@@ -575,7 +670,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             'user_id': user.id,
             'mushaf_id': mushafId,
             'page_number': pageNumber,
-            'created_at': bookmark.createdAt.toIso8601String(),
+            'created_at': bookmark.createdAt.toUtc().toIso8601String(),
           }, onConflict: 'user_id,mushaf_id,page_number');
         } catch (e) {
           debugPrint('Error saving page bookmark to Supabase: $e');
@@ -645,7 +740,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             'mushaf_id': mushafId,
             'page_number': pageNumber,
             'verse_key': verseKey,
-            'created_at': bookmark.createdAt.toIso8601String(),
+            'created_at': bookmark.createdAt.toUtc().toIso8601String(),
           }, onConflict: 'user_id,mushaf_id,page_number,verse_key');
         } catch (e) {
           debugPrint('Error saving verse bookmark to Supabase: $e');
@@ -703,51 +798,129 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     return a.isArchived || b.isArchived;
   }
 
+  ({bool isFree, int? surahId, String recentKey}) _resolveRecentIdentity(
+    MushafRecentReading item, {
+    int? preferredSurahId,
+  }) {
+    final existingKey = item.recentKey?.trim();
+    final explicitSurahId =
+        (preferredSurahId != null &&
+            preferredSurahId >= 1 &&
+            preferredSurahId <= 114)
+        ? preferredSurahId
+        : (item.surahId != null && item.surahId! >= 1 && item.surahId! <= 114)
+        ? item.surahId
+        : null;
+
+    if (existingKey != null && existingKey.isNotEmpty) {
+      if (existingKey.startsWith('free:surah:')) {
+        final parsed = int.tryParse(
+          existingKey.substring('free:surah:'.length),
+        );
+        final resolvedSurah =
+            explicitSurahId ??
+            (parsed != null && parsed >= 1 && parsed <= 114
+                ? parsed
+                : getPrimarySurahOnMedinaPage(item.pageNumber));
+        return (
+          isFree: true,
+          surahId: resolvedSurah,
+          recentKey: 'free:surah:$resolvedSurah',
+        );
+      }
+      if (existingKey.startsWith('profile:')) {
+        return (
+          isFree: false,
+          surahId: explicitSurahId,
+          recentKey: existingKey,
+        );
+      }
+    }
+
+    final matchedProfile = profileById(item.profileId);
+    final isFree =
+        item.profileId == null ||
+        item.profileId!.startsWith('mushaf-free') ||
+        (matchedProfile?.isFreeRead ?? false);
+
+    if (isFree) {
+      final resolvedSurah =
+          explicitSurahId ?? getPrimarySurahOnMedinaPage(item.pageNumber);
+      return (
+        isFree: true,
+        surahId: resolvedSurah,
+        recentKey: 'free:surah:$resolvedSurah',
+      );
+    }
+
+    return (
+      isFree: false,
+      surahId: explicitSurahId,
+      recentKey: 'profile:${item.profileId}',
+    );
+  }
+
   List<MushafRecentReading> _deduplicateRecent(
     List<MushafRecentReading> items,
   ) {
+    final sorted = List<MushafRecentReading>.from(items)
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final seen = <String>{};
     final result = <MushafRecentReading>[];
-    for (final item in items) {
-      final isFree =
-          item.profileId == null || item.profileId!.startsWith('mushaf-free');
-      final key = isFree
-          ? '${item.mushafId}-free-${item.pageNumber}'
-          : '${item.mushafId}-${item.profileId}';
+    for (final item in sorted) {
+      final identity = _resolveRecentIdentity(item);
+      final key = '${item.mushafId}:${identity.recentKey}';
       if (seen.add(key)) {
-        result.add(item);
+        result.add(
+          item.copyWith(
+            surahId: identity.surahId,
+            recentKey: identity.recentKey,
+          ),
+        );
       }
     }
-    return result;
+    return result.take(30).toList();
   }
 
-  void _upsertRecentReading(MushafProfile profile) {
+  void _upsertRecentReading(
+    MushafProfile profile, {
+    int? preferredSurahId,
+  }) {
     final page = profile.lastViewedPage;
-    _recentReadings.removeWhere(
-      (reading) =>
-          reading.mushafId == profile.mushafId &&
-          (profile.isFreeRead
-              ? (reading.profileId == profile.id ||
-                  reading.profileId == null ||
-                  reading.profileId!.startsWith('mushaf-free') ||
-                  reading.pageNumber == page)
-              : (reading.profileId == profile.id || reading.pageNumber == page)),
-    );
-    final recent = MushafRecentReading(
+    final isFree = profile.isFreeRead || profile.isArchived;
+    final isMedina = mushafTypeById(profile.mushafId).pageCount == 604;
+    final int? resolvedPreferredSurah = !isFree
+        ? null
+        : isMedina
+        ? getPrimarySurahOnMedinaPage(page, preferredSurahId: preferredSurahId)
+        : preferredSurahId;
+
+    final draft = MushafRecentReading(
       mushafId: profile.mushafId,
       pageNumber: page,
       profileId: profile.id,
+      surahId: resolvedPreferredSurah,
       updatedAt: DateTime.now(),
     );
+    final identity = _resolveRecentIdentity(
+      draft,
+      preferredSurahId: resolvedPreferredSurah,
+    );
+    final recent = draft.copyWith(
+      surahId: identity.surahId,
+      recentKey: identity.recentKey,
+    );
+
+    _recentReadings.removeWhere((reading) {
+      if (reading.mushafId != profile.mushafId) return false;
+      return _resolveRecentIdentity(reading).recentKey == identity.recentKey;
+    });
     _recentReadings.insert(0, recent);
     _recentReadings = _deduplicateRecent(_recentReadings);
-    if (_recentReadings.length > 30) {
-      _recentReadings = _recentReadings.take(30).toList();
-    }
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user != null) {
-      _debounceRecentReadingSync(user.id, profile.mushafId, page, profile.id);
+      _debounceRecentReadingSync(user.id, recent);
     }
   }
 
@@ -867,9 +1040,25 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             continue;
           }
 
-          final remoteUpdatedAt =
-              DateTime.tryParse(dbP['updated_at']?.toString() ?? '') ??
-              DateTime.fromMillisecondsSinceEpoch(0);
+          final syncNow = DateTime.now().toUtc();
+          final rawRemoteUpdatedAt = DateTime.tryParse(
+            dbP['updated_at']?.toString() ?? '',
+          );
+          final remoteUpdatedCheck = sanitizeSyncTimestamp(
+            rawRemoteUpdatedAt,
+            now: syncNow,
+          );
+          final remoteUpdatedAt = rawRemoteUpdatedAt == null
+              ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)
+              : remoteUpdatedCheck.normalized;
+          final localUpdatedCheck = sanitizeSyncTimestamp(
+            localP.updatedAt,
+            now: syncNow,
+          );
+          final localUpdatedAt = localUpdatedCheck.normalized;
+          final effectiveLocalP = localUpdatedCheck.wasFuture
+              ? localP.copyWith(updatedAt: localUpdatedAt)
+              : localP;
           final remoteIsArchived = dbP['is_archived'] == true;
           final int remoteCurrent =
               int.tryParse(dbP['current_page']?.toString() ?? '') ?? 1;
@@ -885,12 +1074,13 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
               remoteFurthest;
 
           final int maxFurthest = math.max(
-            localP.furthestUnreadPage,
+            effectiveLocalP.furthestUnreadPage,
             remoteFurthest,
           );
-          final int maxCurrent = math.max(localP.currentPage, remoteCurrent);
+          final int maxCurrent =
+              math.max(effectiveLocalP.currentPage, remoteCurrent);
           final int maxLastViewed = math.max(
-            localP.lastViewedPage,
+            effectiveLocalP.lastViewedPage,
             remoteLastViewed,
           );
           final int mergedPage = math.max(maxFurthest, maxCurrent);
@@ -899,13 +1089,13 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           // exact tie the archived state wins so a stale active copy on another
           // device cannot silently resurrect a goal.
           final bool localWins =
-              localP.updatedAt.isAfter(remoteUpdatedAt) ||
-              (localP.updatedAt.isAtSameMomentAs(remoteUpdatedAt) &&
-                  localP.isArchived &&
+              localUpdatedAt.isAfter(remoteUpdatedAt) ||
+              (localUpdatedAt.isAtSameMomentAs(remoteUpdatedAt) &&
+                  effectiveLocalP.isArchived &&
                   !remoteIsArchived);
 
           if (localWins) {
-            final syncedLocal = localP.copyWith(
+            final syncedLocal = effectiveLocalP.copyWith(
               id: remoteId,
               userId: userId,
               currentPage: mergedPage,
@@ -917,29 +1107,30 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             final mergedProfile = MushafProfile(
               id: remoteId,
               userId: userId,
-              name: localP.isFreeRead
+              name: effectiveLocalP.isFreeRead
                   ? 'Just Read'
-                  : (dbP['name']?.toString() ?? localP.name),
-              slug: dbP['slug']?.toString() ?? localP.slug,
+                  : (dbP['name']?.toString() ?? effectiveLocalP.name),
+              slug: dbP['slug']?.toString() ?? effectiveLocalP.slug,
               mushafId:
                   int.tryParse(dbP['mushaf_id']?.toString() ?? '') ??
-                  localP.mushafId,
-              planMode: dbP['plan_mode']?.toString() ?? localP.planMode,
+                  effectiveLocalP.mushafId,
+              planMode: dbP['plan_mode']?.toString() ?? effectiveLocalP.planMode,
               startPage:
                   int.tryParse(dbP['start_page']?.toString() ?? '') ??
-                  localP.startPage,
+                  effectiveLocalP.startPage,
               targetPage:
                   int.tryParse(dbP['target_page']?.toString() ?? '') ??
-                  localP.targetPage,
+                  effectiveLocalP.targetPage,
               currentPage: mergedPage,
               lastViewedPage: maxLastViewed,
               sortOrder:
                   int.tryParse(dbP['sort_order']?.toString() ?? '') ??
-                  localP.sortOrder,
+                  effectiveLocalP.sortOrder,
               isArchived: remoteIsArchived,
-              createdAt:
-                  DateTime.tryParse(dbP['created_at']?.toString() ?? '') ??
-                  localP.createdAt,
+              createdAt: sanitizeSyncTimestamp(
+                DateTime.tryParse(dbP['created_at']?.toString() ?? ''),
+                now: syncNow,
+              ).normalized,
               updatedAt: remoteUpdatedAt,
             );
             reconciledProfiles.add(mergedProfile);
@@ -949,9 +1140,11 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
                 maxCurrent > remoteCurrent ||
                 maxLastViewed > remoteLastViewed;
 
-            if (localProgressAhead) {
+            if (localProgressAhead || remoteUpdatedCheck.wasFuture) {
               await _syncProfileToSupabase(
-                mergedProfile.copyWith(updatedAt: DateTime.now()),
+                localProgressAhead
+                    ? mergedProfile.copyWith(updatedAt: DateTime.now().toUtc())
+                    : mergedProfile,
                 userId: userId,
               );
             }
@@ -1091,7 +1284,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             'user_id': userId,
             'mushaf_id': localB.mushafId,
             'page_number': localB.pageNumber,
-            'created_at': localB.createdAt.toIso8601String(),
+            'created_at': localB.createdAt.toUtc().toIso8601String(),
           }, onConflict: 'user_id,mushaf_id,page_number');
         }
         reconciledPageBook.add(localB);
@@ -1147,7 +1340,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
             'mushaf_id': localB.mushafId,
             'page_number': localB.pageNumber,
             'verse_key': localB.verseKey,
-            'created_at': localB.createdAt.toIso8601String(),
+            'created_at': localB.createdAt.toUtc().toIso8601String(),
           }, onConflict: 'user_id,mushaf_id,page_number,verse_key');
         }
         reconciledVerseBook.add(localB);
@@ -1176,6 +1369,7 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _verseBookmarks = reconciledVerseBook;
 
       // 4. Sync Recent Readings
+      final recentSyncNow = DateTime.now().toUtc();
       final remoteRecentRes = await client
           .from('mushaf_recent_readings')
           .select('*')
@@ -1183,75 +1377,129 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           .order('updated_at', ascending: false)
           .limit(20);
       final List<dynamic> dbRecent = remoteRecentRes;
+      final Set<String> futureRemoteRecentKeys = {};
+      final List<MushafRecentReading> parsedDbRecent = dbRecent.map((raw) {
+        final map = raw is Map<String, dynamic>
+            ? raw
+            : Map<String, dynamic>.from(raw as Map);
+        final parsed = MushafRecentReading.fromJson(map);
+        final identity = _resolveRecentIdentity(parsed);
+        final sanitizedTs = sanitizeSyncTimestamp(
+          parsed.updatedAt,
+          now: recentSyncNow,
+        );
+        if (sanitizedTs.wasFuture) {
+          futureRemoteRecentKeys.add('${parsed.mushafId}:${identity.recentKey}');
+        }
+        return parsed.copyWith(
+          surahId: identity.surahId,
+          recentKey: identity.recentKey,
+          updatedAt: sanitizedTs.normalized,
+        );
+      }).toList();
+
       final List<MushafRecentReading> reconciledRecent = [];
       final Set<String> matchedRecentKeys = {};
+      final List<MushafRecentReading> recentToPush = [];
 
       for (final localR in _recentReadings) {
-        final dbR = _firstMapWhereOrNull(
-          dbRecent,
-          (item) =>
-              item['mushaf_id'] == localR.mushafId &&
-              (item['profile_id']?.toString() == localR.profileId ||
-                  (item['profile_id'] == null &&
-                      (localR.profileId == null ||
-                          localR.profileId!.startsWith('mushaf-free')))),
+        final localIdentity = _resolveRecentIdentity(localR);
+        final sanitizedLocalTs = sanitizeSyncTimestamp(
+          localR.updatedAt,
+          now: recentSyncNow,
         );
+        final normalizedLocal = localR.copyWith(
+          surahId: localIdentity.surahId,
+          recentKey: localIdentity.recentKey,
+          updatedAt: sanitizedLocalTs.normalized,
+        );
+        final compositeKey = '${localR.mushafId}:${localIdentity.recentKey}';
+        final dbR = parsedDbRecent.where((remote) {
+          return remote.mushafId == localR.mushafId &&
+              _resolveRecentIdentity(remote).recentKey ==
+                  localIdentity.recentKey;
+        }).firstOrNull;
 
         if (dbR != null) {
-          final matchedKey =
-              '${localR.mushafId}-${dbR['profile_id']?.toString()}';
-          matchedRecentKeys.add(matchedKey);
-          final remoteDate =
-              DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
-              DateTime.fromMillisecondsSinceEpoch(0);
-
-          if (localR.updatedAt.isAfter(remoteDate)) {
-            // Local is newer, keep it and push it
-            reconciledRecent.add(localR);
-            _debounceRecentReadingSync(
-              userId,
-              localR.mushafId,
-              localR.pageNumber,
-              localR.profileId,
-            );
+          matchedRecentKeys.add(compositeKey);
+          final remoteWasFuture = futureRemoteRecentKeys.contains(compositeKey);
+          if ((remoteWasFuture && !sanitizedLocalTs.wasFuture) ||
+              normalizedLocal.updatedAt.isAfter(dbR.updatedAt)) {
+            reconciledRecent.add(normalizedLocal);
+            recentToPush.add(normalizedLocal);
           } else {
-            // Remote is newer, keep it
-            reconciledRecent.add(
-              MushafRecentReading(
-                mushafId: dbR['mushaf_id'],
-                pageNumber: dbR['page_number'],
-                profileId: dbR['profile_id']?.toString() ?? localR.profileId,
-                updatedAt: remoteDate,
-              ),
+            final winner = dbR.copyWith(
+              profileId: dbR.profileId ?? normalizedLocal.profileId,
             );
+            reconciledRecent.add(winner);
+            if (remoteWasFuture) {
+              recentToPush.add(winner);
+            }
           }
         } else {
-          // Local only, keep it and push it
-          reconciledRecent.add(localR);
-          _debounceRecentReadingSync(
-            userId,
-            localR.mushafId,
-            localR.pageNumber,
-            localR.profileId,
-          );
+          reconciledRecent.add(normalizedLocal);
+          recentToPush.add(normalizedLocal);
         }
       }
 
-      for (final dbR in dbRecent) {
-        final key = '${dbR['mushaf_id']}-${dbR['profile_id']?.toString()}';
+      for (final dbR in parsedDbRecent) {
+        final identity = _resolveRecentIdentity(dbR);
+        final key = '${dbR.mushafId}:${identity.recentKey}';
         if (matchedRecentKeys.contains(key)) continue;
-        reconciledRecent.add(
-          MushafRecentReading(
-            mushafId: dbR['mushaf_id'],
-            pageNumber: dbR['page_number'],
-            profileId: dbR['profile_id']?.toString(),
-            updatedAt:
-                DateTime.tryParse(dbR['updated_at']?.toString() ?? '') ??
-                DateTime.now(),
-          ),
-        );
+        matchedRecentKeys.add(key);
+        reconciledRecent.add(dbR);
+        if (futureRemoteRecentKeys.contains(key)) {
+          recentToPush.add(dbR);
+        }
       }
+
+      // Ensure reconciled profile progress (lastViewedPage) is synchronized into recent readings
+      for (final profile in _profiles) {
+        if (profile.deletedAt != null || profile.isArchived) continue;
+        final pageNum = profile.lastViewedPage;
+        if (pageNum <= 1) continue;
+
+        final isFree = profile.isFreeRead;
+        final surahId = getPrimarySurahOnMedinaPage(pageNum);
+        final resolvedKey = isFree ? 'free:surah:$surahId' : 'profile:${profile.id}';
+
+        final existingIndex = reconciledRecent.indexWhere((r) {
+          if (r.mushafId != profile.mushafId) return false;
+          return _resolveRecentIdentity(r).recentKey == resolvedKey;
+        });
+
+        if (existingIndex == -1) {
+          final newRecent = MushafRecentReading(
+            mushafId: profile.mushafId,
+            pageNumber: pageNum,
+            profileId: profile.id,
+            surahId: isFree ? surahId : null,
+            recentKey: resolvedKey,
+            updatedAt: profile.updatedAt,
+          );
+          reconciledRecent.add(newRecent);
+          recentToPush.add(newRecent);
+        } else {
+          final existing = reconciledRecent[existingIndex];
+          if (pageNum > existing.pageNumber ||
+              profile.updatedAt.isAfter(existing.updatedAt)) {
+            final updated = existing.copyWith(
+              pageNumber: math.max(existing.pageNumber, pageNum),
+              profileId: profile.id,
+              surahId: isFree ? surahId : existing.surahId,
+              recentKey: resolvedKey,
+              updatedAt: profile.updatedAt,
+            );
+            reconciledRecent[existingIndex] = updated;
+            recentToPush.add(updated);
+          }
+        }
+      }
+
       _recentReadings = _deduplicateRecent(reconciledRecent);
+      if (recentToPush.isNotEmpty) {
+        await _syncRecentReadingsBatchToSupabase(userId, recentToPush);
+      }
 
       await _save();
       notifyListeners();
@@ -1304,10 +1552,38 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       if (hasUuid) {
         upsertData['id'] = p.id;
-        await client
-            .from('mushaf_profiles')
-            .upsert(upsertData, onConflict: 'id');
-        return p.id;
+        try {
+          await client
+              .from('mushaf_profiles')
+              .upsert(upsertData, onConflict: 'id');
+          return p.id;
+        } on PostgrestException catch (pgErr) {
+          if (pgErr.code != '23505') rethrow;
+          final fallbackData = Map<String, dynamic>.from(upsertData)
+            ..remove('id');
+          final response = await client
+              .from('mushaf_profiles')
+              .upsert(fallbackData, onConflict: 'user_id,slug,mushaf_id')
+              .select('id')
+              .single();
+          final returnedId = response['id']?.toString();
+          if (returnedId != null) {
+            final index = _profiles.indexWhere((item) => item.id == p.id);
+            if (index != -1) {
+              _profiles[index] = _profiles[index].copyWith(
+                id: returnedId,
+                userId: targetUserId,
+              );
+              if (_activeProfileId == p.id) {
+                _activeProfileId = returnedId;
+              }
+            }
+            await _replaceProfileReferences(p.id, returnedId);
+            await _save();
+            return returnedId;
+          }
+          return p.id;
+        }
       } else {
         final response = await client
             .from('mushaf_profiles')
@@ -1355,39 +1631,44 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _activeProfileId = newId;
       changed = true;
     }
-    if (_pendingRecentProfileId == oldId) {
-      _pendingRecentProfileId = newId;
-      changed = true;
+    if (_pendingRecentSyncs.isNotEmpty) {
+      final remapped =
+          <String, ({String userId, MushafRecentReading recent})>{};
+      for (final entry in _pendingRecentSyncs.entries) {
+        final item = entry.value;
+        if (item.recent.profileId == oldId) {
+          changed = true;
+          final updatedItem = item.recent.copyWith(profileId: newId);
+          final identity = _resolveRecentIdentity(updatedItem);
+          remapped['${updatedItem.mushafId}:${identity.recentKey}'] = (
+            userId: item.userId,
+            recent: updatedItem.copyWith(
+              surahId: identity.surahId,
+              recentKey: identity.recentKey,
+            ),
+          );
+        } else {
+          remapped[entry.key] = item;
+        }
+      }
+      _pendingRecentSyncs
+        ..clear()
+        ..addAll(remapped);
     }
 
-    final seenKeys = <String>{};
     final updatedRecent = <MushafRecentReading>[];
     for (final reading in _recentReadings) {
       final profileId = reading.profileId == oldId ? newId : reading.profileId;
-      final key = '${reading.mushafId}-$profileId';
-      if (seenKeys.contains(key)) {
-        changed = true;
-        continue;
-      }
-      seenKeys.add(key);
-
       if (profileId != reading.profileId) {
         changed = true;
-        updatedRecent.add(
-          MushafRecentReading(
-            mushafId: reading.mushafId,
-            pageNumber: reading.pageNumber,
-            profileId: profileId,
-            updatedAt: reading.updatedAt,
-          ),
-        );
+        updatedRecent.add(reading.copyWith(profileId: profileId));
       } else {
         updatedRecent.add(reading);
       }
     }
 
     if (changed) {
-      _recentReadings = updatedRecent;
+      _recentReadings = _deduplicateRecent(updatedRecent);
       await _save();
     }
   }
@@ -1481,14 +1762,17 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   void _debounceRecentReadingSync(
     String userId,
-    int mushafId,
-    int pageNumber,
-    String? profileId,
+    MushafRecentReading recent,
   ) {
-    _pendingRecentUserId = userId;
-    _pendingRecentMushafId = mushafId;
-    _pendingRecentPageNumber = pageNumber;
-    _pendingRecentProfileId = profileId;
+    final identity = _resolveRecentIdentity(recent);
+    final key = '${recent.mushafId}:${identity.recentKey}';
+    _pendingRecentSyncs[key] = (
+      userId: userId,
+      recent: recent.copyWith(
+        surahId: identity.surahId,
+        recentKey: identity.recentKey,
+      ),
+    );
 
     _recentReadingSyncTimer?.cancel();
     _recentReadingSyncTimer = Timer(const Duration(seconds: 2), () async {
@@ -1496,31 +1780,107 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _syncRecentReadingToSupabase(
-    String userId,
-    int mushafId,
-    int pageNumber,
-    String? profileId,
-  ) async {
-    try {
-      final uuidRegExp = RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
-      );
-      if (profileId == null || !uuidRegExp.hasMatch(profileId)) {
-        return;
-      }
+  String? _resolveUuidProfileIdForRecent(MushafRecentReading reading) {
+    final uuidRegExp = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+    if (reading.profileId != null && uuidRegExp.hasMatch(reading.profileId!)) {
+      return reading.profileId;
+    }
+    if (reading.profileId == null ||
+        reading.profileId!.startsWith('mushaf-free')) {
+      final freeProfile = _profiles.where((p) {
+        return p.deletedAt == null &&
+            p.isFreeRead &&
+            p.mushafId == reading.mushafId &&
+            uuidRegExp.hasMatch(p.id);
+      }).firstOrNull;
+      return freeProfile?.id;
+    }
+    return null;
+  }
 
-      final client = Supabase.instance.client;
-      await client.from('mushaf_recent_readings').upsert({
+  bool _isMissingRecentKeySchemaError(Object error) {
+    if (error is! PostgrestException) return false;
+    final code = error.code ?? '';
+    final msg = '${error.message} ${error.details ?? ''}';
+    return code == '42703' ||
+        code == 'PGRST204' ||
+        code == '42P10' ||
+        msg.contains('recent_key') ||
+        msg.contains('surah_id');
+  }
+
+  Future<void> _syncRecentReadingsBatchToSupabase(
+    String userId,
+    List<MushafRecentReading> readings,
+  ) async {
+    if (readings.isEmpty) return;
+    final client = Supabase.instance.client;
+
+    if (_isRecentKeyColumnSupported) {
+      try {
+        final dedupedPayload = <String, Map<String, dynamic>>{};
+        for (final r in readings) {
+          final identity = _resolveRecentIdentity(r);
+          final resolvedProfileId = _resolveUuidProfileIdForRecent(r);
+          if (!identity.isFree && resolvedProfileId == null) continue;
+          final key = '${r.mushafId}:${identity.recentKey}';
+          dedupedPayload[key] = {
+            'user_id': userId,
+            'mushaf_id': r.mushafId,
+            'page_number': r.pageNumber,
+            'profile_id': resolvedProfileId,
+            'surah_id': identity.surahId,
+            'recent_key': identity.recentKey,
+            'updated_at': r.updatedAt.toUtc().toIso8601String(),
+          };
+        }
+        if (dedupedPayload.isNotEmpty) {
+          await client
+              .from('mushaf_recent_readings')
+              .upsert(
+                dedupedPayload.values.toList(),
+                onConflict: 'user_id,mushaf_id,recent_key',
+              );
+        }
+        return;
+      } catch (e) {
+        if (!_isMissingRecentKeySchemaError(e)) {
+          debugPrint('Error syncing Mushaf recent readings to Supabase: $e');
+          rethrow;
+        }
+        _isRecentKeyColumnSupported = false;
+      }
+    }
+
+    // Legacy fallback before the recent_key/surah_id migration is applied.
+    final legacyPayload = <String, Map<String, dynamic>>{};
+    for (final r in readings) {
+      final resolvedProfileId = _resolveUuidProfileIdForRecent(r);
+      final identity = _resolveRecentIdentity(r);
+      if (!identity.isFree && resolvedProfileId == null) continue;
+      final legacyKey = '${r.mushafId}:${resolvedProfileId ?? 'null'}';
+      legacyPayload[legacyKey] = {
         'user_id': userId,
-        'mushaf_id': mushafId,
-        'page_number': pageNumber,
-        'profile_id': profileId,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, onConflict: 'user_id,mushaf_id,profile_id');
-    } catch (e) {
-      debugPrint('Error syncing Mushaf recent reading to Supabase: $e');
-      rethrow;
+        'mushaf_id': r.mushafId,
+        'page_number': r.pageNumber,
+        'profile_id': resolvedProfileId,
+        'updated_at': r.updatedAt.toUtc().toIso8601String(),
+      };
+    }
+    if (legacyPayload.isNotEmpty) {
+      try {
+        await client
+            .from('mushaf_recent_readings')
+            .upsert(
+              legacyPayload.values.toList(),
+              onConflict: 'user_id,mushaf_id,profile_id',
+            );
+      } catch (e) {
+        debugPrint('Error syncing legacy Mushaf recent readings: $e');
+        rethrow;
+      }
     }
   }
 
@@ -1528,29 +1888,24 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     _recentReadingSyncTimer?.cancel();
     _recentReadingSyncTimer = null;
 
-    final userId = _pendingRecentUserId;
-    final mushafId = _pendingRecentMushafId;
-    final pageNumber = _pendingRecentPageNumber;
-    final profileId = _pendingRecentProfileId;
-    if (userId == null || mushafId == null || pageNumber == null) return;
-
-    _pendingRecentUserId = null;
-    _pendingRecentMushafId = null;
-    _pendingRecentPageNumber = null;
-    _pendingRecentProfileId = null;
+    if (_pendingRecentSyncs.isEmpty) return;
+    final pending = Map<String, ({String userId, MushafRecentReading recent})>.from(
+      _pendingRecentSyncs,
+    );
+    _pendingRecentSyncs.clear();
 
     try {
-      await _syncRecentReadingToSupabase(
-        userId,
-        mushafId,
-        pageNumber,
-        profileId,
-      );
+      final byUser = <String, List<MushafRecentReading>>{};
+      for (final entry in pending.values) {
+        byUser.putIfAbsent(entry.userId, () => []).add(entry.recent);
+      }
+      for (final userEntry in byUser.entries) {
+        await _syncRecentReadingsBatchToSupabase(userEntry.key, userEntry.value);
+      }
     } catch (_) {
-      _pendingRecentUserId = userId;
-      _pendingRecentMushafId = mushafId;
-      _pendingRecentPageNumber = pageNumber;
-      _pendingRecentProfileId = profileId;
+      for (final entry in pending.entries) {
+        _pendingRecentSyncs.putIfAbsent(entry.key, () => entry.value);
+      }
       rethrow;
     }
   }

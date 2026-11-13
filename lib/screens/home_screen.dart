@@ -403,6 +403,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<CustomQuickLink> _defaultQuickLinks() => [
         CustomQuickLink(
+          id: 'system_mulk',
+          surahNumber: 67,
+          label: 'ก่อนนอน',
+          isLocked: true,
+        ),
+        CustomQuickLink(
           id: 'system_kahf',
           surahNumber: 18,
           label: 'วันศุกร์',
@@ -415,15 +421,39 @@ class _HomeScreenState extends State<HomeScreen> {
           isLocked: true,
         ),
         CustomQuickLink(
-          id: 'system_mulk',
-          surahNumber: 67,
-          label: 'ก่อนนอน',
-          isLocked: true,
-        ),
-        CustomQuickLink(
           id: 'system_naba',
           surahNumber: 78,
           label: 'ญุซอ์ 30',
+          isLocked: true,
+        ),
+        CustomQuickLink(
+          id: 'system_rahman',
+          surahNumber: 55,
+          label: 'ความเมตตา',
+          isLocked: true,
+        ),
+        CustomQuickLink(
+          id: 'system_yusuf',
+          surahNumber: 12,
+          label: 'นบียูซุฟ',
+          isLocked: true,
+        ),
+        CustomQuickLink(
+          id: 'system_naml',
+          surahNumber: 27,
+          label: 'ปัญญานบี',
+          isLocked: true,
+        ),
+        CustomQuickLink(
+          id: 'system_waqiah',
+          surahNumber: 56,
+          label: 'ริสกี',
+          isLocked: true,
+        ),
+        CustomQuickLink(
+          id: 'system_baqarah',
+          surahNumber: 2,
+          label: 'กุรซีย์',
           isLocked: true,
         ),
       ];
@@ -550,8 +580,8 @@ class _HomeScreenState extends State<HomeScreen> {
             'surah_number': link.surahNumber,
             'label': link.label,
             'sort_order': index,
-            'created_at': link.createdAt.toIso8601String(),
-            'updated_at': link.updatedAt.toIso8601String(),
+            'created_at': link.createdAt.toUtc().toIso8601String(),
+            'updated_at': link.updatedAt.toUtc().toIso8601String(),
           }, onConflict: 'id,user_id');
         } catch (e) {
           pushedAll = false;
@@ -561,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (pushedAll) {
         await prefs.setString(
           _quickLinksSyncedAtKey(scope),
-          DateTime.now().toIso8601String(),
+          DateTime.now().toUtc().toIso8601String(),
         );
       }
 
@@ -625,14 +655,14 @@ class _HomeScreenState extends State<HomeScreen> {
     String? verseId,
     int? verseIndex,
     bool saveToFreeReadOnly = false,
-    String? shortcutId,
+    String? goalProfileId,
   }) {
     final localReading = context.read<LocalReadingProvider>();
     final String? fallbackProfileId;
     if (saveToFreeReadOnly) {
       fallbackProfileId = null;
-    } else if (shortcutId != null) {
-      fallbackProfileId = shortcutId;
+    } else if (goalProfileId != null) {
+      fallbackProfileId = goalProfileId;
     } else {
       final active = localReading.activeProfile;
       fallbackProfileId =
@@ -649,7 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
           initialVerseIndex:
               verseIndex ?? ((int.tryParse(verseId ?? '1') ?? 1) - 1),
           saveToFreeReadOnly: saveToFreeReadOnly,
-          shortcutId: shortcutId,
+          goalProfileId: goalProfileId,
         ),
       ),
     ).then(
@@ -663,12 +693,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _navigateToMushafFreeReadPage(
     int pageNumber, {
-    String? shortcutId,
+    int? mushafId,
+    int? surahContext,
     String? highlightedVerseKey,
   }) async {
     final mushafProvider = context.read<MushafReadingProvider>();
-    final profile = mushafProvider.freeReadProfileForMushaf(1);
-    unawaited(mushafProvider.openUnifiedFreeRead());
+    final targetMushafId = mushafId ?? 1;
+    final profile = mushafProvider.freeReadProfileForMushaf(targetMushafId);
+    unawaited(mushafProvider.openFreeRead(targetMushafId));
     if (!mounted) return;
     Navigator.push(
       context,
@@ -676,10 +708,10 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => MushafReaderScreen(
           quranRepository: widget.repository,
           foundationRepository: _foundationRepository,
-          profileId: shortcutId != null ? null : profile.id,
-          shortcutId: shortcutId,
+          profileId: profile.id,
           initialPage: pageNumber,
           initialHighlightVerseKey: highlightedVerseKey,
+          initialSurahContext: surahContext,
         ),
       ),
     ).then((_) => _refreshHomeAfterReader());
@@ -733,9 +765,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         if (profile != null && isShortcutProfile(profile)) {
-          if (surahId != profile.start.surahId) {
-            profile = null;
-          }
+          profile = null;
         }
 
         profile ??= saveToFreeReadOnly
@@ -753,19 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   DateTime _normalizeDate(DateTime dt) {
-    if (dt.isUtc) {
-      return DateTime(
-        dt.year,
-        dt.month,
-        dt.day,
-        dt.hour,
-        dt.minute,
-        dt.second,
-        dt.millisecond,
-        dt.microsecond,
-      );
-    }
-    return dt;
+    return sanitizeSyncTimestamp(dt).normalized.toLocal();
   }
 
   ({VerseRef verse, String? profileId, DateTime at})? _latestVerseLastRead(
@@ -903,7 +921,7 @@ class _HomeScreenState extends State<HomeScreen> {
         verseRecent.verse.surahId,
         verseId: verseRecent.verse.verseId,
         saveToFreeReadOnly: !isGoal,
-        shortcutId: isGoal ? profile.id : null,
+        goalProfileId: isGoal ? profile.id : null,
       );
       return;
     }
@@ -916,18 +934,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _navigateToReading(context, '1', verseId: '1', saveToFreeReadOnly: true);
   }
 
-  Future<void> _chooseBrowseDestination(
-    String surahId,
-    String verseId, {
-    String? shortcutId,
+  Future<String?> _showReadingModeSheet({
+    required int pageNumber,
+    String? title,
   }) async {
     final colorScheme = Theme.of(context).colorScheme;
     final isThai = context.read<SettingsProvider>().languageCode == 'th';
-    final surah = int.tryParse(surahId) ?? 1;
-    final verse = int.tryParse(verseId) ?? 1;
-    final pageNumber = getMedinaMushafPageNumber(surah, verse);
 
-    final destination = await showModalBottomSheet<String>(
+    return showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       backgroundColor: colorScheme.surface,
@@ -944,7 +958,9 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                context.tr('select_reading_mode'),
+                title != null && title.isNotEmpty
+                    ? '$title · ${context.tr('select_reading_mode')}'
+                    : context.tr('select_reading_mode'),
                 style: GoogleFonts.notoSansThai(
                   color: colorScheme.onSurface,
                   fontSize: 18,
@@ -991,11 +1007,23 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Future<void> _chooseBrowseDestination(
+    String surahId,
+    String verseId, {
+    String? goalProfileId,
+  }) async {
+    final surah = int.tryParse(surahId) ?? 1;
+    final verse = int.tryParse(verseId) ?? 1;
+    final pageNumber = getMedinaMushafPageNumber(surah, verse);
+
+    final destination = await _showReadingModeSheet(pageNumber: pageNumber);
     if (!mounted || destination == null) return;
     if (destination == 'mushaf') {
       await _navigateToMushafFreeReadPage(
         pageNumber,
-        shortcutId: shortcutId,
+        surahContext: surah,
         highlightedVerseKey: '$surah:$verse',
       );
       return;
@@ -1019,8 +1047,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       surahId,
       verseId: verseId,
-      saveToFreeReadOnly: shortcutId == null,
-      shortcutId: shortcutId,
+      saveToFreeReadOnly: goalProfileId == null,
+      goalProfileId: goalProfileId,
     );
   }
 
@@ -2134,7 +2162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         verseRecent.verse.surahId,
                         verseId: verseRecent.verse.verseId,
                         saveToFreeReadOnly: !isMeaningGoal,
-                        shortcutId: isMeaningGoal ? meaningProfile?.id : null,
+                        goalProfileId: isMeaningGoal ? meaningProfile?.id : null,
                       );
                     } else {
                       final freeRead = readingProvider.freeReadProfile;
@@ -2796,22 +2824,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              isThai ? 'ความหมาย' : 'Meaning',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.primary,
+                            InkWell(
+                              onTap: () =>
+                                  _openQuickLinkInMode(link, 'meaning'),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                  vertical: 1,
+                                ),
+                                child: Text(
+                                  isThai ? 'ความหมาย' : 'Meaning',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
                               ),
                             ),
                             InkWell(
-                              onTap: () {
-                                final page = getMedinaMushafPageNumber(
-                                  link.surahNumber,
-                                  1,
-                                );
-                                _navigateToMushafFreeReadPage(page);
-                              },
+                              onTap: () => _openQuickLinkInMode(link, 'mushaf'),
                               borderRadius: BorderRadius.circular(4),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -2853,93 +2886,253 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _onQuickLinkTap(CustomQuickLink link) async {
-    final provider = context.read<LocalReadingProvider>();
-    final shortcutId =
-        '00000000-0000-0000-0000-00000000${link.surahNumber.toString().padLeft(4, '0')}';
+  String _formatRelativeReadTime(DateTime timestamp, {required bool isThai}) {
+    final diff = DateTime.now().difference(timestamp.toLocal());
+    if (diff.inSeconds < 60) {
+      return isThai ? 'เมื่อสักครู่' : 'just now';
+    }
+    if (diff.inMinutes < 60) {
+      final mins = diff.inMinutes;
+      return isThai ? '$mins นาทีที่แล้ว' : '${mins}m ago';
+    }
+    if (diff.inHours < 24) {
+      final hrs = diff.inHours;
+      return isThai ? '$hrs ชั่วโมงที่แล้ว' : '${hrs}h ago';
+    }
+    final days = diff.inDays;
+    return isThai ? '$days วันที่แล้ว' : '${days}d ago';
+  }
 
-    provider.checkAndResetShortcutProfiles();
-    final profile = await provider.ensureShortcutProfile(
-      shortcutId,
-      link.surahNumber,
+  Future<bool?> _showQuickResumeSheet({
+    required String surahName,
+    required String modeLabel,
+    required String progressLabel,
+    required DateTime timestamp,
+    required String continueLabel,
+    required String startOverLabel,
+  }) async {
+    return showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
+      ),
+      builder: (ctx) {
+        final settings = ctx.read<SettingsProvider>();
+        final colors = settings.getAppColors();
+        final isThai = settings.languageCode == 'th';
+        final relative = _formatRelativeReadTime(timestamp, isThai: isThai);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      surahName,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      modeLabel,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isThai
+                    ? 'พบการอ่านล่าสุดที่ $progressLabel ($relative) ต้องการอ่านต่อหรือเริ่มใหม่?'
+                    : 'Found a recent read at $progressLabel ($relative). Continue or start over?',
+                style: GoogleFonts.notoSansThai(color: colors.foreground),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(continueLabel),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(startOverLabel),
+              ),
+            ],
+          ),
+        );
+      },
     );
-    var targetVerseId = profile.current.verseId;
+  }
 
-    if (targetVerseId != '1') {
+  Future<void> _openQuickLinkInMode(CustomQuickLink link, String mode) async {
+    final sId = link.surahNumber.toString();
+    final settings = context.read<SettingsProvider>();
+    final isThai = settings.languageCode == 'th';
+    final surahName = surahDisplayName(sId, isThai: isThai);
+
+    if (mode == 'hifz') {
       if (!mounted) return;
-      final startOver = await showModalBottomSheet<bool>(
-        context: context,
-        showDragHandle: true,
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppTheme.radius),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => HifzWizardSetupScreen(
+            quranRepository: widget.repository,
+            foundationRepository: _foundationRepository,
+            initialSurah: link.surahNumber,
+            initialStartVerse: 1,
+            initialStep: 0,
           ),
         ),
-        builder: (ctx) {
-          final settings = ctx.read<SettingsProvider>();
-          final colors = settings.getAppColors();
-          final isThai = settings.languageCode == 'th';
-          final sId = link.surahNumber.toString();
-          final surahName = surahDisplayName(sId, isThai: isThai);
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  surahName,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: colors.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  isThai
-                      ? 'คุณกำลังอ่านค้างอยู่ที่อายะฮฺ $targetVerseId คุณต้องการอ่านต่อหรือเริ่มต้นใหม่?'
-                      : 'You are currently at Verse $targetVerseId. Do you want to continue or start over?',
-                  style: GoogleFonts.notoSansThai(color: colors.foreground),
-                ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(
-                    isThai
-                        ? 'อ่านต่อ (อายะฮฺ $targetVerseId)'
-                        : 'Continue reading (Verse $targetVerseId)',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(
-                    isThai ? 'เริ่มต้นใหม่จากอายะฮฺ 1' : 'Start from Verse 1',
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
       );
-      if (startOver == null) return;
-      if (startOver) {
-        targetVerseId = '1';
-        await provider.updateShortcutProgress(
-          shortcutId,
-          toVerseRef(link.surahNumber.toString(), '1'),
+      return;
+    }
+
+    if (mode == 'mushaf') {
+      final mushafProvider = context.read<MushafReadingProvider>();
+      final startPage = getMedinaMushafStartPageForSurah(link.surahNumber);
+      final recent = mushafProvider.latestRecentForSurah(link.surahNumber);
+
+      if (recent == null) {
+        await _navigateToMushafFreeReadPage(
+          startPage,
+          surahContext: link.surahNumber,
+          highlightedVerseKey: '${link.surahNumber}:1',
         );
+        return;
       }
+
+      if (!mounted) return;
+      final startOver = await _showQuickResumeSheet(
+        surahName: surahName,
+        modeLabel: isThai ? 'มุศหัฟ' : 'Mushaf',
+        progressLabel: isThai
+            ? 'หน้า ${recent.pageNumber}'
+            : 'Page ${recent.pageNumber}',
+        timestamp: recent.updatedAt,
+        continueLabel: isThai
+            ? 'อ่านต่อ (หน้า ${recent.pageNumber})'
+            : 'Continue (Page ${recent.pageNumber})',
+        startOverLabel: isThai
+            ? 'เริ่มจากหน้า $startPage'
+            : 'Start from Page $startPage',
+      );
+      if (startOver == null || !mounted) return;
+
+      if (startOver) {
+        await mushafProvider.recordFreeReadPage(
+          pageNumber: startPage,
+          mushafId: recent.mushafId,
+          surahId: link.surahNumber,
+          immediateSync: true,
+        );
+        if (!mounted) return;
+        await _navigateToMushafFreeReadPage(
+          startPage,
+          mushafId: recent.mushafId,
+          surahContext: link.surahNumber,
+          highlightedVerseKey: '${link.surahNumber}:1',
+        );
+        return;
+      }
+
+      await _navigateToMushafFreeReadPage(
+        recent.pageNumber,
+        mushafId: recent.mushafId,
+        surahContext: link.surahNumber,
+      );
+      return;
+    }
+
+    final localReading = context.read<LocalReadingProvider>();
+    final recent = localReading.latestRecentForSurah(link.surahNumber);
+    if (recent == null) {
+      if (!mounted) return;
+      _navigateToReading(
+        context,
+        sId,
+        verseId: '1',
+        saveToFreeReadOnly: true,
+      );
+      return;
     }
 
     if (!mounted) return;
-    await _chooseBrowseDestination(
-      link.surahNumber.toString(),
-      targetVerseId,
-      shortcutId: shortcutId,
+    final recentVerse = recent.verse.verseId;
+    final startOver = await _showQuickResumeSheet(
+      surahName: surahName,
+      modeLabel: isThai ? 'ความหมาย' : 'Meaning',
+      progressLabel: isThai ? 'อายะฮฺ $recentVerse' : 'Ayah $recentVerse',
+      timestamp: recent.readAt,
+      continueLabel: isThai
+          ? 'อ่านต่อ (อายะฮฺ $recentVerse)'
+          : 'Continue (Ayah $recentVerse)',
+      startOverLabel: isThai ? 'เริ่มจากอายะฮฺ 1' : 'Start from Ayah 1',
     );
+    if (startOver == null || !mounted) return;
+
+    if (startOver) {
+      await localReading.addRecentReading(
+        verse: toVerseRef(sId, '1'),
+        forceFreeRead: true,
+        immediateSync: true,
+      );
+      if (!mounted) return;
+      _navigateToReading(
+        context,
+        sId,
+        verseId: '1',
+        saveToFreeReadOnly: true,
+      );
+      return;
+    }
+
+    _navigateToReading(
+      context,
+      sId,
+      verseId: recentVerse,
+      saveToFreeReadOnly: true,
+    );
+  }
+
+  Future<void> _onQuickLinkTap(CustomQuickLink link) async {
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
+    final surahName = surahDisplayName(
+      link.surahNumber.toString(),
+      isThai: isThai,
+    );
+    final startPage = getMedinaMushafStartPageForSurah(link.surahNumber);
+
+    final destination = await _showReadingModeSheet(
+      pageNumber: startPage,
+      title: surahName,
+    );
+    if (!mounted || destination == null) return;
+
+    final mode = destination == 'readspace' ? 'meaning' : destination;
+    await _openQuickLinkInMode(link, mode);
   }
 
   void _showAddQuickLinkSheet() {
@@ -3600,8 +3793,8 @@ class CustomQuickLink {
     'surahNumber': surahNumber,
     'label': label,
     'isLocked': isLocked,
-    'createdAt': createdAt.toIso8601String(),
-    'updatedAt': updatedAt.toIso8601String(),
+    'createdAt': createdAt.toUtc().toIso8601String(),
+    'updatedAt': updatedAt.toUtc().toIso8601String(),
   };
 
   factory CustomQuickLink.fromJson(Map<String, dynamic> json) =>

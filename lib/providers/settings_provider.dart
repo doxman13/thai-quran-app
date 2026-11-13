@@ -266,7 +266,7 @@ class SettingsProvider extends ChangeNotifier {
           'secondary_translation_id': _secondaryTranslationId,
           'language_code': _languageCode,
           'web_host_url': _webHostUrl,
-          'updated_at': updatedAt.toIso8601String(),
+          'updated_at': updatedAt.toUtc().toIso8601String(),
         }, onConflict: 'user_id');
       } catch (e) {
         debugPrint('Error syncing settings to Supabase: $e');
@@ -366,7 +366,7 @@ class SettingsProvider extends ChangeNotifier {
       _settingsUpdatedAt = remoteUpdatedAt;
       await prefs.setString(
         'settingsUpdatedAt',
-        remoteUpdatedAt.toIso8601String(),
+        remoteUpdatedAt.toUtc().toIso8601String(),
       );
       if (_secondaryTranslationId != null) {
         await prefs.setString(
@@ -568,10 +568,10 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> _markSettingsChanged(SharedPreferences prefs) async {
-    _settingsUpdatedAt = DateTime.now();
+    _settingsUpdatedAt = DateTime.now().toUtc();
     await prefs.setString(
       'settingsUpdatedAt',
-      _settingsUpdatedAt.toIso8601String(),
+      _settingsUpdatedAt.toUtc().toIso8601String(),
     );
   }
 

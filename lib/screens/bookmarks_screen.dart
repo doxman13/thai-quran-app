@@ -118,9 +118,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
       }
 
       if (profile != null && isShortcutProfile(profile)) {
-        if (resultSurahId != profile.start.surahId) {
-          profile = null;
-        }
+        profile = null;
       }
 
       profile ??= saveToFreeReadOnly
@@ -140,6 +138,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     String? profileId,
     int mushafId, {
     int? pageNumber,
+    int? surahContext,
     String? highlightedVerseKey,
   }) async {
     final provider = context.read<MushafReadingProvider>();
@@ -172,6 +171,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           profileId: targetProfileId,
           initialPage: pageNumber,
           initialHighlightVerseKey: highlightedVerseKey,
+          initialSurahContext: surahContext,
         ),
       ),
     );
@@ -191,10 +191,16 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         reading.profileId,
         reading.mushafId,
         pageNumber: reading.pageNumber,
+        surahContext: reading.surahId,
       );
       return;
     }
-    _openMushaf(null, reading.mushafId, pageNumber: reading.pageNumber);
+    _openMushaf(
+      null,
+      reading.mushafId,
+      pageNumber: reading.pageNumber,
+      surahContext: reading.surahId,
+    );
   }
 
   void _handleVerseRecentTap(
@@ -215,10 +221,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
         ? provider.profileById(profileId)
         : null;
     final isInside = profile != null &&
-        (isShortcutProfile(profile)
-            ? surahId == profile.start.surahId
-            : (profile.target == null ||
-                provider.isVerseInsideProfile(profile, surahId, verseId)));
+        !isShortcutProfile(profile) &&
+        (profile.target == null ||
+            provider.isVerseInsideProfile(profile, surahId, verseId));
     final hasProfile = profile != null && !profile.isArchived && isInside;
     if (hasProfile) {
       await provider.setActiveProfile(profileId);
@@ -277,8 +282,9 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   }
 
   String _formatTimestamp(DateTime dt, bool isThai) {
+    final localDt = sanitizeSyncTimestamp(dt).normalized.toLocal();
     final now = DateTime.now();
-    final diff = now.difference(dt);
+    final diff = now.difference(localDt);
     if (diff.inMinutes < 1) {
       return isThai ? 'เมื่อสักครู่' : 'Just now';
     } else if (diff.inMinutes < 60) {
@@ -288,7 +294,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     } else if (diff.inDays < 7) {
       return isThai ? '${diff.inDays} วันที่แล้ว' : '${diff.inDays}d ago';
     } else {
-      return '${dt.day}/${dt.month}/${dt.year}';
+      return '${localDt.day}/${localDt.month}/${localDt.year}';
     }
   }
 
@@ -892,18 +898,23 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     if (mushafReading.recentReadings.isNotEmpty) {
       rawRecent.addAll(
         mushafReading.recentReadings.map((reading) {
-          final surahName = getSurahNameForPage(
-            reading.pageNumber,
-            widget.repository,
-          );
+          final isMedina =
+              mushafTypeById(reading.mushafId).pageCount == 604 &&
+              reading.pageNumber >= 1 &&
+              reading.pageNumber <= 604;
+          final resolvedSurahId =
+              reading.surahId ??
+              (isMedina ? getPrimarySurahOnMedinaPage(reading.pageNumber) : 1);
+          final sId = resolvedSurahId.toString();
+          final surahName = reading.surahId != null
+              ? surahDisplayName(sId, isThai: isThai)
+              : getSurahNameForPage(
+                  reading.pageNumber,
+                  widget.repository,
+                );
           final profile = reading.profileId != null
               ? mushafReading.profileById(reading.profileId!)
               : null;
-          var sId = '1';
-          try {
-            final pageSurah = medinaMushafPages[reading.pageNumber - 1].first['surah'];
-            if (pageSurah != null) sId = pageSurah.toString();
-          } catch (_) {}
           final arName = offlineSurahNamesAr[sId] ?? '';
           final hasGoalProfile = profile != null && !profile.isFreeRead;
           final isArchivedGoal = hasGoalProfile && profile.isArchived;

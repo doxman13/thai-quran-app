@@ -369,7 +369,7 @@ class OfflineQuranDatabaseService {
           'metadata',
           {
             'key': 'translation_th_updated_at',
-            'value': DateTime.now().toIso8601String(),
+            'value': DateTime.now().toUtc().toIso8601String(),
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );

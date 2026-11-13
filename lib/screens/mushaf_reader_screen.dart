@@ -17,7 +17,6 @@ import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
 import '../models/mushaf_models.dart';
 import '../providers/mushaf_reading_provider.dart';
-import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
@@ -47,7 +46,7 @@ class MushafReaderScreen extends StatefulWidget {
   final int? initialPage;
   final String? initialHighlightVerseKey;
   final Set<String>? initialHighlightVerseKeys;
-  final String? shortcutId;
+  final int? initialSurahContext;
 
   const MushafReaderScreen({
     super.key,
@@ -57,7 +56,7 @@ class MushafReaderScreen extends StatefulWidget {
     this.initialPage,
     this.initialHighlightVerseKey,
     this.initialHighlightVerseKeys,
-    this.shortcutId,
+    this.initialSurahContext,
   });
 
   @override
@@ -77,6 +76,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   Timer? _highlightTimer;
   Timer? _menuAutoHideTimer;
   int? _lastAudioPageNumber;
+  int? _activeSurahContext;
 
   void _startAutoHideTimer() {
     _menuAutoHideTimer?.cancel();
@@ -94,42 +94,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   MushafProfile? _getProfile() {
-    if (widget.shortcutId != null) {
-      final lp = context.read<LocalReadingProvider>().profileById(
-        widget.shortcutId!,
-      );
-      if (lp == null) return null;
-      final startPage = getMedinaMushafPageNumber(
-        int.tryParse(lp.start.surahId) ?? 1,
-        int.tryParse(lp.start.verseId) ?? 1,
-      );
-      final targetPage = lp.target != null
-          ? getMedinaMushafPageNumber(
-              int.tryParse(lp.target!.surahId) ?? 1,
-              int.tryParse(lp.target!.verseId) ?? 1,
-            )
-          : 604;
-      final currentPage = getMedinaMushafPageNumber(
-        int.tryParse(lp.current.surahId) ?? 1,
-        int.tryParse(lp.current.verseId) ?? 1,
-      );
-      return MushafProfile(
-        id: lp.id,
-        userId: lp.userId,
-        name: lp.name,
-        slug: lp.slug,
-        mushafId: 2, // Madani QCF
-        planMode: 'custom',
-        startPage: startPage,
-        targetPage: targetPage,
-        currentPage: currentPage,
-        lastViewedPage: currentPage,
-        sortOrder: 0,
-        isArchived: false,
-        createdAt: lp.createdAt,
-        updatedAt: lp.updatedAt,
-      );
-    }
     return context.read<MushafReadingProvider>().profileById(widget.profileId) ??
         context.read<MushafReadingProvider>().activeProfile;
   }
@@ -139,6 +103,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     super.initState();
     final profile = _getProfile();
     _pageNumber = widget.initialPage ?? profile?.currentPage ?? 1;
+    _activeSurahContext = widget.initialSurahContext;
     _pageController = PageController(
       initialPage: _pageToIndex(profile, _pageNumber),
     );
@@ -157,28 +122,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         }
         final currentProfile = _getProfile();
         if (currentProfile != null) {
-          if (widget.shortcutId != null) {
-            final pageData = await widget.foundationRepository.fetchPage(
-              mushafId: 2,
-              pageNumber: _pageNumber,
-            );
-            if (mounted && pageData.verses.isNotEmpty) {
-              final firstVerse = pageData.verses.first;
-              final verseRef = toVerseRef(
-                firstVerse.surahId.toString(),
-                firstVerse.verseId.toString(),
-              );
-              await context.read<LocalReadingProvider>().updateShortcutProgress(
-                widget.shortcutId!,
-                verseRef,
-              );
-            }
-          } else {
-            context.read<MushafReadingProvider>().updateProgress(
-              profileId: currentProfile.id,
-              pageNumber: _pageNumber,
+          if (mushafTypeById(currentProfile.mushafId).pageCount == 604) {
+            _activeSurahContext = getPrimarySurahOnMedinaPage(
+              _pageNumber,
+              preferredSurahId: _activeSurahContext,
             );
           }
+          await context.read<MushafReadingProvider>().updateProgress(
+            profileId: currentProfile.id,
+            pageNumber: _pageNumber,
+            surahId: _activeSurahContext,
+          );
           unawaited(_logMushafPageRead(currentProfile.mushafId, _pageNumber));
         }
 
@@ -240,28 +194,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   Future<void> _handlePageChanged(MushafProfile profile, int page) async {
     _dismissTranslation();
     setState(() => _pageNumber = page);
-    if (widget.shortcutId != null) {
-      final pageData = await widget.foundationRepository.fetchPage(
-        mushafId: 2,
-        pageNumber: page,
-      );
-      if (mounted && pageData.verses.isNotEmpty) {
-        final firstVerse = pageData.verses.first;
-        final verseRef = toVerseRef(
-          firstVerse.surahId.toString(),
-          firstVerse.verseId.toString(),
-        );
-        await context.read<LocalReadingProvider>().updateShortcutProgress(
-          widget.shortcutId!,
-          verseRef,
-        );
-      }
-    } else {
-      await context.read<MushafReadingProvider>().updateProgress(
-        profileId: profile.id,
-        pageNumber: page,
+    if (mushafTypeById(profile.mushafId).pageCount == 604) {
+      _activeSurahContext = getPrimarySurahOnMedinaPage(
+        page,
+        preferredSurahId: _activeSurahContext,
       );
     }
+    await context.read<MushafReadingProvider>().updateProgress(
+      profileId: profile.id,
+      pageNumber: page,
+      surahId: _activeSurahContext,
+    );
     unawaited(_logMushafPageRead(profile.mushafId, page));
   }
 
@@ -1346,10 +1289,17 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
 
     final safePage = _clampInt(targetPage, 1, 604);
     final freeProfile = await provider.openFreeRead(currentProfile.mushafId);
+    if (mushafTypeById(freeProfile.mushafId).pageCount == 604) {
+      _activeSurahContext = getPrimarySurahOnMedinaPage(
+        safePage,
+        preferredSurahId: _activeSurahContext,
+      );
+    }
 
     await provider.updateProgress(
       profileId: freeProfile.id,
       pageNumber: safePage,
+      surahId: _activeSurahContext,
     );
     await provider.setActiveProfile(freeProfile.id);
 
@@ -1944,32 +1894,19 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                               ? () => _goToPage(_pageNumber + 1)
                               : null,
                           onDone: () async {
-                            if (widget.shortcutId != null) {
-                              final pageData = await widget.foundationRepository
-                                  .fetchPage(
-                                    mushafId: 2,
-                                    pageNumber: _pageNumber,
+                            if (mushafTypeById(profile.mushafId).pageCount ==
+                                604) {
+                              _activeSurahContext =
+                                  getPrimarySurahOnMedinaPage(
+                                    _pageNumber,
+                                    preferredSurahId: _activeSurahContext,
                                   );
-                              if (context.mounted &&
-                                  pageData.verses.isNotEmpty) {
-                                final firstVerse = pageData.verses.first;
-                                final verseRef = toVerseRef(
-                                  firstVerse.surahId.toString(),
-                                  firstVerse.verseId.toString(),
-                                );
-                                await context
-                                    .read<LocalReadingProvider>()
-                                    .updateShortcutProgress(
-                                      widget.shortcutId!,
-                                      verseRef,
-                                    );
-                              }
-                            } else {
-                              await provider.updateProgress(
-                                profileId: profile.id,
-                                pageNumber: _pageNumber,
-                              );
                             }
+                            await provider.updateProgress(
+                              profileId: profile.id,
+                              pageNumber: _pageNumber,
+                              surahId: _activeSurahContext,
+                            );
                             await provider.flushPendingRecentReadingSync();
                             await provider.flushPendingProfileSyncs();
                             if (context.mounted) {

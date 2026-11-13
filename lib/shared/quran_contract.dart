@@ -271,7 +271,7 @@ class RecentReadingInput extends VerseRef {
       'surah_id': surahId,
       'verse_id': verseId,
       if (profileId != null) 'profile_id': profileId,
-      if (updatedAt != null) 'read_at': updatedAt!.toIso8601String(),
+      if (updatedAt != null) 'read_at': updatedAt!.toUtc().toIso8601String(),
     };
   }
 }
@@ -528,4 +528,22 @@ int _compareVerseRows(VerseRef a, VerseRef b) {
   final surahDiff = int.parse(a.surahId).compareTo(int.parse(b.surahId));
   if (surahDiff != 0) return surahDiff;
   return int.parse(a.verseId).compareTo(int.parse(b.verseId));
+}
+
+const Duration futureTimestampTolerance = Duration(minutes: 5);
+
+/// Guards against future-skewed timestamps (e.g., offsetless local ISO strings
+/// stored as UTC by Postgres) locking out real current-time progress during sync.
+({DateTime normalized, bool wasFuture}) sanitizeSyncTimestamp(
+  DateTime? parsed, {
+  DateTime? now,
+}) {
+  final currentUtc = (now ?? DateTime.now()).toUtc();
+  final fallback = currentUtc.subtract(const Duration(minutes: 1));
+  if (parsed == null) return (normalized: fallback, wasFuture: false);
+  final utcParsed = parsed.toUtc();
+  if (utcParsed.isAfter(currentUtc.add(futureTimestampTolerance))) {
+    return (normalized: fallback, wasFuture: true);
+  }
+  return (normalized: utcParsed, wasFuture: false);
 }

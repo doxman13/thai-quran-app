@@ -24,13 +24,19 @@ class GuestLifecycleService {
     final lastActiveStr = prefs.getString(guestLastActiveKey);
     if (lastActiveStr == null) {
       // First run or timestamp not yet set - initialize to now
-      await prefs.setString(guestLastActiveKey, DateTime.now().toIso8601String());
+      await prefs.setString(
+        guestLastActiveKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
       return false;
     }
 
     final lastActive = DateTime.tryParse(lastActiveStr);
     if (lastActive == null) {
-      await prefs.setString(guestLastActiveKey, DateTime.now().toIso8601String());
+      await prefs.setString(
+        guestLastActiveKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
       return false;
     }
 
@@ -43,7 +49,10 @@ class GuestLifecycleService {
     if (_hasCurrentUser) return;
     try {
       final prefs = existingPrefs ?? await SharedPreferences.getInstance();
-      await prefs.setString(guestLastActiveKey, DateTime.now().toIso8601String());
+      await prefs.setString(
+        guestLastActiveKey,
+        DateTime.now().toUtc().toIso8601String(),
+      );
     } catch (e) {
       debugPrint('[GuestLifecycleService] Error touching activity: $e');
     }

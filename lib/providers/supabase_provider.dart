@@ -385,7 +385,7 @@ class SupabaseProvider extends ChangeNotifier {
             'current_ayah': 1,
             'furthest_unread_index': 1,
             'last_viewed_index': 1,
-            'last_read_at': DateTime.now().toIso8601String(),
+            'last_read_at': DateTime.now().toUtc().toIso8601String(),
           }),
         );
       }
@@ -420,7 +420,7 @@ class SupabaseProvider extends ChangeNotifier {
       await _client.from('user_settings').upsert({
         'user_id': userId,
         ...settings,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       }, onConflict: 'user_id');
     } catch (e) {
       debugPrint('Error saving user settings to Supabase: $e');
