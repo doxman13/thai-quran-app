@@ -10,7 +10,8 @@ class GuestLifecycleService {
 
   static bool get _hasCurrentUser {
     try {
-      return Supabase.instance.client.auth.currentUser != null;
+      final client = Supabase.instance.client;
+      return client.auth.currentUser != null || client.auth.currentSession != null;
     } catch (_) {
       return false;
     }

@@ -537,6 +537,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> _readDates = {};
   Set<String> _completedReadSurahs = {};
   Map<String, int> _completedReadSurahCounts = {};
+  Set<int> _deletedCompletedReadSurahs = {};
   String? _activeProfileId;
   final Completer<void> _loadCompleter = Completer<void>();
 
@@ -544,6 +545,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _saveTimer;
   Timer? _recentReadingSyncTimer;
   Timer? _profileSyncTimer;
+  Timer? _completedSurahsSyncTimer;
   String? _pendingSyncSurahId;
   String? _pendingSyncVerseId;
   String? _pendingSyncUserId;
@@ -607,17 +609,49 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   Set<String> get completedReadSurahs => Set.unmodifiable(_completedReadSurahs);
   Map<String, int> get completedReadSurahCounts =>
       Map.unmodifiable(_completedReadSurahCounts);
+  Set<int> get deletedCompletedReadSurahs =>
+      Set.unmodifiable(_deletedCompletedReadSurahs);
 
   Future<void> toggleCompletedReadSurah(String surahId) async {
+    final surahInt = int.tryParse(surahId) ?? 0;
     if (_completedReadSurahs.contains(surahId)) {
       _completedReadSurahs.remove(surahId);
+      if (surahInt > 0) {
+        _deletedCompletedReadSurahs.add(surahInt);
+      }
     } else {
       _completedReadSurahs.add(surahId);
+      if (surahInt > 0) {
+        _deletedCompletedReadSurahs.remove(surahInt);
+      }
       _completedReadSurahCounts[surahId] =
           (_completedReadSurahCounts[surahId] ?? 0) + 1;
     }
     await _save(immediate: true);
     notifyListeners();
+    _scheduleSupabaseSync();
+  }
+
+  Future<void> incrementCompletedReadSurahCount(String surahId) async {
+    final surahInt = int.tryParse(surahId) ?? 0;
+    _completedReadSurahs.add(surahId);
+    if (surahInt > 0) {
+      _deletedCompletedReadSurahs.remove(surahInt);
+    }
+    _completedReadSurahCounts[surahId] =
+        (_completedReadSurahCounts[surahId] ?? 0) + 1;
+    await _save(immediate: true);
+    notifyListeners();
+    _scheduleSupabaseSync();
+  }
+
+  void _scheduleSupabaseSync() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    _completedSurahsSyncTimer?.cancel();
+    _completedSurahsSyncTimer = Timer(const Duration(seconds: 2), () {
+      _syncCompletedSurahsWithSupabase(user.id);
+    });
   }
   String? get activeProfileId => _activeProfileId;
   LocalReadingProfile? get freeReadProfile => _profiles
@@ -730,8 +764,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       await _loadCompleter.future;
       final user = data.session?.user;
       if (user != null) {
-        await syncBookmarksAndProfilesWithSupabase(user.id);
-        await syncReadingStateWithSupabase(user.id);
+        await syncWithSupabase(user.id);
       } else {
         // Guard logout: ensure guest profiles are preserved and default is active
         _ensureDefaultProfile();
@@ -772,6 +805,7 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
+    _completedSurahsSyncTimer?.cancel();
     unawaited(flushPendingProfileSyncs());
     unawaited(flushPendingRecentReadingSync());
     unawaited(flushPendingReadingStateSync());
@@ -780,6 +814,104 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
       _executeSave();
     }
     super.dispose();
+  }
+
+  /// Unified sync entry point with Supabase
+  Future<void> syncWithSupabase([String? userId]) async {
+    final uid = userId ?? Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    await syncBookmarksAndProfilesWithSupabase(uid);
+    await syncReadingStateWithSupabase(uid);
+    await _syncCompletedSurahsWithSupabase(uid);
+    await _syncReadDatesWithSupabase(uid);
+  }
+
+  Future<void> _syncCompletedSurahsWithSupabase(String userId) async {
+    try {
+      final client = Supabase.instance.client;
+
+      // 1. Delete tombstones from public.user_completed_surahs
+      if (_deletedCompletedReadSurahs.isNotEmpty) {
+        final toDeleteList =
+            _deletedCompletedReadSurahs.map((e) => e.toString()).toList();
+        await client
+            .from('user_completed_surahs')
+            .delete()
+            .eq('user_id', userId)
+            .eq('mode', 'read')
+            .inFilter('surah_id', toDeleteList);
+        _deletedCompletedReadSurahs.clear();
+        await _save(immediate: true);
+      }
+
+      // 2. Fetch remote completed surahs
+      final remoteRows = await client
+          .from('user_completed_surahs')
+          .select('surah_id')
+          .eq('user_id', userId)
+          .eq('mode', 'read');
+
+      final remoteSurahs = (remoteRows as List)
+          .map((r) => r['surah_id']?.toString())
+          .whereType<String>()
+          .toSet();
+
+      // Union-merge into _completedReadSurahs
+      var hasChanged = false;
+      for (final s in remoteSurahs) {
+        if (_completedReadSurahs.add(s)) {
+          hasChanged = true;
+        }
+        _completedReadSurahCounts[s] =
+            _completedReadSurahCounts[s] ?? 1;
+      }
+
+      // 3. Upsert local completed surahs to Supabase
+      if (_completedReadSurahs.isNotEmpty) {
+        final upsertRows = _completedReadSurahs.map((surahId) {
+          return {
+            'user_id': userId,
+            'mode': 'read',
+            'surah_id': surahId,
+          };
+        }).toList();
+
+        await client.from('user_completed_surahs').upsert(
+              upsertRows,
+              onConflict: 'user_id,mode,surah_id',
+            );
+      }
+
+      if (hasChanged) {
+        await _save(immediate: true);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error syncing completed surahs with Supabase: $e');
+    }
+  }
+
+  Future<void> _syncReadDatesWithSupabase(String userId) async {
+    try {
+      final client = Supabase.instance.client;
+      final response = await client
+          .from('user_reading_history')
+          .select('read_date')
+          .eq('user_id', userId);
+
+      final dates = (response as List)
+          .map((row) => row['read_date']?.toString().split('T').first)
+          .whereType<String>();
+
+      final beforeCount = _readDates.length;
+      _readDates.addAll(dates);
+      if (_readDates.length != beforeCount) {
+        await _save(immediate: true);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error syncing read dates with Supabase: $e');
+    }
   }
 
   Future<void> syncBookmarksAndProfilesWithSupabase(String userId) async {
@@ -2780,6 +2912,13 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           ),
         );
       }
+      if (decoded['deletedCompletedReadSurahs'] != null) {
+        _deletedCompletedReadSurahs = Set<int>.from(
+          (decoded['deletedCompletedReadSurahs'] as List)
+              .map((e) => int.tryParse(e.toString()) ?? 0)
+              .where((e) => e > 0),
+        );
+      }
       _activeProfileId = decoded['activeProfileId']?.toString();
       _ensureDefaultProfile();
 
@@ -2792,8 +2931,6 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
         _bookmarks.removeWhere((b) => b.userId == _localUserId);
         _recentReadings.removeWhere((r) => r.userId == _localUserId);
-        _completedReadSurahs.clear();
-        _completedReadSurahCounts.clear();
         final now = DateTime.now();
         _profiles = _profiles.map((p) {
           if (p.userId == _localUserId && isFreeReadProfile(p)) {
@@ -2903,8 +3040,31 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         'readDates': _readDates.toList(),
         'completedReadSurahs': _completedReadSurahs.toList(),
         'completedReadSurahCounts': _completedReadSurahCounts,
+        'deletedCompletedReadSurahs': _deletedCompletedReadSurahs.toList(),
       }),
     );
+  }
+
+  /// Wipes all local reading profiles, bookmarks, recents, and completed surahs on account deletion.
+  Future<void> clearAllLocal() async {
+    _bookmarks.clear();
+    _recentReadings.clear();
+    _completedReadSurahs.clear();
+    _completedReadSurahCounts.clear();
+    _readDates.clear();
+    _deletedCompletedReadSurahs.clear();
+    _profiles.clear();
+    _activeProfileId = null;
+    _ensureDefaultProfile();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_storageKey);
+      await prefs.remove('user_reading_state_updated_at');
+    } catch (e) {
+      debugPrint('Error removing local reading store: $e');
+    }
+    await _save(immediate: true);
+    notifyListeners();
   }
 
   bool hasReadOn(DateTime date) {

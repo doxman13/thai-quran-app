@@ -153,6 +153,17 @@ create table if not exists public.user_settings (
   show_thai_v3 boolean not null default true,
   show_thai_v2 boolean not null default false,
   show_english boolean not null default false,
+  primary_translation_id text not null default 'thai_v3',
+  secondary_translation_id text,
+  reading_display_mode text not null default 'quran_translation',
+  keep_awake boolean not null default true,
+  language_code text not null default 'th',
+  show_word_by_word boolean not null default true,
+  wbw_language text not null default 'th',
+  show_footnotes boolean not null default true,
+  show_tajweed_colors boolean not null default false,
+  reciter_id integer not null default 7,
+  downloadable_translation_ids text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
 
@@ -255,32 +266,43 @@ create table if not exists public.translation_reports (
 create table if not exists public.tadabbur_notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  surah_id text not null,
-  verse_id text not null,
-  verse_key text generated always as (surah_id || ':' || verse_id) stored,
+  surah_id integer not null,
+  verse_id integer not null,
   note_text text not null,
-  visibility text not null default 'private' check (visibility in ('private', 'public')),
-  language text not null default 'th' check (language in ('th', 'en')),
-  status text not null default 'active' check (status in ('active', 'hidden', 'reported', 'removed')),
+  is_public boolean not null default false,
+  is_anonymous boolean not null default false,
+  author_display_name text,
+  likes_count integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.tadabbur_reactions (
+create table if not exists public.tadabbur_likes (
   id uuid primary key default gen_random_uuid(),
   note_id uuid not null references public.tadabbur_notes(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  reaction_type text not null check (reaction_type in ('helpful', 'heart')),
   created_at timestamptz not null default now(),
-  unique (note_id, user_id, reaction_type)
+  unique (note_id, user_id)
 );
 
 create table if not exists public.tadabbur_reports (
   id uuid primary key default gen_random_uuid(),
   note_id uuid not null references public.tadabbur_notes(id) on delete cascade,
-  reporter_user_id uuid references auth.users(id) on delete set null,
-  reason text not null,
-  created_at timestamptz not null default now()
+  reporter_user_id uuid not null references auth.users(id) on delete cascade,
+  reason text not null default 'inappropriate',
+  details text,
+  status text not null default 'pending_review' check (status in ('pending_review', 'reviewed_removed', 'reviewed_dismissed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (note_id, reporter_user_id)
+);
+
+create table if not exists public.user_blocks (
+  blocker_user_id uuid not null references auth.users(id) on delete cascade,
+  blocked_user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_user_id, blocked_user_id),
+  check (blocker_user_id <> blocked_user_id)
 );
 
 create index if not exists translations_verse_key_idx on public.translations (verse_key);

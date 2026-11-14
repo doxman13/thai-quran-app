@@ -365,21 +365,45 @@ class _SupportDialogState extends State<SupportDialog> {
           ),
         ),
         const SizedBox(height: 6),
-        OutlinedButton.icon(
-          onPressed: _openWebSupport,
-          icon: const Icon(Icons.open_in_new_rounded, size: 14),
-          label: Text(
-            context.tr('support_web_btn'),
-            style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: colors.primary,
-            side: BorderSide(color: colors.borderSoft),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) ...[
+          OutlinedButton.icon(
+            onPressed: () => _iapService.loadProducts(),
+            icon: const Icon(Icons.refresh_rounded, size: 14),
+            label: Text(
+              'โหลดรายการใหม่อีกครั้ง',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.borderSoft),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
             ),
           ),
-        ),
+        ] else ...[
+          OutlinedButton.icon(
+            onPressed: _openWebSupport,
+            icon: const Icon(Icons.open_in_new_rounded, size: 14),
+            label: Text(
+              context.tr('support_web_btn'),
+              style: GoogleFonts.notoSansThai(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.borderSoft),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -440,21 +464,39 @@ class _SupportDialogState extends State<SupportDialog> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _openWebSupport,
-          icon: const Icon(Icons.open_in_new_rounded, size: 14),
-          label: Text(
-            context.tr('support_web_btn'),
-            style: GoogleFonts.notoSansThai(fontSize: 12),
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: colors.primary,
-            side: BorderSide(color: colors.borderSoft),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) ...[
+          OutlinedButton.icon(
+            onPressed: () => _iapService.loadProducts(),
+            icon: const Icon(Icons.refresh_rounded, size: 14),
+            label: Text(
+              'ตรวจสอบการเชื่อมต่อร้านค้าอีกครั้ง',
+              style: GoogleFonts.notoSansThai(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.borderSoft),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
             ),
           ),
-        ),
+        ] else ...[
+          OutlinedButton.icon(
+            onPressed: _openWebSupport,
+            icon: const Icon(Icons.open_in_new_rounded, size: 14),
+            label: Text(
+              context.tr('support_web_btn'),
+              style: GoogleFonts.notoSansThai(fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(color: colors.borderSoft),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

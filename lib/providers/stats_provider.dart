@@ -244,6 +244,20 @@ class StatsProvider extends ChangeNotifier {
     return streak;
   }
 
+  /// Wipes all local stats and reading history on account deletion.
+  Future<void> clearAllLocal() async {
+    _saveTimer?.cancel();
+    _remoteSyncTimer?.cancel();
+    _history.clear();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_historyKey);
+    } catch (e) {
+      debugPrint('Error clearing stats history: $e');
+    }
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     if (_saveTimer != null && _saveTimer!.isActive) {

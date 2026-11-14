@@ -1,4 +1,4 @@
-package com.abuzayd.iqra
+package com.thaiquran.app
 
 import android.content.Intent
 import android.view.KeyEvent
@@ -17,7 +17,7 @@ class MainActivity : AudioServiceFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.abuzayd.iqra/key_events")
+        channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.thaiquran.app/key_events")
         channel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "setInputMode" -> {

@@ -84,7 +84,7 @@ class HifzMemorizeScreen extends StatefulWidget {
 
 class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  static const _channel = MethodChannel('com.abuzayd.iqra/key_events');
+  static const _channel = MethodChannel('com.thaiquran.app/key_events');
   int _lastBleClickCount = 0;
   bool _isBleListenerAttached = false;
   DateTime? _lastShutterClickTime;

@@ -40,3 +40,7 @@ Whenever creating, modifying, redesigning, or refining UI components, screens, o
 ## 3. Execution Workflow
 - Before rewriting a file, output a quick 3-bullet visual plan explaining how you will structure the UI blocks.
 - Run `flutter analyze` and `flutter test` to verify changes.
+
+# Live Architecture & Upgrade Source of Truth
+- **`docs/LIVE_ARCHITECTURE_AND_UPGRADE_GUIDE.md`** is the live canonical documentation for how `thai-quran-web` and `thai-quran-app` work (fonts, translations, WBW, audio, SQLite `quran_offline.db`, OTA updates, Supabase sync, and upgrade playbooks).
+- Any time you upgrade or modify fonts, translations, data pipelines, storage keys, or Supabase sync behavior, you **MUST** update `docs/LIVE_ARCHITECTURE_AND_UPGRADE_GUIDE.md` (and keep `thai-quran-web/docs/LIVE_ARCHITECTURE_AND_UPGRADE_GUIDE.md` synchronized).

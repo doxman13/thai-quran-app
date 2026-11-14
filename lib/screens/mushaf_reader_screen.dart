@@ -26,17 +26,11 @@ import '../providers/thai_text_protection_provider.dart';
 import '../models/verse.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
-import '../utils/html_parser.dart';
 import '../widgets/tadabbur_panel.dart';
 import '../widgets/auth_bottom_sheet.dart';
 import '../providers/supabase_provider.dart';
-import 'hifz_memorize_screen.dart';
-import 'hifz_mushaf_range_picker_screen.dart';
-import 'hifz_new_verses_setup_screen.dart';
-import 'hifz_review_setup_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
-import '../models/hifz_session_config.dart';
 import '../widgets/word_by_word_strip.dart';
 
 class MushafReaderScreen extends StatefulWidget {
@@ -69,10 +63,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   bool _isTranslationView = false;
   bool _isMenuVisible = true;
   String? _highlightedVerseKey;
-  String? _translationVerseKey;
-  String? _translationText;
-  bool _translationBookmarked = false;
-  Timer? _translationTimer;
   Timer? _highlightTimer;
   Timer? _menuAutoHideTimer;
   int? _lastAudioPageNumber;
@@ -135,19 +125,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
           );
           unawaited(_logMushafPageRead(currentProfile.mushafId, _pageNumber));
         }
-
-        if (widget.initialHighlightVerseKey != null) {
-          if (!mounted) return;
-          final profileForTranslation =
-              currentProfile ?? context.read<MushafReadingProvider>().activeProfile;
-          if (profileForTranslation != null) {
-            _showVerseTranslation(
-              profileForTranslation,
-              widget.initialHighlightVerseKey!,
-              _pageNumber,
-            );
-          }
-        }
       }
     });
   }
@@ -169,7 +146,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   @override
   void dispose() {
     WakelockPlus.disable();
-    _translationTimer?.cancel();
     _highlightTimer?.cancel();
     _menuAutoHideTimer?.cancel();
     _pageController.dispose();
@@ -243,14 +219,10 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   void _dismissTranslation() {
-    _translationTimer?.cancel();
     _highlightTimer?.cancel();
-    if (_translationText == null && _highlightedVerseKey == null) return;
+    if (_highlightedVerseKey == null) return;
     setState(() {
-      _translationVerseKey = null;
-      _translationText = null;
       _highlightedVerseKey = null;
-      _translationBookmarked = false;
     });
   }
 
@@ -350,12 +322,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final arabicText = verse?.arabic.isNotEmpty == true ? verse!.arabic : '';
     final shortTafsir = verse?.shortTafsir;
 
-    _translationTimer?.cancel();
+    _highlightTimer?.cancel();
     setState(() {
       _highlightedVerseKey = verseKey;
-      _translationVerseKey = verseKey;
-      _translationText = translation;
-      _translationBookmarked = isBookmarked;
     });
 
     if (!mounted) return;
@@ -403,70 +372,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         );
       },
     );
-  }
 
-  Future<void> _showVerseTranslation(
-    MushafProfile profile,
-    String verseKey,
-    int pageNumber,
-  ) async {
-    final parts = verseKey.split(':');
-    if (parts.length != 2) return;
-    final verse = widget.quranRepository.getVerse(parts[0], parts[1]);
-
-    final settings = context.read<SettingsProvider>();
-    final transManager = context.read<TranslationManagerProvider>();
-    final thaiTextProtection = context.read<ThaiTextProtectionProvider>();
-
-    if (!transManager.isTranslationLoaded(settings.primaryTranslationId)) {
-      await transManager.loadTranslationIntoCache(settings.primaryTranslationId);
+    if (mounted) {
+      setState(() {
+        if (_highlightedVerseKey == verseKey) {
+          _highlightedVerseKey = null;
+        }
+      });
     }
-    if (!mounted) return;
-
-    String resolved = resolveVerseTranslationText(
-      context: context,
-      verseKey: verseKey,
-      verse: verse,
-      settings: settings,
-      transManager: transManager,
-      repository: widget.quranRepository,
-    );
-
-    if (resolved.isEmpty) {
-      if (verse != null) {
-        resolved = verse.thaiV3.isNotEmpty
-            ? verse.thaiV3
-            : (verse.english.isNotEmpty ? verse.english : 'Translation not found.');
-      } else {
-        resolved = 'Translation not found.';
-      }
-    }
-
-    final isThai = resolveEffectiveTranslationLanguage(
-          context,
-          settings: settings,
-          translationId: settings.primaryTranslationId,
-        ) ==
-        'th';
-    final translation = isThai ? thaiTextProtection.protect(resolved) : resolved;
-    final isBookmarked = context
-        .read<MushafReadingProvider>()
-        .isVerseBookmarked(profile.mushafId, pageNumber, verseKey);
-
-    _translationTimer?.cancel();
-    setState(() {
-      _highlightedVerseKey = verseKey;
-      _translationVerseKey = verseKey;
-      _translationText = translation;
-      _translationBookmarked = isBookmarked;
-    });
-    _translationTimer = Timer(const Duration(seconds: 9), _dismissTranslation);
-  }
-
-  Future<void> _toggleCurrentVerseBookmark(MushafProfile profile) async {
-    final verseKey = _translationVerseKey;
-    if (verseKey == null) return;
-    await _toggleVerseBookmark(profile, verseKey);
   }
 
   Future<void> _toggleVerseBookmark(
@@ -485,535 +398,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       mushafId: profile.mushafId,
       pageNumber: _pageNumber,
       verseKey: verseKey,
-    );
-    if (!mounted) return;
-    if (_translationVerseKey == verseKey) {
-      setState(() {
-        _translationBookmarked = context
-            .read<MushafReadingProvider>()
-            .isVerseBookmarked(profile.mushafId, _pageNumber, verseKey);
-      });
-    }
-  }
-
-  Future<void> _openHifzFromReader(String verseKey) async {
-    final parts = verseKey.split(':');
-    if (parts.length != 2) return;
-    final surah = int.tryParse(parts[0]) ?? 1;
-    final verse = int.tryParse(parts[1]) ?? 1;
-    final page = getMedinaMushafPageNumber(surah, verse);
-    final totalVerses = qcf.getVerseCount(surah);
-    final surahName = widget.quranRepository.getSurahName(surah.toString());
-    final isThai = context.read<SettingsProvider>().languageCode == 'th';
-
-    _translationTimer?.cancel();
-
-    if (!mounted) return;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        int activeTab = 0; // 0 = New Verses, 1 = Review Mode
-
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final colorScheme = Theme.of(ctx).colorScheme;
-            final textTheme = Theme.of(ctx).textTheme;
-
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Icon(
-                            activeTab == 0
-                                ? Icons.psychology_rounded
-                                : Icons.replay_rounded,
-                            color: colorScheme.onPrimaryContainer,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isThai
-                                    ? (activeTab == 0
-                                        ? 'ท่องจำฮิฟซ์ (Hifz)'
-                                        : 'ทบทวนฮิฟซ์ (Muraja\'ah)')
-                                    : (activeTab == 0
-                                        ? 'Hifz Memorization'
-                                        : 'Hifz Review Mode'),
-                                style: textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '$surahName · ${isThai ? 'อายะฮฺ' : 'Verse'} $verse · ${isThai ? 'หน้า' : 'Page'} $page',
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Mode Segmented Switch
-                    Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Material(
-                              color: activeTab == 0
-                                  ? colorScheme.surface
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              elevation: activeTab == 0 ? 1 : 0,
-                              shadowColor: Colors.black26,
-                              child: InkWell(
-                                onTap: () => setSheetState(() => activeTab = 0),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.psychology_rounded,
-                                        size: 18,
-                                        color: activeTab == 0
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isThai ? 'ท่องจำใหม่ (Takrar)' : 'New Verses',
-                                        style: textTheme.labelLarge?.copyWith(
-                                          fontWeight: activeTab == 0
-                                              ? FontWeight.bold
-                                              : FontWeight.w500,
-                                          color: activeTab == 0
-                                              ? colorScheme.primary
-                                              : colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Material(
-                              color: activeTab == 1
-                                  ? colorScheme.surface
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                              elevation: activeTab == 1 ? 1 : 0,
-                              shadowColor: Colors.black26,
-                              child: InkWell(
-                                onTap: () => setSheetState(() => activeTab = 1),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.replay_rounded,
-                                        size: 18,
-                                        color: activeTab == 1
-                                            ? colorScheme.primary
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isThai ? 'ทบทวน (Review)' : 'Review Mode',
-                                        style: textTheme.labelLarge?.copyWith(
-                                          fontWeight: activeTab == 1
-                                              ? FontWeight.bold
-                                              : FontWeight.w500,
-                                          color: activeTab == 1
-                                              ? colorScheme.primary
-                                              : colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (activeTab == 0) ...[
-                      // --- TAB 0: New Verses (Takrar) ---
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.auto_stories_rounded,
-                            color: colorScheme.primary),
-                        title: Text(
-                          isThai
-                              ? 'เลือกช่วงจากมุศหัฟ (Visual Range)'
-                              : 'Select Range from Mushaf (Visual)',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'แตะ 2 ครั้งเพื่อเลือกช่วงอายะฮฺแบบเห็นภาพ'
-                              : '2-tap visual range picker with live highlights',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          final result =
-                              await Navigator.push<HifzMushafRangePickerResult>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzMushafRangePickerScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository: widget.foundationRepository,
-                                initialSurah: surah,
-                                initialStartVerse: verse,
-                                initialEndVerse: verse,
-                                initialPage: page,
-                              ),
-                            ),
-                          );
-                          if (result != null && mounted) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => HifzNewVersesSetupScreen(
-                                  quranRepository: widget.quranRepository,
-                                  foundationRepository:
-                                      widget.foundationRepository,
-                                  initialSurah: result.surah,
-                                  initialStartVerse: result.startVerse,
-                                  initialEndVerse: result.endVerse,
-                                  initialRepeatStart: result.startVerse,
-                                  initialPage: result.page,
-                                  initialIsSurahMode: true,
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.tune_rounded,
-                            color: colorScheme.primary),
-                        title: Text(
-                          isThai
-                              ? 'ตั้งค่าการท่องจำ (Setup Session)'
-                              : 'Setup Memorization Session',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'กำหนดจำนวนรอบและการซ้ำของชุดอายะฮฺ'
-                              : 'Customize repetitions, rounds, and stepping',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzNewVersesSetupScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                initialSurah: surah,
-                                initialStartVerse: verse,
-                                initialEndVerse:
-                                    (verse + 2).clamp(1, totalVerses),
-                                initialRepeatStart: verse,
-                                initialPage: page,
-                                initialIsSurahMode: true,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.play_arrow_rounded,
-                            color: colorScheme.primary),
-                        title: Text(
-                          isThai
-                              ? 'เริ่มท่องจำทันที (Quick Start)'
-                              : 'Quick Start (Ayah $verse)',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'ท่องจำอายะฮฺนี้ทันทีด้วยระบบ 3 รอบ'
-                              : 'Start right away with 3 rounds (10V + 5H)',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzMemorizeScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                surahNumber: surah,
-                                startVerse: verse,
-                                endVerse: verse,
-                                initialSessionType: HifzSessionType.newVerses,
-                                repeatStart: verse,
-                                initialPage: page,
-                                isSurahMode: true,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ] else ...[
-                      // --- TAB 1: Review Mode (Muraja'ah) ---
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.menu_book_rounded,
-                            color: colorScheme.secondary),
-                        title: Text(
-                          isThai
-                              ? 'ทบทวนทั้งซูเราะฮฺ $surahName'
-                              : 'Review Surah $surahName',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'ซูเราะฮฺที่ $surah (1–$totalVerses อายะฮฺ)'
-                              : 'Surah $surah (1–$totalVerses verses)',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzReviewSetupScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                initialStartSurah: surah,
-                                initialEndSurah: surah,
-                                initialVersesSurah: surah,
-                                initialVersesStart: 1,
-                                initialVersesEnd: totalVerses,
-                                initialStartPage: getMedinaMushafPageNumber(surah, 1),
-                                initialEndPage:
-                                    getMedinaMushafPageNumber(surah, totalVerses),
-                                initialTabIndex: 0,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.auto_stories_outlined,
-                            color: colorScheme.secondary),
-                        title: Text(
-                          isThai
-                              ? 'ทบทวนหน้านี้ (หน้า $page)'
-                              : 'Review Page $page',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'ตั้งค่าทบทวนทุกอายะฮฺในหน้านี้ (เห็น 2× / ซ่อน 2×)'
-                              : 'Review all verses on page $page (2× Visible / 2× Hidden)',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzReviewSetupScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                initialStartPage: page,
-                                initialEndPage: page,
-                                initialTabIndex: 2,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.format_list_numbered_rounded,
-                            color: colorScheme.secondary),
-                        title: Text(
-                          isThai
-                              ? 'ทบทวนช่วงอายะฮฺ (จากอายะฮฺ $verse)'
-                              : 'Review Verse Range (from Ayah $verse)',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'เลือกและปรับช่วงอายะฮฺสำหรับทบทวน'
-                              : 'Customize verse range for review session',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzReviewSetupScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                initialVersesSurah: surah,
-                                initialVersesStart: verse,
-                                initialVersesEnd:
-                                    (verse + 9).clamp(1, totalVerses),
-                                initialTabIndex: 1,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        tileColor: colorScheme.surfaceContainerLow,
-                        leading: Icon(Icons.play_arrow_rounded,
-                            color: colorScheme.secondary),
-                        title: Text(
-                          isThai
-                              ? 'เริ่มทบทวนหน้า $page ทันที'
-                              : 'Quick Review Page $page',
-                          style: textTheme.bodyLarge
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          isThai
-                              ? 'เริ่มทบทวนทันที (เห็น 2× แล้วซ่อน 2× เลื่อนอัตโนมัติ)'
-                              : 'Start review immediately (2× Visible then 2× Hidden)',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HifzMemorizeScreen(
-                                quranRepository: widget.quranRepository,
-                                foundationRepository:
-                                    widget.foundationRepository,
-                                initialSessionType: HifzSessionType.review,
-                                reviewGranularity: ReviewGranularity.byPage,
-                                reviewTargetParams: ReviewTargetParams.byPage(
-                                  startPage: page,
-                                  endPage: page,
-                                ),
-                                initialPage: page,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -1113,7 +497,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   Future<void> _toggleCurrentVerseFavorite({bool askForNote = false}) async {
-    final verseKey = _translationVerseKey ?? _highlightedVerseKey;
+    final verseKey = _highlightedVerseKey;
     await _toggleVerseFavorite(verseKey, askForNote: askForNote);
   }
 
@@ -1412,10 +796,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
   }
 
   Future<void> _handleBackAndExit() async {
-    if (_translationText != null) {
-      _dismissTranslation();
-      return;
-    }
     final shouldExit = await _confirmExitReader(context);
     if (shouldExit && mounted) {
       Navigator.of(context).pop();
@@ -1454,7 +834,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final displayMushafId = provider.displayMushafId;
     final type = mushafTypeById(displayMushafId);
     final pageCount = profile.targetPage - profile.startPage + 1;
-    final favoriteVerseKey = _translationVerseKey ?? _highlightedVerseKey;
+    final favoriteVerseKey = _highlightedVerseKey;
     final favoriteParts = favoriteVerseKey?.split(':') ?? const <String>[];
     final verseFavorited =
         favoriteParts.length == 2 &&
@@ -1504,18 +884,14 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onTap: () {
-                              if (_translationText != null) {
-                                _dismissTranslation();
-                              } else {
-                                setState(() {
-                                  _isMenuVisible = !_isMenuVisible;
-                                  if (_isMenuVisible) {
-                                    _startAutoHideTimer();
-                                  } else {
-                                    _cancelAutoHideTimer();
-                                  }
-                                });
-                              }
+                              setState(() {
+                                _isMenuVisible = !_isMenuVisible;
+                                if (_isMenuVisible) {
+                                  _startAutoHideTimer();
+                                } else {
+                                  _cancelAutoHideTimer();
+                                }
+                              });
                             },
                             child: Stack(
                               children: [
@@ -1681,63 +1057,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                                     ),
                                   ),
                                 ),
-                                if (_translationText != null)
-                                  Positioned(
-                                    left: 14,
-                                    right: 14,
-                                    bottom: 12,
-                                    child: _TranslationPanel(
-                                      colors: colors,
-                                      verseKey: _translationVerseKey ?? '',
-                                      translation: _translationText!,
-                                      bookmarked: _translationBookmarked,
-                                      favorited: verseFavorited,
-                                      onBookmark: () =>
-                                          _toggleCurrentVerseBookmark(profile),
-                                      onFavorite: () =>
-                                          _toggleCurrentVerseFavorite(
-                                            askForNote: true,
-                                          ),
-                                      onMemorize: () =>
-                                          _openHifzFromReader(
-                                            _translationVerseKey ?? '',
-                                          ),
-                                      onClose: _dismissTranslation,
-                                      fontSize: context
-                                          .read<SettingsProvider>()
-                                          .translationFontSize,
-                                      isAudioPlaying:
-                                          audioProvider.isPlaying &&
-                                          audioProvider.currentVerseKey ==
-                                              _translationVerseKey,
-                                      isAudioLoading:
-                                          audioProvider.isLoading &&
-                                          audioProvider.currentVerseKey ==
-                                              _translationVerseKey,
-                                      onPlay: () async {
-                                        if (audioProvider.isPlaying &&
-                                            audioProvider.currentVerseKey ==
-                                                _translationVerseKey) {
-                                          await audioProvider.togglePlayPause();
-                                        } else {
-                                          final pageData = await widget
-                                              .foundationRepository
-                                              .fetchPage(
-                                                mushafId: displayMushafId,
-                                                pageNumber: _pageNumber,
-                                              );
-                                          await audioProvider.playVerse(
-                                            mushafId: displayMushafId,
-                                            pageNumber: _pageNumber,
-                                            verseKey: _translationVerseKey!,
-                                            pageVerses: pageData.verses,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                if (_translationText == null &&
-                                    audioProvider.currentVerseKey != null &&
+                                if (audioProvider.currentVerseKey != null &&
                                     audioProvider.isContinuous)
                                   Positioned(
                                     left: 14,
@@ -1756,7 +1076,6 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                       ),
                       if (!isLandscape &&
                           !_isMenuVisible &&
-                          _translationText == null &&
                           audioProvider.currentVerseKey == null)
                         Positioned(
                           top: 4,
@@ -3634,160 +2953,6 @@ class MushafLine extends StatelessWidget {
         .split('')
         .map((digit) => String.fromCharCode(digits[int.parse(digit)]))
         .join();
-  }
-}
-
-class _TranslationPanel extends StatelessWidget {
-  final AppThemeColors colors;
-  final String verseKey;
-  final String translation;
-  final bool bookmarked;
-  final bool favorited;
-  final VoidCallback onBookmark;
-  final VoidCallback onFavorite;
-  final VoidCallback? onMemorize;
-  final VoidCallback onClose;
-  final double fontSize;
-  final bool isAudioPlaying;
-  final bool isAudioLoading;
-  final VoidCallback onPlay;
-
-  const _TranslationPanel({
-    required this.colors,
-    required this.verseKey,
-    required this.translation,
-    required this.bookmarked,
-    required this.favorited,
-    required this.onBookmark,
-    required this.onFavorite,
-    this.onMemorize,
-    required this.onClose,
-    required this.fontSize,
-    required this.isAudioPlaying,
-    required this.isAudioLoading,
-    required this.onPlay,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: colors.background,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 210),
-        padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
-        decoration: BoxDecoration(
-          color: colors.background,
-          border: Border.all(color: colors.borderSoft),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    verseKey,
-                    style: GoogleFonts.notoSansThai(
-                      color: colors.textStrong,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (onMemorize != null)
-                  IconButton(
-                    tooltip: 'Memorize / Review (Hifz)',
-                    onPressed: onMemorize,
-                    icon: Icon(
-                      Icons.psychology_outlined,
-                      color: colors.primary,
-                    ),
-                  ),
-                IconButton(
-                  tooltip: isAudioPlaying ? 'Pause verse' : 'Play verse',
-                  onPressed: onPlay,
-                  icon: isAudioLoading
-                      ? SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colors.primary,
-                          ),
-                        )
-                      : Icon(
-                          isAudioPlaying
-                              ? Icons.pause_circle_filled_rounded
-                              : Icons.play_circle_fill_rounded,
-                          color: colors.primary,
-                        ),
-                ),
-                IconButton(
-                  tooltip: bookmarked ? 'Remove bookmark' : 'Bookmark verse',
-                  onPressed: onBookmark,
-                  icon: Icon(
-                    bookmarked ? Icons.bookmark : Icons.bookmark_border,
-                    color: colors.primary,
-                  ),
-                ),
-                IconButton(
-                  tooltip: favorited ? 'Remove favorite' : 'Favorite verse',
-                  onPressed: onFavorite,
-                  icon: Icon(
-                    favorited
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                    color: favorited ? Colors.redAccent : colors.primary,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Builder(
-                  builder: (context) {
-                    final settings = context.read<SettingsProvider>();
-                    final style = getTranslationTextStyle(
-                      context,
-                      fontSize: fontSize,
-                      height: 1.55,
-                      color: colors.foreground,
-                      translationId: settings.primaryTranslationId,
-                    );
-                    final lang = resolveEffectiveTranslationLanguage(
-                      context,
-                      settings: settings,
-                      translationId: settings.primaryTranslationId,
-                    );
-                    return RichText(
-                      locale: Locale(lang),
-                      softWrap: true,
-                      text: TextSpan(
-                        children: HtmlParser.parseTranslationText(
-                          context,
-                          translation,
-                          style,
-                          colors.primary,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

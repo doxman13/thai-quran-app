@@ -35,7 +35,7 @@ create policy "Users can delete own hifz progress"
 
 -- Create hifz_history table
 create table public.hifz_history (
-  id uuid default gen_random_uuid() primary key,
+  id text primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
   session_type text not null,
   surah_number integer,

@@ -65,7 +65,7 @@ Future<void> _initializeAppServices() async {
 Future<void> _initializeAudioBackground() async {
   try {
     await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.ryanheise.bg_demo.channel.audio',
+      androidNotificationChannelId: 'com.thaiquran.app.channel.audio',
       androidNotificationChannelName: 'Audio playback',
       androidNotificationOngoing: true,
     );

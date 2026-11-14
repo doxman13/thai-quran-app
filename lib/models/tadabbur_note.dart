@@ -69,4 +69,38 @@ class TadabburNote {
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };
   }
+
+  TadabburNote copyWith({
+    String? id,
+    String? userId,
+    String? surahId,
+    String? verseId,
+    String? noteText,
+    bool? isPublic,
+    bool? isAnonymous,
+    int? likesCount,
+    String? language,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? userEmail,
+    bool? userLiked,
+    bool? synced,
+  }) {
+    return TadabburNote(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      surahId: surahId ?? this.surahId,
+      verseId: verseId ?? this.verseId,
+      noteText: noteText ?? this.noteText,
+      isPublic: isPublic ?? this.isPublic,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
+      likesCount: likesCount ?? this.likesCount,
+      language: language ?? this.language,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      userEmail: userEmail ?? this.userEmail,
+      userLiked: userLiked ?? this.userLiked,
+      synced: synced ?? this.synced,
+    );
+  }
 }

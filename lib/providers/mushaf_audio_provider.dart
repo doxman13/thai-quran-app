@@ -412,6 +412,8 @@ class MushafAudioProvider extends ChangeNotifier {
   Future<List<AudioSource>> _buildAudioSources(List<MushafVerse> verses) async {
     final List<AudioSource> sources = [];
     final reciter = currentReciter;
+    final defaultArtUri = Uri.parse("https://quran-th.com/icons/icon-512x512.png");
+
     for (final verse in verses) {
       try {
         final surahNumber = int.parse(verse.surahId);
@@ -436,14 +438,31 @@ class MushafAudioProvider extends ChangeNotifier {
                 album: "Mushaf Recitation",
                 title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
                 artist: reciter.name,
-                artUri: Uri.parse(
-                  "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
-                ),
+                artUri: defaultArtUri,
+              ),
+            ),
+          );
+        } else if (verses.length > 10) {
+          // When chapter segments are unavailable and verses > 10, skip per-verse
+          // network calls to avoid sequential N+1 latency; use deterministic EveryAyah URL.
+          final chapter = verse.surahId.padLeft(3, '0');
+          final ayah = verse.verseId.padLeft(3, '0');
+          final directUrl =
+              'https://everyayah.com/data/${reciter.everyAyahFolder}/$chapter$ayah.mp3';
+          sources.add(
+            AudioSource.uri(
+              Uri.parse(directUrl),
+              tag: MediaItem(
+                id: verse.verseKey,
+                album: "Mushaf Recitation (EveryAyah)",
+                title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
+                artist: reciter.name,
+                artUri: defaultArtUri,
               ),
             ),
           );
         } else {
-          // Fallback single-ayah source from Quran Foundation
+          // Fallback single-ayah source from Quran Foundation for small verse counts
           final fallbackUrl = await _audioRepository.fetchAyahRecitationUrl(
             recitationId: _reciterId,
             verseKey: verse.verseKey,
@@ -456,9 +475,7 @@ class MushafAudioProvider extends ChangeNotifier {
                 album: "Mushaf Recitation (Fallback)",
                 title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
                 artist: reciter.name,
-                artUri: Uri.parse(
-                  "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
-                ),
+                artUri: defaultArtUri,
               ),
             ),
           );
@@ -477,9 +494,7 @@ class MushafAudioProvider extends ChangeNotifier {
               album: "Mushaf Recitation (Fallback)",
               title: "Surah ${verse.surahId} - Verse ${verse.verseId}",
               artist: reciter.name,
-              artUri: Uri.parse(
-                "https://raw.githubusercontent.com/doxman13/thai-quran-app/main/assets/icons/playstore-icon.png",
-              ),
+              artUri: defaultArtUri,
             ),
           ),
         );

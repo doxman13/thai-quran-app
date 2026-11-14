@@ -2,10 +2,12 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tadabbur_note.dart';
 
 class TadabburRepository {
+  static const String _blockedUsersPrefsKey = 'blocked_tadabbur_user_ids';
   final _client = Supabase.instance.client;
 
   /// Fetch all notes belonging to the current user
@@ -110,6 +112,101 @@ class TadabburRepository {
       debugPrint('TadabburRepository: Error deleting note: $e');
       rethrow;
     }
+  }
+
+  /// Delete a personal note by (user_id, surah_id, verse_id)
+  Future<void> deleteNoteByVerse(Object surahId, Object verseId) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    try {
+      await _client
+          .from('tadabbur_notes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('surah_id', surahId.toString())
+          .eq('verse_id', verseId.toString());
+    } catch (e) {
+      debugPrint('TadabburRepository: Error deleting note by verse: $e');
+      rethrow;
+    }
+  }
+
+  /// Report an inappropriate community note (UGC compliance - POL-01)
+  Future<void> reportCommunityNote({
+    required String noteId,
+    required String reason,
+    String? details,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      throw Exception('Authentication required');
+    }
+    try {
+      await _client.from('tadabbur_reports').upsert(
+        {
+          'note_id': noteId,
+          'reporter_user_id': user.id,
+          'reason': reason,
+          'details': details,
+          'status': 'pending_review',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: 'note_id,reporter_user_id',
+      );
+    } catch (e) {
+      debugPrint('TadabburRepository: Error reporting community note: $e');
+      rethrow;
+    }
+  }
+
+  /// Block a user from appearing in community Tadabbur feed (UGC compliance - POL-01)
+  Future<void> blockUser(String blockedUserId) async {
+    if (blockedUserId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final current = (prefs.getStringList(_blockedUsersPrefsKey) ?? <String>[]).toSet();
+    current.add(blockedUserId);
+    await prefs.setStringList(_blockedUsersPrefsKey, current.toList());
+
+    final user = _client.auth.currentUser;
+    if (user != null && user.id != blockedUserId) {
+      try {
+        await _client.from('user_blocks').upsert(
+          {
+            'blocker_user_id': user.id,
+            'blocked_user_id': blockedUserId,
+          },
+          onConflict: 'blocker_user_id,blocked_user_id',
+        );
+      } catch (e) {
+        debugPrint('TadabburRepository: Error syncing user block to Supabase: $e');
+      }
+    }
+  }
+
+  /// Retrieve set of blocked user IDs from local storage + Supabase (UGC compliance - POL-01)
+  Future<Set<String>> getBlockedUserIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final blocked = (prefs.getStringList(_blockedUsersPrefsKey) ?? <String>[]).toSet();
+
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      try {
+        final rows = await _client
+            .from('user_blocks')
+            .select('blocked_user_id')
+            .eq('blocker_user_id', user.id);
+        for (final row in (rows as List<dynamic>)) {
+          final id = (row as Map<String, dynamic>)['blocked_user_id']?.toString();
+          if (id != null && id.isNotEmpty) {
+            blocked.add(id);
+          }
+        }
+        await prefs.setStringList(_blockedUsersPrefsKey, blocked.toList());
+      } catch (e) {
+        debugPrint('TadabburRepository: Error fetching blocked users: $e');
+      }
+    }
+    return blocked;
   }
 
   /// Toggle like for a note

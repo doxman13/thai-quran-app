@@ -10,11 +10,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotesProvider extends ChangeNotifier {
   static const String _notesKey = 'personal_notes_v2';
+  static const String _deletedNotesKey = 'deleted_note_keys_v1';
   Map<String, TadabburNote> _personalNotes = {};
+  Set<String> _deletedNoteKeys = {};
   final TadabburRepository _repo = TadabburRepository();
   StreamSubscription<AuthState>? _authSubscription;
 
   Map<String, TadabburNote> get personalNotes => _personalNotes;
+  Set<String> get deletedNoteKeys => Set.unmodifiable(_deletedNoteKeys);
 
   NotesProvider() {
     _loadNotes();
@@ -34,14 +37,37 @@ class NotesProvider extends ChangeNotifier {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
+      // 1. Process pending offline deletions
+      if (_deletedNoteKeys.isNotEmpty) {
+        final toRemove = <String>[];
+        for (final delKey in _deletedNoteKeys) {
+          final parts = delKey.split(':');
+          if (parts.length == 2) {
+            try {
+              await _repo.deleteNoteByVerse(parts[0], parts[1]);
+              toRemove.add(delKey);
+            } catch (e) {
+              debugPrint('NotesProvider: Error syncing note deletion ($delKey): $e');
+            }
+          }
+        }
+        if (toRemove.isNotEmpty) {
+          _deletedNoteKeys.removeAll(toRemove);
+          await _saveDeletedNoteKeys();
+        }
+      }
+
       final remoteNotes = await _repo.fetchUserNotes();
       final remoteByVerse = {
-        for (final note in remoteNotes) '${note.surahId}:${note.verseId}': note,
+        for (final note in remoteNotes)
+          if (!_deletedNoteKeys.contains('${note.surahId}:${note.verseId}'))
+            '${note.surahId}:${note.verseId}': note,
       };
 
       for (final entry in Map<String, TadabburNote>.from(
         _personalNotes,
       ).entries) {
+        if (_deletedNoteKeys.contains(entry.key)) continue;
         final local = entry.value;
         final remote = remoteByVerse[entry.key];
         if (remote != null && !local.updatedAt.isAfter(remote.updatedAt)) {
@@ -65,7 +91,7 @@ class NotesProvider extends ChangeNotifier {
         );
         final saved = await _repo.saveNote(noteToSave);
         if (saved != null) {
-          remoteByVerse[entry.key] = saved;
+          remoteByVerse[entry.key] = saved.copyWith(synced: true);
         }
       }
 
@@ -87,9 +113,16 @@ class NotesProvider extends ChangeNotifier {
       // Flush local guest notes if inactive >= 30 days
       if (await GuestLifecycleService.isGuestInactiveExpired(prefs)) {
         await prefs.remove(_notesKey);
+        await prefs.remove(_deletedNotesKey);
         _personalNotes = {};
+        _deletedNoteKeys = {};
         notifyListeners();
         return;
+      }
+
+      final savedDeleted = prefs.getStringList(_deletedNotesKey);
+      if (savedDeleted != null) {
+        _deletedNoteKeys = savedDeleted.toSet();
       }
 
       final savedData = prefs.getString(_notesKey);
@@ -117,6 +150,15 @@ class NotesProvider extends ChangeNotifier {
       await prefs.setString(_notesKey, json.encode(toSave));
     } catch (e) {
       debugPrint('Error saving notes to cache: $e');
+    }
+  }
+
+  Future<void> _saveDeletedNoteKeys() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_deletedNotesKey, _deletedNoteKeys.toList());
+    } catch (e) {
+      debugPrint('Error saving deleted note keys: $e');
     }
   }
 
@@ -158,6 +200,8 @@ class NotesProvider extends ChangeNotifier {
     );
 
     _personalNotes[key] = note;
+    _deletedNoteKeys.remove(key);
+    await _saveDeletedNoteKeys();
     notifyListeners();
     await _saveLocalCache();
 
@@ -169,7 +213,7 @@ class NotesProvider extends ChangeNotifier {
     try {
       final savedNote = await _repo.saveNote(note);
       if (savedNote != null) {
-        _personalNotes[key] = savedNote;
+        _personalNotes[key] = savedNote.copyWith(synced: true);
         await _saveLocalCache();
         notifyListeners();
       }
@@ -182,20 +226,38 @@ class NotesProvider extends ChangeNotifier {
   Future<void> deleteNote(String surahId, String verseId) async {
     final key = '$surahId:$verseId';
     final note = _personalNotes[key];
-    if (note == null) return;
+    if (note == null && !_deletedNoteKeys.contains(key)) return;
 
     _personalNotes.remove(key);
+    _deletedNoteKeys.add(key);
     notifyListeners();
+    await _saveLocalCache();
+    await _saveDeletedNoteKeys();
 
-    try {
-      if (!note.id.startsWith('temp-')) {
-        await _repo.deleteNote(note.id);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        await _repo.deleteNoteByVerse(surahId, verseId);
+        _deletedNoteKeys.remove(key);
+        await _saveDeletedNoteKeys();
+      } catch (e) {
+        debugPrint('Error deleting note from supabase: $e');
       }
-      await _saveLocalCache();
-    } catch (e) {
-      debugPrint('Error deleting note from supabase: $e');
-      // Revert if failed?
     }
+  }
+
+  /// Wipes all personal notes and pending deletion tombstones on account deletion.
+  Future<void> clearAllLocal() async {
+    _personalNotes.clear();
+    _deletedNoteKeys.clear();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_notesKey);
+      await prefs.remove(_deletedNotesKey);
+    } catch (e) {
+      debugPrint('Error clearing local notes: $e');
+    }
+    notifyListeners();
   }
 
   /// Toggle like locally and remotely

@@ -20,9 +20,18 @@ class HifzRepository {
   // ---------------------------------------------------------------------------
   static final HifzRepository _instance = HifzRepository._internal();
   factory HifzRepository() => _instance;
+  static HifzRepository get instance => _instance;
   HifzRepository._internal();
 
   Database? _db;
+
+  /// Clear all local Hifz database tables on account deletion.
+  Future<void> clearAllLocalData() async {
+    final db = await database;
+    await db.delete('active_session');
+    await db.delete('completed_surahs');
+    await db.delete('hifz_history');
+  }
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -391,9 +400,12 @@ class HifzRepository {
 
   /// Syncs local SQLite progress with Supabase `hifz_progress`.
   /// Call this when the user logs in or periodically.
-  Future<void> syncWithSupabase(String userId) async {
+  Future<void> syncWithSupabase([String? userId]) async {
     try {
       final supabase = Supabase.instance.client;
+      userId ??= supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
       // 1. Fetch cloud data
       final List<dynamic> cloudData = await supabase
           .from('hifz_progress')
@@ -604,8 +616,12 @@ class HifzRepository {
         await supabase.from('hifz_history').upsert(payload, onConflict: 'id');
 
         // Mark as synced locally
-        final ids = unSynced.map((r) => "'${r['id']}'").join(',');
-        await db.execute('UPDATE hifz_history SET synced_to_cloud = 1 WHERE id IN ($ids)');
+        final placeholders = List.filled(unSynced.length, '?').join(',');
+        final idArgs = unSynced.map((r) => r['id'].toString()).toList();
+        await db.rawUpdate(
+          'UPDATE hifz_history SET synced_to_cloud = 1 WHERE id IN ($placeholders)',
+          idArgs,
+        );
       }
 
       // 2. Pull history records from cloud

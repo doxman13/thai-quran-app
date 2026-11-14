@@ -246,7 +246,7 @@ class SettingsProvider extends ChangeNotifier {
             : DateTime.now();
         // Derive legacy booleans from slots for backward compat with old Supabase rows
         // Note: is_dark_mode is intentionally omitted — theme mode is strictly device-local.
-        await client.from('user_settings').upsert({
+        final fullPayload = {
           'user_id': userId,
           'theme_color': _themeColor,
           'keep_awake': _keepAwake,
@@ -266,8 +266,26 @@ class SettingsProvider extends ChangeNotifier {
           'secondary_translation_id': _secondaryTranslationId,
           'language_code': _languageCode,
           'web_host_url': _webHostUrl,
+          'show_word_by_word': _showWordByWord,
+          'wbw_language': _wordByWordLanguage,
+          'show_footnotes': _showFootnotes,
+          'show_tajweed_colors': _showTajweedColors,
+          'reciter_id': _reciterId,
           'updated_at': updatedAt.toUtc().toIso8601String(),
-        }, onConflict: 'user_id');
+        };
+
+        try {
+          await client.from('user_settings').upsert(fullPayload, onConflict: 'user_id');
+        } catch (e) {
+          debugPrint('Error syncing settings with new columns, retrying fallback: $e');
+          final fallbackPayload = Map<String, dynamic>.from(fullPayload)
+            ..remove('show_word_by_word')
+            ..remove('wbw_language')
+            ..remove('show_footnotes')
+            ..remove('show_tajweed_colors')
+            ..remove('reciter_id');
+          await client.from('user_settings').upsert(fallbackPayload, onConflict: 'user_id');
+        }
       } catch (e) {
         debugPrint('Error syncing settings to Supabase: $e');
         rethrow;
@@ -375,6 +393,27 @@ class SettingsProvider extends ChangeNotifier {
         );
       } else {
         await prefs.remove('secondaryTranslationId');
+      }
+
+      if (response['show_word_by_word'] != null) {
+        _showWordByWord = response['show_word_by_word'] == true;
+        await prefs.setBool('showWordByWord', _showWordByWord);
+      }
+      if (response['wbw_language'] != null) {
+        _wordByWordLanguage = response['wbw_language'].toString();
+        await prefs.setString('wordByWordLanguage', _wordByWordLanguage);
+      }
+      if (response['show_footnotes'] != null) {
+        _showFootnotes = response['show_footnotes'] == true;
+        await prefs.setBool('showFootnotes', _showFootnotes);
+      }
+      if (response['show_tajweed_colors'] != null) {
+        _showTajweedColors = response['show_tajweed_colors'] == true;
+        await prefs.setBool('showTajweedColors', _showTajweedColors);
+      }
+      if (response['reciter_id'] != null) {
+        _reciterId = int.tryParse(response['reciter_id'].toString()) ?? _reciterId;
+        await prefs.setInt(_reciterIdKey, _reciterId);
       }
 
       // Load Hifz input mode

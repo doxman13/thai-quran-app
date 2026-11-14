@@ -258,6 +258,27 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Wipes all local mushaf bookmarks, recent readings, and resets profiles on account deletion.
+  Future<void> clearAllLocal() async {
+    _pageBookmarks.clear();
+    _verseBookmarks.clear();
+    _recentReadings.clear();
+    _deletedPageBookmarkKeys.clear();
+    _deletedVerseBookmarkKeys.clear();
+    _profiles.clear();
+    _activeProfileId = null;
+    _ensureDefaultProfile();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(mushafStoreKey);
+      await prefs.remove('mushaf_reading_state_updated_at');
+    } catch (e) {
+      debugPrint('Error removing mushaf store key: $e');
+    }
+    await _save();
+    notifyListeners();
+  }
+
   Future<MushafProfile> openFreeRead(int mushafId) async {
     final profile = freeReadProfileForMushaf(mushafId);
     _activeProfileId = profile.id;

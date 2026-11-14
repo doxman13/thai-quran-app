@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
+import '../database/hifz_repository.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
@@ -139,6 +140,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await mushafProv.syncWithSupabase(supabaseProv.userId);
       await notesProv.syncWithSupabase();
       await statsProv.syncWithSupabase(supabaseProv.userId);
+      await HifzRepository.instance.syncWithSupabase();
+      await HifzRepository.instance.syncHistoryWithSupabase();
 
       if (mounted) {
         ScaffoldMessenger.of(this.context).showSnackBar(
@@ -337,6 +340,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppThemeColors colors,
     bool isThai,
   ) async {
+    final localReadingProv = context.read<LocalReadingProvider>();
+    final mushafProv = context.read<MushafReadingProvider>();
+    final notesProv = context.read<NotesProvider>();
+    final statsProv = context.read<StatsProvider>();
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -394,19 +402,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true && mounted) {
-      await supabaseProv.signOut();
-      if (mounted) {
-        ScaffoldMessenger.of(this.context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isThai
-                  ? 'ลบบัญชีและออกจากระบบเรียบร้อยแล้ว'
-                  : 'Account deleted and signed out',
-              style: GoogleFonts.notoSansThai(),
+      final ok = await supabaseProv.deleteAccount();
+      if (!mounted) return;
+
+      if (ok) {
+        await localReadingProv.clearAllLocal();
+        await mushafProv.clearAllLocal();
+        await notesProv.clearAllLocal();
+        await statsProv.clearAllLocal();
+        await HifzRepository.instance.clearAllLocalData();
+
+        if (mounted) {
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isThai
+                    ? 'ลบบัญชีและล้างข้อมูลทั้งหมดเรียบร้อยแล้ว'
+                    : 'Account deleted and all data cleared',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              behavior: SnackBarBehavior.floating,
             ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(this.context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isThai
+                    ? 'เกิดข้อผิดพลาดในการลบบัญชี โปรดลองใหม่อีกครั้ง'
+                    : 'Failed to delete account. Please try again.',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              backgroundColor: const Color(0xFFDC2626),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
@@ -837,6 +870,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: isThai ? 'เกี่ยวกับแอปพลิเคชัน' : 'About',
                     subtitle: 'Thai Quran v1.0.0',
                     onTap: () => _showAboutSheet(context, colors, isThai),
+                  ),
+                  _RevealListTile(
+                    icon: Icons.privacy_tip_outlined,
+                    iconBg: const Color(0xFFF3F4F6),
+                    iconColor: const Color(0xFF4B5563),
+                    title: isThai ? 'นโยบายความเป็นส่วนตัว' : 'Privacy Policy',
+                    subtitle: 'https://quran-th.com/privacy',
+                    onTap: () async {
+                      final uri = Uri.parse('https://quran-th.com/privacy');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
                   if (supabaseProv.isLoggedIn) ...[
                     _RevealListTile(

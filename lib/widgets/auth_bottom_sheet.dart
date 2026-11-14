@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/settings_provider.dart';
 import '../providers/supabase_provider.dart';
@@ -640,6 +641,29 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
                     fontSize: 13,
                     color: widget.colors.primary,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () async {
+                  final uri = Uri.parse('https://quran-th.com/privacy');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  child: Text(
+                    widget.isThai
+                        ? 'นโยบายความเป็นส่วนตัว (Privacy Policy)'
+                        : 'Privacy Policy',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11.5,
+                      color: widget.colors.textMuted,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),

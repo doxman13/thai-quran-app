@@ -316,6 +316,20 @@ class SupabaseProvider extends ChangeNotifier {
     await _client.auth.signOut();
   }
 
+  /// Deletes the current user account completely on Supabase and cleans up local auth state.
+  Future<bool> deleteAccount() async {
+    try {
+      await _client.rpc('delete_own_account');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('guest_display_name');
+      await signOut();
+      return true;
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error deleting account: $e');
+      return false;
+    }
+  }
+
   // Bootstraps default rows for user if they don't exist
   Future<void> bootstrapUser(String userId) async {
     try {

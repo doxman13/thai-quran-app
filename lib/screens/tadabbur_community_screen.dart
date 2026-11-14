@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -13,6 +14,7 @@ import '../data/tadabbur_repository.dart';
 import '../models/tadabbur_note.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
+import '../widgets/auth_bottom_sheet.dart';
 import 'reading_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'tadabbur_private_screen.dart';
@@ -58,18 +60,213 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   Future<void> _loadFeed() async {
     setState(() => _loading = true);
     try {
+      final blockedUsers = await _repo.getBlockedUserIds();
       final data = await _repo.fetchCommunityNotes(
         _filterSurahId ?? '0',
         _filterVerseId ?? '0',
       );
+      final filtered =
+          data.where((n) => !blockedUsers.contains(n.userId)).toList();
       if (mounted) {
         setState(() {
-          _feed = data;
+          _feed = filtered;
           _loading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _handleReportPost(TadabburNote note) async {
+    final reasons = [
+      'เนื้อหาไม่เหมาะสม / ลามกอนาจาร',
+      'ข้อความแสดงความเกลียดชัง หรือการคุกคาม',
+      'ข้อมูลเท็จ / บิดเบือนหลักการ',
+      'สแปม หรือการโฆษณา',
+      'อื่นๆ',
+    ];
+    String selectedReason = reasons.first;
+    final detailsController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+            'รายงานโพสต์ที่ไม่เหมาะสม',
+            style: GoogleFonts.notoSansThai(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'กรุณาเลือกเหตุผลในการรายงานโพสต์นี้ ทีมงานจะตรวจสอบและดำเนินการภายใน 24 ชั่วโมง:',
+                  style: GoogleFonts.notoSansThai(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                RadioGroup<String>(
+                  groupValue: selectedReason,
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedReason = val);
+                  },
+                  child: Column(
+                    children: reasons
+                        .map(
+                          (r) => RadioListTile<String>(
+                            title: Text(
+                              r,
+                              style: GoogleFonts.notoSansThai(fontSize: 13),
+                            ),
+                            value: r,
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: detailsController,
+                  decoration: InputDecoration(
+                    hintText: 'รายละเอียดเพิ่มเติม (ถ้ามี)',
+                    hintStyle: GoogleFonts.notoSansThai(fontSize: 12),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('ยกเลิก', style: GoogleFonts.notoSansThai()),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'ส่งรายงาน',
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _repo.reportCommunityNote(
+          noteId: note.id,
+          reason: selectedReason,
+          details: detailsController.text.trim().isNotEmpty
+              ? detailsController.text.trim()
+              : null,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'ส่งรายงานเรียบร้อยแล้ว ทีมงานจะตรวจสอบโดยเร็วที่สุด',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'เกิดข้อผิดพลาดในการส่งรายงาน: $e',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleBlockUser(String targetUserId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'ซ่อนโพสต์จากผู้ใช้นี้?',
+          style: GoogleFonts.notoSansThai(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        content: Text(
+          'คุณจะไม่เห็นโพสต์หรือข้อคิดจากผู้ใช้นี้อีกต่อไป และผู้ใช้จะไม่สามารถมีปฏิสัมพันธ์กับคุณได้',
+          style: GoogleFonts.notoSansThai(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('ยกเลิก', style: GoogleFonts.notoSansThai()),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'ยืนยันซ่อนผู้ใช้',
+              style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _repo.blockUser(targetUserId);
+        setState(() {
+          _feed = _feed.where((n) => n.userId != targetUserId).toList();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'ซ่อนโพสต์จากผู้ใช้นี้เรียบร้อยแล้ว',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'เกิดข้อผิดพลาด: $e',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -146,12 +343,67 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     if (text.isEmpty) return;
 
     final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      await AuthRequiredDialog.show(
+        context,
+        featureName: 'แบ่งปันข้อคิดสู่ชุมชน (Community Tadabbur)',
+        reason:
+            'การแบ่งปันข้อคิดสู่สาธารณะจำเป็นต้องเข้าสู่ระบบ เพื่อปฏิบัติตามมาตรฐานความปลอดภัยและข้อกำหนดของชุมชน',
+      );
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasAgreedGuidelines =
+        prefs.getBool('accepted_community_guidelines_v1') ?? false;
+    if (!hasAgreedGuidelines) {
+      if (!mounted) return;
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'ข้อตกลงการใช้งานชุมชน (Community Guidelines)',
+            style: GoogleFonts.notoSansThai(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'เพื่อสร้างสังคมแห่งการเรียนรู้อัลกุรอานที่สร้างสรรค์และปลอดภัย:\n\n'
+              '1. ห้ามโพสต์ข้อความที่หยาบคาย ลามกอนาจาร หรือคุกคามผู้อื่น\n'
+              '2. ห้ามบิดเบือนหลักการ หรือเผยแพร่ข้อมูลเท็จ\n'
+              '3. ระบบมีนโยบายไม่อดทนต่อเนื้อหาที่ไม่เหมาะสม (Zero Tolerance for Objectionable Content) และผู้กระทำผิดจะถูกระงับบัญชีถาวร\n\n'
+              'การกด "ยอมรับและดำเนินการต่อ" แสดงว่าท่านยินยอมปฏิบัติตามข้อตกลงนี้',
+              style: GoogleFonts.notoSansThai(fontSize: 13, height: 1.5),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('ยกเลิก', style: GoogleFonts.notoSansThai()),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'ยอมรับและดำเนินการต่อ',
+                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (agreed != true) return;
+      await prefs.setBool('accepted_community_guidelines_v1', true);
+    }
+
     setState(() => _isPosting = true);
     try {
       final note = await _repo.saveNote(
         TadabburNote(
           id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-          userId: user?.id ?? 'guest-${DateTime.now().millisecondsSinceEpoch}',
+          userId: user.id,
           surahId: _postSurahId,
           verseId: _postVerseId,
           noteText: text,
@@ -163,9 +415,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           updatedAt: DateTime.now(),
           userEmail: _isAnonymous
               ? 'ผู้ไม่ประสงค์ออกนาม'
-              : (user?.email ?? 'ผู้ใคร่ครวญอัลกุรอาน'),
+              : (user.email ?? 'ผู้ใคร่ครวญอัลกุรอาน'),
           userLiked: false,
-          synced: user != null,
+          synced: true,
         ),
       );
       if (note != null) {
@@ -436,6 +688,8 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                                 currentUserId: user?.id,
                                 onLike: () => _handleLike(note),
                                 onDelete: () => _handleDeleteNote(note.id),
+                                onReport: () => _handleReportPost(note),
+                                onBlockUser: () => _handleBlockUser(note.userId),
                                 onOpenVerse: (surahId, verseId) =>
                                     _openVerse(surahId, verseId),
                                 onOpenMushaf: (surahId, verseId) =>
@@ -996,6 +1250,8 @@ class _CommunityNoteCard extends StatelessWidget {
   final String? currentUserId;
   final VoidCallback onLike;
   final VoidCallback onDelete;
+  final VoidCallback onReport;
+  final VoidCallback onBlockUser;
   final void Function(String surahId, String verseId) onOpenVerse;
   final void Function(String surahId, String verseId) onOpenMushaf;
 
@@ -1007,6 +1263,8 @@ class _CommunityNoteCard extends StatelessWidget {
     required this.currentUserId,
     required this.onLike,
     required this.onDelete,
+    required this.onReport,
+    required this.onBlockUser,
     required this.onOpenVerse,
     required this.onOpenMushaf,
   });
@@ -1116,6 +1374,59 @@ class _CommunityNoteCard extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, size: 18, color: colors.textMuted),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onSelected: (value) {
+                  if (value == 'report') {
+                    onReport();
+                  } else if (value == 'block') {
+                    onBlockUser();
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.flag_outlined,
+                          size: 16,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'รายงานโพสต์ที่ไม่เหมาะสม (Report Post)',
+                          style: GoogleFonts.notoSansThai(fontSize: 12.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isAuthor && !isGuestAuthor)
+                    PopupMenuItem(
+                      value: 'block',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.block,
+                            size: 16,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'ซ่อนโพสต์จากผู้ใช้นี้ (Block User)',
+                            style: GoogleFonts.notoSansThai(fontSize: 12.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
