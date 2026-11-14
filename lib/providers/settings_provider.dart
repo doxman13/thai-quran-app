@@ -81,17 +81,12 @@ class SettingsProvider extends ChangeNotifier {
     quranTranslationMode,
   };
 
-  static const meaningModeContinuous = 'continuous';
-  static const meaningModeSingle = 'single';
-
   bool _isDarkMode = false;
   bool _keepAwake = true;
   String _readingDisplayMode = quranTranslationMode;
-  String _meaningDisplayMode = meaningModeSingle;
   double _arabicFontSize = 28.0;
   double _translationFontSize = 16.0;
   String _themeColor = 'teal';
-  String _webHostUrl = 'http://10.0.2.2:3000'; // Default emulator localhost
   DateTime _settingsUpdatedAt = DateTime.fromMillisecondsSinceEpoch(0);
   String _languageCode = 'th'; // Default to Thai
 
@@ -123,7 +118,6 @@ class SettingsProvider extends ChangeNotifier {
   bool get keepAwake => _keepAwake;
   String get readingDisplayMode => _readingDisplayMode;
   String get readingMode => _readingDisplayMode;
-  String get meaningDisplayMode => _meaningDisplayMode;
   String get languageCode => _languageCode;
   bool get showArabicText =>
       _readingDisplayMode == quranOnlyMode ||
@@ -139,7 +133,6 @@ class SettingsProvider extends ChangeNotifier {
   String _thaiFontFamily = 'Noto Sans Thai';
   String get thaiFontFamily => _thaiFontFamily;
   String get themeColor => _themeColor;
-  String get webHostUrl => _webHostUrl;
   HifzInputMode get hifzInputMode => _hifzInputMode;
   // Word by word display setting
   bool _showWordByWord = true;
@@ -265,7 +258,6 @@ class SettingsProvider extends ChangeNotifier {
           'primary_translation_id': _primaryTranslationId,
           'secondary_translation_id': _secondaryTranslationId,
           'language_code': _languageCode,
-          'web_host_url': _webHostUrl,
           'show_word_by_word': _showWordByWord,
           'wbw_language': _wordByWordLanguage,
           'show_footnotes': _showFootnotes,
@@ -344,7 +336,6 @@ class SettingsProvider extends ChangeNotifier {
       _languageCode = response['language_code']?.toString() == 'en'
           ? 'en'
           : 'th';
-      _webHostUrl = response['web_host_url']?.toString() ?? _webHostUrl;
 
       // Prefer new dual-slot columns; fall back to legacy booleans for old rows
       final rawPrimary = response['primary_translation_id']?.toString();
@@ -379,7 +370,6 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.setDouble('arabicFontSize', _arabicFontSize);
       await prefs.setDouble('translationFontSize', _translationFontSize);
       await prefs.setString('languageCode', _languageCode);
-      await prefs.setString('webHostUrl', _webHostUrl);
       await prefs.setString('primaryTranslationId', _primaryTranslationId);
       _settingsUpdatedAt = remoteUpdatedAt;
       await prefs.setString(
@@ -458,10 +448,6 @@ class SettingsProvider extends ChangeNotifier {
     } else {
       _hifzInputMode = HifzInputMode.inAppTally;
     }
-    final savedMeaningMode = prefs.getString('meaning_display_mode');
-    if (savedMeaningMode == meaningModeSingle || savedMeaningMode == meaningModeContinuous) {
-      _meaningDisplayMode = savedMeaningMode!;
-    }
     final storedDisplayMode = prefs.getString('readingDisplayMode');
     if (storedDisplayMode != null && storedDisplayMode.isNotEmpty) {
       _readingDisplayMode = _normalizeReadingDisplayMode(storedDisplayMode);
@@ -481,7 +467,6 @@ class SettingsProvider extends ChangeNotifier {
     _translationFontSize = prefs.getDouble('translationFontSize') ?? 16.0;
     _themeColor = _normalizeThemeColor(prefs.getString('themeColor') ?? 'teal');
     _reciterId = prefs.getInt(_reciterIdKey) ?? 7;
-    _webHostUrl = prefs.getString('webHostUrl') ?? 'http://10.0.2.2:3000';
     _settingsUpdatedAt =
         DateTime.tryParse(prefs.getString('settingsUpdatedAt') ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0);
@@ -686,15 +671,6 @@ class SettingsProvider extends ChangeNotifier {
     await _syncToSupabase();
   }
 
-  void setMeaningDisplayMode(String value) async {
-    final mode = (value == meaningModeSingle) ? meaningModeSingle : meaningModeContinuous;
-    if (_meaningDisplayMode == mode) return;
-    _meaningDisplayMode = mode;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('meaning_display_mode', mode);
-  }
-
   void setArabicFontSize(double value) async {
     _arabicFontSize = value;
     notifyListeners();
@@ -716,15 +692,6 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeColor', _themeColor);
-    await _markSettingsChanged(prefs);
-    await _syncToSupabase();
-  }
-
-  void setWebHostUrl(String value) async {
-    _webHostUrl = value.trim();
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('webHostUrl', _webHostUrl);
     await _markSettingsChanged(prefs);
     await _syncToSupabase();
   }
