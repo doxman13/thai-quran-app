@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '913097538260',
     projectId: 'iqra-quran-project',
     storageBucket: 'iqra-quran-project.firebasestorage.app',
-    iosBundleId: 'com.abuzayd.iqra',
+    iosBundleId: 'com.thaiquran.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
