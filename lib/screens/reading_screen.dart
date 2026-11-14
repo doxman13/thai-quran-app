@@ -556,7 +556,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       SnackBar(
         content: Text(
           isThaiLang
-              ? 'สูเราะฮ์ $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount อายะฮ์'
+              ? 'ซูเราะฮฺ $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount อายะฮฺ'
               : 'Surah $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount verses',
         ),
         duration: const Duration(seconds: 2),
@@ -879,7 +879,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   String _ayahLeftLabel(int count) {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     if (settings.languageCode == 'th') {
-      return 'เหลืออีก $count อายะฮ์';
+      return 'เหลืออีก $count อายะฮฺ';
     }
     return count == 1 ? '1 ayah left' : '$count ayahs left';
   }
@@ -2736,6 +2736,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           const SizedBox(height: 20),
           Builder(
             builder: (context) {
+              final isThai = context.watch<SettingsProvider>().isThai;
               final int currentSurahInt = int.tryParse(_currentSurah) ?? 1;
               final prevSurahId = (currentSurahInt - 1).toString();
               final nextSurahId = (currentSurahInt + 1).toString();
@@ -2767,8 +2768,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: Text(
-                          '⬅️ ซูเราะฮฺก่อนหน้า',
-                          locale: const Locale('th', 'TH'),
+                          isThai ? '⬅️ ซูเราะฮฺก่อนหน้า' : '⬅️ Previous Surah',
+                          locale: Locale(isThai ? 'th' : 'en'),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -2792,8 +2793,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         child: Text(
-                          'ซูเราะฮฺถัดไป ➡️',
-                          locale: const Locale('th', 'TH'),
+                          isThai ? 'ซูเราะฮฺถัดไป ➡️' : 'Next Surah ➡️',
+                          locale: Locale(isThai ? 'th' : 'en'),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -3257,7 +3258,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                   const SizedBox(height: 8),
                   Text(
                     isThai
-                        ? 'ขอแสดงความยินดี คุณอ่านสูเราะฮ์ ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} จบแล้ว'
+                        ? 'ขอแสดงความยินดี คุณอ่านซูเราะฮฺ ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} จบแล้ว'
                         : 'Congratulations, you completed Surah ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
@@ -3289,7 +3290,7 @@ class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
                         const SizedBox(height: 8),
                         Text(
                           isThai
-                              ? 'สูเราะฮ์ ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}'
+                              ? 'ซูเราะฮฺ ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}'
                               : 'Surah ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}',
                           textAlign: TextAlign.center,
                           style: textTheme.titleMedium?.copyWith(

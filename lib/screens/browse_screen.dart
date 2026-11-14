@@ -608,7 +608,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                             children: [
                               Flexible(
                                 child: Text(
-                                  surahName,
+                                  isThai ? surahName : surahNameEn,
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
@@ -628,7 +628,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '$surahNameEn · $verseCount ${isThai ? "อายะฮฺ" : "verses"} · ${isMedinan ? (isThai ? "มะดะนียะฮฺ" : "Medinan") : (isThai ? "มักกียะฮฺ" : "Meccan")} · ${isThai ? "หน้า" : "Page"} $startPage',
+                            isThai
+                                ? '$surahNameEn · $verseCount อายะฮฺ · ${isMedinan ? "มะดะนียะฮฺ" : "มักกียะฮฺ"} · หน้า $startPage'
+                                : '$surahName · $verseCount verses · ${isMedinan ? "Medinan" : "Meccan"} · Page $startPage',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               color: colors.foreground.withValues(alpha: 0.7),
@@ -932,9 +934,13 @@ class BrowseScreenState extends State<BrowseScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  endAyah.isNotEmpty
-                      ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah) · หน้า $startPage-$endPage'
-                      : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName · หน้า $startPage-$endPage',
+                  isThai
+                      ? (endAyah.isNotEmpty
+                          ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah) · หน้า $startPage-$endPage'
+                          : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName · หน้า $startPage-$endPage')
+                      : (endAyah.isNotEmpty
+                          ? '$startSurahName ($startSurahId:$startAyah) to $endSurahName ($endSurahId:$endAyah) · Page $startPage-$endPage'
+                          : '$startSurahName ($startSurahId:$startAyah) to $endSurahName · Page $startPage-$endPage'),
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12.5,
                     color: colors.foreground.withValues(alpha: 0.7),
@@ -987,7 +993,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '$startSurahName อายะฮฺที่ $startAyah',
+                                  isThai
+                                      ? '$startSurahName อายะฮฺที่ $startAyah'
+                                      : '$startSurahName Ayah $startAyah',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     color: colors.foreground.withValues(alpha: 0.65),
@@ -1156,6 +1164,7 @@ class BrowseScreenState extends State<BrowseScreen> {
           num: id,
           name: surahDisplayName(id.toString(), isThai: isThai),
           nameEn: offlineSurahNamesEn[id.toString()] ?? '',
+          nameTh: offlineSurahNamesTh[id.toString()] ?? '',
           arabic: offlineSurahNamesAr[id.toString()] ?? '',
           count: widget.repository.getSurahVerses(id.toString()).length,
           startPage: getMedinaMushafPageNumber(id, 1),
@@ -1189,10 +1198,10 @@ class BrowseScreenState extends State<BrowseScreen> {
             id: index + 1,
             startSurah: sSurah.toString(),
             startAyah: sAyah.toString(),
-            startSurahName: widget.repository.getSurahName(sSurah.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+            startSurahName: widget.repository.getSurahName(sSurah.toString(), isThai: isThai).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
             endSurah: eSurah.toString(),
             endAyah: eAyah == 9999 ? '' : eAyah.toString(),
-            endSurahName: widget.repository.getSurahName(eSurah.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+            endSurahName: widget.repository.getSurahName(eSurah.toString(), isThai: isThai).replaceFirst(RegExp(r'^\d+\.\s*'), ''),
             startPage: startPage,
             endPage: endPage >= startPage ? endPage : startPage,
           );
@@ -1411,7 +1420,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                       // Topic matches
                       if (_topicSearchResults.isNotEmpty) ...[
                         Text(
-                          'หัวข้ออัลกุรอาน (${_topicSearchResults.length})',
+                          isThai
+                              ? 'หัวข้ออัลกุรอาน (${_topicSearchResults.length})'
+                              : 'Quran Topics (${_topicSearchResults.length})',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             letterSpacing: 1.2,
@@ -1422,8 +1433,17 @@ class BrowseScreenState extends State<BrowseScreen> {
                           final topicId = t['id'] as int;
                           final titleTh = t['title_th'] as String? ?? '';
                           final titleEn = t['title_en'] as String? ?? '';
-                          final catTitle = t['category_title_th'] as String? ?? '';
+                          final catTitleTh = t['category_title_th'] as String? ?? '';
+                          final catTitleEn = t['category_title_en'] as String? ?? '';
+                          final catTitle = isThai ? catTitleTh : (catTitleEn.isNotEmpty ? catTitleEn : catTitleTh);
                           final versesCount = t['verses_count'] as int? ?? 0;
+
+                          final primaryTopicTitle = isThai
+                              ? titleTh
+                              : (titleEn.isNotEmpty ? titleEn : titleTh);
+                          final secondaryTopicTitle = isThai
+                              ? (titleEn.isNotEmpty ? '$titleEn • $catTitle' : catTitle)
+                              : (titleTh.isNotEmpty ? '$titleTh • $catTitle' : catTitle);
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -1466,7 +1486,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              titleTh,
+                                              primaryTopicTitle,
                                               style: GoogleFonts.notoSansThai(
                                                 fontSize: 14.5,
                                                 fontWeight: FontWeight.w700,
@@ -1474,7 +1494,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                                               ),
                                             ),
                                             Text(
-                                              '$titleEn • $catTitle',
+                                              secondaryTopicTitle,
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 12,
                                                 color: colorScheme.onSurfaceVariant,
@@ -1490,7 +1510,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          '$versesCount อายะฮฺ',
+                                          '$versesCount ${isThai ? 'อายะฮฺ' : 'verses'}',
                                           style: GoogleFonts.notoSansThai(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -1536,9 +1556,11 @@ class BrowseScreenState extends State<BrowseScreen> {
                           final surahName = surahDisplayName(sId, isThai: isThai);
 
                           final isLatin = RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(_searchController.text.trim());
-                          final displayText = (isLatin && enText.isNotEmpty && thText.isNotEmpty)
-                              ? '$thText ($enText)'
-                              : (thText.isNotEmpty ? thText : enText);
+                          final displayText = !isThai
+                              ? (enText.isNotEmpty ? enText : thText)
+                              : ((isLatin && enText.isNotEmpty && thText.isNotEmpty)
+                                  ? '$thText ($enText)'
+                                  : (thText.isNotEmpty ? thText : enText));
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
@@ -1632,7 +1654,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ),
                       if (_apiSearchResult != null && _apiSearchResult!.items.isNotEmpty) ...[
                         Text(
-                          'ผลการค้นหาจากอัลกุรอาน (${_apiSearchResult!.items.length})',
+                          isThai
+                              ? 'ผลการค้นหาจากอัลกุรอาน (${_apiSearchResult!.items.length})'
+                              : 'Quran Search Results (${_apiSearchResult!.items.length})',
                           style: textTheme.labelLarge?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             letterSpacing: 1.2,
@@ -1660,9 +1684,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            context.read<SettingsProvider>().languageCode == 'th'
-                                                ? 'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})'
-                                                : 'Surah ${widget.repository.getSurahName(item.surahId).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})',
+                                            isThai
+                                                ? 'ซูเราะฮฺ ${widget.repository.getSurahName(item.surahId, isThai: true).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})'
+                                                : 'Surah ${widget.repository.getSurahName(item.surahId, isThai: false).replaceFirst(RegExp(r'^\d+\.\s*'), '')} (${item.verseKey})',
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -1746,6 +1770,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ...juz.map(
                           (item) => _JuzCard(
                             colors: widget.colors,
+                            isThai: isThai,
                             juzNumber: item.id,
                             startSurahName: item.startSurahName,
                             startSurahId: item.startSurah,
@@ -1792,8 +1817,9 @@ class BrowseScreenState extends State<BrowseScreen> {
                         ...surahs.map(
                           (surah) => _SurahCard(
                             colors: widget.colors,
+                            isThai: isThai,
                             id: surah.id,
-                            title: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                            title: surah.nameTh.isNotEmpty ? surah.nameTh : surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
                             englishTitle: surah.nameEn,
                             arabicTitle: surah.arabic,
                             count: surah.count,
@@ -1803,7 +1829,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                             onTap: () => _showSurahReadOptionsModal(
                               context: context,
                               surahId: surah.id,
-                              surahName: surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
+                              surahName: surah.nameTh.isNotEmpty ? surah.nameTh : surah.name.replaceFirst(RegExp(r'^\d+\.\s*'), ''),
                               surahNameEn: surah.nameEn,
                               arabicTitle: surah.arabic,
                               verseCount: surah.count,
@@ -1828,6 +1854,7 @@ class BrowseScreenState extends State<BrowseScreen> {
 
 class _SurahCard extends StatelessWidget {
   final AppThemeColors colors;
+  final bool isThai;
   final String id;
   final String title;
   final String englishTitle;
@@ -1840,6 +1867,7 @@ class _SurahCard extends StatelessWidget {
 
   const _SurahCard({
     required this.colors,
+    this.isThai = true,
     required this.id,
     required this.title,
     required this.englishTitle,
@@ -1853,6 +1881,9 @@ class _SurahCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryTitle = isThai ? title : englishTitle;
+    final secondaryTitle = isThai ? englishTitle : title;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -1900,7 +1931,7 @@ class _SurahCard extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              title,
+                              primaryTitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.notoSansThai(
@@ -1926,7 +1957,7 @@ class _SurahCard extends StatelessWidget {
                                       size: 10.5, color: Color(0xFF0E5A4A)),
                                   const SizedBox(width: 2),
                                   Text(
-                                    'อ่านจบ',
+                                    isThai ? 'อ่านจบ' : 'Completed',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.bold,
@@ -1958,7 +1989,9 @@ class _SurahCard extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              isMedinan ? 'มะดะนียะฮฺ' : 'มักกียะฮฺ',
+                              isMedinan
+                                  ? (isThai ? 'มะดะนียะฮฺ' : 'Medinan')
+                                  : (isThai ? 'มักกียะฮฺ' : 'Meccan'),
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w600,
@@ -1971,7 +2004,9 @@ class _SurahCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              '$count อายะฮฺ · หน้า $startPage · $englishTitle',
+                              isThai
+                                  ? '$count อายะฮฺ · หน้า $startPage · $secondaryTitle'
+                                  : '$count verses · Page $startPage · $secondaryTitle',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.notoSans(
@@ -2016,6 +2051,7 @@ class _SurahCard extends StatelessWidget {
 
 class _JuzCard extends StatelessWidget {
   final AppThemeColors colors;
+  final bool isThai;
   final int juzNumber;
   final String startSurahName;
   final String startSurahId;
@@ -2029,6 +2065,7 @@ class _JuzCard extends StatelessWidget {
 
   const _JuzCard({
     required this.colors,
+    this.isThai = true,
     required this.juzNumber,
     required this.startSurahName,
     required this.startSurahId,
@@ -2083,7 +2120,7 @@ class _JuzCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ญุซอ์ที่ $juzNumber',
+                        isThai ? 'ญุซอ์ที่ $juzNumber' : 'Juz $juzNumber',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 14.5,
                           fontWeight: FontWeight.bold,
@@ -2092,9 +2129,13 @@ class _JuzCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        endAyah.isNotEmpty
-                            ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah)'
-                            : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName',
+                        isThai
+                            ? (endAyah.isNotEmpty
+                                ? '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName ($endSurahId:$endAyah)'
+                                : '$startSurahName ($startSurahId:$startAyah) ถึง $endSurahName')
+                            : (endAyah.isNotEmpty
+                                ? '$startSurahName ($startSurahId:$startAyah) to $endSurahName ($endSurahId:$endAyah)'
+                                : '$startSurahName ($startSurahId:$startAyah) to $endSurahName'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
@@ -2107,7 +2148,9 @@ class _JuzCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'หน้า $startPage-$endPage',
+                  isThai
+                      ? 'หน้า $startPage-$endPage'
+                      : 'Page $startPage-$endPage',
                   style: GoogleFonts.notoSans(
                     fontSize: 11,
                     color: colors.foreground.withValues(alpha: 0.5),

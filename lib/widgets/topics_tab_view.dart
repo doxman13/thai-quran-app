@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/offline_quran_database_service.dart';
 import '../screens/topic_verses_screen.dart';
 
@@ -85,6 +87,7 @@ class _TopicsTabViewState extends State<TopicsTabView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -97,13 +100,17 @@ class _TopicsTabViewState extends State<TopicsTabView> {
     for (final cat in _categories) {
       final catId = cat['id'] as int;
       final catTitleTh = (cat['title_th'] as String? ?? '').toLowerCase();
+      final catTitleEn = (cat['title_en'] as String? ?? '').toLowerCase();
       final allTopics = _topicsByCategory[catId] ?? [];
       final matches = query.isEmpty
           ? allTopics
           : allTopics.where((t) {
               final th = (t['title_th'] as String? ?? '').toLowerCase();
               final en = (t['title_en'] as String? ?? '').toLowerCase();
-              return catTitleTh.contains(query) || th.contains(query) || en.contains(query);
+              return catTitleTh.contains(query) ||
+                  catTitleEn.contains(query) ||
+                  th.contains(query) ||
+                  en.contains(query);
             }).toList();
       totalMatchingTopics += matches.length;
     }
@@ -121,7 +128,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                 widget.onSearchChanged?.call(val);
               },
               decoration: InputDecoration(
-                hintText: 'ค้นหาหัวข้อ (เช่น นบี, ละหมาด, พ่อแม่, สวรรค์)...',
+                hintText: isThai
+                    ? 'ค้นหาหัวข้อ (เช่น นบี, ละหมาด, พ่อแม่, สวรรค์)...'
+                    : 'Search topics (e.g. Prophets, Prayer, Parents, Paradise)...',
                 hintStyle: GoogleFonts.notoSansThai(
                   fontSize: 14,
                   color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -176,7 +185,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'ไม่พบหัวข้อที่ตรงกับ "$query"',
+                          isThai
+                              ? 'ไม่พบหัวข้อที่ตรงกับ "$query"'
+                              : 'No topics matching "$query"',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -186,7 +197,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'ลองค้นหาด้วยคำสำคัญอื่น เช่น นบี, ละหมาด, ความอดทน, วันสิ้นโลก',
+                          isThai
+                              ? 'ลองค้นหาด้วยคำสำคัญอื่น เช่น นบี, ละหมาด, ความอดทน, วันสิ้นโลก'
+                              : 'Try searching for keywords like Prophets, Prayer, Patience, Day of Judgment',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 13,
                             color: colorScheme.onSurfaceVariant,
@@ -210,7 +223,8 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                     final iconName = cat['icon_name'] as String? ?? '';
                     final allTopics = _topicsByCategory[catId] ?? [];
 
-                    final catMatches = catTitleTh.toLowerCase().contains(query);
+                    final catMatches = catTitleTh.toLowerCase().contains(query) ||
+                        catTitleEn.toLowerCase().contains(query);
 
                     final filteredTopics = query.isEmpty
                         ? allTopics
@@ -258,7 +272,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        catTitleTh,
+                                        isThai
+                                            ? catTitleTh
+                                            : (catTitleEn.isNotEmpty ? catTitleEn : catTitleTh),
                                         style: GoogleFonts.notoSansThai(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
@@ -266,7 +282,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                         ),
                                       ),
                                       Text(
-                                        catTitleEn,
+                                        isThai
+                                            ? catTitleEn
+                                            : (catTitleTh != catTitleEn ? catTitleTh : ''),
                                         style: GoogleFonts.notoSans(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
@@ -286,7 +304,7 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                     ),
                                   ),
                                   child: Text(
-                                    '${filteredTopics.length} หัวข้อ',
+                                    '${filteredTopics.length} ${isThai ? 'หัวข้อ' : 'topics'}',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -368,7 +386,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              topicTitleTh,
+                                              isThai
+                                                  ? topicTitleTh
+                                                  : (topicTitleEn.isNotEmpty ? topicTitleEn : topicTitleTh),
                                               style: GoogleFonts.notoSansThai(
                                                 fontSize: 14.5,
                                                 fontWeight: FontWeight.w600,
@@ -376,7 +396,9 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                               ),
                                             ),
                                             Text(
-                                              topicTitleEn,
+                                              isThai
+                                                  ? topicTitleEn
+                                                  : (topicTitleTh != topicTitleEn ? topicTitleTh : ''),
                                               style: GoogleFonts.notoSans(
                                                 fontSize: 11.5,
                                                 color: colorScheme.onSurfaceVariant,
@@ -392,7 +414,7 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
-                                          '$versesCount อายะฮฺ',
+                                          '$versesCount ${isThai ? 'อายะฮฺ' : 'verses'}',
                                           style: GoogleFonts.notoSansThai(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,

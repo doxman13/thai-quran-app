@@ -60,7 +60,15 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
     final colorScheme = theme.colorScheme;
     final settings = Provider.of<SettingsProvider>(context);
     final transManager = Provider.of<TranslationManagerProvider>(context);
+    final isThai = settings.languageCode == 'th';
     final colors = settings.getAppColors();
+
+    final primaryTitle = isThai
+        ? widget.titleTh
+        : (widget.titleEn.isNotEmpty ? widget.titleEn : widget.titleTh);
+    final secondaryTitle = isThai
+        ? widget.titleEn
+        : (widget.titleTh != widget.titleEn ? widget.titleTh : '');
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -69,20 +77,21 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.titleTh,
+              primaryTitle,
               style: GoogleFonts.notoSansThai(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            Text(
-              widget.titleEn,
-              style: GoogleFonts.notoSans(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
+            if (secondaryTitle.isNotEmpty)
+              Text(
+                secondaryTitle,
+                style: GoogleFonts.notoSans(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
           ],
         ),
         backgroundColor: colorScheme.surface,
@@ -101,7 +110,7 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
           : _verses == null || _verses!.isEmpty
               ? Center(
                   child: Text(
-                    'ไม่พบอายะฮฺในหัวข้อนี้',
+                    isThai ? 'ไม่พบอายะฮฺในหัวข้อนี้' : 'No verses found in this topic',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 16,
                       color: colorScheme.onSurfaceVariant,
@@ -165,7 +174,7 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'ซูเราะฮฺ $verseKey',
+                                  isThai ? 'ซูเราะฮฺ $verseKey' : 'Surah $verseKey',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -247,7 +256,7 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                                     size: 14,
                                   ),
                                   label: Text(
-                                    'อ่านในบริบท',
+                                    isThai ? 'อ่านในบริบท' : 'Read in Context',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -291,7 +300,9 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                                     size: 14,
                                   ),
                                   label: Text(
-                                    'เปิดมุศหัฟ (หน้า $pageNum)',
+                                    isThai
+                                        ? 'เปิดมุศหัฟ (หน้า $pageNum)'
+                                        : 'Open Mushaf (p. $pageNum)',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,

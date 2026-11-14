@@ -202,14 +202,15 @@ class OfflineQuranDatabaseService {
     final db = await database;
     final q = '%${query.trim().toLowerCase()}%';
     return await db.rawQuery('''
-      SELECT t.*, c.title_th as category_title_th, c.icon_name as category_icon
+      SELECT t.*, c.title_th as category_title_th, c.title_en as category_title_en, c.icon_name as category_icon
       FROM topics t
       JOIN topic_categories c ON t.category_id = c.id
       WHERE LOWER(t.title_th) LIKE ? 
          OR LOWER(t.title_en) LIKE ? 
          OR LOWER(c.title_th) LIKE ?
+         OR LOWER(c.title_en) LIKE ?
       ORDER BY t.verses_count DESC
-    ''', [q, q, q]);
+    ''', [q, q, q, q]);
   }
 
   /// Get all verses containing words with a specific root ('ر ح م', 'س م و')

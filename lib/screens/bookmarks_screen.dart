@@ -453,7 +453,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                                   const Icon(Icons.import_contacts_outlined, size: 10.5, color: Color(0xFF8A6530)),
                                   const SizedBox(width: 3),
                                   Text(
-                                    'มุศหัฟ',
+                                    isThai ? 'มุศหัฟ' : 'Mushaf',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,

@@ -1649,7 +1649,7 @@ class _MushafReaderSettingsSheetState
   }
 }
 
-String getSurahNameForPage(int pageNumber, QuranRepository quranRepository) {
+String getSurahNameForPage(int pageNumber, QuranRepository quranRepository, {bool? isThai}) {
   int surahId = 1;
   for (int i = 1; i <= 114; i++) {
     if (getStartPageForSurah(i) <= pageNumber) {
@@ -1658,7 +1658,7 @@ String getSurahNameForPage(int pageNumber, QuranRepository quranRepository) {
       break;
     }
   }
-  return quranRepository.getSurahName(surahId.toString());
+  return quranRepository.getSurahName(surahId.toString(), isThai: isThai);
 }
 
 class _ReaderTopBar extends StatelessWidget {
@@ -1705,11 +1705,11 @@ class _ReaderTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
-    final surahName = getSurahNameForPage(pageNumber, quranRepository);
+    final surahName = getSurahNameForPage(pageNumber, quranRepository, isThai: settings.isThai);
     final juz = getOfflineJuzForPage(pageNumber);
     final hizb = getOfflineHizbForPage(pageNumber);
     final hizbLabel = settings.languageCode == 'th'
-        ? 'ฮิซบ์'
+        ? 'ฮิซบฺ'
         : 'Hizb';
 
     return AppBar(
@@ -1843,7 +1843,8 @@ class _BookPageIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final surahName = getSurahNameForPage(pageNumber, quranRepository);
+    final isThai = context.watch<SettingsProvider>().isThai;
+    final surahName = getSurahNameForPage(pageNumber, quranRepository, isThai: isThai);
     return SizedBox(
       height: 28,
       child: Stack(
@@ -3187,6 +3188,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isThai = context.watch<SettingsProvider>().languageCode == 'th';
 
     return Container(
       constraints: BoxConstraints(
@@ -3219,7 +3221,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
               child: Row(
                 children: [
                   Text(
-                    'นำทางมุศหัฟ',
+                    isThai ? 'นำทางมุศหัฟ' : 'Mushaf Navigator',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
@@ -3235,7 +3237,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                       border: Border.all(color: widget.colors.borderSoft),
                     ),
                     child: Text(
-                      'กำลังอ่าน: หน้า ${widget.currentPage}',
+                      isThai
+                          ? 'กำลังอ่าน: หน้า ${widget.currentPage}'
+                          : 'Reading: Page ${widget.currentPage}',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 11,
                         color: widget.colors.textMuted,
@@ -3272,11 +3276,11 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                   fontSize: 13,
                   fontWeight: FontWeight.normal,
                 ),
-                tabs: const [
-                  Tab(text: 'ซูเราะฮฺ'),
-                  Tab(text: 'อายะฮฺ'),
-                  Tab(text: 'ญุซอ์'),
-                  Tab(text: 'หน้า'),
+                tabs: [
+                  Tab(text: isThai ? 'ซูเราะฮฺ' : 'Surah'),
+                  Tab(text: isThai ? 'อายะฮฺ' : 'Ayah'),
+                  Tab(text: isThai ? 'ญุซอ์' : 'Juz'),
+                  Tab(text: isThai ? 'หน้า' : 'Page'),
                 ],
               ),
             ),
@@ -3285,10 +3289,10 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildSurahsTab(isDark),
-                  _buildAyahsTab(isDark),
-                  _buildJuzsTab(isDark),
-                  _buildPagesTab(isDark),
+                  _buildSurahsTab(isDark, isThai),
+                  _buildAyahsTab(isDark, isThai),
+                  _buildJuzsTab(isDark, isThai),
+                  _buildPagesTab(isDark, isThai),
                 ],
               ),
             ),
@@ -3298,7 +3302,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
     );
   }
 
-  Widget _buildSurahsTab(bool isDark) {
+  Widget _buildSurahsTab(bool isDark, bool isThai) {
     final surahs = List.generate(114, (index) => index + 1).where((surahNumber) {
       if (_query.trim().isEmpty) return true;
       return matchesSurahQuery(surahNumber.toString(), _query);
@@ -3316,7 +3320,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
               color: widget.colors.textStrong,
             ),
             decoration: InputDecoration(
-              hintText: 'ค้นหาซูเราะฮฺ (ชื่อ หรือ หมายเลข)...',
+              hintText: isThai
+                  ? 'ค้นหาซูเราะฮฺ (ชื่อ หรือ หมายเลข)...'
+                  : 'Search Surah (name or number)...',
               hintStyle: GoogleFonts.notoSansThai(
                 fontSize: 13,
                 color: widget.colors.textMuted,
@@ -3404,7 +3410,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                               children: [
                                 Flexible(
                                   child: Text(
-                                    cleanThaiName,
+                                    isThai ? cleanThaiName : (enName.isNotEmpty ? enName : cleanThaiName),
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -3414,10 +3420,10 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (enName.isNotEmpty) ...[
+                                if ((isThai ? enName : cleanThaiName).isNotEmpty) ...[
                                   const SizedBox(width: 6),
                                   Text(
-                                    enName,
+                                    isThai ? enName : cleanThaiName,
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 12,
                                       color: widget.colors.textMuted,
@@ -3430,7 +3436,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                             Row(
                               children: [
                                 Text(
-                                  isMedinan ? 'มะดะนียะฮฺ' : 'มักกียะฮฺ',
+                                  isMedinan
+                                      ? (isThai ? 'มะดะนียะฮฺ' : 'Medinan')
+                                      : (isThai ? 'มักกียะฮฺ' : 'Meccan'),
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 11,
                                     color: widget.colors.primary,
@@ -3438,7 +3446,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                                   ),
                                 ),
                                 Text(
-                                  ' • $verseCount อายะฮฺ • หน้า $startPage',
+                                  ' • $verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'หน้า' : 'Page'} $startPage',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 11,
                                     color: widget.colors.textMuted,
@@ -3475,7 +3483,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
     );
   }
 
-  Widget _buildAyahsTab(bool isDark) {
+  Widget _buildAyahsTab(bool isDark, bool isThai) {
     final verseCount = qcf.getVerseCount(_selectedSurahForAyah);
 
     return Column(
@@ -3496,11 +3504,11 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                 dropdownColor: widget.colors.surface,
                 icon: Icon(Icons.arrow_drop_down_rounded, color: widget.colors.primary),
                 items: List.generate(114, (i) => i + 1).map((sNum) {
-                  final sName = widget.quranRepository.getSurahName(sNum.toString()).replaceFirst(RegExp(r'^\d+\.\s*'), '');
+                  final sName = widget.quranRepository.getSurahName(sNum.toString(), isThai: isThai).replaceFirst(RegExp(r'^\d+\.\s*'), '');
                   return DropdownMenuItem<int>(
                     value: sNum,
                     child: Text(
-                      'ซูเราะฮฺ $sNum. $sName (${qcf.getVerseCount(sNum)} อายะฮฺ)',
+                      '${isThai ? "ซูเราะฮฺ" : "Surah"} $sNum. $sName (${qcf.getVerseCount(sNum)} ${isThai ? "อายะฮฺ" : "verses"})',
                       style: GoogleFonts.notoSansThai(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -3523,7 +3531,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
           child: Row(
             children: [
               Text(
-                'เลือกอายะฮฺ (1 ถึง $verseCount):',
+                isThai
+                    ? 'เลือกอายะฮฺ (1 ถึง $verseCount):'
+                    : 'Select Ayah (1 to $verseCount):',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -3581,7 +3591,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
     );
   }
 
-  Widget _buildJuzsTab(bool isDark) {
+  Widget _buildJuzsTab(bool isDark, bool isThai) {
     final currentJuz = getOfflineJuzForPage(widget.currentPage);
 
     return GridView.builder(
@@ -3622,7 +3632,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'ญุซอ์ที่ $juzNum',
+                  isThai ? 'ญุซอ์ที่ $juzNum' : 'Juz $juzNum',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -3631,7 +3641,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'หน้า $startPage',
+                  isThai ? 'หน้า $startPage' : 'Page $startPage',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 11,
                     color: widget.colors.textMuted,
@@ -3645,17 +3655,17 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
     );
   }
 
-  Widget _buildPagesTab(bool isDark) {
-    const milestones = [
-      {'page': 1, 'label': '1. อัล-ฟาติหะฮฺ (หน้า 1)'},
-      {'page': 2, 'label': '2. อัล-บะเกาะเราะฮฺ (หน้า 2)'},
-      {'page': 50, 'label': '3. อาลิ อิมรอน (หน้า 50)'},
-      {'page': 106, 'label': '5. อัล-มาอิดะฮฺ (หน้า 106)'},
-      {'page': 282, 'label': '17. อัล-อิสรออ์ / กึ่งกลาง (หน้า 282)'},
-      {'page': 293, 'label': '18. อัล-กะฮฺฟ์ (หน้า 293)'},
-      {'page': 440, 'label': '36. ยาซีน (หน้า 440)'},
-      {'page': 582, 'label': '78. ญุซอ์ อัมมา (หน้า 582)'},
-      {'page': 604, 'label': '114. อัน-นาส / จบเล่ม (หน้า 604)'},
+  Widget _buildPagesTab(bool isDark, bool isThai) {
+    final milestones = [
+      {'page': 1, 'label': isThai ? '1. อัล-ฟาติหะฮฺ (หน้า 1)' : '1. Al-Fatihah (p. 1)'},
+      {'page': 2, 'label': isThai ? '2. อัล-บะเกาะเราะฮฺ (หน้า 2)' : '2. Al-Baqarah (p. 2)'},
+      {'page': 50, 'label': isThai ? '3. อาลิ อิมรอน (หน้า 50)' : '3. Ali \'Imran (p. 50)'},
+      {'page': 106, 'label': isThai ? '5. อัล-มาอิดะฮฺ (หน้า 106)' : '5. Al-Ma\'idah (p. 106)'},
+      {'page': 282, 'label': isThai ? '17. อัล-อิสรออ์ / กึ่งกลาง (หน้า 282)' : '17. Al-Isra / Midpoint (p. 282)'},
+      {'page': 293, 'label': isThai ? '18. อัล-กะฮฺฟ์ (หน้า 293)' : '18. Al-Kahf (p. 293)'},
+      {'page': 440, 'label': isThai ? '36. ยาซีน (หน้า 440)' : '36. Ya-Sin (p. 440)'},
+      {'page': 582, 'label': isThai ? '78. ญุซอ์ อัมมา (หน้า 582)' : '78. Juz \'Amma (p. 582)'},
+      {'page': 604, 'label': isThai ? '114. อัน-นาส / จบเล่ม (หน้า 604)' : '114. An-Nas / End (p. 604)'},
     ];
 
     return SingleChildScrollView(
@@ -3664,7 +3674,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'ระบุเลขหน้าโดยตรง (1 - 604):',
+            isThai
+                ? 'ระบุเลขหน้าโดยตรง (1 - 604):'
+                : 'Jump directly to page (1 - 604):',
             style: GoogleFonts.notoSansThai(
               fontSize: 13,
               fontWeight: FontWeight.bold,
@@ -3684,7 +3696,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                     color: widget.colors.textStrong,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'ใส่เลขหน้า 1 - 604...',
+                    hintText: isThai ? 'ใส่เลขหน้า 1 - 604...' : 'Enter page number 1 - 604...',
                     hintStyle: GoogleFonts.notoSansThai(
                       fontSize: 13,
                       color: widget.colors.textMuted,
@@ -3730,7 +3742,7 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                   }
                 },
                 child: Text(
-                  'ไปยังหน้า',
+                  isThai ? 'ไปยังหน้า' : 'Go',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -3741,7 +3753,9 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
           ),
           const SizedBox(height: 24),
           Text(
-            'จุดสำคัญในมุศหัฟ (Quick Milestones):',
+            isThai
+                ? 'จุดสำคัญในมุศหัฟ (Quick Milestones):'
+                : 'Quick Milestones:',
             style: GoogleFonts.notoSansThai(
               fontSize: 13,
               fontWeight: FontWeight.bold,
@@ -3911,12 +3925,15 @@ class _FloatingAudioControlBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isThai = context.watch<SettingsProvider>().isThai;
     final currentKey = audioProvider.currentVerseKey ?? '';
     final parts = currentKey.split(':');
     final surahName = parts.isNotEmpty
-        ? quranRepository.getSurahName(parts[0])
+        ? quranRepository.getSurahName(parts[0], isThai: isThai)
         : '';
-    final verseText = parts.length > 1 ? 'อายะฮฺ ${parts[1]}' : '';
+    final verseText = parts.length > 1
+        ? (isThai ? 'อายะฮฺ ${parts[1]}' : 'Ayah ${parts[1]}')
+        : '';
 
     return Material(
       color: Colors.transparent,
@@ -4689,13 +4706,12 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
     final settings = context.watch<SettingsProvider>();
     final colors = settings.getAppColors();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isThai = settings.isThai;
     final audioProvider = context.watch<MushafAudioProvider>();
     final isAudioPlaying =
         audioProvider.isPlaying && audioProvider.currentVerseKey == widget.verseKey;
 
-    final surahThaiName = widget.quranRepository
-        .getSurahName(widget.surahId)
-        .replaceFirst(RegExp(r'^\d+\.\s*'), '');
+    final surahName = surahDisplayName(widget.surahId.toString(), isThai: isThai);
     final surahArName = offlineSurahNamesAr[widget.surahId] ?? '';
 
     return Container(
@@ -4751,7 +4767,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ซูเราะฮฺ $surahThaiName',
+                          isThai ? 'ซูเราะฮฺ $surahName' : 'Surah $surahName',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -4761,7 +4777,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          'หน้า ${widget.pageNumber}',
+                          isThai ? 'หน้า ${widget.pageNumber}' : 'Page ${widget.pageNumber}',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 12,
                             color: colors.textMuted,
@@ -4837,7 +4853,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                               Icon(Icons.translate_rounded, size: 14, color: colors.primary),
                               const SizedBox(width: 6),
                               Text(
-                                'ความหมายภาษาไทย',
+                                isThai ? 'ความหมายภาษาไทย' : 'Translation',
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -4881,7 +4897,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  'คำอธิบายอย่างย่อ (Al-Mukhtasar)',
+                                  isThai ? 'คำอธิบายอย่างย่อ (Al-Mukhtasar)' : 'Tafsir Al-Mukhtasar',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -4940,7 +4956,9 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                             color: colors.primary,
                           ),
                           label: Text(
-                            isAudioPlaying ? 'หยุดเสียง' : 'ฟังเสียง',
+                            isAudioPlaying
+                                ? (isThai ? 'หยุดเสียง' : 'Pause')
+                                : (isThai ? 'ฟังเสียง' : 'Listen'),
                             style: GoogleFonts.notoSansThai(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -4981,7 +4999,9 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                                 : colors.textMuted,
                           ),
                           label: Text(
-                            _bookmarked ? 'คั่นแล้ว' : 'คั่นอายะฮฺ',
+                            _bookmarked
+                                ? (isThai ? 'คั่นแล้ว' : 'Saved')
+                                : (isThai ? 'คั่นอายะฮฺ' : 'Bookmark'),
                             style: GoogleFonts.notoSansThai(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -5009,7 +5029,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                             color: colors.primary,
                           ),
                           label: Text(
-                            'บันทึก',
+                            isThai ? 'บันทึก' : 'Notes',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -5037,7 +5057,9 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                       onPressed: widget.onOpenMeaning,
                       icon: const Icon(Icons.menu_book_rounded, size: 18),
                       label: Text(
-                        'เปิดอ่านในฉบับความหมาย (Meaning Reader)',
+                        isThai
+                            ? 'เปิดอ่านในฉบับความหมาย (Meaning Reader)'
+                            : 'Open in Meaning Reader',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,

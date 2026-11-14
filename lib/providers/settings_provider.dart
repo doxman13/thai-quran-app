@@ -119,6 +119,7 @@ class SettingsProvider extends ChangeNotifier {
   String get readingDisplayMode => _readingDisplayMode;
   String get readingMode => _readingDisplayMode;
   String get languageCode => _languageCode;
+  bool get isThai => _languageCode == 'th';
   bool get showArabicText =>
       _readingDisplayMode == quranOnlyMode ||
       _readingDisplayMode == quranTranslationMode;
