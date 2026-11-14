@@ -60,7 +60,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCGuKbyfVCGixd4zMjOGLrieMicqRIGRps',
-    appId: '1:913097538260:ios:bb56840f5ed2917a455941',
+    appId: '1:913097538260:ios:ca3cf3b651b52936455941',
     messagingSenderId: '913097538260',
     projectId: 'iqra-quran-project',
     storageBucket: 'iqra-quran-project.firebasestorage.app',
