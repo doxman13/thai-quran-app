@@ -2399,55 +2399,104 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     right: 0,
                     child: SafeArea(
                       bottom: false,
-                      child: Center(
-                        child: AnimatedOpacity(
-                          opacity: !_chromeVisible ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 250),
-                          child: IgnorePointer(
-                            ignoring: _chromeVisible,
-                            child: GestureDetector(
-                              onTap: _toggleChrome,
-                              behavior: HitTestBehavior.opaque,
-                              child: Container(
-                                margin: const EdgeInsets.only(top: 6),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
+                      child: AnimatedOpacity(
+                        opacity: !_chromeVisible ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        child: IgnorePointer(
+                          ignoring: _chromeVisible,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: 12,
+                                top: 6,
+                                child: InkWell(
+                                  onTap: () => _confirmExit(context),
+                                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                  child: Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.9),
+                                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.12),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.keyboard_arrow_down_rounded,
-                                      size: 16,
-                                      color: colorScheme.primary,
+                                    child: Icon(
+                                      Icons.arrow_back_ios_new_rounded,
+                                      size: 15,
+                                      color: colorScheme.onSurface,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      context.tr('menu'),
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
+                              Center(
+                                child: GestureDetector(
+                                  onTap: _toggleChrome,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.9),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.12),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          context.tr('menu'),
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                    ),
+                  ),
+
+                  // 24px left-edge horizontal swipe detector for swipe back
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 24,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onHorizontalDragEnd: (details) {
+                        if ((details.primaryVelocity ?? 0) > 250) {
+                          _confirmExit(context);
+                        }
+                      },
                     ),
                   ),
 

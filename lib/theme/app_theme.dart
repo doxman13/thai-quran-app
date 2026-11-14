@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -209,6 +210,13 @@ class AppTheme {
       fontFamily: defaultFontFamily,
       textTheme: textTheme,
       primaryTextTheme: textTheme,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        },
+      ),
 
       colorScheme: ColorScheme(
         brightness: isDark ? Brightness.dark : Brightness.light,

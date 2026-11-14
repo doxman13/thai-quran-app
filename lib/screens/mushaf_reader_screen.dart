@@ -1085,6 +1085,25 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                             colors: colors,
                             pageNumber: _pageNumber,
                             quranRepository: widget.quranRepository,
+                            onBack: _handleBackAndExit,
+                          ),
+                        ),
+                      if (!_isMenuVisible &&
+                          (isLandscape || audioProvider.currentVerseKey != null))
+                        Positioned(
+                          top: 4,
+                          left: 12,
+                          child: InkWell(
+                            onTap: _handleBackAndExit,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              child: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 14,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -1304,6 +1323,21 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
                       ),
                     ),
                   ),
+                ),
+              ),
+              // 24px left-edge horizontal swipe detector for swipe back
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 24,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (details) {
+                    if ((details.primaryVelocity ?? 0) > 250) {
+                      _handleBackAndExit();
+                    }
+                  },
                 ),
               ),
             ],
@@ -1833,11 +1867,13 @@ class _BookPageIndicator extends StatelessWidget {
   final AppThemeColors colors;
   final int pageNumber;
   final QuranRepository quranRepository;
+  final VoidCallback? onBack;
 
   const _BookPageIndicator({
     required this.colors,
     required this.pageNumber,
     required this.quranRepository,
+    this.onBack,
   });
 
   @override
@@ -1851,15 +1887,37 @@ class _BookPageIndicator extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              surahName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.notoSansThai(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onBack != null) ...[
+                  InkWell(
+                    onTap: onBack,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    surahName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Align(

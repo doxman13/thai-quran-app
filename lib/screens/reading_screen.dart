@@ -2141,6 +2141,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                         ),
                                         child: Row(
                                           children: [
+                                            if (!_isMenuVisible) ...[
+                                              InkWell(
+                                                onTap: _closeReader,
+                                                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                  child: Icon(
+                                                    Icons.arrow_back_ios_new_rounded,
+                                                    size: 15,
+                                                    color: theme.colorScheme.onSurface,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
                                             Expanded(
                                               child: Row(
                                                 mainAxisAlignment:
@@ -2656,6 +2671,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               ),
                             ),
                           ),
+                        ),
+                      ),
+                      // 24px left-edge horizontal swipe detector for swipe back
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 24,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragEnd: (details) {
+                            if ((details.primaryVelocity ?? 0) > 250) {
+                              _closeReader();
+                            }
+                          },
                         ),
                       ),
                     ],

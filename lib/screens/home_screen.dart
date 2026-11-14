@@ -1119,6 +1119,18 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         backgroundColor: appColors.background,
         appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: _navIndex != 0
+              ? IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: appColors.primary,
+                  ),
+                  tooltip: isThai ? 'กลับหน้าแรก' : 'Back to Home',
+                  onPressed: _handleBackNavigation,
+                )
+              : null,
           elevation: 0,
           scrolledUnderElevation: 0,
           backgroundColor: appColors.background,
@@ -1183,46 +1195,65 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        body: IndexedStack(
-          index: _navIndex,
+        body: Stack(
           children: [
-            // ── Tab 0: Home (Calm Showcase Display) ────────────────────────
-            _buildCleanHomeShowcase(
-              colorScheme: colorScheme,
-              textTheme: textTheme,
-              settings: settings,
-              readingProvider: readingProvider,
-              mushafReadingProvider: mushafReadingProvider,
-              statsProvider: statsProvider,
-              isThai: isThai,
-            ),
+            IndexedStack(
+              index: _navIndex,
+              children: [
+                // ── Tab 0: Home (Calm Showcase Display) ────────────────────────
+                _buildCleanHomeShowcase(
+                  colorScheme: colorScheme,
+                  textTheme: textTheme,
+                  settings: settings,
+                  readingProvider: readingProvider,
+                  mushafReadingProvider: mushafReadingProvider,
+                  statsProvider: statsProvider,
+                  isThai: isThai,
+                ),
 
-            // ── Tab 1: Surah Library & Search ──────────────────────────────
-            BrowseScreen(
-              repository: widget.repository,
-              foundationRepository: _foundationRepository,
-              colors: settings.getAppColors(),
-              onOpen: _chooseBrowseDestination,
-              onOpenMeaning: (surahId, verseId) {
-                _navigateToReading(
-                  context,
-                  surahId,
-                  verseId: verseId,
-                  saveToFreeReadOnly: true,
-                );
-              },
-              onOpenPage: _navigateToMushafFreeReadPage,
-            ),
+                // ── Tab 1: Surah Library & Search ──────────────────────────────
+                BrowseScreen(
+                  repository: widget.repository,
+                  foundationRepository: _foundationRepository,
+                  colors: settings.getAppColors(),
+                  onOpen: _chooseBrowseDestination,
+                  onOpenMeaning: (surahId, verseId) {
+                    _navigateToReading(
+                      context,
+                      surahId,
+                      verseId: verseId,
+                      saveToFreeReadOnly: true,
+                    );
+                  },
+                  onOpenPage: _navigateToMushafFreeReadPage,
+                ),
 
-            // ── Tab 2: Bookmarks, Recent Reads & Notes ─────────────────────
-            BookmarksScreen(
-              repository: widget.repository,
-            ),
+                // ── Tab 2: Bookmarks, Recent Reads & Notes ─────────────────────
+                BookmarksScreen(
+                  repository: widget.repository,
+                ),
 
-            // ── Tab 3: Unified Settings & Profile ──────────────────────────
-            SettingsScreen(
-              repository: widget.repository,
+                // ── Tab 3: Unified Settings & Profile ──────────────────────────
+                SettingsScreen(
+                  repository: widget.repository,
+                ),
+              ],
             ),
+            if (_navIndex != 0)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 24,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (details) {
+                    if ((details.primaryVelocity ?? 0) > 250) {
+                      _handleBackNavigation();
+                    }
+                  },
+                ),
+              ),
           ],
         ),
       ),
