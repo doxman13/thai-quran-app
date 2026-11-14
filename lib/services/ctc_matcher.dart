@@ -35,70 +35,460 @@ class VerseSearchResult {
   });
 }
 
+class AyahRefData {
+  final int surah;
+  final int ayah;
+  final List<String> words;
+  final String phonemes;
+  final List<int> offsets;
+  final List<String> isolated;
+  final List<int> tokenIds;
+  final int globalStart;
+  final int globalEnd;
+
+  const AyahRefData({
+    required this.surah,
+    required this.ayah,
+    required this.words,
+    required this.phonemes,
+    required this.offsets,
+    required this.isolated,
+    required this.tokenIds,
+    required this.globalStart,
+    required this.globalEnd,
+  });
+
+  bool isWordStart(int offsetInAyah) => offsets.contains(offsetInAyah);
+}
+
+class ReferenceWord {
+  final int surah;
+  final int ayah;
+  final int word;
+  final int start;
+  final int end;
+  final String text;
+  final String isolated;
+
+  const ReferenceWord({
+    required this.surah,
+    required this.ayah,
+    required this.word,
+    required this.start,
+    required this.end,
+    required this.text,
+    required this.isolated,
+  });
+}
+
+// --- Tilawa 1.0 Phonetic Model (fuzzy.ts) ---
+
+const int kUnit = 10;
+const int kLengthChange = 2;
+const int kConfusableCost = 5;
+const int kShortVowelCost = 5;
+const double kEdit = 9.5367431640625e-7; // 2^-20
+const int kMidWordStart = 10;
+
+const Set<String> kMaddLetters = {'ا', 'ۦ', 'ۥ'};
+const Set<String> kShortVowels = {'َ', 'ُ', 'ِ'};
+const Set<String> kGhunnaRuns = {'ں', '۾'};
+const Set<String> kGhunnaDoubled = {'ن', 'م'};
+
+final Set<String> kConfusablePairs = () {
+  const pairs = ['هح', 'عء', 'صس', 'ضد', 'طت', 'قك', 'ذز', 'ثس'];
+  final set = <String>{};
+  for (final p in pairs) {
+    set.add(p);
+    set.add('${p[1]}${p[0]}');
+  }
+  return set;
+}();
+
+final Set<String> kHeld = {...kMaddLetters, ...kGhunnaRuns};
+
+int subCost(String ref, String obs) {
+  if (ref == obs) return 0;
+  if (kConfusablePairs.contains('$ref$obs')) return kConfusableCost;
+  if (kShortVowels.contains(ref) && kShortVowels.contains(obs)) return kShortVowelCost;
+  return kUnit;
+}
+
+bool isLengthening(String p, int run) {
+  if (kMaddLetters.contains(p) || kGhunnaRuns.contains(p)) return run >= 2;
+  if (kGhunnaDoubled.contains(p)) return run >= 3;
+  return false;
+}
+
+List<String> collapseHeld(List<String> tokens) {
+  final out = <String>[];
+  for (int i = 0; i < tokens.length;) {
+    int j = i;
+    while (j < tokens.length && tokens[j] == tokens[i]) {
+      j++;
+    }
+    final run = j - i;
+    final token = tokens[i];
+    final keep = kHeld.contains(token)
+        ? 1
+        : (kGhunnaDoubled.contains(token) && run >= 3 ? 2 : run);
+    for (int k = 0; k < keep; k++) {
+      out.add(token);
+    }
+    i = j;
+  }
+  return out;
+}
+
+int indelCost(String p, bool lengthening) {
+  if (lengthening) return kLengthChange;
+  if (kShortVowels.contains(p)) return kShortVowelCost;
+  return kUnit;
+}
+
+int runAt(String s, int k) {
+  final target = s[k];
+  int a = k;
+  int b = k;
+  while (a > 0 && s[a - 1] == target) {
+    a--;
+  }
+  while (b + 1 < s.length && s[b + 1] == target) {
+    b++;
+  }
+  return b - a + 1;
+}
+
+int insertionCost(String ref, int at, String p, [int? end]) {
+  final refEnd = end ?? ref.length;
+  final before = (at > 0 && ref[at - 1] == p) ? runAt(ref, at - 1) : 0;
+  final after = (at < refEnd && ref[at] == p) ? runAt(ref, at) : 0;
+  final maxRun = math.max(before, after) + 1;
+  return indelCost(p, isLengthening(p, maxRun));
+}
+
+int deletionCost(String ref, int at) {
+  final p = ref[at];
+  return indelCost(p, isLengthening(p, runAt(ref, at)));
+}
+
+class AlignmentOp {
+  final String op;
+  final String? ref;
+  final String? obs;
+  int refAt;
+  final int? obsAt;
+
+  AlignmentOp({
+    required this.op,
+    this.ref,
+    this.obs,
+    required this.refAt,
+    this.obsAt,
+  });
+}
+
+class SpanAlignment {
+  final int start;
+  final int end;
+  final int cost;
+  final double per;
+  final List<AlignmentOp> path;
+
+  SpanAlignment({
+    required this.start,
+    required this.end,
+    required this.cost,
+    required this.per,
+    required this.path,
+  });
+}
+
+SpanAlignment? alignSubstring(
+  String ref,
+  int lo,
+  int hi,
+  String obs,
+  bool Function(int offset) isStart, {
+  List<double>? conf,
+  bool strictStart = false,
+}) {
+  final n = hi - lo;
+  final m = obs.length;
+  if (m == 0 || n < 0) return null;
+  final w = m + 1;
+  final d = Float64List((n + 1) * w);
+
+  int at(int i, int j) => i * w + j;
+  String r(int i) => ref[lo + i - 1];
+
+  double startCost(int i) => isStart(lo + i)
+      ? 0.0
+      : (strictStart ? double.infinity : kMidWordStart.toDouble());
+
+  final skip = Float64List(m + 1);
+  skip.fillRange(0, m + 1, double.infinity);
+  skip[0] = 0.0;
+  if (conf != null) {
+    for (int j = 1; j <= m; j++) {
+      skip[j] = skip[j - 1] + (kUnit * conf[j - 1]).round() + kEdit;
+    }
+  }
+
+  for (int i = 0; i <= n; i++) {
+    final start = startCost(i);
+    final row = i * w;
+    d[row] = start;
+    final del = i > 0 ? deletionCost(ref, lo + i - 1) + kEdit : double.infinity;
+    for (int j = 1; j <= m; j++) {
+      final ins = insertionCost(ref, lo + i, obs[j - 1], hi) + kEdit;
+      double best = math.min(d[row + j - 1] + ins, start + skip[j]);
+      if (i > 0) {
+        final sub = (r(i) == obs[j - 1] ? 0.0 : subCost(r(i), obs[j - 1]) + kEdit);
+        best = math.min(best, math.min(d[row - w + j - 1] + sub, d[row - w + j] + del));
+      }
+      d[row + j] = best;
+    }
+  }
+
+  int endI = -1;
+  for (int i = 0; i <= n; i++) {
+    if (endI == -1 || d[at(i, m)] < d[at(endI, m)]) {
+      endI = i;
+    }
+  }
+  if (endI == -1 || d[at(endI, m)] >= double.infinity) return null;
+
+  final ops = <AlignmentOp>[];
+  int i = endI;
+  int j = m;
+  while (j > 0) {
+    final here = d[at(i, j)];
+    if ((here - (startCost(i) + skip[j])).abs() < 1e-9) {
+      for (int k = j; k > 0; k--) {
+        ops.add(AlignmentOp(op: 'ins', obs: obs[k - 1], refAt: -1, obsAt: k - 1));
+      }
+      break;
+    }
+    final subVal = i > 0 && j > 0 ? (r(i) == obs[j - 1] ? 0.0 : subCost(r(i), obs[j - 1]) + kEdit) : double.infinity;
+    final delVal = i > 0 ? deletionCost(ref, lo + i - 1) + kEdit : double.infinity;
+    if (i > 0 && j > 0 && (here - (d[at(i - 1, j - 1)] + subVal)).abs() < 1e-9) {
+      ops.add(r(i) == obs[j - 1]
+          ? AlignmentOp(op: 'match', ref: r(i), refAt: i - 1, obsAt: j - 1)
+          : AlignmentOp(op: 'sub', ref: r(i), obs: obs[j - 1], refAt: i - 1, obsAt: j - 1));
+      i--;
+      j--;
+    } else if (i > 0 && (here - (d[at(i - 1, j)] + delVal)).abs() < 1e-9) {
+      ops.add(AlignmentOp(op: 'del', ref: r(i), refAt: i - 1));
+      i--;
+    } else {
+      ops.add(AlignmentOp(op: 'ins', obs: obs[j - 1], refAt: -1, obsAt: j - 1));
+      j--;
+    }
+  }
+  final reversedOps = ops.reversed.toList();
+  for (final o in reversedOps) {
+    if (o.op != 'ins') o.refAt -= i;
+  }
+
+  final length = endI - i;
+  final edits = reversedOps.where((o) => o.op != 'match').length;
+  final per = length > 0 ? edits / length : (edits > 0 ? double.infinity : 0.0);
+  return SpanAlignment(
+    start: lo + i,
+    end: lo + endI,
+    cost: d[at(endI, m)].floor(),
+    per: per,
+    path: reversedOps,
+  );
+}
+
+// --- CtcMatcher Implementation ---
+
 class CtcMatcher {
+  static const String tokens = "ءبتثجحخدذرزسشصضطظعغفقكلمنهوياۦۥَُِ۪ـٲڇں۾ؙۜ";
+  static const int blankToken = 0;
+  static const int gramSize = 4;
+
+  static final Map<String, int> tokenToId = {
+    for (int i = 0; i < tokens.length; i++) tokens[i]: i + 1,
+  };
+  static final Map<int, String> idToToken = {
+    for (int i = 0; i < tokens.length; i++) i + 1: tokens[i],
+  };
+
+  final String globalPhonemes;
+  final List<ReferenceWord> words;
+  final Set<int> wordStarts;
+  final Map<String, List<int>> grams;
+  final Map<String, AyahRefData> ayahsByKey;
+  final Map<int, List<AyahRefData>> ayahsBySurah;
+  final String istiadhaPhonemes;
+  final String basmalaPhonemes;
+
   final Map<String, List<int>> ctcTokens;
   final Map<int, String> vocab;
   final Map<String, List<String>> _textVariantsCache = {};
 
-  static const List<int> _basmalahTokens = [351, 7, 59, 982, 986];
   static final RegExp _diacriticsRegex = RegExp(r'[\u064B-\u065F\u0670\u06D6-\u06ED]');
   static final RegExp _alifRegex = RegExp(r'[إأآٱ]');
   static final RegExp _whitespaceRegex = RegExp(r'\s+');
 
   CtcMatcher({
+    required this.globalPhonemes,
+    required this.words,
+    required this.wordStarts,
+    required this.grams,
+    required this.ayahsByKey,
+    required this.ayahsBySurah,
+    required this.istiadhaPhonemes,
+    required this.basmalaPhonemes,
     required this.ctcTokens,
     required this.vocab,
   });
 
-  /// Factory loader that works in Flutter apps (rootBundle) and host test environments (dart:io).
+  /// Factory loader that reads ref-v2.json and phrases-v1.json and builds index in background compute.
   static Future<CtcMatcher> load({
-    String tokensPath = 'assets/models/quran_ctc_tokens.json',
-    String vocabPath = 'assets/models/vocab.json',
+    String refPath = 'assets/models/ref-v2.json',
+    String phrasesPath = 'assets/models/phrases-v1.json',
+    String? tokensPath,
+    String? vocabPath,
   }) async {
-    String tokensJsonStr;
-    String vocabJsonStr;
+    final effectiveRefPath = (tokensPath != null && tokensPath.contains('ref-v2'))
+        ? tokensPath
+        : refPath;
+
+    String refJsonStr;
+    String phrasesJsonStr;
 
     try {
-      // Try rootBundle first (Flutter runtime)
-      tokensJsonStr = await rootBundle.loadString(tokensPath);
-      vocabJsonStr = await rootBundle.loadString(vocabPath);
+      refJsonStr = await rootBundle.loadString(effectiveRefPath);
     } catch (_) {
-      // Fallback to File (host/unit tests)
-      final tokensFile = File(tokensPath);
-      final vocabFile = File(vocabPath);
-      tokensJsonStr = await tokensFile.readAsString();
-      vocabJsonStr = await vocabFile.readAsString();
+      final refFile = File(effectiveRefPath);
+      refJsonStr = await refFile.readAsString();
     }
 
-    return await compute(_parseMatcherData, (tokensJsonStr, vocabJsonStr));
+    try {
+      phrasesJsonStr = await rootBundle.loadString(phrasesPath);
+    } catch (_) {
+      final phrasesFile = File(phrasesPath);
+      if (await phrasesFile.exists()) {
+        phrasesJsonStr = await phrasesFile.readAsString();
+      } else {
+        phrasesJsonStr = '{}';
+      }
+    }
+
+    return await compute(_parseMatcherData, (refJsonStr, phrasesJsonStr));
   }
 
   static CtcMatcher _parseMatcherData((String, String) inputs) {
-    final (tokensJsonStr, vocabJsonStr) = inputs;
-    final rawTokens = jsonDecode(tokensJsonStr) as Map<String, dynamic>;
+    final (refJsonStr, phrasesJsonStr) = inputs;
+    final rawRef = jsonDecode(refJsonStr) as Map<String, dynamic>;
+    final rawAyahs = rawRef['ayahs'] as List;
+
+    String istiadha = 'ءَعُۥۥذُبِللَااهِمِنَششَيطَاانِررَجِۦۦم';
+    String basmala = 'بِسمِللَااهِررَحمَاانِررَحِۦۦم';
+
+    try {
+      final rawPhrases = jsonDecode(phrasesJsonStr) as Map<String, dynamic>;
+      if (rawPhrases['phrases'] is List) {
+        for (final p in rawPhrases['phrases'] as List) {
+          if (p is Map) {
+            if (p['name'] == 'istiadha' && p['p'] is String) istiadha = p['p'] as String;
+            if (p['name'] == 'basmala' && p['p'] is String) basmala = p['p'] as String;
+          }
+        }
+      }
+    } catch (_) {}
+
+    final ayahsByKey = <String, AyahRefData>{};
+    final ayahsBySurah = <int, List<AyahRefData>>{};
+    final words = <ReferenceWord>[];
+    final wordStarts = <int>{};
     final ctcTokens = <String, List<int>>{};
-    rawTokens.forEach((key, val) {
-      if (val is List) {
-        ctcTokens[key] = val.map((e) => (e as num).toInt()).toList(growable: false);
-      }
-    });
+    final buffer = StringBuffer();
 
-    final rawVocab = jsonDecode(vocabJsonStr) as Map<String, dynamic>;
-    final vocab = <int, String>{};
-    rawVocab.forEach((key, val) {
-      final idx = int.tryParse(key);
-      if (idx != null) {
-        vocab[idx] = val.toString();
-      }
-    });
+    for (final item in rawAyahs) {
+      final m = item as Map<String, dynamic>;
+      final s = m['s'] as int;
+      final a = m['a'] as int;
+      final wList = (m['w'] as List).cast<String>();
+      final p = m['p'] as String;
+      final oList = (m['o'] as List).map((e) => (e as num).toInt()).toList();
+      final isoList = (m['iso'] as List).cast<String>();
 
-    return CtcMatcher(ctcTokens: ctcTokens, vocab: vocab);
+      final tokenIds = <int>[];
+      for (int i = 0; i < p.length; i++) {
+        final id = tokenToId[p[i]];
+        if (id != null) tokenIds.add(id);
+      }
+
+      final globalStart = buffer.length;
+      for (int i = 0; i < wList.length; i++) {
+        final start = globalStart + oList[i];
+        final end = globalStart + (i + 1 < oList.length ? oList[i + 1] : p.length);
+        words.add(ReferenceWord(
+          surah: s,
+          ayah: a,
+          word: i + 1,
+          start: start,
+          end: end,
+          text: wList[i],
+          isolated: i < isoList.length ? isoList[i] : '',
+        ));
+        wordStarts.add(start);
+      }
+      buffer.write(p);
+      final globalEnd = buffer.length;
+
+      final data = AyahRefData(
+        surah: s,
+        ayah: a,
+        words: wList,
+        phonemes: p,
+        offsets: oList,
+        isolated: isoList,
+        tokenIds: tokenIds,
+        globalStart: globalStart,
+        globalEnd: globalEnd,
+      );
+
+      ayahsByKey['$s:$a'] = data;
+      (ayahsBySurah[s] ??= []).add(data);
+      ctcTokens['$s:$a:$a'] = tokenIds;
+    }
+
+    final globalPhonemes = buffer.toString();
+    final grams = <String, List<int>>{};
+    for (int i = 0; i + gramSize <= globalPhonemes.length; i++) {
+      final g = globalPhonemes.substring(i, i + gramSize);
+      (grams[g] ??= <int>[]).add(i);
+    }
+
+    final vocab = <int, String>{0: '<blank>'};
+    for (int i = 0; i < tokens.length; i++) {
+      vocab[i + 1] = tokens[i];
+    }
+
+    return CtcMatcher(
+      globalPhonemes: globalPhonemes,
+      words: words,
+      wordStarts: wordStarts,
+      grams: grams,
+      ayahsByKey: ayahsByKey,
+      ayahsBySurah: ayahsBySurah,
+      istiadhaPhonemes: istiadha,
+      basmalaPhonemes: basmala,
+      ctcTokens: ctcTokens,
+      vocab: vocab,
+    );
   }
 
-  /// Greedy CTC decoding: argmax over vocab dimension, collapse repeats, drop blank.
+  /// Greedy CTC decoding: argmax over vocab dimension, collapse repeats, drop blank (0).
   List<int> greedyDecode(
     List<List<double>> logProbs, {
-    int blankIndex = 1024,
+    int blankIndex = 0,
   }) {
     final tokens = <int>[];
     int prevToken = -1;
@@ -122,16 +512,20 @@ class CtcMatcher {
     return tokens;
   }
 
-  /// Converts CTC token IDs into human-readable Arabic text.
-  String tokensToText(List<int> tokens) {
+  /// Converts token IDs 1..42 to phoneme string.
+  String tokensToPhonemes(List<int> tokenIds) {
     final buffer = StringBuffer();
-    for (final t in tokens) {
-      final str = vocab[t];
-      if (str != null && str != '<blank>' && str != '<unk>') {
-        buffer.write(str);
+    for (final id in tokenIds) {
+      if (id > 0 && id <= tokens.length) {
+        buffer.write(tokens[id - 1]);
       }
     }
-    return buffer.toString().replaceAll('▁', ' ').trim();
+    return buffer.toString();
+  }
+
+  /// Converts CTC token IDs into string representation.
+  String tokensToText(List<int> tokenIds) {
+    return tokensToPhonemes(tokenIds);
   }
 
   /// Normalizes Arabic text by removing tashkeel/diacritics and normalizing alifs/ya/taa marbutah.
@@ -145,32 +539,15 @@ class CtcMatcher {
         .trim();
   }
 
-  /// Retrieves base target CTC tokens for Surah [surah], Ayah [ayah].
+  /// Retrieves base target phoneme token IDs for Surah [surah], Ayah [ayah].
   List<int>? getTargetTokens(int surah, int ayah) {
-    return ctcTokens['$surah:$ayah:$ayah'];
+    return ayahsByKey['$surah:$ayah']?.tokenIds;
   }
 
-  /// Retrieves target CTC token variants (e.g. without Basmalah for Ayah 1 of Surahs 2-114).
+  /// Retrieves target token variants.
   List<List<int>> getTargetVariants(int surah, int ayah) {
     final base = getTargetTokens(surah, ayah);
     if (base == null || base.isEmpty) return const [];
-
-    if (ayah == 1 && surah != 1 && base.length >= 5) {
-      bool startsWithBasmalah = true;
-      for (int i = 0; i < 5; i++) {
-        if (base[i] != _basmalahTokens[i]) {
-          startsWithBasmalah = false;
-          break;
-        }
-      }
-      if (startsWithBasmalah) {
-        return [
-          base.sublist(5), // Without Basmalah first
-          base,            // Full variant with Basmalah second
-        ];
-      }
-    }
-
     return [base];
   }
 
@@ -180,46 +557,47 @@ class CtcMatcher {
     final cached = _textVariantsCache[cacheKey];
     if (cached != null) return cached;
 
-    final tokenVariants = getTargetVariants(surah, ayah);
-    final texts = <String>[];
-    for (final variant in tokenVariants) {
-      final rawText = tokensToText(variant);
-      final norm = normalizeArabic(rawText);
-      if (norm.isNotEmpty && !texts.contains(norm)) {
-        texts.add(norm);
+    final data = ayahsByKey[cacheKey];
+    if (data == null) return const [];
+
+    final fullText = data.words.join(' ');
+    final norm = normalizeArabic(fullText);
+    final texts = <String>[norm];
+
+    if (ayah == 1 && surah != 1 && surah != 9) {
+      const basmalahText = 'بسم الله الرحمن الرحيم';
+      final withBasmalah = normalizeArabic('$basmalahText $fullText');
+      if (!texts.contains(withBasmalah)) {
+        texts.add(withBasmalah);
       }
     }
+
     _textVariantsCache[cacheKey] = texts;
     return texts;
   }
 
-  /// Longest Common Subsequence on token lists using two-row dynamic programming ($O(N)$ space).
-  static int longestCommonSubsequence(List<int> a, List<int> b) {
-    final m = a.length;
-    final n = b.length;
-    if (m == 0 || n == 0) return 0;
-
-    var prev = List<int>.filled(n + 1, 0);
-    var curr = List<int>.filled(n + 1, 0);
-
-    for (int i = 1; i <= m; i++) {
-      final aVal = a[i - 1];
-      for (int j = 1; j <= n; j++) {
-        if (aVal == b[j - 1]) {
-          curr[j] = prev[j - 1] + 1;
-        } else {
-          curr[j] = curr[j - 1] > prev[j] ? curr[j - 1] : prev[j];
-        }
+  /// Word finding by global phoneme offset.
+  int wordAt(int offset) {
+    int lo = 0;
+    int hi = words.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) >> 1;
+      if (words[mid].start <= offset) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
       }
-      final temp = prev;
-      prev = curr;
-      curr = temp;
     }
-
-    return prev[n];
+    return lo;
   }
 
-  /// Longest Common Subsequence on strings using two-row dynamic programming ($O(N)$ space).
+  AyahRefData? findAyahAtOffset(int offset) {
+    final wIdx = wordAt(offset);
+    final w = words[wIdx];
+    return ayahsByKey['${w.surah}:${w.ayah}'];
+  }
+
+  /// Longest Common Subsequence on strings using two-row dynamic programming.
   static int longestCommonSubsequenceString(String a, String b) {
     final m = a.length;
     final n = b.length;
@@ -246,7 +624,6 @@ class CtcMatcher {
   }
 
   /// Sequentially checks if candidate words reach and match the end of target words.
-  /// Returns a record of `(bool reachedEnd, int wordsConsumed)`.
   static (bool, int) checkReachesEndOfVerseWithEnd(
     List<String> candWords,
     List<String> targetWords, {
@@ -298,9 +675,7 @@ class CtcMatcher {
     final bool isLongVerse = wordCount >= longVerseWordThreshold;
     final bool lastWordMatched = matched.contains(wordCount - 1);
     final int lastMatchedTarget = matched.isEmpty ? -1 : matched.last;
-    // A long verse may be accepted when everything except the final word was
-    // recognized. The final-word verdict must not leave a correctly recited
-    // long verse stuck forever.
+
     final bool missingLastWordAllowed =
         !requireLastWord && isLongVerse && lastMatchedTarget >= wordCount - 2;
 
@@ -328,15 +703,12 @@ class CtcMatcher {
     final bool reachedEnd = lastWordMatched || missingLastWordAllowed;
     final bool reached = reachedEnd && (wordRecall >= requiredWordRecall);
 
-    // When accepted without the last word, consume the whole candidate so the
-    // next inference starts cleanly on the next ayah.
     final int consumedWords =
         (!lastWordMatched && missingLastWordAllowed) ? candWords.length : lastCandIdx + 1;
 
     return (reached, consumedWords);
   }
 
-  /// Sequentially checks if candidate words reach and match the end of target words.
   static bool checkReachesEndOfVerse(
     List<String> candWords,
     List<String> targetWords, {
@@ -351,106 +723,6 @@ class CtcMatcher {
     ).$1;
   }
 
-  /// Checks whether the tail of [sub] matches the ending tokens of [target] (last word / end of ayah).
-  static bool _tokenSliceReachesTargetEnd(List<int> sub, List<int> target) {
-    if (target.isEmpty) return true;
-    if (sub.isEmpty) return false;
-
-    // Compare the trailing tokens of sub against the trailing tokens of target (last word)
-    final tailLen = math.min(target.length, math.max(2, math.min(5, target.length ~/ 3)));
-    final targetTail = target.sublist(target.length - tailLen);
-    final subTailLen = math.min(sub.length, tailLen + 3);
-    final subTail = sub.sublist(sub.length - subTailLen);
-
-    final lcsTail = longestCommonSubsequence(subTail, targetTail);
-    return lcsTail >= math.max(1, (tailLen * 0.6).ceil());
-  }
-
-  /// Finds the best matching prefix/subslice of [candidate] for [target].
-  AlignmentResult findBestAlignment(
-    List<int> candidate,
-    List<int> target, {
-    double recallThreshold = 0.82,
-    double scoreThreshold = 0.70,
-  }) {
-    if (candidate.isEmpty || target.isEmpty) {
-      return const AlignmentResult(
-        score: 0.0,
-        recall: 0.0,
-        precision: 0.0,
-        endIndex: 0,
-      );
-    }
-
-    final tLen = target.length;
-    double bestScore = 0.0;
-    double bestRecall = 0.0;
-    double bestPrecision = 0.0;
-    int bestEnd = candidate.length;
-
-    // 1. Scan prefix lengths from index 0
-    for (int end = 1; end <= candidate.length; end++) {
-      final sub = candidate.sublist(0, end);
-      final l = longestCommonSubsequence(sub, target);
-      final rec = l / tLen;
-      final prec = l / end;
-      final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
-
-      final reachesEnd = _tokenSliceReachesTargetEnd(sub, target);
-
-      if (rec >= recallThreshold && f1 > bestScore && f1 >= scoreThreshold && reachesEnd) {
-        bestScore = f1;
-        bestRecall = rec;
-        bestPrecision = prec;
-        bestEnd = end;
-      }
-    }
-
-    // 2. If candidate has leading noise (longer than target), test sliding start offsets
-    if (candidate.length > target.length) {
-      final maxStart = candidate.length - math.max(1, target.length ~/ 2);
-      for (int start = 1; start < maxStart; start++) {
-        final sub = candidate.sublist(start);
-        final l = longestCommonSubsequence(sub, target);
-        final rec = l / tLen;
-        final prec = l / sub.length;
-        final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
-
-        final reachesEnd = _tokenSliceReachesTargetEnd(sub, target);
-
-        if (rec >= recallThreshold && f1 > bestScore && f1 >= scoreThreshold && reachesEnd) {
-          bestScore = f1;
-          bestRecall = rec;
-          bestPrecision = prec;
-          bestEnd = candidate.length;
-        }
-      }
-    }
-
-    // 3. Fallback to overall candidate check
-    if (bestScore == 0.0) {
-      final l = longestCommonSubsequence(candidate, target);
-      final rec = l / tLen;
-      final prec = l / candidate.length;
-      final f1 = (rec + prec) > 0 ? (2 * rec * prec) / (rec + prec) : 0.0;
-      final reachesEnd = _tokenSliceReachesTargetEnd(candidate, target);
-      return AlignmentResult(
-        score: reachesEnd ? f1 : 0.0,
-        recall: reachesEnd ? rec : 0.0,
-        precision: reachesEnd ? prec : 0.0,
-        endIndex: candidate.length,
-      );
-    }
-
-    return AlignmentResult(
-      score: bestScore,
-      recall: bestRecall,
-      precision: bestPrecision,
-      endIndex: bestEnd,
-    );
-  }
-
-  /// Finds the best matching text alignment between [candidateRaw] and [targetNormalized].
   AlignmentResult findBestTextAlignment(
     String candidateRaw,
     String targetNormalized, {
@@ -474,7 +746,6 @@ class CtcMatcher {
     final targetClean = targetWords.join();
     final tLen = targetClean.length;
 
-    // Full candidate comparison
     final lFull = longestCommonSubsequenceString(candClean, targetClean);
     final recFull = lFull / tLen;
     final precFull = candClean.isNotEmpty ? lFull / candClean.length : 0.0;
@@ -497,7 +768,6 @@ class CtcMatcher {
       );
     }
 
-    // If candidate has extra words / leading noise, scan word windows
     double bestScore = 0.0;
     double bestRecall = 0.0;
     double bestPrecision = 0.0;
@@ -550,10 +820,6 @@ class CtcMatcher {
     );
   }
 
-  /// Computes adaptive recall and F1 thresholds based on target word count, token count, and sensitivity.
-  /// - [RecitationSensitivity.quickRecap] uses relaxed thresholds (0.62 / 0.58) for rapid review & whispered recitation.
-  /// - [RecitationSensitivity.balanced] uses standard adaptive thresholds (0.70 / 0.65).
-  /// - [RecitationSensitivity.strict] uses high precision thresholds (0.78 / 0.72) for strict exam testing.
   (double recallThreshold, double scoreThreshold) getAdaptiveThresholds(
     int surah,
     int ayah, {
@@ -597,7 +863,7 @@ class CtcMatcher {
     }
   }
 
-  /// Evaluates alignment for Surah [surah], Ayah [ayah] using both token and text LCS across variants.
+  /// Evaluates alignment for Surah [surah], Ayah [ayah] using Tilawa 1.0 phonetic model & text LCS.
   AlignmentResult evaluateAyahMatch(
     int surah,
     int ayah,
@@ -616,52 +882,64 @@ class CtcMatcher {
     final effectiveRecall = recallThreshold ?? adaptiveRecall;
     final effectiveScore = scoreThreshold ?? adaptiveScore;
 
+    final data = ayahsByKey['$surah:$ayah'];
+    if (data == null) {
+      return const AlignmentResult(score: 0.0, recall: 0.0, precision: 0.0, endIndex: 0);
+    }
+
     double bestScore = 0.0;
     double bestRecall = 0.0;
     double bestPrecision = 0.0;
     int bestEnd = candidateTokens.length;
-    int bestWordsConsumed = 0;
+    int bestWordsConsumed = data.words.length;
 
-    // 1. Evaluate Token Variants (only if text variants also confirm the last word was reached when text is available)
-    final candText = candidateText ?? tokensToText(candidateTokens);
-    final textVariants = getTargetTextVariants(surah, ayah);
-    bool lastWordVerifiedByText = textVariants.isEmpty || candText.isEmpty;
-    if (candText.isNotEmpty && textVariants.isNotEmpty) {
-      final candWords = normalizeArabic(candText).split(' ').where((w) => w.isNotEmpty).toList();
-      for (final tv in textVariants) {
-        final targetWords = tv.split(' ').where((w) => w.isNotEmpty).toList();
-        if (checkReachesEndOfVerse(
-          candWords,
-          targetWords,
-          sensitivity: sensitivity,
-          requireLastWord: requireLastWord,
-        )) {
-          lastWordVerifiedByText = true;
-          break;
-        }
-      }
-    }
-
-    if (lastWordVerifiedByText) {
-      final tokenVariants = getTargetVariants(surah, ayah);
-      for (final variant in tokenVariants) {
-        final align = findBestAlignment(
-          candidateTokens,
-          variant,
-          recallThreshold: effectiveRecall,
-          scoreThreshold: effectiveScore,
+    // 1. Evaluate Phonetic Alignment via Tilawa 1.0 alignSubstring
+    if (candidateTokens.isNotEmpty) {
+      final obs = tokensToPhonemes(candidateTokens);
+      if (obs.isNotEmpty) {
+        final align = alignSubstring(
+          data.phonemes,
+          0,
+          data.phonemes.length,
+          obs,
+          data.isWordStart,
         );
-        if (align.recall >= effectiveRecall && align.score > bestScore) {
-          bestScore = align.score;
-          bestRecall = align.recall;
-          bestPrecision = align.precision;
-          bestEnd = align.endIndex;
+
+        if (align != null) {
+          final isLongVerse = data.words.length >= 6;
+          final lastWordOffset = data.offsets.isNotEmpty ? data.offsets.last : 0;
+          final penultimateOffset = data.offsets.length >= 2 ? data.offsets[data.offsets.length - 2] : 0;
+          final lastWordMatched = align.end >= lastWordOffset;
+          final missingLastWordAllowed = !requireLastWord && isLongVerse && align.end >= penultimateOffset;
+          final reachesEnd = lastWordMatched || missingLastWordAllowed;
+
+          final phoneticScore = math.max(0.0, 1.0 - align.per);
+          if (reachesEnd && phoneticScore >= effectiveScore) {
+            bestScore = phoneticScore;
+            bestRecall = phoneticScore;
+            bestPrecision = phoneticScore;
+            bestEnd = align.end;
+
+            int consumedWords = data.words.length;
+            for (int w = 0; w < data.offsets.length; w++) {
+              if (data.offsets[w] >= align.end) {
+                consumedWords = w;
+                break;
+              }
+            }
+            if (missingLastWordAllowed && !lastWordMatched) {
+              consumedWords = data.words.length - 1;
+            }
+            bestWordsConsumed = consumedWords > 0 ? consumedWords : data.words.length;
+          }
         }
       }
     }
 
-    // 2. Evaluate Text Variants
-    if (candText.isNotEmpty) {
+    // 2. Evaluate Text Alignment (supports text fallback & unit tests)
+    final textVariants = getTargetTextVariants(surah, ayah);
+    final candText = candidateText ?? (data.words.isNotEmpty ? data.words.join(' ') : '');
+    if (candidateText != null && candidateText.isNotEmpty) {
       for (final textVariant in textVariants) {
         final align = findBestTextAlignment(
           candText,
@@ -691,9 +969,6 @@ class CtcMatcher {
   }
 
   /// Matches [candidateTokens] / [candidateText] against a sliding window [expectedAyah .. expectedAyah + windowAhead].
-  ///
-  /// Returns [RecitationMatchResult] if a verse is recognized (either expected or skipped ahead),
-  /// or null if still waiting/partial.
   RecitationMatchResult? matchSlidingWindow({
     required int surah,
     required int expectedAyah,
@@ -712,8 +987,6 @@ class CtcMatcher {
       return null;
     }
 
-    final text = candidateText ?? tokensToText(candidateTokens);
-
     // 1. First priority: Check expectedAyah
     final (expRecall, expScore) = getAdaptiveThresholds(
       surah,
@@ -727,7 +1000,7 @@ class CtcMatcher {
       surah,
       expectedAyah,
       candidateTokens,
-      candidateText: text,
+      candidateText: candidateText,
       recallThreshold: effectiveExpRecall,
       scoreThreshold: effectiveExpScore,
       sensitivity: sensitivity,
@@ -735,6 +1008,8 @@ class CtcMatcher {
     );
 
     if (expectedAlign.recall >= effectiveExpRecall && expectedAlign.score >= effectiveExpScore) {
+      final data = ayahsByKey['$surah:$expectedAyah'];
+      final wordsText = data != null ? data.words.join(' ') : candidateText;
       return RecitationMatchResult(
         surah: surah,
         expectedAyah: expectedAyah,
@@ -747,11 +1022,11 @@ class CtcMatcher {
         ),
         tokensConsumed: expectedAlign.endIndex,
         wordsConsumed: expectedAlign.wordsConsumed,
-        decodedText: text,
+        decodedText: wordsText,
       );
     }
 
-    // 2. Second priority: Check if user repeated / resumed from the previous verse (isti'naf)
+    // 2. Second priority: Check previous verse (isti'naf)
     if (windowBehind > 0) {
       final lowerLimit = math.max(minAyah, expectedAyah - windowBehind);
       for (int prevAyah = expectedAyah - 1; prevAyah >= lowerLimit; prevAyah--) {
@@ -767,7 +1042,7 @@ class CtcMatcher {
           surah,
           prevAyah,
           candidateTokens,
-          candidateText: text,
+          candidateText: candidateText,
           recallThreshold: effectivePrevRecall,
           scoreThreshold: effectivePrevScore,
           sensitivity: sensitivity,
@@ -775,6 +1050,8 @@ class CtcMatcher {
         );
 
         if (prevAlign.recall >= effectivePrevRecall && prevAlign.score >= effectivePrevScore) {
+          final data = ayahsByKey['$surah:$prevAyah'];
+          final wordsText = data != null ? data.words.join(' ') : candidateText;
           return RecitationMatchResult(
             surah: surah,
             expectedAyah: expectedAyah,
@@ -787,13 +1064,13 @@ class CtcMatcher {
             ),
             tokensConsumed: prevAlign.endIndex,
             wordsConsumed: prevAlign.wordsConsumed,
-            decodedText: text,
+            decodedText: wordsText,
           );
         }
       }
     }
 
-    // 3. Third priority: Check if user skipped ahead (e.g. expected + 1, expected + 2)
+    // 3. Third priority: Check if user skipped ahead
     final upperLimit = math.min(maxAyah, expectedAyah + windowAhead);
     for (int nextAyah = expectedAyah + 1; nextAyah <= upperLimit; nextAyah++) {
       final (skipRecall, skipScore) = getAdaptiveThresholds(
@@ -808,7 +1085,7 @@ class CtcMatcher {
         surah,
         nextAyah,
         candidateTokens,
-        candidateText: text,
+        candidateText: candidateText,
         recallThreshold: effectiveSkipRecall,
         scoreThreshold: effectiveSkipScore,
         sensitivity: sensitivity,
@@ -816,6 +1093,8 @@ class CtcMatcher {
       );
 
       if (skipAlign.recall >= effectiveSkipRecall && skipAlign.score >= effectiveSkipScore) {
+        final data = ayahsByKey['$surah:$nextAyah'];
+        final wordsText = data != null ? data.words.join(' ') : candidateText;
         return RecitationMatchResult(
           surah: surah,
           expectedAyah: expectedAyah,
@@ -828,7 +1107,7 @@ class CtcMatcher {
           ),
           tokensConsumed: skipAlign.endIndex,
           wordsConsumed: skipAlign.wordsConsumed,
-          decodedText: text,
+          decodedText: wordsText,
         );
       }
     }
@@ -836,8 +1115,8 @@ class CtcMatcher {
     return null;
   }
 
-  /// Searches the entire Quran for the best matching Ayahs for [candidateTokens].
-  /// Returns up to [limit] results sorted by confidence score (descending).
+  /// Searches the entire Quran for best matching Ayahs for [candidateTokens]
+  /// using the 4-gram phoneme index and Tilawa 1.0 phonetic fuzzy alignment.
   List<VerseSearchResult> searchVerses(
     List<int> candidateTokens, {
     int limit = 5,
@@ -845,60 +1124,166 @@ class CtcMatcher {
   }) {
     if (candidateTokens.isEmpty) return const [];
 
-    final candSet = candidateTokens.toSet();
-    final cLen = candidateTokens.length;
-    final results = <VerseSearchResult>[];
+    String query = tokensToPhonemes(candidateTokens);
+    if (query.isEmpty) return const [];
 
-    for (final entry in ctcTokens.entries) {
-      final keyParts = entry.key.split(':');
-      if (keyParts.length != 3 || keyParts[1] != keyParts[2]) continue;
-      final surah = int.tryParse(keyParts[0]);
-      final ayah = int.tryParse(keyParts[1]);
-      if (surah == null || ayah == null) continue;
-
-      final variants = getTargetVariants(surah, ayah);
-      if (variants.isEmpty) continue;
-
-      double bestScore = 0.0;
-      for (final target in variants) {
-        if (target.isEmpty) continue;
-
-        int intersection = 0;
-        for (final t in target) {
-          if (candSet.contains(t)) intersection++;
-        }
-        if (intersection == 0) continue;
-
-        final rough = (2.0 * intersection) / (cLen + target.length);
-        if (rough < minScore * 0.55) continue;
-
-        final lcs = longestCommonSubsequence(candidateTokens, target);
-        if (lcs == 0) continue;
-
-        final rec = lcs / target.length;
-        final prec = lcs / cLen;
-        final f1 = (rec + prec) > 0 ? (2.0 * rec * prec) / (rec + prec) : 0.0;
-        final phraseScore = (lcs / cLen) * 0.8 + (lcs / target.length) * 0.2;
-        final score = math.max(f1, phraseScore);
-
-        if (score > bestScore) {
-          bestScore = score;
-        }
-      }
-
-      if (bestScore >= minScore) {
-        final textVariants = getTargetTextVariants(surah, ayah);
-        final displayTxt = textVariants.isNotEmpty ? textVariants.first : '';
-        results.add(VerseSearchResult(
-          surah: surah,
-          ayah: ayah,
-          score: bestScore,
-          text: displayTxt,
-        ));
+    // Strip leading Istiadha if reciter began with Ta'awwudh
+    if (query.length >= istiadhaPhonemes.length ~/ 2) {
+      final prefix = alignSubstring(
+        query,
+        0,
+        query.length,
+        istiadhaPhonemes,
+        (o) => o == 0,
+        strictStart: true,
+      );
+      if (prefix != null && prefix.per <= 0.25 && query.length - prefix.end >= gramSize) {
+        query = query.substring(prefix.end);
       }
     }
 
-    results.sort((a, b) => b.score.compareTo(a.score));
+    // Check Basmala
+    String searchSuffix = '';
+    if (query.length >= basmalaPhonemes.length ~/ 2) {
+      final prefix = alignSubstring(
+        query,
+        0,
+        query.length,
+        basmalaPhonemes,
+        (o) => o == 0,
+        strictStart: true,
+      );
+      if (prefix != null && prefix.per <= 0.25 && query.length - prefix.end >= gramSize) {
+        searchSuffix = query.substring(prefix.end);
+      }
+    }
+
+    final queriesToSearch = [query];
+    if (searchSuffix.isNotEmpty) {
+      queriesToSearch.add(searchSuffix);
+    }
+
+    final candidatesByAyah = <String, VerseSearchResult>{};
+
+    for (final q in queriesToSearch) {
+      if (q.length < gramSize) {
+        // Direct scan for short queries
+        for (final entry in ayahsByKey.entries) {
+          final data = entry.value;
+          final align = alignSubstring(data.phonemes, 0, data.phonemes.length, q, data.isWordStart);
+          if (align != null) {
+            final score = math.max(0.0, 1.0 - align.per);
+            if (score >= minScore) {
+              final key = '${data.surah}:${data.ayah}';
+              final existing = candidatesByAyah[key];
+              if (existing == null || existing.score < score) {
+                candidatesByAyah[key] = VerseSearchResult(
+                  surah: data.surah,
+                  ayah: data.ayah,
+                  score: score,
+                  text: data.words.join(' '),
+                );
+              }
+            }
+          }
+        }
+        continue;
+      }
+
+      // 4-gram voting
+      final votes = <int, int>{};
+      for (int i = 0; i + gramSize <= q.length; i++) {
+        final g = q.substring(i, i + gramSize);
+        final hits = grams[g];
+        if (hits != null && hits.length <= 500) {
+          for (final pos in hits) {
+            final diag = math.max(0, pos - i);
+            votes[diag] = (votes[diag] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (votes.isEmpty) continue;
+
+      final slack = math.max(4, (q.length * 0.25).ceil());
+      final sortedDiags = votes.keys.toList()..sort();
+      final prefixVotes = <int>[0];
+      for (final d in sortedDiags) {
+        prefixVotes.add(prefixVotes.last + votes[d]!);
+      }
+
+      int firstAtLeast(int x) {
+        int a = 0;
+        int b = sortedDiags.length;
+        while (a < b) {
+          final mid = (a + b) >> 1;
+          if (sortedDiags[mid] < x) {
+            a = mid + 1;
+          } else {
+            b = mid;
+          }
+        }
+        return a;
+      }
+
+      final windowed = <Map<String, dynamic>>[];
+      for (int k = 0; k < sortedDiags.length; k++) {
+        final d = sortedDiags[k];
+        final a = firstAtLeast(d - slack);
+        final b = firstAtLeast(d + slack + 1);
+        windowed.add({
+          'centre': d,
+          'lo': sortedDiags[a],
+          'hi': sortedDiags[b - 1],
+          'votes': prefixVotes[b] - prefixVotes[a],
+        });
+      }
+
+      windowed.sort((a, b) => (b['votes'] as int).compareTo(a['votes'] as int));
+
+      final bins = <Map<String, dynamic>>[];
+      for (final c in windowed) {
+        if (bins.length >= 25) break;
+        final centre = c['centre'] as int;
+        if (bins.any((b) => ((b['centre'] as int) - centre).abs() <= slack)) continue;
+        bins.add(c);
+      }
+
+      for (final bin in bins) {
+        final lo = math.max(0, (bin['lo'] as int) - slack);
+        final hi = math.min(globalPhonemes.length, (bin['hi'] as int) + q.length + slack);
+        final align = alignSubstring(
+          globalPhonemes,
+          lo,
+          hi,
+          q,
+          (offset) => wordStarts.contains(offset),
+        );
+
+        if (align != null && align.per <= 0.40) {
+          final ayahData = findAyahAtOffset(align.start);
+          if (ayahData != null) {
+            final score = math.max(0.0, 1.0 - align.per);
+            if (score >= minScore) {
+              final key = '${ayahData.surah}:${ayahData.ayah}';
+              final existing = candidatesByAyah[key];
+              if (existing == null || existing.score < score) {
+                candidatesByAyah[key] = VerseSearchResult(
+                  surah: ayahData.surah,
+                  ayah: ayahData.ayah,
+                  score: score,
+                  text: ayahData.words.join(' '),
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    final results = candidatesByAyah.values.toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
+
     if (results.length > limit) {
       return results.sublist(0, limit);
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,20 @@ import 'package:record/record.dart';
 
 import '../models/recitation_event.dart';
 import 'ctc_matcher.dart';
+import 'tilawa_fbank.dart';
+
+class ZipformerStateSpec {
+  final String name;
+  final List<int> shape;
+  final String dtype;
+  final int size;
+
+  ZipformerStateSpec({
+    required this.name,
+    required this.shape,
+    required this.dtype,
+  }) : size = shape.reduce((a, b) => a * b);
+}
 
 class RecitationEngine {
   static final RecitationEngine _instance = RecitationEngine._internal();
@@ -20,6 +35,20 @@ class RecitationEngine {
   OrtSession? _session;
   OrtSessionOptions? _sessionOptions;
   CtcMatcher? _matcher;
+
+  final TilawaFbank _fbank = TilawaFbank();
+  final List<Float32List> _fbankFeats = [];
+  int _fbankConsumed = 0;
+  int _fbankFrames = 0;
+  int _window = 45;
+  int _shift = 32;
+  int _mels = 80;
+  double _padValue = -23.0259;
+
+  List<ZipformerStateSpec> _stateSpecs = [];
+  final Map<String, OrtValue> _states = {};
+  int _prevToken = 0;
+  bool _carried = false;
 
   bool _isInitialized = false;
   bool _isListening = false;
@@ -58,14 +87,11 @@ class RecitationEngine {
 
   // Audio buffer & VAD parameters
   static const int _sampleRate = 16000;
-  static const double _silenceThreshold = 0.012; // RMS threshold for speech detection
-  static const int _minSpeechSamples = 12000; // 0.75s minimum to run inference
-  static const int _maxSpeechSamples = 56000; // 3.5s maximum before forcing inference
-  static const int _silenceFramesNeeded = 3; // ~180-220ms silence to catch quick natural pauses/breaths
-  static const int _searchSilenceFramesNeeded = 8; // ~500ms silence in voice search before finalizing
+  static const double _silenceThreshold = 0.012;
+  static const int _silenceFramesNeeded = 3;
+  static const int _searchSilenceFramesNeeded = 8;
   static const Duration _staleBufferResetDelay = Duration(seconds: 5);
 
-  final List<double> _speechBuffer = [];
   final List<int> _accumulatedTokens = [];
   int _trailingSilenceCount = 0;
   bool _speechActive = false;
@@ -74,14 +100,13 @@ class RecitationEngine {
   bool get isInitialized => _isInitialized;
   bool get isListening => _isListening;
   int get currentExpectedAyah => _expectedAyah;
+  int get fbankFrames => _fbankFrames;
 
   void _cancelStaleBufferTimer() {
     _staleBufferTimer?.cancel();
     _staleBufferTimer = null;
   }
 
-  /// Keep a partial verse through natural pauses. Only discard the buffer
-  /// after five seconds of continuous silence with no further speech.
   void _scheduleStaleBufferReset() {
     _cancelStaleBufferTimer();
     if (!_isListening || _accumulatedTokens.isEmpty) return;
@@ -114,7 +139,7 @@ class RecitationEngine {
     final assetLen = byteData.lengthInBytes;
     if (assetLen < 1000000) {
       throw StateError(
-        'Model file "$assetPath" is corrupted or an unpulled Git LFS pointer ($assetLen bytes). Please ensure Git LFS model is downloaded.',
+        'Model file "$assetPath" is corrupted or an unpulled Git LFS pointer ($assetLen bytes).',
       );
     }
 
@@ -135,11 +160,14 @@ class RecitationEngine {
     return cachedFile;
   }
 
-  /// Initializes ONNX Runtime, CtcMatcher, and loads the model.
+  /// Initializes ONNX Runtime, CtcMatcher, and loads Tilawa 1.0 streaming Zipformer2.
   Future<void> initialize({
-    String modelPath = 'assets/models/fastconformer_full_mixed.onnx',
-    String tokensPath = 'assets/models/quran_ctc_tokens.json',
-    String vocabPath = 'assets/models/vocab.json',
+    String modelPath = 'assets/models/spliced-clean-1-int8.onnx',
+    String manifestPath = 'assets/models/models-v1.json',
+    String refPath = 'assets/models/ref-v2.json',
+    String phrasesPath = 'assets/models/phrases-v1.json',
+    String? tokensPath,
+    String? vocabPath,
   }) async {
     if (_isInitialized) return;
 
@@ -147,16 +175,54 @@ class RecitationEngine {
       // 1. Initialize ONNX environment
       OrtEnv.instance.init();
 
-      // 2. Load CtcMatcher token dictionary and vocab in background
+      // 2. Load CtcMatcher token dictionary and phoneme reference in background
       _matcher = await CtcMatcher.load(
+        refPath: refPath,
+        phrasesPath: phrasesPath,
         tokensPath: tokensPath,
         vocabPath: vocabPath,
       );
 
-      // 3. Ensure model file exists on disk for efficient memory-mapped reading
+      // 3. Load full tier manifest from models-v1.json
+      String manifestStr;
+      try {
+        manifestStr = await rootBundle.loadString(manifestPath);
+      } catch (_) {
+        final f = File(manifestPath);
+        manifestStr = await f.readAsString();
+      }
+
+      final manifestJson = jsonDecode(manifestStr) as Map<String, dynamic>;
+      final tiers = manifestJson['tiers'] as List;
+      final fullTier = tiers.firstWhere(
+        (t) => t['tier'] == 'full' || t['id'] == 'spliced-clean',
+        orElse: () => tiers.first,
+      ) as Map<String, dynamic>;
+      final manifest = fullTier['manifest'] as Map<String, dynamic>;
+
+      _window = (manifest['window'] as num?)?.toInt() ?? 45;
+      _shift = (manifest['shift'] as num?)?.toInt() ?? 32;
+
+      if (manifest['fbank'] is Map) {
+        final fb = manifest['fbank'] as Map<String, dynamic>;
+        _mels = (fb['mels'] as num?)?.toInt() ?? 80;
+        _padValue = (fb['padValue'] as num?)?.toDouble() ?? -23.0259;
+      }
+
+      final rawStates = manifest['states'] as List;
+      _stateSpecs = rawStates.map((s) {
+        final m = s as Map<String, dynamic>;
+        return ZipformerStateSpec(
+          name: m['name'] as String,
+          shape: (m['shape'] as List).map((e) => (e as num).toInt()).toList(),
+          dtype: m['dtype'] as String,
+        );
+      }).toList();
+
+      // 4. Ensure model file exists on disk
       final modelFile = await _ensureModelFile(modelPath);
 
-      // 4. Configure Session Options with optimal threads and platform providers
+      // 5. Configure Session Options
       _sessionOptions = OrtSessionOptions();
       _sessionOptions!.setIntraOpNumThreads(4);
       _sessionOptions!.setInterOpNumThreads(1);
@@ -175,10 +241,10 @@ class RecitationEngine {
       }
       _sessionOptions!.appendCPUProvider(CPUFlags.useArena);
 
-      // 5. Create Session from file (memory-mapped)
+      // 6. Create Session
       try {
         _session = OrtSession.fromFile(modelFile, _sessionOptions!);
-        debugPrint('[RecitationEngine] Initialized session with providers from file');
+        debugPrint('[RecitationEngine] Initialized Zipformer2 session from file');
       } catch (e, st) {
         debugPrint('[RecitationEngine] fromFile accelerator error: $e\n$st. Retrying pure CPU...');
         _sessionOptions?.release();
@@ -189,13 +255,128 @@ class RecitationEngine {
         _session = OrtSession.fromFile(modelFile, _sessionOptions!);
       }
 
+      _resetStreamingState();
+
       _audioRecorder = AudioRecorder();
       _isInitialized = true;
-      debugPrint('[RecitationEngine] Initialized successfully');
+      debugPrint('[RecitationEngine] Initialized Tilawa 1.0 successfully');
     } catch (e, st) {
       debugPrint('[RecitationEngine] Init error: $e\n$st');
       rethrow;
     }
+  }
+
+  void _resetStreamingState() {
+    for (final val in _states.values) {
+      val.release();
+    }
+    _states.clear();
+
+    for (final s in _stateSpecs) {
+      if (s.dtype == 'int64') {
+        _states[s.name] = OrtValueTensor.createTensorWithDataList(
+          Int64List(s.size),
+          s.shape,
+        );
+      } else {
+        _states[s.name] = OrtValueTensor.createTensorWithDataList(
+          Float32List(s.size),
+          s.shape,
+        );
+      }
+    }
+
+    _fbank.reset();
+    _fbankFeats.clear();
+    _fbankConsumed = 0;
+    _fbankFrames = 0;
+    _prevToken = 0;
+    _carried = false;
+  }
+
+  /// Runs one streaming 45-frame window and updates the 98 recurrent encoder states.
+  Future<List<int>> _stepWindow(Float32List xData) async {
+    if (_session == null || _states.isEmpty) return const [];
+
+    final xTensor = OrtValueTensor.createTensorWithDataList(
+      xData,
+      [1, _window, _mels],
+    );
+
+    final runOptions = OrtRunOptions();
+    final inputs = <String, OrtValue>{
+      'x': xTensor,
+      ..._states,
+    };
+
+    final outputs = await _session!.runAsync(runOptions, inputs);
+
+    xTensor.release();
+    runOptions.release();
+
+    if (outputs == null || outputs.isEmpty) return const [];
+
+    final outputMap = <String, OrtValue>{};
+    for (int i = 0; i < _session!.outputNames.length; i++) {
+      final name = _session!.outputNames[i];
+      final val = outputs[i];
+      if (val != null) {
+        outputMap[name] = val;
+      }
+    }
+
+    final logProbsOrt = outputMap['log_probs'];
+    final emittedTokens = <int>[];
+
+    if (logProbsOrt != null) {
+      final val = logProbsOrt.value;
+      if (val is List && val.isNotEmpty && val[0] is List) {
+        final frames = val[0] as List;
+        for (final frame in frames) {
+          if (frame is List) {
+            int maxIdx = 0;
+            double maxVal = (frame[0] as num).toDouble();
+            for (int i = 1; i < frame.length; i++) {
+              final v = (frame[i] as num).toDouble();
+              if (v > maxVal) {
+                maxVal = v;
+                maxIdx = i;
+              }
+            }
+
+            if (maxIdx != 0 && maxIdx == _prevToken && _carried) {
+              // Same token carried from previous window boundary
+            } else if (maxIdx != 0 && maxIdx == _prevToken) {
+              // Same token within current window
+            } else if (maxIdx != 0) {
+              emittedTokens.add(maxIdx);
+              _carried = false;
+            }
+
+            if (maxIdx != _prevToken) {
+              _carried = false;
+            }
+            _prevToken = maxIdx;
+          }
+        }
+        if (_prevToken != 0) {
+          _carried = true;
+        }
+      }
+      logProbsOrt.release();
+    }
+
+    // Reuse native OrtValue output pointers directly without re-allocating
+    for (final s in _stateSpecs) {
+      final oldVal = _states[s.name];
+      final newVal = outputMap['new_${s.name}'];
+      if (newVal != null) {
+        oldVal?.release();
+        _states[s.name] = newVal;
+      }
+    }
+
+    return emittedTokens;
   }
 
   /// Checks if microphone permission is granted.
@@ -241,7 +422,7 @@ class RecitationEngine {
     _onEvent = onEvent;
 
     _cancelStaleBufferTimer();
-    _speechBuffer.clear();
+    _resetStreamingState();
     _accumulatedTokens.clear();
     _trailingSilenceCount = 0;
     _speechActive = false;
@@ -278,12 +459,12 @@ class RecitationEngine {
     }
   }
 
-  /// Updates current expected Ayah (e.g. when user scrolls or manually reveals).
+  /// Updates current expected Ayah.
   void setExpectedAyah(int ayah) {
     _expectedAyah = ayah;
     _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
-    _speechBuffer.clear();
+    _resetStreamingState();
     _onEvent?.call(RecitationStatusEvent(
       status: _isListening ? RecitationStatus.listening : RecitationStatus.idle,
       audioLevel: 0.0,
@@ -299,7 +480,7 @@ class RecitationEngine {
     _endAyah = endAyah;
     _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
-    _speechBuffer.clear();
+    _resetStreamingState();
     _onEvent?.call(RecitationStatusEvent(
       status: _isListening ? RecitationStatus.listening : RecitationStatus.idle,
       audioLevel: 0.0,
@@ -307,7 +488,7 @@ class RecitationEngine {
     ));
   }
 
-  /// Searches for matching verses across the entire Quran using the loaded token database.
+  /// Searches for matching verses across the entire Quran.
   List<VerseSearchResult> searchVerses(List<int> candidateTokens, {int limit = 5, double minScore = 0.35}) {
     if (_matcher == null) return const [];
     return _matcher!.searchVerses(candidateTokens, limit: limit, minScore: minScore);
@@ -345,7 +526,7 @@ class RecitationEngine {
     _onSearchResults = onResults;
 
     _cancelStaleBufferTimer();
-    _speechBuffer.clear();
+    _resetStreamingState();
     _accumulatedTokens.clear();
     _trailingSilenceCount = 0;
     _speechActive = false;
@@ -401,7 +582,7 @@ class RecitationEngine {
       } catch (_) {}
     }
 
-    _speechBuffer.clear();
+    _resetStreamingState();
     _accumulatedTokens.clear();
 
     _onEvent?.call(RecitationStatusEvent(
@@ -441,7 +622,6 @@ class RecitationEngine {
     final double effectiveThreshold;
     if (_adaptiveNoise) {
       effectiveThreshold = (_ambientNoiseFloor * 1.75).clamp(0.010, 0.045);
-      // Slow continuous background adaptation during silence
       if (!_speechActive && rms < _ambientNoiseFloor * 1.5 && rms > 0.002) {
         _ambientNoiseFloor = (_ambientNoiseFloor * 0.95) + (rms * 0.05);
         _ambientNoiseFloor = _ambientNoiseFloor.clamp(0.005, 0.035);
@@ -459,7 +639,6 @@ class RecitationEngine {
       _cancelStaleBufferTimer();
       _speechActive = true;
       _trailingSilenceCount = 0;
-      _speechBuffer.addAll(samples);
 
       if (_isSearchMode) {
         _onSearchAudioLevel?.call(level);
@@ -471,27 +650,30 @@ class RecitationEngine {
         ));
       }
 
-      // If speech buffer exceeds max threshold, trigger inference immediately
-      if (_speechBuffer.length >= _maxSpeechSamples && !_isInferring) {
-        _triggerInference();
+      final frames = _fbank.push(samples);
+      _fbankFeats.addAll(frames);
+      _fbankFrames += frames.length;
+
+      if (!_isInferring) {
+        _drainStreamingWindows();
       }
     } else {
       if (_speechActive) {
         _trailingSilenceCount++;
-        // Include short trailing silence to capture final consonants
-        if (_speechBuffer.length < _maxSpeechSamples) {
-          _speechBuffer.addAll(samples);
+        final frames = _fbank.push(samples);
+        _fbankFeats.addAll(frames);
+        _fbankFrames += frames.length;
+
+        if (!_isInferring) {
+          _drainStreamingWindows();
         }
 
         final silenceTarget =
             _isSearchMode ? _searchSilenceFramesNeeded : _silenceFramesNeeded;
 
-        // Trigger inference when silence after speech is detected
-        if (_trailingSilenceCount >= silenceTarget &&
-            _speechBuffer.length >= _minSpeechSamples &&
-            !_isInferring) {
+        if (_trailingSilenceCount >= silenceTarget && !_isInferring) {
           _speechActive = false;
-          _triggerInference();
+          _flushTrailingSilence();
         }
       } else if (_isSearchMode) {
         _onSearchAudioLevel?.call(0.0);
@@ -499,199 +681,31 @@ class RecitationEngine {
     }
   }
 
-  /// Runs ONNX inference on accumulated speech samples asynchronously.
-  Future<void> _triggerInference() async {
-    if (_speechBuffer.isEmpty || _isInferring || _session == null || _matcher == null) {
-      return;
-    }
-
-    _cancelStaleBufferTimer();
+  /// Drains all available 45-frame windows advancing by shift (32 frames = 320ms).
+  Future<void> _drainStreamingWindows() async {
+    if (_isInferring || _session == null || _matcher == null) return;
     _isInferring = true;
-    _onEvent?.call(RecitationStatusEvent(
-      status: RecitationStatus.processing,
-      audioLevel: 0.0,
-      currentExpectedAyah: _expectedAyah,
-    ));
-
-    final samples = Float32List.fromList(_speechBuffer);
-    _speechBuffer.clear();
 
     try {
-      final numSamples = samples.length;
-      final audioTensor = OrtValueTensor.createTensorWithDataList(
-        samples,
-        [1, numSamples],
-      );
-      final lengthTensor = OrtValueTensor.createTensorWithDataList(
-        Int64List.fromList([numSamples]),
-        [1],
-      );
-
-      final runOptions = OrtRunOptions();
-      final inputs = {
-        _session!.inputNames[0]: audioTensor,
-        _session!.inputNames[1]: lengthTensor,
-      };
-
-      // Dispatches inference to native background isolate
-      final outputs = await _session!.runAsync(runOptions, inputs);
-
-      audioTensor.release();
-      lengthTensor.release();
-      runOptions.release();
-
-      if (!_isListening) {
-        outputs?.forEach((o) => o?.release());
-        return;
-      }
-
-      if (outputs != null && outputs.isNotEmpty) {
-        final val = outputs[0]?.value;
-        if (val is List && val.isNotEmpty && val[0] is List) {
-          final outer = val[0] as List;
-          // Outer has shape [time_frames, 1025]
-          final logProbs = <List<double>>[];
-          for (final frame in outer) {
-            if (frame is List) {
-              logProbs.add(frame.map((e) => (e as num).toDouble()).toList(growable: false));
-            }
-          }
-
-          if (logProbs.isNotEmpty) {
-            final decoded = _matcher!.greedyDecode(logProbs);
-            if (decoded.isNotEmpty) {
-              final decodedText = _matcher!.tokensToText(decoded);
-              debugPrint('[RecitationEngine] Decoded chunk: $decoded ($decodedText)');
-
-              // Combine accumulated buffer from previous chunks with incoming decoded tokens
-              var activeTokens = List<int>.from(_accumulatedTokens)..addAll(decoded);
-              var activeText = _matcher!.tokensToText(activeTokens);
-              _accumulatedTokens.clear();
-
-              debugPrint('[RecitationEngine] Active tokens: ${activeTokens.length}, text: "$activeText"');
-
-              if (_isSearchMode) {
-                final cleanText = activeText.trim();
-                // Ignore short 1-token or single-character ambient noise bursts
-                if (decoded.length < 2 && cleanText.length < 3) {
-                  debugPrint(
-                    '[RecitationEngine] Search mode: ignoring short noise burst ($decoded -> "$cleanText")',
-                  );
-                  return;
-                }
-                final results = _matcher!.searchVerses(activeTokens, limit: 5);
-                final cb = _onSearchResults;
-                if (results.isNotEmpty) {
-                  // Lock the search result and stop the microphone so background noise
-                  // cannot overwrite the recognized text or refresh results.
-                  await stopListening();
-                  cb?.call(results, cleanText);
-                } else {
-                  // Keep accumulated tokens if user is still mid-recitation, or report only if no prior match
-                  cb?.call(results, cleanText);
-                }
-                return;
-              }
-
-              // Emit real-time acoustic transcript feedback for active listening
-              if (_isListening && activeText.isNotEmpty) {
-                _onEvent?.call(RecitationStatusEvent(
-                  status: RecitationStatus.processing,
-                  audioLevel: 0.0,
-                  currentExpectedAyah: _expectedAyah,
-                  partialTranscript: activeText,
-                ));
-              }
-
-              // Cascading match loop: continuously match consecutive verses in the active window (Wasl / continuous recitation)
-              while (_expectedAyah <= _endAyah && activeTokens.isNotEmpty) {
-                final match = _matcher!.matchSlidingWindow(
-                  surah: _currentSurah,
-                  expectedAyah: _expectedAyah,
-                  candidateTokens: activeTokens,
-                  candidateText: activeText,
-                  windowAhead: 2,
-                  windowBehind: 1,
-                  minAyah: _startAyah,
-                  maxAyah: _endAyah,
-                  sensitivity: _sensitivity,
-                  // Hifz parity with web: do not let a missing final-word
-                  // verdict keep a long, correctly recited verse stuck.
-                  requireLastWord: false,
-                );
-
-                if (match == null) {
-                  // No match on expected or skip in current candidate.
-                  // Retain active tokens for subsequent chunk accumulation.
-                  _accumulatedTokens.addAll(activeTokens);
-                  break;
-                }
-
-                if (match.isSkip) {
-                  // Skip detected!
-                  debugPrint('[RecitationEngine] SKIP DETECTED from ${match.expectedAyah} to ${match.detectedAyah}');
-                  _onEvent?.call(RecitationSkippedEvent(
-                    surah: match.surah,
-                    expectedAyah: match.expectedAyah,
-                    jumpedToAyah: match.detectedAyah,
-                    confidence: match.confidence,
-                  ));
-
-                  // Retain expected Ayah! Do NOT advance automatically on skip detection.
-                  // Clear accumulated tokens so the alert does not fire repeatedly on same audio.
-                  _accumulatedTokens.clear();
-                  break;
-                }
-
-                // Matched expected verse or previous verse!
-                debugPrint('[RecitationEngine] REVEAL Matched Ayah ${match.detectedAyah} (conf: ${match.confidence.toStringAsFixed(2)})');
-                _expectedAyah = math.max(_expectedAyah, match.detectedAyah + 1);
-
-                _onEvent?.call(RecitationMatchedEvent(
-                  surah: match.surah,
-                  ayah: match.detectedAyah,
-                  confidence: match.confidence,
-                  text: match.decodedText,
-                ));
-
-                // Slicing: consume the matched verse from active tokens/words to test next verse
-                final candWords = activeText.split(' ').where((w) => w.isNotEmpty).toList();
-                if (match.wordsConsumed > 0 && match.wordsConsumed < candWords.length) {
-                  // Slice consumed words from activeText
-                  final remainingWords = candWords.sublist(match.wordsConsumed);
-                  activeText = remainingWords.join(' ');
-
-                  // Proportionally drop consumed tokens
-                  final dropRatio = match.wordsConsumed / candWords.length;
-                  final tokensToDrop = (activeTokens.length * dropRatio).round().clamp(1, activeTokens.length - 1);
-                  activeTokens = activeTokens.sublist(tokensToDrop);
-                } else if (match.tokensConsumed > 0 && match.tokensConsumed < activeTokens.length) {
-                  activeTokens = activeTokens.sublist(match.tokensConsumed);
-                  activeText = _matcher!.tokensToText(activeTokens);
-                } else {
-                  // Whole buffer consumed by this match
-                  activeTokens.clear();
-                  activeText = '';
-                  break;
-                }
-              }
-
-              // Keep accumulated tokens within reasonable size based on expected ayah length
-              final expectedTokensLen =
-                  _matcher?.getTargetTokens(_currentSurah, _expectedAyah)?.length ?? 40;
-              final maxBuffer = math.max(100, (expectedTokensLen * 1.8).round());
-              if (_accumulatedTokens.length > maxBuffer) {
-                _accumulatedTokens.removeRange(
-                    0, _accumulatedTokens.length - expectedTokensLen);
-              }
-            }
-          }
+      while (_fbankFeats.length - _fbankConsumed >= _window && _isListening) {
+        final windowFrames = _fbankFeats.sublist(_fbankConsumed, _fbankConsumed + _window);
+        final xData = Float32List(_window * _mels);
+        for (int i = 0; i < _window; i++) {
+          xData.setRange(i * _mels, (i + 1) * _mels, windowFrames[i]);
+        }
+        final windowTokens = await _stepWindow(xData);
+        _fbankConsumed += _shift;
+        if (windowTokens.isNotEmpty) {
+          await _handleNewTokens(windowTokens);
         }
       }
 
-      outputs?.forEach((o) => o?.release());
+      if (_fbankConsumed > 4 * _window) {
+        _fbankFeats.removeRange(0, _fbankConsumed);
+        _fbankConsumed = 0;
+      }
     } catch (e, st) {
-      debugPrint('[RecitationEngine] Inference exception: $e\n$st');
+      debugPrint('[RecitationEngine] Streaming inference error: $e\n$st');
     } finally {
       _isInferring = false;
       if (_isListening) {
@@ -705,9 +719,134 @@ class RecitationEngine {
     }
   }
 
+  /// When trailing silence is reached, pads the remaining fbank frames with padValue (-23.0259)
+  /// so that the final word of the verse is immediately recognized without delay.
+  Future<void> _flushTrailingSilence() async {
+    if (_isInferring || _session == null || _matcher == null) return;
+    _isInferring = true;
+
+    try {
+      final padFrame = Float32List(_mels)..fillRange(0, _mels, _padValue);
+      while (_fbankFeats.length - _fbankConsumed < _window) {
+        _fbankFeats.add(padFrame);
+      }
+      final windowFrames = _fbankFeats.sublist(_fbankConsumed, _fbankConsumed + _window);
+      final xData = Float32List(_window * _mels);
+      for (int i = 0; i < _window; i++) {
+        xData.setRange(i * _mels, (i + 1) * _mels, windowFrames[i]);
+      }
+      final windowTokens = await _stepWindow(xData);
+      _fbankConsumed += _shift;
+      if (windowTokens.isNotEmpty) {
+        await _handleNewTokens(windowTokens);
+      }
+    } catch (e, st) {
+      debugPrint('[RecitationEngine] Flush error: $e\n$st');
+    } finally {
+      _isInferring = false;
+      if (_isListening) {
+        _onEvent?.call(RecitationStatusEvent(
+          status: RecitationStatus.listening,
+          audioLevel: 0.0,
+          currentExpectedAyah: _expectedAyah,
+        ));
+      }
+      _scheduleStaleBufferReset();
+    }
+  }
+
+  /// Processes new emitted tokens from the Zipformer CTC decoder.
+  Future<void> _handleNewTokens(List<int> tokens) async {
+    _accumulatedTokens.addAll(tokens);
+    final activeText = _matcher!.tokensToText(_accumulatedTokens);
+
+    debugPrint('[RecitationEngine] Emitted: $tokens -> "$activeText"');
+
+    if (_isSearchMode) {
+      final cleanText = activeText.trim();
+      if (_accumulatedTokens.length < 2 && cleanText.length < 3) return;
+      final results = _matcher!.searchVerses(_accumulatedTokens, limit: 5);
+      final cb = _onSearchResults;
+      if (results.isNotEmpty) {
+        await stopListening();
+        cb?.call(results, cleanText);
+      } else {
+        cb?.call(results, cleanText);
+      }
+      return;
+    }
+
+    if (_isListening && activeText.isNotEmpty) {
+      _onEvent?.call(RecitationStatusEvent(
+        status: RecitationStatus.processing,
+        audioLevel: 0.0,
+        currentExpectedAyah: _expectedAyah,
+        partialTranscript: activeText,
+      ));
+    }
+
+    // Cascading match loop: continuously match consecutive verses in the active window
+    while (_expectedAyah <= _endAyah && _accumulatedTokens.isNotEmpty) {
+      final match = _matcher!.matchSlidingWindow(
+        surah: _currentSurah,
+        expectedAyah: _expectedAyah,
+        candidateTokens: _accumulatedTokens,
+        windowAhead: 2,
+        windowBehind: 1,
+        minAyah: _startAyah,
+        maxAyah: _endAyah,
+        sensitivity: _sensitivity,
+        requireLastWord: false,
+      );
+
+      if (match == null) {
+        break;
+      }
+
+      if (match.isSkip) {
+        debugPrint('[RecitationEngine] SKIP DETECTED from ${match.expectedAyah} to ${match.detectedAyah}');
+        _onEvent?.call(RecitationSkippedEvent(
+          surah: match.surah,
+          expectedAyah: match.expectedAyah,
+          jumpedToAyah: match.detectedAyah,
+          confidence: match.confidence,
+        ));
+        _accumulatedTokens.clear();
+        break;
+      }
+
+      debugPrint('[RecitationEngine] REVEAL Matched Ayah ${match.detectedAyah} (conf: ${match.confidence.toStringAsFixed(2)})');
+      _expectedAyah = math.max(_expectedAyah, match.detectedAyah + 1);
+
+      _onEvent?.call(RecitationMatchedEvent(
+        surah: match.surah,
+        ayah: match.detectedAyah,
+        confidence: match.confidence,
+        text: match.decodedText,
+      ));
+
+      if (match.tokensConsumed > 0 && match.tokensConsumed < _accumulatedTokens.length) {
+        _accumulatedTokens.removeRange(0, match.tokensConsumed);
+      } else {
+        _accumulatedTokens.clear();
+        break;
+      }
+    }
+
+    final expectedTokensLen = _matcher?.getTargetTokens(_currentSurah, _expectedAyah)?.length ?? 40;
+    final maxBuffer = math.max(100, (expectedTokensLen * 1.8).round());
+    if (_accumulatedTokens.length > maxBuffer) {
+      _accumulatedTokens.removeRange(0, _accumulatedTokens.length - expectedTokensLen);
+    }
+  }
+
   /// Disposes resources.
   void dispose() {
     stopListening();
+    for (final s in _states.values) {
+      s.release();
+    }
+    _states.clear();
     _session?.release();
     _sessionOptions?.release();
     OrtEnv.instance.release();
