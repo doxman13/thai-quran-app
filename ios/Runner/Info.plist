@@ -87,5 +87,7 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Thai Quran uses the microphone for offline AI Quran recitation tracking in Hifz mode and voice verse search.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
