@@ -4651,7 +4651,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     FilledButton.icon(
                       onPressed: initializing
                           ? null
-                          : () => _toggleVoiceRecitationMic(tracker),
+                          : () {
+                              final willTurnOn = !listening;
+                              if (willTurnOn) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                              _toggleVoiceRecitationMic(tracker);
+                            },
                       icon: Icon(
                         listening
                             ? Icons.pause_rounded
