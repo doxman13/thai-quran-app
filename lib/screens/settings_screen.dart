@@ -265,8 +265,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         content: Text(
           isThai
-              ? 'คุณต้องการออกจากระบบบัญชีนี้ใช่หรือไม่? ข้อมูลในอุปกรณ์นี้จะยังคงอยู่และสามารถซิงค์ได้อีกครั้งเมื่อเข้าสู่ระบบ'
-              : 'Are you sure you want to sign out? Your local data will remain saved on this device.',
+              ? 'คุณต้องการออกจากระบบใช่หรือไม่? ข้อมูลของคุณที่ซิงค์ไว้จะปลอดภัยอยู่บนคลาวด์ และข้อมูลบัญชีในเครื่องนี้จะถูกล้างออก'
+              : 'Are you sure you want to sign out? Your synced data remains safely backed up in the cloud, and account data on this device will be cleared.',
           style: GoogleFonts.notoSansThai(
             fontSize: 13,
             color: colors.textMuted,
@@ -303,7 +303,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     if (confirmed == true && mounted) {
+      final localReadingProv = this.context.read<LocalReadingProvider>();
+      final mushafProv = this.context.read<MushafReadingProvider>();
+      final notesProv = this.context.read<NotesProvider>();
+      final statsProv = this.context.read<StatsProvider>();
+
+      try {
+        await localReadingProv.flushPendingProfileSyncs();
+        await localReadingProv.flushPendingRecentReadingSync();
+        await localReadingProv.flushPendingReadingStateSync();
+        await mushafProv.flushPendingProfileSyncs();
+        await mushafProv.flushPendingRecentReadingSync();
+        await statsProv.flushPendingSave();
+      } catch (_) {}
+
       await supabaseProv.signOut();
+
+      await localReadingProv.clearAllLocal();
+      await mushafProv.clearAllLocal();
+      await notesProv.clearAllLocal();
+      await statsProv.clearAllLocal();
+      await HifzRepository.instance.clearAllLocalData();
+
       if (mounted) {
         ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(

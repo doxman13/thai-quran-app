@@ -763,7 +763,9 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     ) async {
       await _loadCompleter.future;
       final user = data.session?.user;
-      if (user != null) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        await clearAllLocal();
+      } else if (user != null) {
         await syncWithSupabase(user.id);
       } else {
         // Guard logout: ensure guest profiles are preserved and default is active

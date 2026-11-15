@@ -2,38 +2,60 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/hifz_repository.dart';
 
-class SupabaseProvider extends ChangeNotifier {
+class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   final _client = Supabase.instance.client;
   User? _user;
   StreamSubscription<AuthState>? _authSubscription;
   StreamSubscription<Uri>? _appLinksSubscription;
+  String? _lastHandledDeepLink;
+  bool _isHandlingDeepLink = false;
   String _guestName = 'Reader';
   bool _isSigningIn = false;
   String? _activeSignInProvider;
   String? _authError;
+  bool _disposed = false;
 
-  User? get user => _user;
-  bool get isLoggedIn => _user != null;
-  String get userEmail => _user?.email ?? '';
-  String get userId => _user?.id ?? '';
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
+  User? get user => _user ?? _client.auth.currentUser;
+  bool get isLoggedIn => user != null;
+  String get userId => user?.id ?? '';
+  String get userEmail {
+    final u = user;
+    if (u == null) return '';
+    if (u.email != null && u.email!.isNotEmpty) return u.email!;
+    final metaEmail = u.userMetadata?['email']?.toString() ?? '';
+    if (metaEmail.isNotEmpty) return metaEmail;
+    for (final identity in u.identities ?? const <UserIdentity>[]) {
+      final idEmail = identity.identityData?['email']?.toString() ?? '';
+      if (idEmail.isNotEmpty) return idEmail;
+    }
+    return '';
+  }
   bool get isSigningIn => _isSigningIn;
   String? get activeSignInProvider => _activeSignInProvider;
   String? get authError => _authError;
 
   String get displayName {
-    if (_user != null) {
-      final metaName = _user?.userMetadata?['full_name']?.toString() ??
-          _user?.userMetadata?['name']?.toString() ??
+    final u = user;
+    if (u != null) {
+      final metaName = u.userMetadata?['full_name']?.toString() ??
+          u.userMetadata?['name']?.toString() ??
           '';
       if (metaName.trim().isNotEmpty) return metaName.trim();
-      final email = _user?.email;
-      if (email != null && email.isNotEmpty) {
+      final email = userEmail;
+      if (email.isNotEmpty) {
         return email.split('@')[0];
       }
       // Fallback for providers that may return neither a name nor an email
@@ -45,19 +67,38 @@ class SupabaseProvider extends ChangeNotifier {
   }
 
   SupabaseProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _user = _client.auth.currentUser;
     _loadGuestName();
     _authSubscription = _client.auth.onAuthStateChange.listen((data) {
       debugPrint('[SupabaseProvider] onAuthStateChange event: ${data.event}, session: ${data.session?.user.email}');
-      _user = data.session?.user;
+      _user = data.session?.user ?? _client.auth.currentUser;
+      if (data.event == AuthChangeEvent.signedOut) {
+        _user = null;
+        unawaited(HifzRepository.instance.clearAllLocalData());
+      }
       notifyListeners();
       if (_user != null) {
-        bootstrapUser(_user!.id);
+        unawaited(bootstrapUser(_user!.id));
       }
     });
 
     if (!kIsWeb) {
       _initDeepLinkListener();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final current = _client.auth.currentUser;
+      if (_user?.id != current?.id) {
+        _user = current;
+        notifyListeners();
+        if (_user != null) {
+          unawaited(bootstrapUser(_user!.id));
+        }
+      }
     }
   }
 
@@ -96,6 +137,9 @@ class SupabaseProvider extends ChangeNotifier {
   }
 
   Future<void> _handleIncomingDeepLink(Uri uri) async {
+    final uriStr = uri.toString();
+    if (_isHandlingDeepLink || _lastHandledDeepLink == uriStr) return;
+
     if (uri.scheme != 'io.supabase.thaiquran') return;
 
     final fragmentParams = Uri.splitQueryString(uri.fragment);
@@ -118,11 +162,23 @@ class SupabaseProvider extends ChangeNotifier {
       return;
     }
 
+    _lastHandledDeepLink = uriStr;
+    _isHandlingDeepLink = true;
     _isSigningIn = true;
     _authError = null;
     notifyListeners();
 
     try {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (_client.auth.currentUser != null) {
+        _user = _client.auth.currentUser;
+        _authError = null;
+        _isSigningIn = false;
+        _isHandlingDeepLink = false;
+        notifyListeners();
+        return;
+      }
+
       final res = await _client.auth.getSessionFromUrl(uri);
       _user = res.session.user;
       _authError = null;
@@ -138,7 +194,9 @@ class SupabaseProvider extends ChangeNotifier {
       }
       notifyListeners();
     } finally {
+      _isHandlingDeepLink = false;
       _isSigningIn = false;
+      _user = _client.auth.currentUser ?? _user;
       notifyListeners();
     }
   }
@@ -155,6 +213,8 @@ class SupabaseProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     _appLinksSubscription?.cancel();
     super.dispose();

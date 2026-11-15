@@ -26,7 +26,9 @@ class NotesProvider extends ChangeNotifier {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
     ) {
-      if (data.session?.user != null) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        clearAllLocal();
+      } else if (data.session?.user != null) {
         syncWithSupabase();
       }
     });

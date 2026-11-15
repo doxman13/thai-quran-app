@@ -57,7 +57,9 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     ) async {
       await _loadCompleter.future;
       final user = data.session?.user;
-      if (user != null) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        await clearAllLocal();
+      } else if (user != null) {
         try {
           await syncWithSupabase(user.id);
         } catch (e) {

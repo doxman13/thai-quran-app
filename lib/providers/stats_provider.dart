@@ -23,7 +23,9 @@ class StatsProvider extends ChangeNotifier {
     ) async {
       await _loadFuture;
       final user = data.session?.user;
-      if (user != null) {
+      if (data.event == AuthChangeEvent.signedOut) {
+        await clearAllLocal();
+      } else if (user != null) {
         unawaited(syncWithSupabase(user.id));
       }
     });
