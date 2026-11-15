@@ -1,155 +1,9 @@
 PODS:
-  - app_links (7.0.0):
-    - Flutter
-  - AppAuth (1.7.6):
-    - AppAuth/Core (= 1.7.6)
-    - AppAuth/ExternalUserAgent (= 1.7.6)
-  - AppAuth/Core (1.7.6)
-  - AppAuth/ExternalUserAgent (1.7.6):
-    - AppAuth/Core
-  - AppCheckCore (11.3.2):
-    - GoogleUtilities/Environment (~> 8.0)
-    - GoogleUtilities/UserDefaults (~> 8.0)
-    - PromisesObjC (~> 2.4)
-    - PromisesSwift (~> 2.4)
-    - RecaptchaInterop (~> 101.0)
-  - audio_service (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - audio_session (0.0.1):
-    - Flutter
-  - device_info_plus (0.0.1):
-    - Flutter
-  - Firebase/CoreOnly (12.15.0):
-    - FirebaseCore (~> 12.15.0)
-  - firebase_analytics (12.4.5):
-    - firebase_core
-    - FirebaseAnalytics (= 12.15.0)
-    - Flutter
-  - firebase_core (4.12.1):
-    - Firebase/CoreOnly (= 12.15.0)
-    - Flutter
-  - FirebaseAnalytics (12.15.0):
-    - FirebaseAnalytics/Default (= 12.15.0)
-    - FirebaseCore (~> 12.15.0)
-    - FirebaseInstallations (~> 12.15.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/MethodSwizzler (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-    - nanopb (~> 3.30910.0)
-  - FirebaseAnalytics/Default (12.15.0):
-    - FirebaseCore (~> 12.15.0)
-    - FirebaseInstallations (~> 12.15.0)
-    - GoogleAppMeasurement/Default (= 12.15.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/MethodSwizzler (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-    - nanopb (~> 3.30910.0)
-  - FirebaseCore (12.15.0):
-    - FirebaseCoreInternal (~> 12.15.0)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/Logger (~> 8.1)
-  - FirebaseCoreInternal (12.15.0):
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-  - FirebaseInstallations (12.15.0):
-    - FirebaseCore (~> 12.15.0)
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/UserDefaults (~> 8.1)
-    - PromisesObjC (~> 2.4)
   - Flutter (1.0.0)
   - flutter_background_service_ios (0.0.3):
     - Flutter
-  - flutter_blue_plus_darwin (0.0.2):
-    - Flutter
-    - FlutterMacOS
   - flutter_local_notifications (0.0.1):
     - Flutter
-  - google_sign_in_ios (0.0.1):
-    - AppAuth (>= 1.7.4)
-    - Flutter
-    - FlutterMacOS
-    - GoogleSignIn (~> 8.0)
-    - GTMSessionFetcher (>= 3.4.0)
-  - GoogleAdsOnDeviceConversion (3.6.1):
-    - GoogleUtilities/Environment (~> 8.1)
-    - GoogleUtilities/Logger (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - nanopb (~> 3.30910.0)
-  - GoogleAppMeasurement/Core (12.15.0):
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/MethodSwizzler (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-    - nanopb (~> 3.30910.0)
-  - GoogleAppMeasurement/Default (12.15.0):
-    - GoogleAdsOnDeviceConversion (~> 3.6.0)
-    - GoogleAppMeasurement/Core (= 12.15.0)
-    - GoogleAppMeasurement/IdentitySupport (= 12.15.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/MethodSwizzler (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-    - nanopb (~> 3.30910.0)
-  - GoogleAppMeasurement/IdentitySupport (12.15.0):
-    - GoogleAppMeasurement/Core (= 12.15.0)
-    - GoogleUtilities/AppDelegateSwizzler (~> 8.1)
-    - GoogleUtilities/MethodSwizzler (~> 8.1)
-    - GoogleUtilities/Network (~> 8.1)
-    - "GoogleUtilities/NSData+zlib (~> 8.1)"
-    - nanopb (~> 3.30910.0)
-  - GoogleSignIn (8.0.0):
-    - AppAuth (< 2.0, >= 1.7.3)
-    - AppCheckCore (~> 11.0)
-    - GTMAppAuth (< 5.0, >= 4.1.1)
-    - GTMSessionFetcher/Core (~> 3.3)
-  - GoogleUtilities/AppDelegateSwizzler (8.1.5):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Network
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Environment (8.1.5):
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.5):
-    - GoogleUtilities/Environment
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/MethodSwizzler (8.1.5):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (8.1.5):
-    - GoogleUtilities/Logger
-    - "GoogleUtilities/NSData+zlib"
-    - GoogleUtilities/Privacy
-    - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (8.1.5)":
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.5)
-  - GoogleUtilities/Reachability (8.1.5):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GoogleUtilities/UserDefaults (8.1.5):
-    - GoogleUtilities/Logger
-    - GoogleUtilities/Privacy
-  - GTMAppAuth (4.1.1):
-    - AppAuth/Core (~> 1.7)
-    - GTMSessionFetcher/Core (< 4.0, >= 3.3)
-  - GTMSessionFetcher (3.5.0):
-    - GTMSessionFetcher/Full (= 3.5.0)
-  - GTMSessionFetcher/Core (3.5.0)
-  - GTMSessionFetcher/Full (3.5.0):
-    - GTMSessionFetcher/Core
-  - in_app_purchase_storekit (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - just_audio (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - nanopb (3.30910.0):
-    - nanopb/decode (= 3.30910.0)
-    - nanopb/encode (= 3.30910.0)
-  - nanopb/decode (3.30910.0)
-  - nanopb/encode (3.30910.0)
   - onnxruntime-c (1.23.0)
   - onnxruntime-objc (1.23.0):
     - onnxruntime-objc/Core (= 1.23.0)
@@ -158,176 +12,47 @@ PODS:
   - onnxruntime_v2 (0.0.1):
     - Flutter
     - onnxruntime-objc (= 1.23.0)
-  - package_info_plus (0.4.5):
-    - Flutter
-  - passkeys_darwin (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - PromisesObjC (2.4.1)
-  - PromisesSwift (2.4.1):
-    - PromisesObjC (= 2.4.1)
-  - RecaptchaInterop (101.0.0)
   - record_darwin (1.0.0):
-    - Flutter
-  - share_plus (0.0.1):
-    - Flutter
-  - shared_preferences_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
-  - sqflite_darwin (0.0.4):
-    - Flutter
-    - FlutterMacOS
-  - ua_client_hints (1.7.0):
-    - Flutter
-  - url_launcher_ios (0.0.1):
     - Flutter
   - volume_key_board (0.0.1):
     - Flutter
-  - wakelock_plus (0.0.1):
-    - Flutter
 
 DEPENDENCIES:
-  - app_links (from `.symlinks/plugins/app_links/ios`)
-  - audio_service (from `.symlinks/plugins/audio_service/darwin`)
-  - audio_session (from `.symlinks/plugins/audio_session/ios`)
-  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
-  - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
-  - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - Flutter (from `Flutter`)
   - flutter_background_service_ios (from `.symlinks/plugins/flutter_background_service_ios/ios`)
-  - flutter_blue_plus_darwin (from `.symlinks/plugins/flutter_blue_plus_darwin/darwin`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
-  - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
-  - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
-  - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - onnxruntime_v2 (from `.symlinks/plugins/onnxruntime_v2/ios`)
-  - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
-  - passkeys_darwin (from `.symlinks/plugins/passkeys_darwin/darwin`)
   - record_darwin (from `.symlinks/plugins/record_darwin/ios`)
-  - share_plus (from `.symlinks/plugins/share_plus/ios`)
-  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
-  - ua_client_hints (from `.symlinks/plugins/ua_client_hints/ios`)
-  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - volume_key_board (from `.symlinks/plugins/volume_key_board/ios`)
-  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
 
 SPEC REPOS:
   trunk:
-    - AppAuth
-    - AppCheckCore
-    - Firebase
-    - FirebaseAnalytics
-    - FirebaseCore
-    - FirebaseCoreInternal
-    - FirebaseInstallations
-    - GoogleAdsOnDeviceConversion
-    - GoogleAppMeasurement
-    - GoogleSignIn
-    - GoogleUtilities
-    - GTMAppAuth
-    - GTMSessionFetcher
-    - nanopb
     - onnxruntime-c
     - onnxruntime-objc
-    - PromisesObjC
-    - PromisesSwift
-    - RecaptchaInterop
 
 EXTERNAL SOURCES:
-  app_links:
-    :path: ".symlinks/plugins/app_links/ios"
-  audio_service:
-    :path: ".symlinks/plugins/audio_service/darwin"
-  audio_session:
-    :path: ".symlinks/plugins/audio_session/ios"
-  device_info_plus:
-    :path: ".symlinks/plugins/device_info_plus/ios"
-  firebase_analytics:
-    :path: ".symlinks/plugins/firebase_analytics/ios"
-  firebase_core:
-    :path: ".symlinks/plugins/firebase_core/ios"
   Flutter:
     :path: Flutter
   flutter_background_service_ios:
     :path: ".symlinks/plugins/flutter_background_service_ios/ios"
-  flutter_blue_plus_darwin:
-    :path: ".symlinks/plugins/flutter_blue_plus_darwin/darwin"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
-  google_sign_in_ios:
-    :path: ".symlinks/plugins/google_sign_in_ios/darwin"
-  in_app_purchase_storekit:
-    :path: ".symlinks/plugins/in_app_purchase_storekit/darwin"
-  just_audio:
-    :path: ".symlinks/plugins/just_audio/darwin"
   onnxruntime_v2:
     :path: ".symlinks/plugins/onnxruntime_v2/ios"
-  package_info_plus:
-    :path: ".symlinks/plugins/package_info_plus/ios"
-  passkeys_darwin:
-    :path: ".symlinks/plugins/passkeys_darwin/darwin"
   record_darwin:
     :path: ".symlinks/plugins/record_darwin/ios"
-  share_plus:
-    :path: ".symlinks/plugins/share_plus/ios"
-  shared_preferences_foundation:
-    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
-  sqflite_darwin:
-    :path: ".symlinks/plugins/sqflite_darwin/darwin"
-  ua_client_hints:
-    :path: ".symlinks/plugins/ua_client_hints/ios"
-  url_launcher_ios:
-    :path: ".symlinks/plugins/url_launcher_ios/ios"
   volume_key_board:
     :path: ".symlinks/plugins/volume_key_board/ios"
-  wakelock_plus:
-    :path: ".symlinks/plugins/wakelock_plus/ios"
 
 SPEC CHECKSUMS:
-  app_links: 6d01271b3907b0ee7325c5297c75d697c4226c4d
-  AppAuth: 58e37c546bb9bf2073c1392ccba8cef35ff283cb
-  AppCheckCore: be8fce5469f68d7f6a29aa94b25f097409ff7fdc
-  audio_service: cab6c1a0eaf01b5a35b567e11fa67d3cc1956910
-  audio_session: 19e9480dbdd4e5f6c4543826b2e8b0e4ab6145fe
-  device_info_plus: bf2e3232933866d73fe290f2942f2156cdd10342
-  Firebase: a8539b633d474fbeb654c7043f9c1649e274045b
-  firebase_analytics: 673bb63121902bd55afca59abefb3d4728ef54e8
-  firebase_core: ee2e6c050e05882c2453c21efd082627351c9d38
-  FirebaseAnalytics: 9c9fa7915fc52ea03077000d5a7b6a8947b2d76e
-  FirebaseCore: 2e86a4ea1684d4381707069e4a6d89ac808e901e
-  FirebaseCoreInternal: 6ab6a02c94446c026d2cf35cf5383842ebaa4992
-  FirebaseInstallations: eb29ccbf64eaedf86fd5b2ccc7fabde567660b52
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_background_service_ios: e30e0d3ee69e4cee66272d0c78eacd48c2e94aac
-  flutter_blue_plus_darwin: 904ed52825285a15f60e9d90312337a09f11a785
   flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
-  google_sign_in_ios: 7411fab6948df90490dc4620ecbcabdc3ca04017
-  GoogleAdsOnDeviceConversion: e3b71da24ff4cf01cf520756ac1c2b93c07b86ff
-  GoogleAppMeasurement: a6d37949071d456e9147dac6789c4342e0e7a8c5
-  GoogleSignIn: e6b83a7093495f8ba4b7547460485f1e308c8df5
-  GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
-  GTMAppAuth: 4a3fbbb34098b327feaa51cfbf98b0b12f6892e7
-  GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  in_app_purchase_storekit: 2342c0a5da86593124d08dd13d920f39a52b273a
-  just_audio: a42c63806f16995daf5b219ae1d679deb76e6a79
-  nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   onnxruntime-c: 3174c63a963d9abbc2bf9627e3d622819c0ed5f7
   onnxruntime-objc: 1254d12f8160e562e7693ff17f5aa3dd17dc409e
   onnxruntime_v2: 66663dced251fa61d6acbfd8612ce98a0d289a1b
-  package_info_plus: c0502532a26c7662a62a356cebe2692ec5fe4ec4
-  passkeys_darwin: 15d8cd3048c02b43f0db618637652328ee367f1f
-  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  PromisesSwift: 217dea0fd5d2ad65222a109c48698add13cc1c5b
-  RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   record_darwin: 3b1a8e7d5c0cbf45ad6165b4d83a6ca643d929c3
-  share_plus: 8b6f8b3447e494cca5317c8c3073de39b3600d1f
-  shared_preferences_foundation: 5086985c1d43c5ba4d5e69a4e8083a389e2909e6
-  sqflite_darwin: 5a7236e3b501866c1c9befc6771dfd73ffb8702d
-  ua_client_hints: 1133b367920a3c80ed2f84afde2d106b26a728d5
-  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
   volume_key_board: 544501f83cce6478414091fb47f614471108b220
-  wakelock_plus: 76957ab028e12bfa4e66813c99e46637f367fc7e
 
 PODFILE CHECKSUM: 5d9588ab2dcd2392f0b00f1916de64350a8845d5
 
