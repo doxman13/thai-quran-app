@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/recitation_event.dart';
@@ -922,6 +923,7 @@ class CtcMatcher {
     final w = m + 1;
     final d = Float64List((n + 1) * w);
     final startJ = Int32List((n + 1) * w);
+    final op = Int8List((n + 1) * w);
 
     int at(int i, int j) => i * w + j;
 
@@ -929,12 +931,14 @@ class CtcMatcher {
     for (int j = 0; j <= m; j++) {
       d[j] = 0.0;
       startJ[j] = j;
+      op[j] = 0;
     }
 
     // Column 0: missing leading phonemes of the ayah MUST pay deletion cost + kEdit
     for (int i = 1; i <= n; i++) {
       d[i * w] = d[(i - 1) * w] + deletionCost(ref, i - 1) + kEdit;
       startJ[i * w] = 0;
+      op[i * w] = 1;
     }
 
     // DP Fill
@@ -952,12 +956,14 @@ class CtcMatcher {
         // 1. match/sub from (i-1, j-1)
         double best = d[prevRow + j - 1] + sub;
         int bestFrom = prevRow + j - 1;
+        int bestOp = 0;
 
         // 2. deletion from (i-1, j)
         final delVal = d[prevRow + j] + delCost;
         if (delVal < best) {
           best = delVal;
           bestFrom = prevRow + j;
+          bestOp = 1;
         }
 
         // 3. insertion from (i, j-1)
@@ -965,16 +971,18 @@ class CtcMatcher {
         if (insVal < best) {
           best = insVal;
           bestFrom = row + j - 1;
+          bestOp = 2;
         }
 
         d[row + j] = best;
         startJ[row + j] = startJ[bestFrom];
+        op[row + j] = bestOp;
       }
     }
 
     // Determine the required ending range [minEndI .. n] in ref:
     final lastWordStart = data.offsets.isNotEmpty ? data.offsets.last : 0;
-    final int lastWordMinEnd = lastWordStart + math.max<int>(1, ((n - lastWordStart) * 0.65).ceil());
+    final int lastWordMinEnd = lastWordStart + math.max<int>(1, ((n - lastWordStart) * 0.75).ceil());
 
     final int minEndI;
     if (requireLastWord || data.words.length < 6) {
@@ -993,6 +1001,9 @@ class CtcMatcher {
 
     for (int endI = minEndI; endI <= n; endI++) {
       for (int endJ = 1; endJ <= m; endJ++) {
+        // Strict End-of-Verse Tail Gate: cell MUST be a match/sub transition, never a vertical deletion
+        if (op[at(endI, endJ)] != 0) continue;
+
         final obsStart = startJ[at(endI, endJ)];
         final obsSpan = endJ - obsStart;
         if (obsSpan < (minEndI * 0.55).ceil()) continue;
@@ -1003,14 +1014,84 @@ class CtcMatcher {
         final recall = math.max(0.0, (endI - weightedEdits) / targetDenom);
         final f1 = (recall + accuracy) > 0 ? (2 * recall * accuracy) / (recall + accuracy) : 0.0;
 
-        if (recall >= effectiveRecall && f1 >= effectiveScore) {
-          if (f1 > bestF1 || (f1 == bestF1 && endI > bestEndI)) {
-            bestF1 = f1;
-            bestRecall = recall;
-            bestAccuracy = accuracy;
-            bestEndI = endI;
-            bestEndJ = endJ;
+        if (recall < effectiveRecall || f1 < effectiveScore) continue;
+
+        // Backtrack to verify word matching across the ayah
+        int currI = endI;
+        int currJ = endJ;
+        final matchedInWord = List<int>.filled(data.words.length, 0);
+
+        while (currI > 0 && currJ > obsStart) {
+          final cellOp = op[at(currI, currJ)];
+          if (cellOp == 0) {
+            final refIdx = currI - 1;
+            final rChar = ref[refIdx];
+            final oChar = obs[currJ - 1];
+            if (rChar == oChar || subCost(rChar, oChar) <= kConfusableCost) {
+              int w = data.offsets.length - 1;
+              while (w > 0 && data.offsets[w] > refIdx) {
+                w--;
+              }
+              if (w >= 0 && w < matchedInWord.length) {
+                matchedInWord[w]++;
+              }
+            }
+            currI--;
+            currJ--;
+          } else if (cellOp == 1) {
+            currI--;
+          } else {
+            currJ--;
           }
+        }
+
+        // Check word-by-word matching
+        int matchedWordsCount = 0;
+        for (int w = 0; w < data.words.length; w++) {
+          final wStart = data.offsets[w];
+          final wEnd = (w + 1 < data.offsets.length) ? data.offsets[w + 1] : n;
+          final wLen = math.max(1, wEnd - wStart);
+          final wordMatchedRatio = matchedInWord[w] / wLen;
+          if (wordMatchedRatio >= 0.58) {
+            matchedWordsCount++;
+          }
+        }
+
+        if (matchedWordsCount / data.words.length < effectiveRecall) continue;
+
+        // End-of-verse gate
+        final lastW = data.words.length - 1;
+        final lastWordLen = math.max(1, n - lastWordStart);
+        final lastWordMatchedRatio = matchedInWord[lastW] / lastWordLen;
+
+        if (requireLastWord || data.words.length < 6) {
+          if (lastWordMatchedRatio < 0.65 || endI < lastWordMinEnd) {
+            continue;
+          }
+        } else {
+          // !requireLastWord && data.words.length >= 6
+          final penultW = data.words.length - 2;
+          final penultWStart = data.offsets[penultW];
+          final penultWEnd = lastWordStart;
+          final penultWLen = math.max(1, penultWEnd - penultWStart);
+          final penultMatchedRatio = matchedInWord[penultW] / penultWLen;
+
+          if (penultMatchedRatio < 0.65 || endI < lastWordStart) {
+            continue;
+          }
+
+          // If alignment reaches past penultimate word into last word, allow at most 2 trailing phoneme deletions
+          if (endI > lastWordStart && (n - endI) > 2) {
+            continue;
+          }
+        }
+
+        if (f1 > bestF1 || (f1 == bestF1 && endI > bestEndI)) {
+          bestF1 = f1;
+          bestRecall = recall;
+          bestAccuracy = accuracy;
+          bestEndI = endI;
+          bestEndJ = endJ;
         }
       }
     }

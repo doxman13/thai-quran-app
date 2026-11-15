@@ -801,7 +801,68 @@ class RecitationEngine {
       ));
     }
 
-    // Cascading match loop: continuously match consecutive verses in the active window
+    if (!isFlush) {
+      // While user is actively speaking (no trailing silence pause yet):
+      // Only reveal if connected recitation (Wasl) into the next verse has occurred:
+      // i.e. requireLastWord: true AND at least 6 trailing tokens in buffer after the match.
+      while (_expectedAyah <= _endAyah && _accumulatedTokens.isNotEmpty) {
+        final match = _matcher!.matchSlidingWindow(
+          surah: _currentSurah,
+          expectedAyah: _expectedAyah,
+          candidateTokens: _accumulatedTokens,
+          windowAhead: 2,
+          windowBehind: 1,
+          minAyah: _startAyah,
+          maxAyah: _endAyah,
+          sensitivity: _sensitivity,
+          requireLastWord: true,
+        );
+
+        if (match == null) {
+          break;
+        }
+
+        final trailingTokens = _accumulatedTokens.length - match.tokensConsumed;
+        if (trailingTokens < 6) {
+          // Mid-verse recitation or just finished last word without pausing yet;
+          // wait for trailing silence pause (_flushTrailingSilence) to reveal.
+          break;
+        }
+
+        if (match.isSkip) {
+          debugPrint('[RecitationEngine] SKIP DETECTED (Wasl) from ${match.expectedAyah} to ${match.detectedAyah}');
+          _onEvent?.call(RecitationSkippedEvent(
+            surah: match.surah,
+            expectedAyah: match.expectedAyah,
+            jumpedToAyah: match.detectedAyah,
+            confidence: match.confidence,
+          ));
+          _accumulatedTokens.clear();
+          break;
+        }
+
+        debugPrint('[RecitationEngine] REVEAL Wasl Matched Ayah ${match.detectedAyah} (conf: ${match.confidence.toStringAsFixed(2)})');
+        _expectedAyah = math.max(_expectedAyah, match.detectedAyah + 1);
+
+        _onEvent?.call(RecitationMatchedEvent(
+          surah: match.surah,
+          ayah: match.detectedAyah,
+          confidence: match.confidence,
+          text: match.decodedText,
+        ));
+
+        if (match.tokensConsumed > 0 && trailingTokens >= 5) {
+          _accumulatedTokens.removeRange(0, match.tokensConsumed);
+        } else {
+          _accumulatedTokens.clear();
+          break;
+        }
+      }
+      return;
+    }
+
+    // isFlush == true: user finished reciting and paused (trailing silence detected)
+    // Cascading match loop with requireLastWord: false
     while (_expectedAyah <= _endAyah && _accumulatedTokens.isNotEmpty) {
       final match = _matcher!.matchSlidingWindow(
         surah: _currentSurah,

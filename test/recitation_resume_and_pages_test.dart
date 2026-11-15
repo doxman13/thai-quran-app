@@ -195,5 +195,40 @@ void main() {
 
       expect(match, isNull, reason: 'First word alone must not trigger a verse match');
     });
+
+    test('stopping 2 words before the end does not match even with requireLastWord: false', () async {
+      final variants = matcher.getTargetTextVariants(1, 7);
+      final targetWords = variants.first.split(' ').where((w) => w.isNotEmpty).toList();
+      final twoWordsShortText = targetWords.take(targetWords.length - 2).join(' ');
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 7,
+        candidateTokens: const [],
+        candidateText: twoWordsShortText,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: false,
+      );
+
+      expect(match, isNull, reason: 'Stopping 2 words before the end must not trigger match');
+    });
+
+    test('short verse (< 6 words) requires last word even when requireLastWord: false is passed', () async {
+      final v2Tokens = matcher.getTargetTokens(1, 2)!;
+      // Drop the last word's tokens (e.g. drop 8 tokens)
+      final withoutLastWord = v2Tokens.take(v2Tokens.length - 8).toList();
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 2,
+        candidateTokens: withoutLastWord,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: false,
+      );
+
+      expect(match, isNull, reason: 'Short verse missing last word must never match');
+    });
   });
 }
