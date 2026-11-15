@@ -132,56 +132,58 @@ class _TranslationManagerSectionState extends State<TranslationManagerSection> {
               ),
             ),
             const SizedBox(height: 20),
-            Divider(
-              height: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            _sectionTitle(colorScheme, context.tr('download_more')),
-            const SizedBox(height: 8),
-            ..._groupedAvailableTranslations().entries.expand((entry) {
-              return [
-                Padding(
-                  padding: const EdgeInsets.only(top: 16, bottom: 6),
-                  child: Text(
-                    _languageLabel(entry.key, settings.languageCode),
-                    style: GoogleFonts.notoSansThai(
-                      color: colorScheme.primary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+            if (_groupedAvailableTranslations().isNotEmpty) ...[
+              Divider(
+                height: 1,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 16),
+              _sectionTitle(colorScheme, context.tr('download_more')),
+              const SizedBox(height: 8),
+              ..._groupedAvailableTranslations().entries.expand((entry) {
+                return [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 6),
+                    child: Text(
+                      _languageLabel(entry.key, settings.languageCode),
+                      style: GoogleFonts.notoSansThai(
+                        color: colorScheme.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                ...entry.value.map((option) {
-                  final isDownloaded = downloadedOptions.any(
-                    (item) => item.id == option.id,
-                  );
-                  final progress = option.apiId == null
-                      ? null
-                      : _downloadProgress[option.apiId];
-
-                  return _buildTranslationRow(
-                    option: option,
-                    settings: settings,
-                    colorScheme: colorScheme,
-                    isDownloaded: isDownloaded,
-                    isDownloadList: true,
-                    showSelector: false,
-                    progress: progress,
-                    onDownload: option.apiId == null || isDownloaded
+                  ...entry.value.map((option) {
+                    final isDownloaded = downloadedOptions.any(
+                      (item) => item.id == option.id,
+                    );
+                    final progress = option.apiId == null
                         ? null
-                        : () => _downloadTranslation(option),
-                    onDelete: isDownloaded
-                        ? () => _deleteTranslation(
-                            option.apiId!,
-                            transManager,
-                            settings,
-                          )
-                        : null,
-                  );
-                }),
-              ];
-            }),
+                        : _downloadProgress[option.apiId];
+
+                    return _buildTranslationRow(
+                      option: option,
+                      settings: settings,
+                      colorScheme: colorScheme,
+                      isDownloaded: isDownloaded,
+                      isDownloadList: true,
+                      showSelector: false,
+                      progress: progress,
+                      onDownload: option.apiId == null || isDownloaded
+                          ? null
+                          : () => _downloadTranslation(option),
+                      onDelete: isDownloaded
+                          ? () => _deleteTranslation(
+                              option.apiId!,
+                              transManager,
+                              settings,
+                            )
+                          : null,
+                    );
+                  }),
+                ];
+              }),
+            ],
           ],
         ),
       ),

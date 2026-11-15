@@ -30,13 +30,14 @@ void main() {
       expect(TranslationConstants.resolveApiId('en_usmani'), isNull);
     });
 
-    test('isBuiltIn returns true only for offline database translations', () {
+    test('isBuiltIn returns true for offline bundled translations', () {
       expect(TranslationConstants.isBuiltIn('thai_v3'), isTrue);
       expect(TranslationConstants.isBuiltIn('en_usmani'), isTrue);
       expect(TranslationConstants.isBuiltIn('ms_basmeih'), isTrue);
-      expect(TranslationConstants.isBuiltIn('en_saheeh'), isFalse);
-      expect(TranslationConstants.isBuiltIn('20'), isFalse);
-      expect(TranslationConstants.isBuiltIn('149'), isFalse);
+      expect(TranslationConstants.isBuiltIn('en_saheeh'), isTrue);
+      expect(TranslationConstants.isBuiltIn('20'), isTrue);
+      expect(TranslationConstants.isBuiltIn('149'), isTrue);
+      expect(TranslationConstants.isBuiltIn('random_unknown_id'), isFalse);
     });
 
     test('getAllOptions provides unified and consistently sorted translations', () {

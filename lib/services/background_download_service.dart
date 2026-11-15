@@ -13,53 +13,9 @@ const String notificationChannelId = 'translation_download_channel';
 const String notificationChannelName = 'Translation Downloads';
 
 Future<void> initializeDownloadService() async {
-  try {
-    final service = FlutterBackgroundService();
-
-    // Initialize notifications for foreground service and completion notifications
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('ic_launcher');
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-    // Create the Android Notification Channel explicitly to prevent startForeground crashes
-    final androidNotificationPlugin = flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    if (androidNotificationPlugin != null) {
-      await androidNotificationPlugin.createNotificationChannel(
-        const AndroidNotificationChannel(
-          notificationChannelId,
-          notificationChannelName,
-          description: 'Notifications for translation download status',
-          importance: Importance.low,
-          playSound: false,
-          enableVibration: false,
-        ),
-      );
-    }
-
-    await service.configure(
-      androidConfiguration: AndroidConfiguration(
-        onStart: onStart,
-        autoStart: false, // Start only when a download is requested
-        isForegroundMode: true,
-        notificationChannelId: notificationChannelId,
-        initialNotificationTitle: 'Translation Download',
-        initialNotificationContent: 'Preparing download...',
-        foregroundServiceNotificationId: 888,
-      ),
-      iosConfiguration: IosConfiguration(
-        autoStart: false,
-        onForeground: onStart,
-        onBackground: onIosBackground,
-      ),
-    );
-  } catch (e) {
-    debugPrint('Error initializing background download service: $e');
-  }
+  // All translations are bundled offline-first in assets.
+  // Foreground download service is disabled to prevent unnecessary foreground services on Android 14+.
+  return;
 }
 
 Future<bool> requestNotificationPermission() async {

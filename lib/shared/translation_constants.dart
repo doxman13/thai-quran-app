@@ -58,47 +58,58 @@ class TranslationConstants {
     isBuiltIn: true,
   );
 
+  static const builtInEnSaheeh = AppTranslationOption(
+    id: '20',
+    apiId: 20,
+    name: 'Saheeh International (Offline)',
+    nameTh: 'English - Saheeh International (อังกฤษ - ออฟไลน์)',
+    author: 'Saheeh International',
+    language: 'english',
+    isBuiltIn: true,
+  );
+
+  static const builtInEnHilali = AppTranslationOption(
+    id: '203',
+    apiId: 203,
+    name: 'Al-Hilali & Muhsin Khan (Offline)',
+    nameTh: 'English - Al-Hilali & Muhsin Khan (อังกฤษ - ออฟไลน์)',
+    author: 'Al-Hilali & Muhsin Khan',
+    language: 'english',
+    isBuiltIn: true,
+  );
+
+  static const builtInEnBridges = AppTranslationOption(
+    id: '149',
+    apiId: 149,
+    name: "Bridges' Translation (Offline)",
+    nameTh: "English - Bridges' Translation (อังกฤษ - ออฟไลน์)",
+    author: 'Fadel Soliman',
+    language: 'english',
+    isBuiltIn: true,
+  );
+
+  static const builtInEnHaleem = AppTranslationOption(
+    id: '85',
+    apiId: 85,
+    name: 'M.A.S. Abdel Haleem (Offline)',
+    nameTh: 'English - M.A.S. Abdel Haleem (อังกฤษ - ออฟไลน์)',
+    author: 'Abdul Haleem',
+    language: 'english',
+    isBuiltIn: true,
+  );
+
   static const List<AppTranslationOption> builtIns = [
     builtInThaiV3,
     builtInEnUsmani,
+    builtInEnSaheeh,
+    builtInEnHilali,
+    builtInEnBridges,
+    builtInEnHaleem,
     builtInMsBasmeih,
   ];
 
-  // Downloadable translations via Quran.com / QDC API
-  static const List<AppTranslationOption> downloadableTranslations = [
-    AppTranslationOption(
-      id: '20',
-      apiId: 20,
-      name: 'Saheeh International',
-      nameTh: 'English - Saheeh International (อังกฤษ - เชิงอรรถ)',
-      author: 'Saheeh International',
-      language: 'english',
-    ),
-    AppTranslationOption(
-      id: '203',
-      apiId: 203,
-      name: 'Al-Hilali & Muhsin Khan (King Fahd Complex)',
-      nameTh: 'English - Al-Hilali & Muhsin Khan (อังกฤษ - เชิงอรรถ)',
-      author: 'Al-Hilali & Muhsin Khan',
-      language: 'english',
-    ),
-    AppTranslationOption(
-      id: '149',
-      apiId: 149,
-      name: "Bridges' Translation (Fadel Soliman - 10 Qira'at)",
-      nameTh: "English - Bridges' Translation (อังกฤษ - 10 กิรออาต)",
-      author: 'Fadel Soliman',
-      language: 'english',
-    ),
-    AppTranslationOption(
-      id: '85',
-      apiId: 85,
-      name: 'M.A.S. Abdel Haleem',
-      nameTh: 'English - M.A.S. Abdel Haleem (อังกฤษ)',
-      author: 'Abdul Haleem',
-      language: 'english',
-    ),
-  ];
+  // All translations are bundled offline-first.
+  static const List<AppTranslationOption> downloadableTranslations = [];
 
   /// Language priority for sorting translations
   static int _languageSortOrder(String language) {
@@ -213,7 +224,13 @@ class TranslationConstants {
   /// Check if an ID is built-in offline
   static bool isBuiltIn(dynamic id) {
     final canonical = resolveTranslationId(id);
-    return canonical == 'thai_v3' || canonical == 'en_usmani' || canonical == 'ms_basmeih';
+    return canonical == 'thai_v3' ||
+        canonical == 'en_usmani' ||
+        canonical == 'ms_basmeih' ||
+        canonical == '20' ||
+        canonical == '203' ||
+        canonical == '149' ||
+        canonical == '85';
   }
 
   /// Get known translation option

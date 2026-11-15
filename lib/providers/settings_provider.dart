@@ -8,6 +8,7 @@ import '../data/translation_database.dart';
 import '../data/quran_repository.dart';
 import '../models/recitation_event.dart';
 import '../theme/app_theme.dart';
+import '../shared/translation_constants.dart';
 
 enum HifzInputMode {
   bluetoothShutter,
@@ -538,11 +539,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   bool _isBundledTranslationId(String id) {
-    return id == 'thai_v3' ||
-        id == 'thai_v2' ||
-        id == 'english' ||
-        id == 'en_usmani' ||
-        id == 'ms_basmeih';
+    return TranslationConstants.isBuiltIn(id) || id == 'thai_v2' || id == 'english';
   }
 
   Future<bool> _isTranslationAvailableOnDevice(String? id) async {

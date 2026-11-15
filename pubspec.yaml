@@ -2,7 +2,7 @@ name: thai_quran_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 1.0.1+3
 
 environment:
   sdk: ^3.12.0
@@ -80,6 +80,8 @@ flutter:
     - assets/footnotes/
     - assets/en_hilali_khan.json
     - assets/en_bridges.json
+    - assets/en_saheeh.json
+    - assets/en_haleem.json
     - assets/ms_basmeih.json
     - assets/en_usmani.json
     - assets/models/

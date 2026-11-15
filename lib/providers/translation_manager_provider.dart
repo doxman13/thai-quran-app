@@ -157,6 +157,22 @@ class TranslationManagerProvider extends ChangeNotifier {
         }
       } else if (canonicalId == 'thai_v3' || canonicalId == 'th') {
         verses = await OfflineQuranDatabaseService.getAllTranslations(lang: 'th');
+      } else if (canonicalId == '20' || canonicalId == 'en_saheeh') {
+        final jsonStr = await rootBundle.loadString('assets/en_saheeh.json');
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        verses = decoded.map((k, v) => MapEntry(k, v.toString()));
+      } else if (canonicalId == '203' || canonicalId == 'en_hilali_khan') {
+        final jsonStr = await rootBundle.loadString('assets/en_hilali_khan.json');
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        verses = decoded.map((k, v) => MapEntry(k, v.toString()));
+      } else if (canonicalId == '149' || canonicalId == 'en_bridges') {
+        final jsonStr = await rootBundle.loadString('assets/en_bridges.json');
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        verses = decoded.map((k, v) => MapEntry(k, v.toString()));
+      } else if (canonicalId == '85' || canonicalId == 'en_haleem') {
+        final jsonStr = await rootBundle.loadString('assets/en_haleem.json');
+        final decoded = json.decode(jsonStr) as Map<String, dynamic>;
+        verses = decoded.map((k, v) => MapEntry(k, v.toString()));
       } else if (apiId != null) {
         verses = await _db.getAllVersesForTranslation(apiId);
       }
