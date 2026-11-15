@@ -179,5 +179,21 @@ void main() {
 
       expect(match, isNull);
     });
+
+    test('does not accept a short fragment or single word as a verse match', () async {
+      final v1Tokens = matcher.getTargetTokens(1, 1)!;
+      final firstWordTokens = v1Tokens.take(5).toList();
+
+      final match = matcher.matchSlidingWindow(
+        surah: 1,
+        expectedAyah: 1,
+        candidateTokens: firstWordTokens,
+        minAyah: 1,
+        maxAyah: 7,
+        requireLastWord: false,
+      );
+
+      expect(match, isNull, reason: 'First word alone must not trigger a verse match');
+    });
   });
 }

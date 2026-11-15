@@ -528,6 +528,47 @@ class CtcMatcher {
     return tokensToPhonemes(tokenIds);
   }
 
+  /// Converts CTC token IDs into clean, readable Arabic text for UI display.
+  String tokensToReadableText(List<int> tokenIds) {
+    if (tokenIds.isEmpty) return '';
+    final raw = tokensToPhonemes(tokenIds);
+    if (raw.isEmpty) return '';
+
+    final buffer = StringBuffer();
+    for (int i = 0; i < raw.length; i++) {
+      final ch = raw[i];
+      switch (ch) {
+        case 'ۦ': // small yaa
+          buffer.write('ي');
+          break;
+        case 'ۥ': // small waw
+          buffer.write('و');
+          break;
+        case 'ں': // noon ghunna
+          buffer.write('ن');
+          break;
+        case '۾': // iqlab meem
+          buffer.write('م');
+          break;
+        case 'ٲ': // alif
+          buffer.write('ا');
+          break;
+        case 'ڇ': // che -> jeem
+          buffer.write('ج');
+          break;
+        case 'ـ': // tatweel
+        case '۪': // imala
+        case 'ۜ': // small seen
+        case 'ؙ': // small rounded zero
+          break;
+        default:
+          buffer.write(ch);
+          break;
+      }
+    }
+    return buffer.toString().trim();
+  }
+
   /// Normalizes Arabic text by removing tashkeel/diacritics and normalizing alifs/ya/taa marbutah.
   static String normalizeArabic(String text) {
     return text
@@ -863,6 +904,136 @@ class CtcMatcher {
     }
   }
 
+  /// Dedicated ayah-level phonetic alignment for Hifz recitation.
+  /// Aligning reference [data.phonemes] against spoken stream [obs].
+  /// Requires genuine coverage of the verse and returns the exact number of tokens consumed in [obs].
+  AlignmentResult? alignAyahToObs(
+    AyahRefData data,
+    String obs, {
+    required bool requireLastWord,
+    double effectiveRecall = 0.70,
+    double effectiveScore = 0.70,
+  }) {
+    final ref = data.phonemes;
+    final n = ref.length;
+    final m = obs.length;
+    if (n == 0 || m == 0) return null;
+
+    final w = m + 1;
+    final d = Float64List((n + 1) * w);
+    final startJ = Int32List((n + 1) * w);
+
+    int at(int i, int j) => i * w + j;
+
+    // Row 0: free start in obs
+    for (int j = 0; j <= m; j++) {
+      d[j] = 0.0;
+      startJ[j] = j;
+    }
+
+    // Column 0: missing leading phonemes of the ayah MUST pay deletion cost + kEdit
+    for (int i = 1; i <= n; i++) {
+      d[i * w] = d[(i - 1) * w] + deletionCost(ref, i - 1) + kEdit;
+      startJ[i * w] = 0;
+    }
+
+    // DP Fill
+    for (int i = 1; i <= n; i++) {
+      final rChar = ref[i - 1];
+      final delCost = deletionCost(ref, i - 1) + kEdit;
+      final row = i * w;
+      final prevRow = (i - 1) * w;
+
+      for (int j = 1; j <= m; j++) {
+        final oChar = obs[j - 1];
+        final insCost = insertionCost(ref, i, oChar, n) + kEdit;
+        final sub = (rChar == oChar ? 0.0 : subCost(rChar, oChar) + kEdit);
+
+        // 1. match/sub from (i-1, j-1)
+        double best = d[prevRow + j - 1] + sub;
+        int bestFrom = prevRow + j - 1;
+
+        // 2. deletion from (i-1, j)
+        final delVal = d[prevRow + j] + delCost;
+        if (delVal < best) {
+          best = delVal;
+          bestFrom = prevRow + j;
+        }
+
+        // 3. insertion from (i, j-1)
+        final insVal = d[row + j - 1] + insCost;
+        if (insVal < best) {
+          best = insVal;
+          bestFrom = row + j - 1;
+        }
+
+        d[row + j] = best;
+        startJ[row + j] = startJ[bestFrom];
+      }
+    }
+
+    // Determine the required ending range [minEndI .. n] in ref:
+    final lastWordStart = data.offsets.isNotEmpty ? data.offsets.last : 0;
+    final int lastWordMinEnd = lastWordStart + math.max<int>(1, ((n - lastWordStart) * 0.65).ceil());
+
+    final int minEndI;
+    if (requireLastWord || data.words.length < 6) {
+      minEndI = lastWordMinEnd;
+    } else {
+      // For long verses (!requireLastWord && data.words.length >= 6):
+      // allow reaching the start of the last word (end of penultimate word)
+      minEndI = lastWordStart;
+    }
+
+    double bestF1 = 0.0;
+    double bestRecall = 0.0;
+    double bestAccuracy = 0.0;
+    int bestEndI = -1;
+    int bestEndJ = -1;
+
+    for (int endI = minEndI; endI <= n; endI++) {
+      for (int endJ = 1; endJ <= m; endJ++) {
+        final obsStart = startJ[at(endI, endJ)];
+        final obsSpan = endJ - obsStart;
+        if (obsSpan < (minEndI * 0.55).ceil()) continue;
+
+        final weightedEdits = d[at(endI, endJ)] / kUnit;
+        final accuracy = math.max(0.0, 1.0 - (weightedEdits / endI));
+        final targetDenom = minEndI.clamp(1, n);
+        final recall = math.max(0.0, (endI - weightedEdits) / targetDenom);
+        final f1 = (recall + accuracy) > 0 ? (2 * recall * accuracy) / (recall + accuracy) : 0.0;
+
+        if (recall >= effectiveRecall && f1 >= effectiveScore) {
+          if (f1 > bestF1 || (f1 == bestF1 && endI > bestEndI)) {
+            bestF1 = f1;
+            bestRecall = recall;
+            bestAccuracy = accuracy;
+            bestEndI = endI;
+            bestEndJ = endJ;
+          }
+        }
+      }
+    }
+
+    if (bestEndI == -1 || bestEndJ == -1) return null;
+
+    int consumedWords = data.words.length;
+    for (int w = 0; w < data.offsets.length; w++) {
+      if (data.offsets[w] >= bestEndI) {
+        consumedWords = w;
+        break;
+      }
+    }
+
+    return AlignmentResult(
+      score: bestF1,
+      recall: bestRecall,
+      precision: bestAccuracy,
+      endIndex: bestEndJ,
+      wordsConsumed: consumedWords > 0 ? consumedWords : data.words.length,
+    );
+  }
+
   /// Evaluates alignment for Surah [surah], Ayah [ayah] using Tilawa 1.0 phonetic model & text LCS.
   AlignmentResult evaluateAyahMatch(
     int surah,
@@ -893,45 +1064,24 @@ class CtcMatcher {
     int bestEnd = candidateTokens.length;
     int bestWordsConsumed = data.words.length;
 
-    // 1. Evaluate Phonetic Alignment via Tilawa 1.0 alignSubstring
+    // 1. Evaluate Phonetic Alignment via Tilawa 1.0 alignAyahToObs
     if (candidateTokens.isNotEmpty) {
       final obs = tokensToPhonemes(candidateTokens);
       if (obs.isNotEmpty) {
-        final align = alignSubstring(
-          data.phonemes,
-          0,
-          data.phonemes.length,
+        final align = alignAyahToObs(
+          data,
           obs,
-          data.isWordStart,
+          requireLastWord: requireLastWord,
+          effectiveRecall: effectiveRecall,
+          effectiveScore: effectiveScore,
         );
 
         if (align != null) {
-          final isLongVerse = data.words.length >= 6;
-          final lastWordOffset = data.offsets.isNotEmpty ? data.offsets.last : 0;
-          final penultimateOffset = data.offsets.length >= 2 ? data.offsets[data.offsets.length - 2] : 0;
-          final lastWordMatched = align.end >= lastWordOffset;
-          final missingLastWordAllowed = !requireLastWord && isLongVerse && align.end >= penultimateOffset;
-          final reachesEnd = lastWordMatched || missingLastWordAllowed;
-
-          final phoneticScore = math.max(0.0, 1.0 - align.per);
-          if (reachesEnd && phoneticScore >= effectiveScore) {
-            bestScore = phoneticScore;
-            bestRecall = phoneticScore;
-            bestPrecision = phoneticScore;
-            bestEnd = align.end;
-
-            int consumedWords = data.words.length;
-            for (int w = 0; w < data.offsets.length; w++) {
-              if (data.offsets[w] >= align.end) {
-                consumedWords = w;
-                break;
-              }
-            }
-            if (missingLastWordAllowed && !lastWordMatched) {
-              consumedWords = data.words.length - 1;
-            }
-            bestWordsConsumed = consumedWords > 0 ? consumedWords : data.words.length;
-          }
+          bestScore = align.score;
+          bestRecall = align.recall;
+          bestPrecision = align.precision;
+          bestEnd = align.endIndex;
+          bestWordsConsumed = align.wordsConsumed;
         }
       }
     }
@@ -1158,10 +1308,11 @@ class CtcMatcher {
       }
     }
 
-    final queriesToSearch = [query];
+    final queriesToSearch = <String>[];
     if (searchSuffix.isNotEmpty) {
       queriesToSearch.add(searchSuffix);
     }
+    queriesToSearch.add(query);
 
     final candidatesByAyah = <String, VerseSearchResult>{};
 
@@ -1282,7 +1433,17 @@ class CtcMatcher {
     }
 
     final results = candidatesByAyah.values.toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+      ..sort((a, b) {
+        if (searchSuffix.isNotEmpty) {
+          if (a.surah == 1 && a.ayah == 1 && (b.surah != 1 || b.ayah != 1)) {
+            return 1;
+          }
+          if (b.surah == 1 && b.ayah == 1 && (a.surah != 1 || a.ayah != 1)) {
+            return -1;
+          }
+        }
+        return b.score.compareTo(a.score);
+      });
 
     if (results.length > limit) {
       return results.sublist(0, limit);

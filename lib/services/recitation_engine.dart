@@ -696,7 +696,7 @@ class RecitationEngine {
         final windowTokens = await _stepWindow(xData);
         _fbankConsumed += _shift;
         if (windowTokens.isNotEmpty) {
-          await _handleNewTokens(windowTokens);
+          await _handleNewTokens(windowTokens, isFlush: false);
         }
       }
 
@@ -737,8 +737,8 @@ class RecitationEngine {
       }
       final windowTokens = await _stepWindow(xData);
       _fbankConsumed += _shift;
-      if (windowTokens.isNotEmpty) {
-        await _handleNewTokens(windowTokens);
+      if (windowTokens.isNotEmpty || _accumulatedTokens.isNotEmpty) {
+        await _handleNewTokens(windowTokens, isFlush: true);
       }
     } catch (e, st) {
       debugPrint('[RecitationEngine] Flush error: $e\n$st');
@@ -756,22 +756,38 @@ class RecitationEngine {
   }
 
   /// Processes new emitted tokens from the Zipformer CTC decoder.
-  Future<void> _handleNewTokens(List<int> tokens) async {
+  Future<void> _handleNewTokens(List<int> tokens, {bool isFlush = false}) async {
     _accumulatedTokens.addAll(tokens);
-    final activeText = _matcher!.tokensToText(_accumulatedTokens);
+    final activeText = _matcher!.tokensToReadableText(_accumulatedTokens);
 
-    debugPrint('[RecitationEngine] Emitted: $tokens -> "$activeText"');
+    debugPrint('[RecitationEngine] Emitted: $tokens -> "$activeText" (flush: $isFlush)');
 
     if (_isSearchMode) {
       final cleanText = activeText.trim();
-      if (_accumulatedTokens.length < 2 && cleanText.length < 3) return;
+      if (!isFlush) {
+        if (cleanText.isNotEmpty) {
+          _onSearchResults?.call(const [], cleanText);
+        }
+        return;
+      }
+
+      if (_accumulatedTokens.length < 5) {
+        if (cleanText.isNotEmpty) {
+          _onSearchResults?.call(const [], cleanText);
+        }
+        return;
+      }
+
       final results = _matcher!.searchVerses(_accumulatedTokens, limit: 5);
       final cb = _onSearchResults;
       if (results.isNotEmpty) {
+        final recognizedText = results.first.text.isNotEmpty
+            ? results.first.text
+            : cleanText;
         await stopListening();
-        cb?.call(results, cleanText);
+        cb?.call(results, recognizedText);
       } else {
-        cb?.call(results, cleanText);
+        cb?.call(const [], cleanText);
       }
       return;
     }
@@ -825,7 +841,7 @@ class RecitationEngine {
         text: match.decodedText,
       ));
 
-      if (match.tokensConsumed > 0 && match.tokensConsumed < _accumulatedTokens.length) {
+      if (match.tokensConsumed > 0 && (_accumulatedTokens.length - match.tokensConsumed) >= 5) {
         _accumulatedTokens.removeRange(0, match.tokensConsumed);
       } else {
         _accumulatedTokens.clear();
