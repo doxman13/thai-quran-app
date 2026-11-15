@@ -52,6 +52,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
   final RecitationEngine _engine = RecitationEngine();
 
   bool _isListening = false;
+  bool _isStartingMic = false;
   bool _isProcessing = false;
   double _audioLevel = 0.0;
   String _recognizedText = '';
@@ -89,7 +90,8 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
   Future<void> _startVoiceSearch() async {
     if (!mounted) return;
     setState(() {
-      _isListening = true;
+      _isStartingMic = true;
+      _isListening = false;
       _isProcessing = false;
       _errorMessage = null;
       _audioLevel = 0.0;
@@ -147,6 +149,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
         onError: (err) {
           if (mounted) {
             setState(() {
+              _isStartingMic = false;
               _isListening = false;
               _isProcessing = false;
               _errorMessage = err;
@@ -154,9 +157,16 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
           }
         },
       );
+      if (mounted) {
+        setState(() {
+          _isStartingMic = false;
+          _isListening = _engine.isListening;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
+          _isStartingMic = false;
           _isListening = false;
           _isProcessing = false;
           _errorMessage = e.toString();
@@ -169,6 +179,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
     await _engine.stopListening();
     if (mounted) {
       setState(() {
+        _isStartingMic = false;
         _isListening = false;
       });
     }
@@ -322,6 +333,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
         children: [
           GestureDetector(
             onTap: () {
+              if (_isStartingMic) return;
               if (_isListening) {
                 _stopVoiceSearch();
               } else {
@@ -335,9 +347,11 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _isListening
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHigh,
+                  color: _isStartingMic
+                      ? colorScheme.surfaceContainerHigh
+                      : _isListening
+                          ? colorScheme.primary
+                          : colorScheme.surfaceContainerHigh,
                   border: _isListening
                       ? Border.all(
                           color: colorScheme.primary.withValues(alpha: 0.3),
@@ -345,28 +359,63 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                         )
                       : null,
                 ),
-                child: Icon(
-                  _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
-                  color: _isListening ? colorScheme.onPrimary : colorScheme.onSurface,
-                  size: 32,
+                child: Center(
+                  child: _isStartingMic
+                      ? SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: colorScheme.primary,
+                          ),
+                        )
+                      : Icon(
+                          _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                          color: _isListening ? colorScheme.onPrimary : colorScheme.onSurface,
+                          size: 32,
+                        ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            _isListening
-                ? (isThai
-                    ? 'กำลังฟัง... อ่านอายะฮฺภาษาอาหรับใดก็ได้'
-                    : 'Listening... Recite any Arabic verse or phrase')
-                : (isThai ? 'แตะไมโครโฟนเพื่อเริ่มอ่าน' : 'Tap microphone to recite'),
-            style: textTheme.bodyMedium?.copyWith(
-              color: _isListening
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+          if (_isStartingMic) ...[
+            Text(
+              isThai
+                  ? 'กำลังเตรียมไมโครโฟน กรุณารอสักครู่...'
+                  : 'Preparing microphone, please wait...',
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              isThai
+                  ? 'กรุณาเริ่มอ่านเมื่อขึ้นสถานะ "กำลังฟัง..."'
+                  : 'Please wait until "Listening..." appears before reciting',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            Text(
+              _isListening
+                  ? (isThai
+                      ? 'กำลังฟัง... อ่านอายะฮฺภาษาอาหรับใดก็ได้'
+                      : 'Listening... Recite any Arabic verse or phrase')
+                  : (isThai ? 'แตะไมโครโฟนเพื่อเริ่มอ่าน' : 'Tap microphone to recite'),
+              style: textTheme.bodyMedium?.copyWith(
+                color: _isListening
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );

@@ -96,6 +96,7 @@ class RecitationEngine {
   int _trailingSilenceCount = 0;
   bool _speechActive = false;
   Timer? _staleBufferTimer;
+  Completer<void>? _firstAudioChunkCompleter;
 
   bool get isInitialized => _isInitialized;
   bool get isListening => _isListening;
@@ -439,12 +440,8 @@ class RecitationEngine {
       );
 
       _isListening = true;
-      _onEvent?.call(RecitationStatusEvent(
-        status: RecitationStatus.listening,
-        audioLevel: 0.0,
-        currentExpectedAyah: _expectedAyah,
-      ));
 
+      _firstAudioChunkCompleter = Completer<void>();
       _audioSubscription = audioStream.listen(
         _processAudioChunk,
         onError: (err) {
@@ -452,6 +449,17 @@ class RecitationEngine {
           _onEvent?.call(RecitationErrorEvent(err.toString()));
         },
       );
+
+      try {
+        await _firstAudioChunkCompleter!.future.timeout(const Duration(milliseconds: 700));
+      } catch (_) {}
+      _firstAudioChunkCompleter = null;
+
+      _onEvent?.call(RecitationStatusEvent(
+        status: RecitationStatus.listening,
+        audioLevel: 0.0,
+        currentExpectedAyah: _expectedAyah,
+      ));
     } catch (e) {
       debugPrint('[RecitationEngine] startStream error: $e');
       _onEvent?.call(RecitationErrorEvent('Failed to start audio stream: $e'));
@@ -544,6 +552,7 @@ class RecitationEngine {
 
       _isListening = true;
 
+      _firstAudioChunkCompleter = Completer<void>();
       _audioSubscription = audioStream.listen(
         _processAudioChunk,
         onError: (err) {
@@ -551,6 +560,11 @@ class RecitationEngine {
           onError(err.toString());
         },
       );
+
+      try {
+        await _firstAudioChunkCompleter!.future.timeout(const Duration(milliseconds: 700));
+      } catch (_) {}
+      _firstAudioChunkCompleter = null;
     } catch (e) {
       debugPrint('[RecitationEngine] startVoiceSearch error: $e');
       onError('Failed to start audio stream: $e');
@@ -566,6 +580,7 @@ class RecitationEngine {
     _onSearchAudioLevel = null;
     _onSearchResults = null;
     _trailingSilenceCount = 0;
+    _firstAudioChunkCompleter = null;
     _cancelStaleBufferTimer();
 
     await _audioSubscription?.cancel();
@@ -595,6 +610,9 @@ class RecitationEngine {
   /// Processes incoming PCM 16-bit chunks from microphone.
   void _processAudioChunk(Uint8List pcmChunk) {
     if (!_isListening || pcmChunk.isEmpty) return;
+    if (_firstAudioChunkCompleter != null && !_firstAudioChunkCompleter!.isCompleted) {
+      _firstAudioChunkCompleter!.complete();
+    }
 
     final numSamples = pcmChunk.length ~/ 2;
     if (numSamples == 0) return;
