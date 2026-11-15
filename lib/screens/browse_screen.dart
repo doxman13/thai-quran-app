@@ -16,7 +16,6 @@ import '../data/medina_mushaf_pages.dart';
 import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
-import '../models/hifz_session_config.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/mushaf_reading_provider.dart';
 import '../providers/settings_provider.dart';
@@ -444,11 +443,10 @@ class BrowseScreenState extends State<BrowseScreen> {
         builder: (_) => HifzWizardSetupScreen(
           quranRepository: widget.repository,
           foundationRepository: _foundationRepo,
-          initialMode: HifzSessionType.newVerses,
           initialSurah: sId,
           initialStartVerse: vId,
           initialEndVerse: endVerse,
-          initialStep: 1,
+          initialStep: 0,
         ),
       ),
     );
@@ -807,11 +805,10 @@ class BrowseScreenState extends State<BrowseScreen> {
                           builder: (_) => HifzWizardSetupScreen(
                             quranRepository: widget.repository,
                             foundationRepository: _foundationRepo,
-                            initialMode: HifzSessionType.newVerses,
                             initialSurah: sId,
                             initialStartVerse: 1,
                             initialEndVerse: math.min(5, verseCount),
-                            initialStep: 1,
+                            initialStep: 0,
                           ),
                         ),
                       );
@@ -855,8 +852,8 @@ class BrowseScreenState extends State<BrowseScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   isThai
-                                      ? 'ฝึกท่องจำซูเราะฮฺนี้ด้วยระบบตักราร (Takrar)'
-                                      : 'Memorize and review using spaced Takrar system',
+                                      ? 'เลือกโหมดท่องจำอายะฮฺใหม่ (Takrar) หรือทบทวน (Muraja\'ah)'
+                                      : 'Choose New Verses (Takrar) or Review (Muraja\'ah) mode',
                                   style: GoogleFonts.notoSansThai(
                                     fontSize: 12,
                                     color: colors.foreground.withValues(alpha: 0.65),

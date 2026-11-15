@@ -136,14 +136,12 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     _reviewStartPage = widget.initialStartPage ?? _nvStartPage;
     _reviewEndPage = widget.initialEndPage ?? _nvEndPage;
 
-    if (widget.initialMode == HifzSessionType.review) {
-      if (widget.initialStartPage != null) {
-        _reviewScopeIndex = 2;
-      } else if (widget.initialStartVerse != null) {
-        _reviewScopeIndex = 1;
-      } else {
-        _reviewScopeIndex = 0;
-      }
+    if (widget.initialStartPage != null || widget.initialPage != null) {
+      _reviewScopeIndex = 2;
+    } else if (widget.initialStartVerse != null && widget.initialStartVerse! > 1) {
+      _reviewScopeIndex = 1;
+    } else {
+      _reviewScopeIndex = 0;
     }
 
     _loadSavedPreferences();
@@ -263,8 +261,10 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                 .clamp(_reviewStartPage, 604);
       }
       if (widget.initialStartPage == null &&
+          widget.initialPage == null &&
           widget.initialStartVerse == null &&
-          widget.initialStartSurah == null) {
+          widget.initialStartSurah == null &&
+          widget.initialSurah == null) {
         final savedRevScope = prefs.getInt('hifz_review_scope_index');
         if (savedRevScope != null) {
           _reviewScopeIndex = savedRevScope.clamp(0, 2);
@@ -731,6 +731,58 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
+        if (widget.initialSurah != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.initialStartVerse != null && widget.initialStartVerse! > 1
+                        ? (isThai
+                            ? 'ซูเราะฮฺ ${surahDisplayName(_nvSurah.toString(), isThai: isThai)} (อายะฮฺ $_nvStartVerse–$_nvEndVerse)'
+                            : 'Surah ${surahDisplayName(_nvSurah.toString(), isThai: isThai)} (Verses $_nvStartVerse–$_nvEndVerse)')
+                        : (isThai
+                            ? 'ซูเราะฮฺ ${surahDisplayName(_nvSurah.toString(), isThai: isThai)}'
+                            : 'Surah ${surahDisplayName(_nvSurah.toString(), isThai: isThai)}'),
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isThai ? 'เลือกไว้แล้ว' : 'Selected',
+                    style: textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
 
         // Option 1: New Verses (Takrar)
@@ -749,7 +801,11 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           onTap: () {
-            setState(() => _selectedMode = HifzSessionType.newVerses);
+            setState(() {
+              _selectedMode = HifzSessionType.newVerses;
+              _isNewVerses = true;
+            });
+            _checkForResumableSession();
           },
         ),
 
@@ -771,7 +827,11 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           colorScheme: colorScheme,
           textTheme: textTheme,
           onTap: () {
-            setState(() => _selectedMode = HifzSessionType.review);
+            setState(() {
+              _selectedMode = HifzSessionType.review;
+              _isNewVerses = false;
+            });
+            _checkForResumableSession();
           },
         ),
 

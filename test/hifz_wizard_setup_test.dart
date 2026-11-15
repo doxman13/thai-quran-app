@@ -82,5 +82,25 @@ void main() {
       expect(screen.initialEndPage, 604);
       expect(screen.initialStep, 1);
     });
+
+    test('Constructor accepts Surah list navigation parameters with initialStep: 0 and omitted initialMode', () {
+      final quranRepo = QuranRepository();
+      final foundationRepo = QuranFoundationRepository();
+
+      final screen = HifzWizardSetupScreen(
+        quranRepository: quranRepo,
+        foundationRepository: foundationRepo,
+        initialSurah: 36,
+        initialStartVerse: 1,
+        initialEndVerse: 5,
+        initialStep: 0,
+      );
+
+      expect(screen.initialStep, 0);
+      expect(screen.initialMode, isNull);
+      expect(screen.initialSurah, 36);
+      expect(screen.initialStartVerse, 1);
+      expect(screen.initialEndVerse, 5);
+    });
   });
 }
