@@ -112,9 +112,9 @@ const mushafTypes = [
   ),
   MushafType(
     id: 21,
-    name: 'Tajweed QUL',
+    name: 'Tajweed Mushaf',
     pageCount: 604,
-    description: 'Tarteel QUL Color-coded Tajweed layout (Trial)',
+    description: 'Color-coded Tajweed Mushaf',
   ),
 ];
 

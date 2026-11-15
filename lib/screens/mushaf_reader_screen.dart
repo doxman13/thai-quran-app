@@ -1537,46 +1537,6 @@ class _MushafReaderSettingsSheetState
               },
             ),
           ),
-          const SizedBox(height: 12),
-
-          // Word By Word Toggle Card (List View)
-          Container(
-            decoration: BoxDecoration(
-              color: colors.surfaceMuted,
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-              border: Border.all(color: colors.borderSoft),
-            ),
-            child: SwitchListTile(
-              activeTrackColor: colors.primary,
-              secondary: Icon(
-                Icons.translate_rounded,
-                color: colors.primary,
-              ),
-              title: Text(
-                settings.languageCode == 'th'
-                    ? 'คำแปลทีละคำ (WBW)'
-                    : 'Word by Word',
-                style: GoogleFonts.notoSansThai(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: colors.textStrong,
-                ),
-              ),
-              subtitle: Text(
-                settings.languageCode == 'th'
-                    ? 'แสดงคำแปลใต้คำศัพท์ในมุมมองรายการ'
-                    : 'Show word-by-word translation in list view',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 12,
-                  color: colors.foreground,
-                ),
-              ),
-              value: settings.showWordByWord,
-              onChanged: (val) {
-                settings.toggleShowWordByWord(val);
-              },
-            ),
-          ),
           const SizedBox(height: 16),
 
           // Display Mushaf Selection Label
@@ -2544,12 +2504,12 @@ class MushafLayoutProfile {
         horizontalPadding: 14,
         wordPadding: 0,
       ),
-      11 => const MushafLayoutProfile(
-        pageWidth: 412, 
+      11 || 21 => const MushafLayoutProfile(
+        pageWidth: 412,
         lineWidth: 412,
-        lineHeight: 1.25, // Significantly reduced to shrink highlight box
-        lineVerticalPadding: 11.0, // Increased to maintain the line gap
-        horizontalPadding: 14, // Good side margins
+        lineHeight: 1.35,
+        lineVerticalPadding: 8.5,
+        horizontalPadding: 14,
         wordPadding: 0,
       ),
       19 => const MushafLayoutProfile(
@@ -2788,7 +2748,7 @@ class MushafLine extends StatelessWidget {
       2 => pageNumber <= 2 ? 38.0 : 30.5,
       4 => 23.5,
       6 => 25.0,
-      11 || 21 => pageNumber <= 2 ? 34.0 : 29.5,
+      11 || 21 => pageNumber <= 2 ? 36.0 : 30.5,
       19 => 25.2,
       _ => 22.5,
     };
@@ -2812,6 +2772,7 @@ class MushafLine extends StatelessWidget {
         : null;
 
     final textSpans = <InlineSpan>[];
+    final wordWidgets = <Widget>[];
     for (int i = 0; i < line.length; i++) {
       final word = line[i];
       final isEndWord = verseEndWords.contains(word);
@@ -2879,19 +2840,20 @@ class MushafLine extends StatelessWidget {
           };
       }
 
+      final wordSpans = <InlineSpan>[];
       if ((mushafId == 11 || mushafId == 21) && word.tajweedParts.isNotEmpty) {
         for (final part in word.tajweedParts) {
           final tajweedColor = _getTajweedColor(part.className, context) ?? baseStyle.color;
-          textSpans.add(
-            TextSpan(
-              text: part.text,
-              style: baseStyle.copyWith(
-                color: wordColor ?? (isDimmed ? tajweedColor?.withValues(alpha: 0.4) : tajweedColor),
-                backgroundColor: highlightColor,
-              ),
-              recognizer: recognizer,
+          final span = TextSpan(
+            text: part.text,
+            style: baseStyle.copyWith(
+              color: wordColor ?? (isDimmed ? tajweedColor?.withValues(alpha: 0.4) : tajweedColor),
+              backgroundColor: highlightColor,
             ),
+            recognizer: recognizer,
           );
+          textSpans.add(span);
+          wordSpans.add(span);
         }
         textSpans.add(
           TextSpan(
@@ -2916,30 +2878,52 @@ class MushafLine extends StatelessWidget {
             recognizer: recognizer,
           ),
         );
+        wordSpans.add(
+          TextSpan(
+            text: word.text,
+            style: baseStyle.copyWith(
+              color: wordColor ?? (isDimmed ? defaultColor?.withValues(alpha: 0.4) : defaultColor),
+              backgroundColor: highlightColor,
+              fontFamily: overrideFont,
+              fontSize: overrideFontSize,
+            ),
+            recognizer: recognizer,
+          ),
+        );
       }
 
       if (_shouldShowIndopakVerseMarker(word)) {
         final verseNumber = int.tryParse(word.verseKey.split(':').last) ?? 0;
         final marker =
             '${String.fromCharCode(0x06dd)}${_arabicIndicDigits(verseNumber)}';
-        textSpans.add(
-          TextSpan(
-            text: marker,
-            style: TextStyle(
-              fontFamily: 'UthmanicHafs',
-              fontSize: 13,
-              height: 1,
-              color: isWordHiddenBool
-                  ? Colors.transparent
-                  : Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
-              backgroundColor: highlightColor,
-            ),
-            recognizer: recognizer,
+        final markerSpan = TextSpan(
+          text: marker,
+          style: TextStyle(
+            fontFamily: 'UthmanicHafs',
+            fontSize: 13,
+            height: 1,
+            color: isWordHiddenBool
+                ? Colors.transparent
+                : Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.color?.withValues(alpha: 0.78),
+            backgroundColor: highlightColor,
           ),
+          recognizer: recognizer,
         );
+        textSpans.add(markerSpan);
+        wordSpans.add(markerSpan);
       }
+
+      wordWidgets.add(
+        RichText(
+          textDirection: TextDirection.rtl,
+          strutStyle: strutStyle,
+          textHeightBehavior: textHeightBehavior,
+          softWrap: false,
+          text: TextSpan(children: wordSpans),
+        ),
+      );
     }
 
     final richText = RichText(
@@ -2951,6 +2935,41 @@ class MushafLine extends StatelessWidget {
           false, // ensures it calculates width identically to Row without wrapping
       text: TextSpan(children: textSpans),
     );
+
+    final bool isTajweedJustified =
+        (mushafId == 11 || mushafId == 21) && !isShortLine && line.length > 1;
+    Widget contentWidget;
+    if (isTajweedJustified) {
+      final painter = TextPainter(
+        text: TextSpan(children: textSpans),
+        textDirection: TextDirection.rtl,
+      )..layout();
+      final naturalWidth = painter.width;
+      painter.dispose();
+
+      if (naturalWidth < lineWidth) {
+        contentWidget = SizedBox(
+          width: lineWidth,
+          child: Row(
+            textDirection: TextDirection.rtl,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: wordWidgets,
+          ),
+        );
+      } else {
+        contentWidget = ConstrainedBox(
+          constraints: BoxConstraints(minWidth: lineWidth),
+          child: richText,
+        );
+      }
+    } else {
+      contentWidget = ConstrainedBox(
+        constraints: BoxConstraints(minWidth: lineWidth),
+        child: richText,
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: lineVerticalPadding),
@@ -2971,10 +2990,7 @@ class MushafLine extends StatelessWidget {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.center,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: lineWidth),
-              child: richText,
-            ),
+            child: contentWidget,
           ),
         ),
       ),
@@ -4752,6 +4768,7 @@ class _MushafVerseDetailSheet extends StatefulWidget {
 
 class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
   late bool _bookmarked;
+  bool _showWbw = false;
 
   @override
   void initState() {
@@ -4894,6 +4911,21 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                           ),
                         ),
                       ),
+                    if (_showWbw) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
+                          border: Border.all(color: colors.borderSoft),
+                        ),
+                        child: WordByWordView(
+                          verseKey: widget.verseKey,
+                          isDarkMode: isDark,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     // Translation Box
                     Container(
@@ -5022,6 +5054,40 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                               fontWeight: FontWeight.w600,
                               color: colors.textStrong,
                             ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // WBW Button
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: _showWbw
+                                ? colors.primary.withValues(alpha: 0.1)
+                                : colors.surfaceMuted,
+                            side: BorderSide(
+                              color: _showWbw ? colors.primary : colors.borderSoft,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () => setState(() => _showWbw = !_showWbw),
+                          icon: Icon(
+                            Icons.translate_rounded,
+                            size: 17,
+                            color: _showWbw ? colors.primary : colors.textMuted,
+                          ),
+                          label: Text(
+                            isThai ? 'คำต่อคำ' : 'WBW',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _showWbw ? colors.primary : colors.textStrong,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),

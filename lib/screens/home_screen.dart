@@ -35,6 +35,8 @@ import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'tadabbur_community_screen.dart';
 import '../widgets/auth_bottom_sheet.dart';
+import '../widgets/surah_picker_sheet.dart';
+import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 extension _TadabburNoteAuthorExt on TadabburNote {
   String get authorName {
@@ -2177,38 +2179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   badgeBackgroundColor: meaningBadgeBg,
                   badgeTextColor: meaningBadgeFg,
                   badgeBorder: meaningBadgeBorder,
-                  onTap: () async {
-                    if (verseRecent != null) {
-                      if (isMeaningGoal && meaningProfile != null) {
-                        await readingProvider.setActiveProfile(meaningProfile.id);
-                      } else {
-                        final freeRead = readingProvider.freeReadProfile;
-                        if (freeRead != null) {
-                          await readingProvider.setActiveProfile(freeRead.id);
-                        }
-                      }
-                      if (!mounted) return;
-                      _navigateToReading(
-                        context,
-                        verseRecent.verse.surahId,
-                        verseId: verseRecent.verse.verseId,
-                        saveToFreeReadOnly: !isMeaningGoal,
-                        goalProfileId: isMeaningGoal ? meaningProfile?.id : null,
-                      );
-                    } else {
-                      final freeRead = readingProvider.freeReadProfile;
-                      if (freeRead != null) {
-                        await readingProvider.setActiveProfile(freeRead.id);
-                      }
-                      if (!mounted) return;
-                      _navigateToReading(
-                        context,
-                        '1',
-                        verseId: '1',
-                        saveToFreeReadOnly: true,
-                      );
-                    }
-                  },
+                  onTap: _showMeaningHubModal,
                 ),
               ),
               const SizedBox(width: 10),
@@ -2223,22 +2194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   badgeBackgroundColor: mushafBadgeBg,
                   badgeTextColor: mushafBadgeFg,
                   badgeBorder: mushafBadgeBorder,
-                  onTap: () async {
-                    if (mushafRecent != null) {
-                      if (isMushafGoal && mushafProfile != null) {
-                        await _navigateToMushafProfile(
-                          mushafProfile,
-                          initialPage: mushafRecent.pageNumber,
-                        );
-                      } else {
-                        await _navigateToMushafFreeReadPage(
-                          mushafRecent.pageNumber,
-                        );
-                      }
-                    } else {
-                      await _navigateToMushafFreeReadPage(1);
-                    }
-                  },
+                  onTap: _showMushafHubModal,
                 ),
               ),
             ],
@@ -2917,7 +2873,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String _formatRelativeReadTime(DateTime timestamp, {required bool isThai}) {
+  static String formatRelativeReadTime(DateTime timestamp, {required bool isThai}) {
     final diff = DateTime.now().difference(timestamp.toLocal());
     if (diff.inSeconds < 60) {
       return isThai ? 'เมื่อสักครู่' : 'just now';
@@ -2932,6 +2888,66 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final days = diff.inDays;
     return isThai ? '$days วันที่แล้ว' : '${days}d ago';
+  }
+
+  String _formatRelativeReadTime(DateTime timestamp, {required bool isThai}) =>
+      formatRelativeReadTime(timestamp, isThai: isThai);
+
+  void _showMeaningHubModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ReaderHubSheet(
+        isMushaf: false,
+        repository: widget.repository,
+        foundationRepository: _foundationRepository,
+        onOpenMeaning: (surahId, verseId, {goalProfileId, saveToFreeReadOnly = true}) async {
+          final localReading = context.read<LocalReadingProvider>();
+          if (goalProfileId != null) {
+            await localReading.setActiveProfile(goalProfileId);
+          } else {
+            final freeRead = localReading.freeReadProfile;
+            if (freeRead != null) {
+              await localReading.setActiveProfile(freeRead.id);
+            }
+          }
+          if (!mounted) return;
+          _navigateToReading(
+            context,
+            surahId,
+            verseId: verseId,
+            goalProfileId: goalProfileId,
+            saveToFreeReadOnly: saveToFreeReadOnly,
+          );
+        },
+        onOpenMushaf: (pageNumber, {profile, highlightedVerseKey}) async {},
+      ),
+    );
+  }
+
+  void _showMushafHubModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _ReaderHubSheet(
+        isMushaf: true,
+        repository: widget.repository,
+        foundationRepository: _foundationRepository,
+        onOpenMeaning: (surahId, verseId, {goalProfileId, saveToFreeReadOnly = true}) async {},
+        onOpenMushaf: (pageNumber, {profile, highlightedVerseKey}) async {
+          if (profile != null) {
+            await _navigateToMushafProfile(profile, initialPage: pageNumber);
+          } else {
+            await _navigateToMushafFreeReadPage(
+              pageNumber,
+              highlightedVerseKey: highlightedVerseKey,
+            );
+          }
+        },
+      ),
+    );
   }
 
   Future<bool?> _showQuickResumeSheet({
@@ -3854,5 +3870,709 @@ class CustomQuickLink {
     if (isLocked && surahNumber == 78) return 'system_naba';
     final safeLabel = base64Url.encode(utf8.encode(label)).replaceAll('=', '');
     return 'ql_${surahNumber}_$safeLabel';
+  }
+}
+
+class _ReaderHubSheet extends StatefulWidget {
+  final bool isMushaf;
+  final QuranRepository repository;
+  final QuranFoundationRepository foundationRepository;
+  final Future<void> Function(
+    String surahId,
+    String verseId, {
+    String? goalProfileId,
+    bool saveToFreeReadOnly,
+  }) onOpenMeaning;
+  final Future<void> Function(
+    int pageNumber, {
+    MushafProfile? profile,
+    String? highlightedVerseKey,
+  }) onOpenMushaf;
+
+  const _ReaderHubSheet({
+    required this.isMushaf,
+    required this.repository,
+    required this.foundationRepository,
+    required this.onOpenMeaning,
+    required this.onOpenMushaf,
+  });
+
+  @override
+  State<_ReaderHubSheet> createState() => _ReaderHubSheetState();
+}
+
+class _ReaderHubSheetState extends State<_ReaderHubSheet> {
+  late int _selectedSurah;
+  late int _selectedAyah;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isMushaf) {
+      final mushafReading = context.read<MushafReadingProvider>();
+      final recent = mushafReading.recentReadings.isNotEmpty
+          ? mushafReading.recentReadings.first
+          : null;
+      if (recent != null) {
+        final surahs = getSurahsOnMedinaPage(recent.pageNumber);
+        _selectedSurah = surahs.isNotEmpty ? surahs.first : 1;
+        _selectedAyah = 1;
+      } else {
+        _selectedSurah = 1;
+        _selectedAyah = 1;
+      }
+    } else {
+      final localReading = context.read<LocalReadingProvider>();
+      final recent = localReading.recentReadings.isNotEmpty
+          ? localReading.recentReadings.first
+          : null;
+      if (recent != null) {
+        _selectedSurah = int.tryParse(recent.verse.surahId) ?? 1;
+        _selectedAyah = int.tryParse(recent.verse.verseId) ?? 1;
+      } else {
+        _selectedSurah = 1;
+        _selectedAyah = 1;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<SettingsProvider>();
+    final colors = settings.getAppColors();
+    final isThai = settings.isThai;
+    final readingProvider = context.watch<LocalReadingProvider>();
+    final mushafReadingProvider = context.watch<MushafReadingProvider>();
+    final primaryAccent = widget.isMushaf
+        ? const Color(0xFF8A6530)
+        : const Color(0xFF0E5A4A);
+
+    // Active goal resolution
+    final MushafProfile? mushafGoal;
+    final LocalReadingProfile? meaningGoal;
+    if (widget.isMushaf) {
+      final goals = mushafReadingProvider.profiles
+          .where((p) => !p.isFreeRead && !p.isArchived)
+          .toList();
+      mushafGoal = goals.isNotEmpty ? goals.first : null;
+      meaningGoal = null;
+    } else {
+      mushafGoal = null;
+      final active = readingProvider.activeProfiles
+          .where((p) => !isFreeReadProfile(p) && !p.isArchived)
+          .toList();
+      if (active.isNotEmpty) {
+        meaningGoal = active.first;
+      } else {
+        final all = readingProvider.profiles
+            .where((p) => !isFreeReadProfile(p) && !p.isArchived)
+            .toList();
+        meaningGoal = all.isNotEmpty ? all.first : null;
+      }
+    }
+
+    // Recent reads resolution
+    final recentMeaning = readingProvider.recentReadings.take(5).toList();
+    final recentMushaf = mushafReadingProvider.recentReadings.take(5).toList();
+    final bool hasRecents = widget.isMushaf
+        ? recentMushaf.isNotEmpty
+        : recentMeaning.isNotEmpty;
+
+    final totalVerses = qcf.getVerseCount(_selectedSurah);
+    final surahName = surahDisplayName(_selectedSurah.toString(), isThai: isThai);
+    final resolvedPage = getMedinaMushafPageNumber(_selectedSurah, _selectedAyah);
+
+    final bool hasGoal = widget.isMushaf ? mushafGoal != null : meaningGoal != null;
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.88,
+      ),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        border: Border.all(color: colors.borderSoft),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 4, bottom: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.borderSoft,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Header
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: primaryAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      widget.isMushaf
+                          ? Icons.auto_stories_rounded
+                          : Icons.menu_book_rounded,
+                      color: primaryAccent,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.isMushaf
+                              ? (isThai ? 'มุศหัฟมะดีนะฮฺ' : 'Medina Mushaf')
+                              : (isThai ? 'อ่านฉบับแปล' : 'Meaning Reader'),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: colors.textStrong,
+                          ),
+                        ),
+                        Text(
+                          widget.isMushaf
+                              ? (isThai
+                                  ? 'เป้าหมาย • ประวัติล่าสุด • เลือกหน้า'
+                                  : 'Goals • Recents • Select Page')
+                              : (isThai
+                                  ? 'เป้าหมาย • ประวัติล่าสุด • เลือกอายะฮฺ'
+                                  : 'Goals • Recents • Select Ayah'),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11,
+                            color: colors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: colors.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // ── Section 1: Active Goal Card ──
+              if (hasGoal) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(
+                      color: primaryAccent.withValues(alpha: 0.35),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: primaryAccent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.track_changes_rounded,
+                          color: primaryAccent,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: primaryAccent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isThai ? '🎯 อ่านต่อตามเป้าหมาย' : '🎯 Continue Goal',
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: primaryAccent,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.isMushaf
+                                  ? (mushafGoal?.name ?? '')
+                                  : (meaningGoal?.name ?? ''),
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: colors.textStrong,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.isMushaf
+                                  ? (mushafGoal != null
+                                      ? (isThai
+                                          ? 'ถึงหน้าที่ ${mushafGoal.furthestUnreadPage} (เป้า ${mushafGoal.startPage}–${mushafGoal.targetPage})'
+                                          : 'At page ${mushafGoal.furthestUnreadPage} (Target ${mushafGoal.startPage}–${mushafGoal.targetPage})')
+                                      : '')
+                                  : (meaningGoal != null
+                                      ? '${surahDisplayName(meaningGoal.furthestUnread.surahId, isThai: isThai)} • ${isThai ? 'อายะฮฺ' : 'Ayah'} ${meaningGoal.furthestUnread.verseId}'
+                                      : ''),
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                color: colors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryAccent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          if (widget.isMushaf && mushafGoal != null) {
+                            widget.onOpenMushaf(mushafGoal.furthestUnreadPage, profile: mushafGoal);
+                          } else if (!widget.isMushaf && meaningGoal != null) {
+                            widget.onOpenMeaning(
+                              meaningGoal.furthestUnread.surahId,
+                              meaningGoal.furthestUnread.verseId,
+                              goalProfileId: meaningGoal.id,
+                              saveToFreeReadOnly: false,
+                            );
+                          }
+                        },
+                        child: Text(
+                          isThai ? 'อ่านต่อ' : 'Continue',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // ── Section 2: Recent Reads ──
+              if (hasRecents) ...[
+                Text(
+                  isThai ? 'อ่านล่าสุด' : 'Recent Reads',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colors.textStrong,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(AppTheme.radius),
+                    border: Border.all(color: colors.borderSoft),
+                  ),
+                  child: Column(
+                    children: widget.isMushaf
+                        ? recentMushaf.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final r = entry.value;
+                            final surahs = getSurahsOnMedinaPage(r.pageNumber);
+                            final sName = surahs.isNotEmpty
+                                ? surahDisplayName(surahs.first.toString(), isThai: isThai)
+                                : '';
+                            final relative = _HomeScreenState.formatRelativeReadTime(
+                              r.updatedAt,
+                              isThai: isThai,
+                            );
+                            return Column(
+                              children: [
+                                if (idx > 0)
+                                  Divider(height: 1, color: colors.borderSoft),
+                                ListTile(
+                                  dense: true,
+                                  visualDensity: VisualDensity.compact,
+                                  leading: Icon(
+                                    Icons.history_rounded,
+                                    size: 20,
+                                    color: primaryAccent,
+                                  ),
+                                  title: Text(
+                                    '${isThai ? "หน้า" : "Page"} ${r.pageNumber}${sName.isNotEmpty ? " • $sName" : ""}',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.textStrong,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        relative,
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 11,
+                                          color: colors.textMuted,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 16,
+                                        color: colors.textMuted,
+                                      ),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    widget.onOpenMushaf(r.pageNumber);
+                                  },
+                                ),
+                              ],
+                            );
+                          }).toList()
+                        : recentMeaning.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final r = entry.value;
+                            final sName = surahDisplayName(r.verse.surahId, isThai: isThai);
+                            final relative = _HomeScreenState.formatRelativeReadTime(
+                              r.readAt,
+                              isThai: isThai,
+                            );
+                            return Column(
+                              children: [
+                                if (idx > 0)
+                                  Divider(height: 1, color: colors.borderSoft),
+                                ListTile(
+                                  dense: true,
+                                  visualDensity: VisualDensity.compact,
+                                  leading: Icon(
+                                    Icons.history_rounded,
+                                    size: 20,
+                                    color: primaryAccent,
+                                  ),
+                                  title: Text(
+                                    '$sName • ${isThai ? "อายะฮฺ" : "Ayah"} ${r.verse.verseId}',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: colors.textStrong,
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        relative,
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 11,
+                                          color: colors.textMuted,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 16,
+                                        color: colors.textMuted,
+                                      ),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    widget.onOpenMeaning(
+                                      r.verse.surahId,
+                                      r.verse.verseId,
+                                      saveToFreeReadOnly: true,
+                                    );
+                                  },
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // ── Section 3: Select Surah & Ayah ──
+              Text(
+                isThai ? 'เลือกซูเราะฮฺและอายะฮฺ' : 'Choose Surah & Ayah',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colors.textStrong,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(color: colors.borderSoft),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Surah Picker Tile
+                    InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () async {
+                        final picked = await SurahPickerSheet.show(
+                          context,
+                          selectedSurah: _selectedSurah,
+                          title: isThai ? 'เลือกซูเราะฮฺ' : 'Select Surah',
+                        );
+                        if (picked != null && mounted) {
+                          setState(() {
+                            _selectedSurah = picked;
+                            final maxV = qcf.getVerseCount(_selectedSurah);
+                            if (_selectedAyah > maxV) _selectedAyah = 1;
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.borderSoft),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.format_list_numbered_rounded, size: 18, color: primaryAccent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isThai ? 'ซูเราะฮฺ' : 'Surah',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 10,
+                                      color: colors.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$_selectedSurah. $surahName',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: colors.textStrong,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.unfold_more_rounded, size: 20, color: colors.textMuted),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Ayah Selector Row
+                    Row(
+                      children: [
+                        IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: colors.surface,
+                            side: BorderSide(color: colors.borderSoft),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Icon(
+                            Icons.remove_rounded,
+                            size: 18,
+                            color: _selectedAyah > 1 ? primaryAccent : colors.textMuted,
+                          ),
+                          onPressed: _selectedAyah > 1
+                              ? () => setState(() => _selectedAyah--)
+                              : null,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: colors.borderSoft),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: _selectedAyah.clamp(1, totalVerses),
+                                isExpanded: true,
+                                dropdownColor: colors.surface,
+                                icon: Icon(Icons.arrow_drop_down_rounded, color: primaryAccent),
+                                items: List.generate(totalVerses, (i) => i + 1).map((a) {
+                                  return DropdownMenuItem<int>(
+                                    value: a,
+                                    child: Text(
+                                      '${isThai ? "อายะฮฺที่" : "Ayah"} $a (จาก $totalVerses)',
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: colors.textStrong,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedAyah = val);
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: colors.surface,
+                            side: BorderSide(color: colors.borderSoft),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Icon(
+                            Icons.add_rounded,
+                            size: 18,
+                            color: _selectedAyah < totalVerses ? primaryAccent : colors.textMuted,
+                          ),
+                          onPressed: _selectedAyah < totalVerses
+                              ? () => setState(() => _selectedAyah++)
+                              : null,
+                        ),
+                      ],
+                    ),
+
+                    // Mushaf Page Indicator (if Mushaf)
+                    if (widget.isMushaf) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8A6530).withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF8A6530).withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.auto_stories_rounded, size: 14, color: Color(0xFF8A6530)),
+                            const SizedBox(width: 6),
+                            Text(
+                              isThai
+                                  ? 'ตรงกับมุศหัฟหน้าที่ $resolvedPage (จาก 604)'
+                                  : 'Corresponds to Mushaf Page $resolvedPage of 604',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF8A6530),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 12),
+
+                    // Primary Action Button
+                    SizedBox(
+                      height: 46,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryAccent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          if (widget.isMushaf) {
+                            widget.onOpenMushaf(
+                              resolvedPage,
+                              highlightedVerseKey: '$_selectedSurah:$_selectedAyah',
+                            );
+                          } else {
+                            widget.onOpenMeaning(
+                              '$_selectedSurah',
+                              '$_selectedAyah',
+                              saveToFreeReadOnly: true,
+                            );
+                          }
+                        },
+                        icon: Icon(
+                          widget.isMushaf
+                              ? Icons.auto_stories_rounded
+                              : Icons.menu_book_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          widget.isMushaf
+                              ? (isThai
+                                  ? 'เปิดมุศหัฟ (หน้า $resolvedPage)'
+                                  : 'Open Mushaf (Page $resolvedPage)')
+                              : (isThai
+                                  ? 'เปิดอ่านฉบับแปล ($_selectedSurah:$_selectedAyah)'
+                                  : 'Open Meaning Reader ($_selectedSurah:$_selectedAyah)'),
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
