@@ -1009,19 +1009,27 @@ class CtcMatcher {
         if (obsSpan < (minEndI * 0.55).ceil()) continue;
 
         final weightedEdits = d[at(endI, endJ)] / kUnit;
-        final accuracy = math.max(0.0, 1.0 - (weightedEdits / endI));
-        final targetDenom = minEndI.clamp(1, n);
-        final recall = math.max(0.0, (endI - weightedEdits) / targetDenom);
+        final accuracy = obsSpan > 0
+            ? math.max(0.0, 1.0 - (weightedEdits / math.max(endI, obsSpan)))
+            : 0.0;
+        final recall = math.max(0.0, (endI - weightedEdits) / math.max(1, endI));
         final f1 = (recall + accuracy) > 0 ? (2 * recall * accuracy) / (recall + accuracy) : 0.0;
 
         if (recall < effectiveRecall || f1 < effectiveScore) continue;
 
-        // Backtrack to verify word matching across the ayah
+        // Backtrack to verify word matching across the ayah and track half-way split
         int currI = endI;
         int currJ = endJ;
+        final int? splitRef = data.words.length >= 2
+            ? data.offsets[(data.words.length / 2).floor()]
+            : null;
+        int? splitJ;
         final matchedInWord = List<int>.filled(data.words.length, 0);
 
         while (currI > 0 && currJ > obsStart) {
+          if (splitRef != null && splitJ == null && currI <= splitRef) {
+            splitJ = currJ;
+          }
           final cellOp = op[at(currI, currJ)];
           if (cellOp == 0) {
             final refIdx = currI - 1;
@@ -1042,6 +1050,39 @@ class CtcMatcher {
             currI--;
           } else {
             currJ--;
+          }
+        }
+        if (splitRef != null && splitJ == null && currI <= splitRef) {
+          splitJ = currJ;
+        }
+
+        // Reject repeated-opening false positives (e.g. repeating words 1-2 of 112:3):
+        // if the trailing portion of obs fits the verse's OWN opening words clearly better
+        // than it fits the verse's ending half, it is a restart/repeat, not completion.
+        if (splitRef != null &&
+            splitJ != null &&
+            splitRef >= 3 &&
+            endI - splitRef >= 3 &&
+            splitJ > obsStart &&
+            endJ - splitJ >= 4) {
+          final double tailEdits = math.max(0.0, (d[at(endI, endJ)] - d[at(splitRef, splitJ)]) / kUnit);
+          if (tailEdits >= 0.8) {
+            final tailObs = obs.substring(splitJ, endJ);
+            final openFit = alignSubstring(
+              ref,
+              0,
+              splitRef,
+              tailObs,
+              (o) => o == 0,
+              strictStart: true,
+            );
+            if (openFit != null) {
+              final double openEdits = openFit.cost / kUnit;
+              final double openPer = openEdits / splitRef;
+              if (openPer <= 0.15 && openEdits + 0.8 <= tailEdits) {
+                continue;
+              }
+            }
           }
         }
 
@@ -1199,6 +1240,120 @@ class CtcMatcher {
     );
   }
 
+  /// Detects if the tail of [obs] cleanly starts [nextAyah]'s opening words, returning the
+  /// character/token index in [obs] where [nextAyah] begins, or null if not found.
+  /// Prevents [expectedAyah] from borrowing [nextAyah]'s opening phonemes to pass prematurely.
+  int? _findNextAyahOpeningCut({
+    required int surah,
+    required int expectedAyah,
+    required int nextAyah,
+    required String obs,
+  }) {
+    final expData = ayahsByKey['$surah:$expectedAyah'];
+    final nextData = ayahsByKey['$surah:$nextAyah'];
+    if (expData == null || nextData == null || obs.length < 10) return null;
+
+    // Build nextAyah opening slice: prefer first 2 words (or 1st word if >= 6 phonemes)
+    final int openEnd;
+    if (nextData.offsets.length >= 3) {
+      openEnd = nextData.offsets[2];
+    } else if (nextData.offsets.length >= 2 && nextData.offsets[1] >= 6) {
+      openEnd = nextData.offsets[1];
+    } else {
+      openEnd = nextData.phonemes.length;
+    }
+    final openingSlice = nextData.phonemes.substring(0, math.min(openEnd, nextData.phonemes.length));
+    if (openingSlice.length < 5) return null;
+
+    // Also try 1-word opening slice if first word alone is long and distinctive (>= 6 phonemes),
+    // e.g. user stopped expectedAyah 1 word short and started Allahu / first word of next verse
+    final slices = <String>[openingSlice];
+    if (nextData.offsets.length >= 2 && nextData.offsets[1] >= 6 && nextData.offsets[1] < openEnd) {
+      slices.add(nextData.phonemes.substring(0, nextData.offsets[1]));
+    }
+
+    final int minSearchStart = math.max(3, (obs.length * 0.25).floor());
+    if (minSearchStart >= obs.length - 4) return null;
+
+    int? earliestCut;
+    for (final slice in slices) {
+      if (expData.phonemes.endsWith(slice)) continue;
+      final fit = alignSubstring(
+        obs,
+        minSearchStart,
+        obs.length,
+        slice,
+        (o) => true,
+      );
+      if (fit == null || fit.per > 0.16) continue;
+      if (fit.end < obs.length - 2) {
+        // Check if the remainder after fit.end continues matching nextAyah sequentially
+        final tailObs = obs.substring(fit.start);
+        final prefixMaxEnd = math.min(nextData.phonemes.length, tailObs.length + 6);
+        final contFit = alignSubstring(
+          nextData.phonemes,
+          0,
+          prefixMaxEnd,
+          tailObs,
+          (o) => o == 0,
+          strictStart: true,
+        );
+        if (contFit == null || contFit.per > 0.20) continue;
+      }
+      if (earliestCut == null || fit.start < earliestCut) {
+        earliestCut = fit.start;
+      }
+    }
+
+    return earliestCut;
+  }
+
+  /// Checks whether [candidateTokens] begins making genuine progress on [expectedAyah]'s
+  /// opening words (used to distinguish slow recitation from off-passage ambient chatter).
+  bool hasPrefixProgress({
+    required int surah,
+    required int expectedAyah,
+    required List<int> candidateTokens,
+  }) {
+    final data = ayahsByKey['$surah:$expectedAyah'];
+    if (data == null || candidateTokens.length < 4) return false;
+    final obs = tokensToPhonemes(candidateTokens);
+    if (obs.length < 4) return false;
+
+    final int openEnd = data.offsets.length >= 3
+        ? data.offsets[2]
+        : math.min(data.phonemes.length, 14);
+    final prefix = data.phonemes.substring(0, math.min(openEnd, data.phonemes.length));
+    if (prefix.length < 4) return true;
+
+    final fit = alignSubstring(obs, 0, obs.length, prefix, (o) => true);
+    return fit != null && fit.per <= 0.25;
+  }
+
+  /// If [candidateTokens] contains old junk/abandoned attempt followed by a clean restart of
+  /// [expectedAyah]'s first 2 words near the tail, returns the start index of the restart; else null.
+  int? findExpectedAyahRestartIndex({
+    required int surah,
+    required int expectedAyah,
+    required List<int> candidateTokens,
+  }) {
+    final data = ayahsByKey['$surah:$expectedAyah'];
+    if (data == null || data.words.length < 2 || candidateTokens.length < 12) return null;
+    final obs = tokensToPhonemes(candidateTokens);
+    final int openEnd = data.offsets.length >= 3
+        ? data.offsets[2]
+        : (data.offsets.length >= 2 ? data.offsets[1] : data.phonemes.length);
+    final prefix = data.phonemes.substring(0, math.min(openEnd, data.phonemes.length));
+    if (prefix.length < 6 || obs.length < prefix.length + 6) return null;
+
+    final int searchFrom = (obs.length * 0.35).floor();
+    final fit = alignSubstring(obs, searchFrom, obs.length, prefix, (o) => true);
+    if (fit != null && fit.per <= 0.14 && fit.end >= obs.length - 3 && fit.start > 0) {
+      return fit.start;
+    }
+    return null;
+  }
+
   /// Matches [candidateTokens] / [candidateText] against a sliding window [expectedAyah .. expectedAyah + windowAhead].
   RecitationMatchResult? matchSlidingWindow({
     required int surah,
@@ -1227,15 +1382,34 @@ class CtcMatcher {
     final effectiveExpRecall = recallThreshold ?? expRecall;
     final effectiveExpScore = scoreThreshold ?? expScore;
 
+    // Prevent expectedAyah from absorbing tokens belonging to expectedAyah + 1's opening:
+    // if next ayah's opening appears at the tail of candidateTokens, trim candidateTokens
+    // before nextAyah and require expectedAyah's last word to have actually completed there.
+    int? nextOpeningCut;
+    if (candidateTokens.isNotEmpty && expectedAyah + 1 <= maxAyah) {
+      final fullObs = tokensToPhonemes(candidateTokens);
+      nextOpeningCut = _findNextAyahOpeningCut(
+        surah: surah,
+        expectedAyah: expectedAyah,
+        nextAyah: expectedAyah + 1,
+        obs: fullObs,
+      );
+    }
+
+    final List<int> expTokens = (nextOpeningCut != null && nextOpeningCut > 0)
+        ? candidateTokens.sublist(0, math.min(nextOpeningCut, candidateTokens.length))
+        : candidateTokens;
+    final bool expRequireLastWord = nextOpeningCut != null ? true : requireLastWord;
+
     final expectedAlign = evaluateAyahMatch(
       surah,
       expectedAyah,
-      candidateTokens,
-      candidateText: candidateText,
+      expTokens,
+      candidateText: nextOpeningCut != null ? null : candidateText,
       recallThreshold: effectiveExpRecall,
       scoreThreshold: effectiveExpScore,
       sensitivity: sensitivity,
-      requireLastWord: requireLastWord,
+      requireLastWord: expRequireLastWord,
     );
 
     if (expectedAlign.recall >= effectiveExpRecall && expectedAlign.score >= effectiveExpScore) {

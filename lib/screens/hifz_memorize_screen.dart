@@ -787,8 +787,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     final int initialExpectedAyah;
     if (isMidSessionResume) {
-      final lastMatched = _voiceRevealedVerses.reduce((a, b) => a > b ? a : b);
-      initialExpectedAyah = (lastMatched + 1).clamp(startAyah, endAyah);
+      int? firstUnrevealed;
+      for (int v = startAyah; v <= endAyah; v++) {
+        if (!_voiceRevealedVerses.contains(v)) {
+          firstUnrevealed = v;
+          break;
+        }
+      }
+      initialExpectedAyah = firstUnrevealed ?? startAyah;
       _lastSkippedVerse = null;
       _hintedVerse = null;
     } else {

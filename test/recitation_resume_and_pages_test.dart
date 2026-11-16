@@ -2,6 +2,18 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:thai_quran_app/data/medina_mushaf_pages.dart';
 import 'package:thai_quran_app/services/ctc_matcher.dart';
 
+List<int> _tokensForWordSlice(CtcMatcher matcher, int surah, int ayah, int takeWords) {
+  final data = matcher.ayahsByKey['$surah:$ayah']!;
+  final endOff = takeWords < data.offsets.length ? data.offsets[takeWords] : data.phonemes.length;
+  final slice = data.phonemes.substring(0, endOff);
+  final tokens = <int>[];
+  for (int i = 0; i < slice.length; i++) {
+    final id = CtcMatcher.tokenToId[slice[i]];
+    if (id != null) tokens.add(id);
+  }
+  return tokens;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -229,6 +241,114 @@ void main() {
       );
 
       expect(match, isNull, reason: 'Short verse missing last word must never match');
+    });
+  });
+
+  group('Prefix-repeat, next-verse bleed, Wasl & noise guards', () {
+    late CtcMatcher matcher;
+
+    setUpAll(() async {
+      matcher = await CtcMatcher.load();
+    });
+
+    test('rejects repeating first words of 112:3 instead of completing full verse', () {
+      final d112_3 = matcher.ayahsByKey['112:3']!;
+      final firstTwoWords = _tokensForWordSlice(matcher, 112, 3, 2);
+      final repeatedObs = matcher.tokensToPhonemes([...firstTwoWords, ...firstTwoWords]);
+
+      expect(
+        matcher.alignAyahToObs(
+          d112_3,
+          repeatedObs,
+          requireLastWord: true,
+          effectiveRecall: 0.76,
+          effectiveScore: 0.68,
+        ),
+        isNull,
+      );
+      expect(
+        matcher.alignAyahToObs(
+          d112_3,
+          repeatedObs,
+          requireLastWord: false,
+          effectiveRecall: 0.76,
+          effectiveScore: 0.68,
+        ),
+        isNull,
+      );
+    });
+
+    test('prevents starting next verse from prematurely revealing an incomplete previous verse', () {
+      final m112_1 = matcher.matchSlidingWindow(
+        surah: 112,
+        expectedAyah: 1,
+        candidateTokens: [
+          ..._tokensForWordSlice(matcher, 112, 1, 2),
+          ..._tokensForWordSlice(matcher, 112, 2, 2),
+        ],
+        minAyah: 1,
+        maxAyah: 4,
+        requireLastWord: false,
+      );
+      expect(m112_1?.detectedAyah, isNot(1));
+
+      final m2_14 = matcher.matchSlidingWindow(
+        surah: 2,
+        expectedAyah: 14,
+        candidateTokens: [
+          ..._tokensForWordSlice(matcher, 2, 14, 15),
+          ..._tokensForWordSlice(matcher, 2, 15, 2),
+        ],
+        minAyah: 1,
+        maxAyah: 20,
+        requireLastWord: false,
+      );
+      expect(m2_14?.detectedAyah, isNot(14));
+    });
+
+    test('allows authentic connected Wasl without borrowing next verse tokens', () {
+      final full2_14 = matcher.getTargetTokens(2, 14)!;
+      final open2_15 = _tokensForWordSlice(matcher, 2, 15, 2);
+      final match = matcher.matchSlidingWindow(
+        surah: 2,
+        expectedAyah: 14,
+        candidateTokens: [...full2_14, ...open2_15],
+        minAyah: 1,
+        maxAyah: 20,
+        requireLastWord: true,
+      );
+      expect(match, isNotNull);
+      expect(match!.detectedAyah, 14);
+      expect(match.isSkip, false);
+      expect(match.tokensConsumed, lessThanOrEqualTo(full2_14.length));
+    });
+
+    test('detects restart index and distinguishes off-passage chatter', () {
+      final partial = _tokensForWordSlice(matcher, 1, 2, 2);
+      final noise = matcher.getTargetTokens(112, 4)!.take(10).toList();
+      final combined = [...noise, ...partial];
+      final restartIdx = matcher.findExpectedAyahRestartIndex(
+        surah: 1,
+        expectedAyah: 2,
+        candidateTokens: combined,
+      );
+      expect(restartIdx, isNotNull);
+      expect(
+        matcher.hasPrefixProgress(
+          surah: 1,
+          expectedAyah: 2,
+          candidateTokens: noise,
+        ),
+        isFalse,
+      );
+      expect(
+        matcher.hasPrefixProgress(
+          surah: 1,
+          expectedAyah: 2,
+          candidateTokens: _tokensForWordSlice(matcher, 1, 2, 3),
+        ),
+        isTrue,
+      );
     });
   });
 }

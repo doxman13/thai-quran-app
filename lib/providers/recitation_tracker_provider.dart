@@ -219,6 +219,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   /// Explicitly retries / stays on a specific verse.
   void retryVerse(int ayah) {
     _currentExpectedAyah = ayah;
+    _lastRecognizedText = null;
     _engine.setExpectedAyah(ayah);
     _skippedFromAyah = null;
     _skippedToAyah = null;

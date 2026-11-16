@@ -96,6 +96,7 @@ class RecitationEngine {
   int _trailingSilenceCount = 0;
   bool _speechActive = false;
   Timer? _staleBufferTimer;
+  DateTime? _firstTokenInBufferTime;
   Completer<void>? _firstAudioChunkCompleter;
 
   bool get isInitialized => _isInitialized;
@@ -121,6 +122,7 @@ class RecitationEngine {
         return;
       }
       _accumulatedTokens.clear();
+      _firstTokenInBufferTime = null;
       _trailingSilenceCount = 0;
       _onEvent?.call(const RecitationBufferClearedEvent());
     });
@@ -386,6 +388,13 @@ class RecitationEngine {
     return await _audioRecorder!.hasPermission();
   }
 
+  void _resetVadAndNoiseCalibration() {
+    _ambientNoiseFloor = 0.008;
+    _calibrationFramesRemaining = 8;
+    _trailingSilenceCount = 0;
+    _speechActive = false;
+  }
+
   /// Starts listening and tracking recitation for a given surah range.
   Future<void> startListening({
     required int surah,
@@ -413,8 +422,6 @@ class RecitationEngine {
     if (adaptiveNoise != null) {
       _adaptiveNoise = adaptiveNoise;
     }
-    _ambientNoiseFloor = 0.008;
-    _calibrationFramesRemaining = 8;
 
     _currentSurah = surah;
     _startAyah = startAyah;
@@ -425,8 +432,9 @@ class RecitationEngine {
     _cancelStaleBufferTimer();
     _resetStreamingState();
     _accumulatedTokens.clear();
-    _trailingSilenceCount = 0;
-    _speechActive = false;
+    _firstTokenInBufferTime = null;
+    _firstTokenInBufferTime = null;
+    _resetVadAndNoiseCalibration();
 
     _audioRecorder ??= AudioRecorder();
 
@@ -472,7 +480,9 @@ class RecitationEngine {
     _expectedAyah = ayah;
     _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
+    _firstTokenInBufferTime = null;
     _resetStreamingState();
+    _resetVadAndNoiseCalibration();
     _onEvent?.call(RecitationStatusEvent(
       status: _isListening ? RecitationStatus.listening : RecitationStatus.idle,
       audioLevel: 0.0,
@@ -488,7 +498,9 @@ class RecitationEngine {
     _endAyah = endAyah;
     _cancelStaleBufferTimer();
     _accumulatedTokens.clear();
+    _firstTokenInBufferTime = null;
     _resetStreamingState();
+    _resetVadAndNoiseCalibration();
     _onEvent?.call(RecitationStatusEvent(
       status: _isListening ? RecitationStatus.listening : RecitationStatus.idle,
       audioLevel: 0.0,
@@ -527,8 +539,6 @@ class RecitationEngine {
     if (adaptiveNoise != null) {
       _adaptiveNoise = adaptiveNoise;
     }
-    _ambientNoiseFloor = 0.008;
-    _calibrationFramesRemaining = 8;
     _isSearchMode = true;
     _onSearchAudioLevel = onAudioLevel;
     _onSearchResults = onResults;
@@ -536,8 +546,9 @@ class RecitationEngine {
     _cancelStaleBufferTimer();
     _resetStreamingState();
     _accumulatedTokens.clear();
-    _trailingSilenceCount = 0;
-    _speechActive = false;
+    _firstTokenInBufferTime = null;
+    _firstTokenInBufferTime = null;
+    _resetVadAndNoiseCalibration();
 
     _audioRecorder ??= AudioRecorder();
 
@@ -599,6 +610,7 @@ class RecitationEngine {
 
     _resetStreamingState();
     _accumulatedTokens.clear();
+    _firstTokenInBufferTime = null;
 
     _onEvent?.call(RecitationStatusEvent(
       status: RecitationStatus.idle,
@@ -775,8 +787,11 @@ class RecitationEngine {
 
   /// Processes new emitted tokens from the Zipformer CTC decoder.
   Future<void> _handleNewTokens(List<int> tokens, {bool isFlush = false}) async {
+    if (_accumulatedTokens.isEmpty && tokens.isNotEmpty) {
+      _firstTokenInBufferTime = DateTime.now();
+    }
     _accumulatedTokens.addAll(tokens);
-    final activeText = _matcher!.tokensToReadableText(_accumulatedTokens);
+    String activeText = _matcher!.tokensToReadableText(_accumulatedTokens);
 
     debugPrint('[RecitationEngine] Emitted: $tokens -> "$activeText" (flush: $isFlush)');
 
@@ -808,6 +823,38 @@ class RecitationEngine {
         cb?.call(const [], cleanText);
       }
       return;
+    }
+
+    // If user restarted from the first words of the expected verse after an incomplete attempt,
+    // discard the abandoned prefix so the restart cannot fuse with old tokens.
+    if (_accumulatedTokens.isNotEmpty) {
+      final restartIdx = _matcher!.findExpectedAyahRestartIndex(
+        surah: _currentSurah,
+        expectedAyah: _expectedAyah,
+        candidateTokens: _accumulatedTokens,
+      );
+      if (restartIdx != null && restartIdx > 0 && restartIdx < _accumulatedTokens.length) {
+        _accumulatedTokens.removeRange(0, restartIdx);
+        _firstTokenInBufferTime = DateTime.now();
+        activeText = _matcher!.tokensToReadableText(_accumulatedTokens);
+      }
+    }
+
+    // Auto-clear off-passage noise/chatter if >= 7.5s elapsed with no prefix match on expected ayah
+    if (_accumulatedTokens.isNotEmpty && _firstTokenInBufferTime != null) {
+      final elapsedMs = DateTime.now().difference(_firstTokenInBufferTime!).inMilliseconds;
+      if (elapsedMs >= 7500 &&
+          !_matcher!.hasPrefixProgress(
+            surah: _currentSurah,
+            expectedAyah: _expectedAyah,
+            candidateTokens: _accumulatedTokens,
+          )) {
+        _accumulatedTokens.clear();
+        _firstTokenInBufferTime = null;
+        _trailingSilenceCount = 0;
+        _onEvent?.call(const RecitationBufferClearedEvent());
+        return;
+      }
     }
 
     if (_isListening && activeText.isNotEmpty) {
@@ -856,6 +903,7 @@ class RecitationEngine {
             confidence: match.confidence,
           ));
           _accumulatedTokens.clear();
+          _firstTokenInBufferTime = null;
           break;
         }
 
@@ -871,8 +919,10 @@ class RecitationEngine {
 
         if (match.tokensConsumed > 0 && trailingTokens >= 5) {
           _accumulatedTokens.removeRange(0, match.tokensConsumed);
+          _firstTokenInBufferTime = DateTime.now();
         } else {
           _accumulatedTokens.clear();
+          _firstTokenInBufferTime = null;
           break;
         }
       }
@@ -907,6 +957,7 @@ class RecitationEngine {
           confidence: match.confidence,
         ));
         _accumulatedTokens.clear();
+        _firstTokenInBufferTime = null;
         break;
       }
 
@@ -922,8 +973,10 @@ class RecitationEngine {
 
       if (match.tokensConsumed > 0 && (_accumulatedTokens.length - match.tokensConsumed) >= 5) {
         _accumulatedTokens.removeRange(0, match.tokensConsumed);
+        _firstTokenInBufferTime = DateTime.now();
       } else {
         _accumulatedTokens.clear();
+        _firstTokenInBufferTime = null;
         break;
       }
     }
