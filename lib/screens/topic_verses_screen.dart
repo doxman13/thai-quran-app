@@ -66,9 +66,10 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
     final primaryTitle = isThai
         ? widget.titleTh
         : (widget.titleEn.isNotEmpty ? widget.titleEn : widget.titleTh);
-    final secondaryTitle = isThai
-        ? widget.titleEn
-        : (widget.titleTh != widget.titleEn ? widget.titleTh : '');
+    final secondaryTitle =
+        (isThai && widget.titleEn.isNotEmpty && widget.titleEn != widget.titleTh)
+            ? widget.titleEn
+            : '';
 
     return Scaffold(
       backgroundColor: colorScheme.surface,

@@ -18,11 +18,42 @@ class AppTranslationOption {
     this.isBuiltIn = false,
   });
 
-  String displayName(String languageCode) {
-    if (languageCode == 'th' && nameTh != null && nameTh!.isNotEmpty) {
-      return nameTh!;
+  String languageTitle(String uiLanguageCode) {
+    final lower = language.trim().toLowerCase();
+    switch (lower) {
+      case 'thai':
+      case 'th':
+        return uiLanguageCode == 'th' ? 'ภาษาไทย' : 'Thai';
+      case 'malay':
+      case 'ms':
+      case 'melayu':
+        return uiLanguageCode == 'th'
+            ? 'ภาษามลายู (Bahasa Melayu)'
+            : 'Bahasa Melayu (Malay)';
+      case 'english':
+      case 'en':
+        return uiLanguageCode == 'th' ? 'ภาษาอังกฤษ (English)' : 'English';
+      default:
+        if (lower.isEmpty) return name;
+        return language[0].toUpperCase() + language.substring(1);
     }
+  }
+
+  String translatorLabel(String uiLanguageCode) {
+    if (id == 'thai_v3') {
+      return uiLanguageCode == 'th'
+          ? 'สมาคมนักเรียนเก่าอาหรับฯ / ศูนย์กษัตริย์ฟะฮัด'
+          : 'Arab Alumni Association (King Fahd Complex)';
+    }
+    if (id == '149') {
+      return "Bridges' Translation · $author";
+    }
+    if (author.isNotEmpty) return author;
     return name;
+  }
+
+  String displayName(String languageCode) {
+    return '${languageTitle(languageCode)} · ${translatorLabel(languageCode)}';
   }
 }
 
@@ -93,35 +124,36 @@ class TranslationConstants {
     apiId: 85,
     name: 'M.A.S. Abdel Haleem (Offline)',
     nameTh: 'English - M.A.S. Abdel Haleem (อังกฤษ - ออฟไลน์)',
-    author: 'Abdul Haleem',
+    author: 'M.A.S. Abdel Haleem',
     language: 'english',
     isBuiltIn: true,
   );
 
   static const List<AppTranslationOption> builtIns = [
     builtInThaiV3,
-    builtInEnUsmani,
+    builtInMsBasmeih,
     builtInEnSaheeh,
+    builtInEnUsmani,
     builtInEnHilali,
     builtInEnBridges,
     builtInEnHaleem,
-    builtInMsBasmeih,
   ];
 
   // All translations are bundled offline-first.
   static const List<AppTranslationOption> downloadableTranslations = [];
 
-  /// Language priority for sorting translations
+  /// Language priority for sorting translations (Thai -> Malay -> English -> others)
   static int _languageSortOrder(String language) {
     switch (language.toLowerCase()) {
       case 'thai':
       case 'th':
         return 0;
-      case 'english':
-      case 'en':
-        return 1;
       case 'malay':
       case 'ms':
+      case 'melayu':
+        return 1;
+      case 'english':
+      case 'en':
         return 2;
       default:
         return 3;

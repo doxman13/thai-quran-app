@@ -281,16 +281,17 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                           color: colorScheme.onSurface,
                                         ),
                                       ),
-                                      Text(
-                                        isThai
-                                            ? catTitleEn
-                                            : (catTitleTh != catTitleEn ? catTitleTh : ''),
-                                        style: GoogleFonts.notoSans(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: colorScheme.onSurfaceVariant,
+                                      if (isThai &&
+                                          catTitleEn.isNotEmpty &&
+                                          catTitleEn != catTitleTh)
+                                        Text(
+                                          catTitleEn,
+                                          style: GoogleFonts.notoSans(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -395,15 +396,16 @@ class _TopicsTabViewState extends State<TopicsTabView> {
                                                 color: colorScheme.onSurface,
                                               ),
                                             ),
-                                            Text(
-                                              isThai
-                                                  ? topicTitleEn
-                                                  : (topicTitleTh != topicTitleEn ? topicTitleTh : ''),
-                                              style: GoogleFonts.notoSans(
-                                                fontSize: 11.5,
-                                                color: colorScheme.onSurfaceVariant,
+                                            if (isThai &&
+                                                topicTitleEn.isNotEmpty &&
+                                                topicTitleEn != topicTitleTh)
+                                              Text(
+                                                topicTitleEn,
+                                                style: GoogleFonts.notoSans(
+                                                  fontSize: 11.5,
+                                                  color: colorScheme.onSurfaceVariant,
+                                                ),
                                               ),
-                                            ),
                                           ],
                                         ),
                                       ),

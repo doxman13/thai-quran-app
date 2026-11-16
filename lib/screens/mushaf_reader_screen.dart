@@ -308,19 +308,27 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
       }
     }
 
-    final isThai = resolveEffectiveTranslationLanguage(
-          context,
-          settings: settings,
-          translationId: settings.primaryTranslationId,
-        ) ==
-        'th';
+    final effectiveTransLang = resolveEffectiveTranslationLanguage(
+      context,
+      settings: settings,
+      translationId: settings.primaryTranslationId,
+    );
+    final isThai = effectiveTransLang == 'th';
     final translation = isThai ? thaiTextProtection.protect(resolved) : resolved;
     final isBookmarked = context
         .read<MushafReadingProvider>()
         .isVerseBookmarked(profile.mushafId, pageNumber, verseKey);
 
     final arabicText = verse?.arabic.isNotEmpty == true ? verse!.arabic : '';
-    final shortTafsir = verse?.shortTafsir;
+    final shortTafsir = switch (effectiveTransLang) {
+      'ms' => (verse?.shortTafsirId?.trim().isNotEmpty == true)
+          ? verse?.shortTafsirId
+          : (verse?.shortTafsirEn ?? verse?.shortTafsir),
+      'en' => (verse?.shortTafsirEn?.trim().isNotEmpty == true)
+          ? verse?.shortTafsirEn
+          : verse?.shortTafsir,
+      _ => verse?.shortTafsir,
+    };
 
     _highlightTimer?.cancel();
     setState(() {
@@ -4943,7 +4951,7 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                               Icon(Icons.translate_rounded, size: 14, color: colors.primary),
                               const SizedBox(width: 6),
                               Text(
-                                isThai ? 'ความหมายภาษาไทย' : 'Translation',
+                                isThai ? 'ความหมาย' : 'Translation',
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -5022,145 +5030,70 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                 children: [
                   Row(
                     children: [
-                      // Play Audio Button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: isAudioPlaying
-                                ? colors.primary.withValues(alpha: 0.1)
-                                : colors.surfaceMuted,
-                            side: BorderSide(
-                              color: isAudioPlaying ? colors.primary : colors.borderSoft,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: widget.onPlayAudio,
-                          icon: Icon(
-                            isAudioPlaying
-                                ? Icons.pause_circle_filled_rounded
-                                : Icons.play_circle_fill_rounded,
-                            size: 18,
-                            color: colors.primary,
-                          ),
-                          label: Text(
-                            isAudioPlaying
-                                ? (isThai ? 'หยุดเสียง' : 'Pause')
-                                : (isThai ? 'ฟังเสียง' : 'Listen'),
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.textStrong,
-                            ),
-                          ),
-                        ),
+                      _buildCompactActionButton(
+                        colors: colors,
+                        isActive: isAudioPlaying,
+                        activeBorderColor: colors.primary,
+                        activeBackgroundColor:
+                            colors.primary.withValues(alpha: 0.1),
+                        icon: isAudioPlaying
+                            ? Icons.pause_circle_filled_rounded
+                            : Icons.play_circle_fill_rounded,
+                        iconColor: colors.primary,
+                        label: isAudioPlaying
+                            ? (isThai ? 'หยุดเสียง' : 'Pause')
+                            : (isThai ? 'ฟังเสียง' : 'Listen'),
+                        labelColor: colors.textStrong,
+                        onPressed: widget.onPlayAudio,
                       ),
-                      const SizedBox(width: 8),
-                      // WBW Button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: _showWbw
-                                ? colors.primary.withValues(alpha: 0.1)
-                                : colors.surfaceMuted,
-                            side: BorderSide(
-                              color: _showWbw ? colors.primary : colors.borderSoft,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: () => setState(() => _showWbw = !_showWbw),
-                          icon: Icon(
-                            Icons.translate_rounded,
-                            size: 17,
-                            color: _showWbw ? colors.primary : colors.textMuted,
-                          ),
-                          label: Text(
-                            isThai ? 'คำต่อคำ' : 'WBW',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _showWbw ? colors.primary : colors.textStrong,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
+                      const SizedBox(width: 6),
+                      _buildCompactActionButton(
+                        colors: colors,
+                        isActive: _showWbw,
+                        activeBorderColor: colors.primary,
+                        activeBackgroundColor:
+                            colors.primary.withValues(alpha: 0.1),
+                        icon: Icons.translate_rounded,
+                        iconColor:
+                            _showWbw ? colors.primary : colors.textMuted,
+                        label: isThai ? 'คำต่อคำ' : 'WBW',
+                        labelColor:
+                            _showWbw ? colors.primary : colors.textStrong,
+                        onPressed: () => setState(() => _showWbw = !_showWbw),
                       ),
-                      const SizedBox(width: 8),
-                      // Bookmark Button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: _bookmarked
-                                ? const Color(0xFFD97706).withValues(alpha: 0.1)
-                                : colors.surfaceMuted,
-                            side: BorderSide(
-                              color: _bookmarked
-                                  ? const Color(0xFFD97706)
-                                  : colors.borderSoft,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: () {
-                            setState(() => _bookmarked = !_bookmarked);
-                            widget.onToggleBookmark();
-                          },
-                          icon: Icon(
-                            _bookmarked
-                                ? Icons.bookmark_rounded
-                                : Icons.bookmark_border_rounded,
-                            size: 18,
-                            color: _bookmarked
-                                ? const Color(0xFFD97706)
-                                : colors.textMuted,
-                          ),
-                          label: Text(
-                            _bookmarked
-                                ? (isThai ? 'คั่นแล้ว' : 'Saved')
-                                : (isThai ? 'คั่นอายะฮฺ' : 'Bookmark'),
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.textStrong,
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 6),
+                      _buildCompactActionButton(
+                        colors: colors,
+                        isActive: _bookmarked,
+                        activeBorderColor: const Color(0xFFD97706),
+                        activeBackgroundColor:
+                            const Color(0xFFD97706).withValues(alpha: 0.1),
+                        icon: _bookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        iconColor: _bookmarked
+                            ? const Color(0xFFD97706)
+                            : colors.textMuted,
+                        label: _bookmarked
+                            ? (isThai ? 'คั่นแล้ว' : 'Saved')
+                            : (isThai ? 'คั่นอายะฮฺ' : 'Bookmark'),
+                        labelColor: colors.textStrong,
+                        onPressed: () {
+                          setState(() => _bookmarked = !_bookmarked);
+                          widget.onToggleBookmark();
+                        },
                       ),
-                      const SizedBox(width: 8),
-                      // Tadabbur Button
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: colors.surfaceMuted,
-                            side: BorderSide(color: colors.borderSoft),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: widget.onOpenTadabbur,
-                          icon: Icon(
-                            Icons.edit_note_rounded,
-                            size: 18,
-                            color: colors.primary,
-                          ),
-                          label: Text(
-                            isThai ? 'บันทึก' : 'Notes',
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: colors.textStrong,
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 6),
+                      _buildCompactActionButton(
+                        colors: colors,
+                        isActive: false,
+                        activeBorderColor: colors.primary,
+                        activeBackgroundColor: colors.surfaceMuted,
+                        icon: Icons.edit_note_rounded,
+                        iconColor: colors.primary,
+                        label: isThai ? 'บันทึก' : 'Notes',
+                        labelColor: colors.textStrong,
+                        onPressed: widget.onOpenTadabbur,
                       ),
                     ],
                   ),
@@ -5174,24 +5107,82 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                         backgroundColor: colors.primary,
                         foregroundColor: colors.textInverse,
                         elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       onPressed: widget.onOpenMeaning,
                       icon: const Icon(Icons.menu_book_rounded, size: 18),
-                      label: Text(
-                        isThai
-                            ? 'เปิดอ่านในฉบับความหมาย (Meaning Reader)'
-                            : 'Open in Meaning Reader',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          isThai
+                              ? 'เปิดอ่านในฉบับความหมาย (Meaning Reader)'
+                              : 'Open in Meaning Reader',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactActionButton({
+    required AppThemeColors colors,
+    required bool isActive,
+    required Color activeBorderColor,
+    required Color activeBackgroundColor,
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required Color labelColor,
+    required VoidCallback onPressed,
+  }) {
+    return Expanded(
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isActive ? activeBackgroundColor : colors.surfaceMuted,
+          side: BorderSide(
+            color: isActive ? activeBorderColor : colors.borderSoft,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          minimumSize: const Size(0, 40),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: iconColor),
+            const SizedBox(width: 3),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: labelColor,
+                  ),
+                ),
               ),
             ),
           ],

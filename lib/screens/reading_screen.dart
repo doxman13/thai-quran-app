@@ -279,26 +279,19 @@ class _ReadingScreenState extends State<ReadingScreen> {
     }
   }
 
-  bool _isNonThaiPrimary(BuildContext context) {
+  String _primaryTranslationLang(BuildContext context) {
     final settings = Provider.of<SettingsProvider>(context, listen: true);
-    if (settings.languageCode == 'en' || settings.languageCode == 'ms') return true;
-    final primaryId = settings.primaryTranslationId;
-    if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
-    if (primaryId == 'en_usmani' || primaryId == 'english' || primaryId == 'ms_basmeih') return true;
-    
-    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
-    final customId = int.tryParse(primaryId);
-    if (customId != null) {
-      final translation = transManager.downloadedTranslations.firstWhere(
-        (t) => t['id'] == customId,
-        orElse: () => <String, dynamic>{},
-      );
-      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
-      if (lang == 'th' || lang == 'thai') {
-        return false;
-      }
-    }
-    return true;
+    final transManager =
+        Provider.of<TranslationManagerProvider>(context, listen: false);
+    return resolveEffectiveTranslationLanguage(
+      context,
+      settings: settings,
+      transManager: transManager,
+    );
+  }
+
+  bool _isNonThaiPrimary(BuildContext context) {
+    return _primaryTranslationLang(context) != 'th';
   }
 
   int? _parseFlexibleInt(dynamic value) {
@@ -343,25 +336,26 @@ class _ReadingScreenState extends State<ReadingScreen> {
   String getHeaderTitle(BuildContext context, int verseNumber) {
     final section = _getActiveTheme(verseNumber);
     if (section == null) return '';
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final isNonThai = _isNonThaiPrimary(context);
+    final transLang = _primaryTranslationLang(context);
 
     String themeText;
-    if (settings.wordByWordLanguage == 'ms' && section.titleMs != null && section.titleMs!.isNotEmpty) {
+    if (transLang == 'ms' && section.titleMs != null && section.titleMs!.isNotEmpty) {
       themeText = section.titleMs!;
-    } else if (isNonThai && section.titleEn != null && section.titleEn!.isNotEmpty) {
+    } else if (transLang != 'th' && section.titleEn != null && section.titleEn!.isNotEmpty) {
       themeText = section.titleEn!;
     } else {
       themeText = section.titleTh;
     }
 
-    final protectedTheme = Provider.of<ThaiTextProtectionProvider>(
-      context,
-      listen: false,
-    ).protect(themeText);
-    final ayahLabel = settings.languageCode == 'th'
+    final protectedTheme = transLang == 'th'
+        ? Provider.of<ThaiTextProtectionProvider>(
+            context,
+            listen: false,
+          ).protect(themeText)
+        : themeText;
+    final ayahLabel = transLang == 'th'
         ? 'อายะฮฺ'
-        : (settings.wordByWordLanguage == 'ms' ? 'Ayat' : 'Ayah');
+        : (transLang == 'ms' ? 'Ayat' : 'Ayah');
     return '$protectedTheme ($ayahLabel ${section.verseRange})';
   }
 
@@ -523,7 +517,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     if (surahId == null) return;
 
     final completedSurahId = _currentSurah;
-    final isThai = !_isNonThaiPrimary(context);
+    final isThai = Provider.of<SettingsProvider>(context, listen: false).isThai;
     final completedSurahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
     final targetVerses = _visibleVersesForActiveProfile(
       surahId,
@@ -1044,16 +1038,20 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   ),
                                 ),
                                 isExpanded: true,
+                                itemHeight: 54,
                                 selectedItemBuilder: (ctx) {
                                   return _availableTranslationOptions(transManager).map((opt) {
-                                    return Text(
-                                      opt.displayName(settings.languageCode),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: colors.textStrong,
+                                    return Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        opt.displayName(settings.languageCode),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: colors.textStrong,
+                                        ),
                                       ),
                                     );
                                   }).toList();
@@ -1062,27 +1060,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   final isDownloaded = transManager.isDownloaded(opt.id);
                                   return DropdownMenuItem<String>(
                                     value: opt.id,
-                                    child: Row(
-                                      children: [
-                                        if (!isDownloaded) ...[
-                                          Icon(Icons.download_for_offline_outlined, size: 16, color: colors.primary),
-                                          const SizedBox(width: 6),
-                                        ],
-                                        Expanded(
-                                          child: Text(
-                                            isDownloaded
-                                                ? opt.displayName(settings.languageCode)
-                                                : '${opt.displayName(settings.languageCode)} (${isThai ? 'ดาวน์โหลด' : 'Download'})',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.notoSansThai(
-                                              fontSize: 13,
-                                              color: isDownloaded ? colors.textStrong : colors.primary,
-                                              fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                    child: _buildTranslationDropdownItem(
+                                      opt: opt,
+                                      uiLanguageCode: settings.languageCode,
+                                      colors: colors,
+                                      isDownloaded: isDownloaded,
+                                      isThai: isThai,
                                     ),
                                   );
                                 }).toList(),
@@ -1140,23 +1123,30 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                   ),
                                 ),
                                 isExpanded: true,
+                                itemHeight: 54,
                                 selectedItemBuilder: (ctx) {
                                   return [
-                                    Text(
-                                      isThai ? 'ไม่เลือก' : 'None',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textMuted),
-                                    ),
-                                    ..._availableTranslationOptions(transManager).map((opt) {
-                                      return Text(
-                                        opt.displayName(settings.languageCode),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        isThai ? 'ไม่เลือก' : 'None',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.notoSansThai(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: colors.textStrong,
+                                        style: GoogleFonts.notoSansThai(fontSize: 13, color: colors.textMuted),
+                                      ),
+                                    ),
+                                    ..._availableTranslationOptions(transManager).map((opt) {
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          opt.displayName(settings.languageCode),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: colors.textStrong,
+                                          ),
                                         ),
                                       );
                                     }),
@@ -1174,27 +1164,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                     final isDownloaded = transManager.isDownloaded(opt.id);
                                     return DropdownMenuItem<String>(
                                       value: opt.id,
-                                      child: Row(
-                                        children: [
-                                          if (!isDownloaded) ...[
-                                            Icon(Icons.download_for_offline_outlined, size: 16, color: colors.primary),
-                                            const SizedBox(width: 6),
-                                          ],
-                                          Expanded(
-                                            child: Text(
-                                              isDownloaded
-                                                  ? opt.displayName(settings.languageCode)
-                                                  : '${opt.displayName(settings.languageCode)} (${isThai ? 'ดาวน์โหลด' : 'Download'})',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: GoogleFonts.notoSansThai(
-                                                fontSize: 13,
-                                                color: isDownloaded ? colors.textStrong : colors.primary,
-                                                fontWeight: isDownloaded ? FontWeight.w500 : FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      child: _buildTranslationDropdownItem(
+                                        opt: opt,
+                                        uiLanguageCode: settings.languageCode,
+                                        colors: colors,
+                                        isDownloaded: isDownloaded,
+                                        isThai: isThai,
                                       ),
                                     );
                                   }),
@@ -1416,6 +1391,64 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
+  Widget _buildTranslationDropdownItem({
+    required AppTranslationOption opt,
+    required String uiLanguageCode,
+    required AppThemeColors colors,
+    required bool isDownloaded,
+    required bool isThai,
+  }) {
+    final translator = opt.translatorLabel(uiLanguageCode);
+    final subtitle = isDownloaded
+        ? translator
+        : '$translator (${isThai ? 'ดาวน์โหลด' : 'Download'})';
+
+    return Row(
+      children: [
+        if (!isDownloaded) ...[
+          Icon(
+            Icons.download_for_offline_outlined,
+            size: 16,
+            color: colors.primary,
+          ),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                opt.languageTitle(uiLanguageCode),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDownloaded ? colors.textStrong : colors.primary,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textMuted,
+                  height: 1.15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {
     final colors = settings.getAppColors();
     return Container(
@@ -1531,10 +1564,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     required String surahId,
     required String surahName,
   }) {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final initialLang = settings.wordByWordLanguage == 'ms'
-        ? 'ms'
-        : (_isNonThaiPrimary(context) ? 'en' : 'th');
+    final initialLang = _primaryTranslationLang(context);
 
     showModalBottomSheet(
       context: context,
@@ -1556,16 +1586,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
   ) {
     final colors = settings.getAppColors();
     final section = _getActiveTheme(verseNumber);
-    final isNonThai = _isNonThaiPrimary(context);
+    final transLang = _primaryTranslationLang(context);
 
     String titleText = '';
 
     if (section != null) {
-      if (settings.wordByWordLanguage == 'ms') {
+      if (transLang == 'ms') {
         titleText = (section.descriptionMs != null && section.descriptionMs!.isNotEmpty)
             ? section.descriptionMs!
             : (section.titleMs ?? section.titleTh);
-      } else if (isNonThai) {
+      } else if (transLang != 'th') {
         titleText = (section.descriptionEn != null && section.descriptionEn!.isNotEmpty)
             ? section.descriptionEn!
             : (section.titleEn ?? section.titleTh);
@@ -1578,13 +1608,13 @@ class _ReadingScreenState extends State<ReadingScreen> {
       titleText = getHeaderTitle(context, verseNumber);
     }
 
-    final ayahLabel = settings.languageCode == 'th'
+    final ayahLabel = transLang == 'th'
         ? 'อายะฮฺ'
-        : (settings.wordByWordLanguage == 'ms' ? 'Ayat' : 'Ayah');
+        : (transLang == 'ms' ? 'Ayat' : 'Ayah');
 
     final surahName = widget.repository.getSurahName(
       _currentSurah,
-      isThai: !_isNonThaiPrimary(context),
+      isThai: settings.isThai,
     );
 
     return Material(
@@ -1604,18 +1634,20 @@ class _ReadingScreenState extends State<ReadingScreen> {
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
           decoration: BoxDecoration(
             color: Color.alphaBlend(
-              colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+              colors.primary.withValues(alpha: isDark ? 0.05 : 0.022),
               colors.background,
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.borderSoft),
+            border: Border.all(
+              color: colors.borderSoft.withValues(alpha: 0.6),
+            ),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: colors.primary.withValues(alpha: isDark ? 0.25 : 0.12),
+                  color: colors.primary.withValues(alpha: isDark ? 0.14 : 0.07),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1623,7 +1655,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   style: GoogleFonts.notoSansThai(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: colors.primary,
+                    color: colors.primary.withValues(alpha: 0.85),
                   ),
                 ),
               ),
@@ -1631,7 +1663,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               Expanded(
                 child: Text(
                   titleText,
-                  locale: const Locale('th', 'TH'),
+                  locale: transLang == 'th' ? const Locale('th', 'TH') : null,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.notoSansThai(
@@ -1646,7 +1678,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               Icon(
                 Icons.info_outline_rounded,
                 size: 16,
-                color: colors.primary.withValues(alpha: 0.8),
+                color: colors.primary.withValues(alpha: 0.65),
               ),
             ],
           ),
@@ -1748,7 +1780,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           ? 0
           : currentIndex.clamp(0, verses.length - 1).toInt();
       final activeVerseId = verses.isNotEmpty ? verses[safeIndex].id : '1';
-      final isThai = !_isNonThaiPrimary(context);
+      final isThai = Provider.of<SettingsProvider>(context, listen: false).isThai;
       final surahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
 
       return InkWell(
@@ -2099,9 +2131,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               duration: const Duration(milliseconds: 200),
                               curve: Curves.easeInOut,
                               padding: EdgeInsets.only(
-                                top: _isMenuVisible
-                                    ? topMenuHeight
-                                    : (isLandscape ? 4 : 34),
+                                top: _isMenuVisible ? topMenuHeight : 4,
                                 bottom: _isMenuVisible
                                     ? (isLandscape ? 92 : 112)
                                     : (isLandscape ? 8 : 64),
@@ -2124,7 +2154,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                           .getSurahVerses(_currentSurah)
                                           .length;
                                       final surahName = widget.repository
-                                          .getSurahName(_currentSurah, isThai: !_isNonThaiPrimary(context));
+                                          .getSurahName(_currentSurah, isThai: settings.isThai);
                                       final theme = Theme.of(context);
                                       final activeVerseNumber =
                                           int.tryParse(activeVerseId) ?? -1;
@@ -2134,9 +2164,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
                                       return Padding(
                                         padding: EdgeInsets.only(
-                                          left: isLandscape ? 16 : 20,
-                                          right: isLandscape ? 12 : 20,
-                                          top: isLandscape ? 4 : 12,
+                                          left: isLandscape ? 16 : (!_isMenuVisible ? 12 : 20),
+                                          right: isLandscape ? 12 : (!_isMenuVisible ? 16 : 20),
+                                          top: isLandscape ? 4 : (!_isMenuVisible ? 4 : 12),
                                           bottom: isLandscape ? 2 : 4,
                                         ),
                                         child: Row(
@@ -2159,7 +2189,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                             Expanded(
                                               child: Row(
                                                 mainAxisAlignment:
-                                                    isLandscape
+                                                    (isLandscape || !_isMenuVisible)
                                                     ? MainAxisAlignment.start
                                                     : MainAxisAlignment.center,
                                                 children: [
@@ -2234,6 +2264,52 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                                 isDark,
                                                 compact: true,
                                               ),
+                                            if (!_isMenuVisible) ...[
+                                              const SizedBox(width: 8),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _isMenuVisible = true;
+                                                    _startAutoHideTimer();
+                                                  });
+                                                },
+                                                behavior: HitTestBehavior.opaque,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: colors.surface.withValues(
+                                                      alpha: 0.94,
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(14),
+                                                    border: Border.all(
+                                                      color: colors.borderSoft,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        Icons.keyboard_arrow_down_rounded,
+                                                        size: 15,
+                                                        color: colors.primary,
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      Text(
+                                                        context.tr('menu'),
+                                                        style: GoogleFonts.notoSansThai(
+                                                          fontSize: 11.5,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: colors.primary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       );
@@ -2601,77 +2677,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             ),
                           );
                         },
-                      ),
-                      // Small persistent "menu" handle when the chrome is hidden.
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: SafeArea(
-                          bottom: false,
-                          child: Center(
-                            child: AnimatedOpacity(
-                              opacity: _isMenuVisible ? 0 : 1,
-                              duration: const Duration(milliseconds: 220),
-                              child: IgnorePointer(
-                                ignoring: _isMenuVisible,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _isMenuVisible = true;
-                                      _startAutoHideTimer();
-                                    });
-                                  },
-                                  behavior: HitTestBehavior.opaque,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(top: 6),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: colors.surface.withValues(
-                                        alpha: 0.94,
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: colors.borderSoft,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.keyboard_arrow_down_rounded,
-                                          size: 16,
-                                          color: colors.primary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          context.tr('menu'),
-                                          style: GoogleFonts.notoSansThai(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: colors.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       ),
                       // 24px left-edge horizontal swipe detector for swipe back
                       Positioned(

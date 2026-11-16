@@ -1440,7 +1440,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                               : (titleEn.isNotEmpty ? titleEn : titleTh);
                           final secondaryTopicTitle = isThai
                               ? (titleEn.isNotEmpty ? '$titleEn • $catTitle' : catTitle)
-                              : (titleTh.isNotEmpty ? '$titleTh • $catTitle' : catTitle);
+                              : catTitle;
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),

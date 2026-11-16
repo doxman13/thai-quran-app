@@ -1280,8 +1280,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     return id == 'thai_v3'
         ? (langCode == 'th'
-            ? 'ภาษาไทย (ฉบับสมาคมนักเรียนเก่าอาหรับฯ)'
-            : 'Thai (Arab Alumni Association - King Fahd Complex)')
+            ? 'ภาษาไทย · สมาคมนักเรียนเก่าอาหรับฯ'
+            : 'Thai · Arab Alumni Association')
         : id;
   }
 
@@ -1895,21 +1895,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 vertical: 4,
                               ),
                               title: Text(
-                                opt.displayName(settings.languageCode),
+                                opt.languageTitle(settings.languageCode),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.notoSansThai(
-                                  fontSize: 14,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
                                   color: isSelected
                                       ? colors.primary
                                       : colors.textStrong,
                                 ),
                               ),
                               subtitle: Text(
-                                opt.author,
+                                opt.translatorLabel(settings.languageCode),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.notoSansThai(

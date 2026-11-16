@@ -7,42 +7,24 @@ import '../services/offline_quran_database_service.dart';
 import '../screens/root_verses_screen.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../shared/quran_translation_helper.dart';
 import '../theme/app_theme.dart';
 
 /// Helper function to resolve the word-by-word language automatically
-/// based on the currently selected translation in the app.
-String resolveEffectiveWbwLanguage(BuildContext context) {
+/// based strictly on the currently selected primary translation.
+String resolveEffectiveWbwLanguage(
+  BuildContext context, {
+  bool listen = false,
+}) {
   try {
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final primaryId = settings.primaryTranslationId.toLowerCase().trim();
-
-    if (primaryId == 'english' || primaryId == 'en_usmani' || primaryId.startsWith('en')) {
-      return 'en';
-    }
-    if (primaryId == 'ms_basmeih' || primaryId == 'malay' || primaryId.startsWith('ms')) {
-      return 'ms';
-    }
-    if (primaryId == 'thai_v3' || primaryId == 'thai_v2' || primaryId.startsWith('th')) {
-      if (settings.languageCode == 'en') return 'en';
-      if (settings.languageCode == 'ms') return 'ms';
-      return 'th';
-    }
-
-    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
-    final customId = int.tryParse(primaryId);
-    if (customId != null) {
-      final t = transManager.downloadedTranslations.firstWhere(
-        (item) => item['id'] == customId,
-        orElse: () => <String, dynamic>{},
-      );
-      final lang = (t['language_name'] ?? t['language'] ?? '').toString().toLowerCase();
-      if (lang.contains('en') || lang.contains('eng')) return 'en';
-      if (lang.contains('ms') || lang.contains('malay') || lang.contains('melayu') || lang.contains('indonesi')) return 'ms';
-      if (lang.contains('th') || lang.contains('thai')) return 'th';
-    }
-
-    if (settings.languageCode == 'en') return 'en';
-    if (settings.languageCode == 'ms') return 'ms';
+    final settings = Provider.of<SettingsProvider>(context, listen: listen);
+    final transManager =
+        Provider.of<TranslationManagerProvider>(context, listen: false);
+    return resolveEffectiveTranslationLanguage(
+      context,
+      settings: settings,
+      transManager: transManager,
+    );
   } catch (_) {}
   return 'th';
 }
@@ -190,7 +172,8 @@ class _WordByWordViewState extends State<WordByWordView> {
 
   void _showWordDetailSheet(BuildContext context, Map<String, dynamic> word, int wordIndexOneBased) {
     final colors = context.appColors;
-    final effectiveLang = widget.languageOverride ?? resolveEffectiveWbwLanguage(context);
+    final effectiveLang = widget.languageOverride ??
+        resolveEffectiveWbwLanguage(context, listen: true);
 
     final rawTextUthmani = word['text_uthmani'] as String? ?? '';
     final textUthmani = _cleanWordArabicText(rawTextUthmani);
@@ -571,7 +554,8 @@ class _WordByWordViewState extends State<WordByWordView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final effectiveLang = widget.languageOverride ?? resolveEffectiveWbwLanguage(context);
+    final effectiveLang = widget.languageOverride ??
+        resolveEffectiveWbwLanguage(context, listen: true);
 
     if (_isLoading) {
       return const Padding(

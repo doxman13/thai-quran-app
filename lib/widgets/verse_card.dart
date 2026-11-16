@@ -167,50 +167,21 @@ class _VerseCardState extends State<VerseCard> {
     }
   }
 
-  bool _isNonThaiPrimary() {
-    if (!mounted) return false;
+  String _effectivePrimaryLang() {
+    if (!mounted) return 'th';
     final settings = Provider.of<SettingsProvider>(context, listen: true);
-    if (settings.languageCode == 'en' || settings.languageCode == 'ms') return true;
-    final primaryId = settings.primaryTranslationId;
-    if (primaryId == 'thai_v3' || primaryId == 'thai_v2') return false;
-    if (primaryId == 'en_usmani' || primaryId == 'english' || primaryId == 'ms_basmeih') return true;
-    
-    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
-    final customId = int.tryParse(primaryId);
-    if (customId != null) {
-      final translation = transManager.downloadedTranslations.firstWhere(
-        (t) => t['id'] == customId,
-        orElse: () => <String, dynamic>{},
-      );
-      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
-      if (lang == 'th' || lang == 'thai') {
-        return false;
-      }
-    }
-    return true;
+    final transManager =
+        Provider.of<TranslationManagerProvider>(context, listen: false);
+    return resolveEffectiveTranslationLanguage(
+      context,
+      settings: settings,
+      transManager: transManager,
+    );
   }
 
-  bool _isMalayPrimary() {
-    if (!mounted) return false;
-    final settings = Provider.of<SettingsProvider>(context, listen: true);
-    if (settings.languageCode == 'ms') return true;
-    final primaryId = settings.primaryTranslationId;
-    if (primaryId == 'ms_basmeih' || primaryId == '39' || primaryId == 'malay') return true;
-    
-    final transManager = Provider.of<TranslationManagerProvider>(context, listen: false);
-    final customId = int.tryParse(primaryId);
-    if (customId != null) {
-      final translation = transManager.downloadedTranslations.firstWhere(
-        (t) => t['id'] == customId,
-        orElse: () => <String, dynamic>{},
-      );
-      final lang = (translation['language_name'] ?? translation['language'])?.toString().toLowerCase();
-      if (lang == 'ms' || lang == 'malay' || lang == 'melayu' || lang == 'id' || lang == 'indonesian') {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool _isNonThaiPrimary() => _effectivePrimaryLang() != 'th';
+
+  bool _isMalayPrimary() => _effectivePrimaryLang() == 'ms';
 
   String? _getTafsir() {
     if (_isMalayPrimary()) {

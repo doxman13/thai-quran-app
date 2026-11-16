@@ -2398,19 +2398,23 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.flag_rounded, size: 18, color: colorScheme.primary),
             const SizedBox(width: 8),
-            Text(
-              isThai ? 'เป้าหมายที่กำลังอ่าน' : 'Active Reading Goals',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
+            Expanded(
+              child: Text(
+                isThai ? 'เป้าหมายที่กำลังอ่าน' : 'Reading Goals',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             TextButton.icon(
               onPressed: () => _navigateToGoalsScreen(context),
               icon: Text(
-                isThai ? 'จัดการเป้าหมาย' : 'Manage Goals',
+                isThai ? 'จัดการเป้าหมาย' : 'Manage',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
@@ -2424,6 +2428,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ],
@@ -2687,21 +2694,25 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.bolt_rounded, size: 18, color: colorScheme.primary),
             const SizedBox(width: 6),
-            Text(
-              isThai ? 'ทางลัดซูเราะฮฺยอดนิยม' : 'Quick Surah Access',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
+            Expanded(
+              child: Text(
+                isThai ? 'ทางลัดซูเราะฮฺยอดนิยม' : 'Quick Surahs',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             if (_quickLinks.length < 8)
               TextButton.icon(
                 onPressed: _showAddQuickLinkSheet,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
-                  isThai ? 'เพิ่มทางลัด' : 'Pin Surah',
+                  isThai ? 'เพิ่มทางลัด' : 'Pin',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -2709,6 +2720,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
           ],
@@ -3310,9 +3324,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                isThai
-                    ? 'บันทึกตดับบุรจากชุมชน'
-                    : 'Community Tadabbur Reflections',
+                isThai ? 'บันทึกตดับบุรจากชุมชน' : 'Tadabbur Community',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -3325,11 +3339,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: _shuffleCommunityPreview,
                 icon: const Icon(Icons.shuffle_rounded, size: 14),
                 label: Text(
-                  isThai ? 'สลับข้อคิด' : 'Shuffle',
+                  isThai ? 'สลับ' : 'Shuffle',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             TextButton(
@@ -3343,6 +3363,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ).then((_) => _loadCommunityPreview());
               },
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               child: Text(
                 isThai ? 'ดูทั้งหมด →' : 'View All →',
                 style: GoogleFonts.notoSansThai(

@@ -9,6 +9,7 @@ import '../data/quran_repository.dart';
 import '../models/recitation_event.dart';
 import '../theme/app_theme.dart';
 import '../shared/translation_constants.dart';
+import '../shared/translation_hierarchy.dart';
 
 enum HifzInputMode {
   bluetoothShutter,
@@ -136,8 +137,8 @@ class SettingsProvider extends ChangeNotifier {
   String get thaiFontFamily => _thaiFontFamily;
   String get themeColor => _themeColor;
   HifzInputMode get hifzInputMode => _hifzInputMode;
-  // Word by word display setting
-  bool _showWordByWord = true;
+  // Word by word display setting (default off in meaning mode)
+  bool _showWordByWord = false;
   bool get showWordByWord => _showWordByWord;
   String _wordByWordLanguage = 'th'; // 'th', 'en', 'ms'
   String get wordByWordLanguage => _wordByWordLanguage;
@@ -189,18 +190,13 @@ class SettingsProvider extends ChangeNotifier {
       _primaryTranslationId == 'english' ||
       _secondaryTranslationId == 'english';
 
-  /// Effective UI and theme language code ('th' or 'en') derived from the active primary translation.
+  /// Effective reading typography code ('th' or 'en') derived from the active primary translation.
   String get effectiveLanguageCode {
-    final primary = _primaryTranslationId.trim().toLowerCase();
-    if (primary == 'english' || primary.startsWith('en')) {
-      return 'en';
-    }
-    if (primary == 'ms_basmeih' || primary == 'malay' || primary.startsWith('ms')) {
-      return 'en';
-    }
-    if (primary == 'thai_v3' || primary == 'thai_v2' || primary.startsWith('th') || primary.startsWith('thai')) {
-      return 'th';
-    }
+    final lang = TranslationHierarchy.getLanguageForTranslationId(
+      _primaryTranslationId,
+    );
+    if (lang == 'thai') return 'th';
+    if (lang == 'english' || lang == 'malay') return 'en';
     return _languageCode;
   }
 
@@ -231,7 +227,12 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> _syncToSupabase({String? userIdOverride}) async {
-    final client = Supabase.instance.client;
+    final SupabaseClient client;
+    try {
+      client = Supabase.instance.client;
+    } catch (_) {
+      return;
+    }
     final userId = userIdOverride ?? client.auth.currentUser?.id;
     if (userId != null) {
       try {
@@ -427,7 +428,7 @@ class SettingsProvider extends ChangeNotifier {
     _languageCode = prefs.getString('languageCode') ?? 'th';
     _isDarkMode = prefs.getBool('isDarkMode') ?? false;
     _keepAwake = prefs.getBool('keepAwake') ?? true;
-    _showWordByWord = prefs.getBool('showWordByWord') ?? true;
+    _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
     _showFootnotes = prefs.getBool('showFootnotes') ?? true;
     _showTajweedColors = prefs.getBool('showTajweedColors') ?? false;
@@ -739,7 +740,7 @@ class SettingsProvider extends ChangeNotifier {
     _translationFontSize = 18.0;
     _thaiFontFamily = 'Noto Sans Thai';
     _readingDisplayMode = quranTranslationMode;
-    _showWordByWord = true;
+    _showWordByWord = false;
     _wordByWordLanguage = 'th';
     _showTajweedColors = false;
     _showFootnotes = true;
@@ -802,14 +803,6 @@ class SettingsProvider extends ChangeNotifier {
           : _secondaryTranslationId;
       _primaryTranslationId = id;
       _secondaryTranslationId = newSecondary;
-
-      final lowerId = id.trim().toLowerCase();
-      if (lowerId.startsWith('thai') || lowerId.startsWith('th')) {
-        _languageCode = 'th';
-      } else if (lowerId == 'english' || lowerId.startsWith('en') || lowerId == 'malay' || lowerId.startsWith('ms')) {
-        _languageCode = 'en';
-      }
-      await prefs.setString('languageCode', _languageCode);
     } else {
       if (id == _primaryTranslationId) return; // collision — reject
       _secondaryTranslationId = id;

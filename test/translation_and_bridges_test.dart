@@ -3,9 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
+import 'package:thai_quran_app/providers/translation_manager_provider.dart';
 import 'package:thai_quran_app/services/footnote_service.dart';
+import 'package:thai_quran_app/shared/quran_translation_helper.dart';
 import 'package:thai_quran_app/shared/translation_constants.dart';
+import 'package:thai_quran_app/shared/translation_hierarchy.dart';
 import 'package:thai_quran_app/utils/html_parser.dart';
+import 'package:thai_quran_app/widgets/word_by_word_strip.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -284,6 +288,108 @@ void main() {
       service.notifyListeners();
       expect(notified, isTrue);
       service.removeListener(listener);
+    });
+  });
+
+  group('Translation Order, Labels & Language Isolation Tests', () {
+    test('Malay comes before English in TranslationConstants and TranslationHierarchy', () {
+      final options = TranslationConstants.getAllOptions();
+      final ids = options.map((o) => o.id).toList();
+      expect(ids.first, equals('thai_v3'));
+      expect(ids.indexOf('ms_basmeih'), lessThan(ids.indexOf('20')));
+      expect(ids.indexOf('ms_basmeih'), lessThan(ids.indexOf('en_usmani')));
+
+      final groups = TranslationHierarchy.getAllLanguageGroups();
+      final groupIds = groups.map((g) => g.id).toList();
+      expect(groupIds.indexOf('thai'), equals(0));
+      expect(groupIds.indexOf('malay'), lessThan(groupIds.indexOf('english')));
+    });
+
+    test('AppTranslationOption separates languageTitle and translatorLabel', () {
+      expect(TranslationConstants.builtInEnSaheeh.languageTitle('en'), equals('English'));
+      expect(
+        TranslationConstants.builtInEnSaheeh.translatorLabel('en'),
+        equals('Saheeh International'),
+      );
+      expect(
+        TranslationConstants.builtInMsBasmeih.languageTitle('en'),
+        contains('Bahasa Melayu'),
+      );
+      expect(
+        TranslationConstants.builtInMsBasmeih.translatorLabel('en'),
+        equals('Abdullah Muhammad Basmeih'),
+      );
+    });
+
+    test('SettingsProvider defaults showWordByWord to false', () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsProvider();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(settings.showWordByWord, isFalse);
+    });
+
+    testWidgets('WBW and reading language follow selected translation even when app UI is English', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'languageCode': 'en',
+        'primaryTranslationId': 'thai_v3',
+      });
+      final settings = SettingsProvider();
+      final transManager = TranslationManagerProvider();
+      await tester.pumpAndSettle();
+
+      late BuildContext capturedContext;
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<TranslationManagerProvider>.value(
+              value: transManager,
+            ),
+          ],
+          child: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+
+      expect(
+        resolveEffectiveTranslationLanguage(
+          capturedContext,
+          settings: settings,
+          transManager: transManager,
+        ),
+        equals('th'),
+      );
+      expect(resolveEffectiveWbwLanguage(capturedContext), equals('th'));
+
+      settings.updateTranslationSlot('primary', '20');
+      await tester.pump();
+      expect(settings.languageCode, equals('en'));
+      expect(
+        resolveEffectiveTranslationLanguage(
+          capturedContext,
+          settings: settings,
+          transManager: transManager,
+        ),
+        equals('en'),
+      );
+      expect(resolveEffectiveWbwLanguage(capturedContext), equals('en'));
+
+      settings.updateTranslationSlot('primary', 'ms_basmeih');
+      await tester.pump();
+      expect(
+        resolveEffectiveTranslationLanguage(
+          capturedContext,
+          settings: settings,
+          transManager: transManager,
+        ),
+        equals('ms'),
+      );
+      expect(resolveEffectiveWbwLanguage(capturedContext), equals('ms'));
     });
   });
 }

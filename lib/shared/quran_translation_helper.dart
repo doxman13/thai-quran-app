@@ -6,6 +6,7 @@ import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import 'translation_constants.dart';
+import 'translation_hierarchy.dart';
 
 /// Converts Latin Arabic digits (0-9) to Eastern Arabic-Indic numerals (٠-٩).
 String toArabicDigits(dynamic input) {
@@ -192,20 +193,48 @@ String resolveVerseTranslationText({
 String resolveEffectiveTranslationLanguage(
   BuildContext context, {
   SettingsProvider? settings,
+  TranslationManagerProvider? transManager,
   String? translationId,
 }) {
   final s = settings ?? Provider.of<SettingsProvider>(context, listen: false);
-  final tid = (translationId ?? s.primaryTranslationId).trim().toLowerCase();
+  final rawId = (translationId ?? s.primaryTranslationId).trim();
+  final canonical = TranslationConstants.resolveTranslationId(rawId);
 
-  if (tid == 'english' || tid == 'en_sahih' || tid == 'en_usmani' || tid.startsWith('en')) {
-    return 'en';
+  final known = TranslationConstants.getKnownOption(canonical);
+  if (known != null) {
+    final kLang = known.language.toLowerCase();
+    if (kLang == 'thai' || kLang == 'th') return 'th';
+    if (kLang == 'malay' || kLang == 'ms' || kLang == 'melayu') return 'ms';
+    if (kLang == 'english' || kLang == 'en') return 'en';
   }
-  if (tid == 'ms_basmeih' || tid == 'malay' || tid.startsWith('ms')) {
-    return 'ms';
-  }
-  if (tid == 'thai_v3' || tid == 'thai_v2' || tid.startsWith('th') || tid.startsWith('thai')) {
-    return 'th';
-  }
+
+  try {
+    final tm = transManager ??
+        Provider.of<TranslationManagerProvider>(context, listen: false);
+    final customId = int.tryParse(canonical);
+    if (customId != null) {
+      final t = tm.downloadedTranslations.firstWhere(
+        (item) => item['id'] == customId,
+        orElse: () => <String, dynamic>{},
+      );
+      final lang =
+          (t['language_name'] ?? t['language'] ?? '').toString().toLowerCase();
+      if (lang.contains('th')) return 'th';
+      if (lang.contains('ms') ||
+          lang.contains('malay') ||
+          lang.contains('melayu') ||
+          lang.contains('indonesi')) {
+        return 'ms';
+      }
+      if (lang.contains('en')) return 'en';
+    }
+  } catch (_) {}
+
+  final hierarchyLang = TranslationHierarchy.getLanguageForTranslationId(rawId);
+  if (hierarchyLang == 'thai') return 'th';
+  if (hierarchyLang == 'malay') return 'ms';
+  if (hierarchyLang == 'english') return 'en';
+
   return s.languageCode;
 }
 
