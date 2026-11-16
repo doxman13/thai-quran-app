@@ -873,7 +873,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconBg: const Color(0xFFF3F4F6),
                     iconColor: const Color(0xFF4B5563),
                     title: isThai ? 'เกี่ยวกับแอปพลิเคชัน' : 'About',
-                    subtitle: 'Thai Quran v1.0.1',
+                    subtitle: 'Thai Quran v1.0.2',
                     onTap: () => _showAboutSheet(context, colors, isThai),
                   ),
                   _RevealListTile(
@@ -2084,7 +2084,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Version 1.0.1 (quran-th.com)',
+                  'Version 1.0.2 (quran-th.com)',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     color: colors.textMuted,
