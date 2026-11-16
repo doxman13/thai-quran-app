@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,6 +15,7 @@ import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/supabase_provider.dart';
 import '../providers/translation_manager_provider.dart';
+import '../services/app_update_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import '../widgets/support_dialog.dart';
@@ -51,6 +53,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final QuranFoundationRepository _foundationRepository =
       QuranFoundationRepository();
   bool _isSyncing = false;
+  bool _isCheckingUpdate = false;
+  String _appVersion = '1.0.2';
+  String _appBuildNumber = '5';
 
   static const String _previewArabic = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
   static const String _previewTranslationTh =
@@ -59,10 +64,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadAppVersion();
     if (widget.initialCategory != SettingsCategoryTab.profile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handleInitialCategoryNavigation();
       });
+    }
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      final version = info.version.split('+').first.trim();
+      final build = info.buildNumber.trim();
+      setState(() {
+        if (version.isNotEmpty) _appVersion = version;
+        if (build.isNotEmpty) _appBuildNumber = build;
+      });
+    } catch (_) {
+      // Keep fallback version constants if platform info is unavailable in tests.
+    }
+  }
+
+  Future<void> _handleCheckForUpdates(
+    BuildContext context,
+    AppThemeColors colors,
+    bool isThai,
+  ) async {
+    if (_isCheckingUpdate) return;
+    setState(() => _isCheckingUpdate = true);
+    try {
+      final result =
+          await AppUpdateService.instance.checkManuallyAndPrompt(context);
+      if (!context.mounted) return;
+      if (result == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isThai
+                  ? 'ไม่สามารถตรวจสอบการอัปเดตได้ในขณะนี้'
+                  : 'Unable to check for updates right now.',
+              style: GoogleFonts.notoSansThai(),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (!result.hasUpdate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isThai
+                  ? 'คุณกำลังใช้งานเวอร์ชันล่าสุดอยู่แล้ว (v$_appVersion)'
+                  : 'You are already on the latest version (v$_appVersion).',
+              style: GoogleFonts.notoSansThai(),
+            ),
+            backgroundColor: colors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingUpdate = false);
+      }
     }
   }
 
@@ -873,8 +938,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconBg: const Color(0xFFF3F4F6),
                     iconColor: const Color(0xFF4B5563),
                     title: isThai ? 'เกี่ยวกับแอปพลิเคชัน' : 'About',
-                    subtitle: 'Thai Quran v1.0.2',
+                    subtitle: 'Thai Quran v$_appVersion ($_appBuildNumber)',
                     onTap: () => _showAboutSheet(context, colors, isThai),
+                  ),
+                  _RevealListTile(
+                    icon: Icons.system_update_rounded,
+                    iconBg: colors.primaryLight,
+                    iconColor: colors.primary,
+                    title: isThai ? 'ตรวจสอบการอัปเดต' : 'Check for Updates',
+                    subtitle: _isCheckingUpdate
+                        ? (isThai ? 'กำลังตรวจสอบ...' : 'Checking...')
+                        : (isThai
+                            ? 'เวอร์ชันปัจจุบัน v$_appVersion'
+                            : 'Current version v$_appVersion'),
+                    trailing: _isCheckingUpdate
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.primary,
+                            ),
+                          )
+                        : null,
+                    onTap: _isCheckingUpdate
+                        ? null
+                        : () => _handleCheckForUpdates(context, colors, isThai),
                   ),
                   _RevealListTile(
                     icon: Icons.privacy_tip_outlined,
@@ -2084,7 +2173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Version 1.0.2 (quran-th.com)',
+                  'Version $_appVersion (Build $_appBuildNumber) • quran-th.com',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 13,
                     color: colors.textMuted,

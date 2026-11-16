@@ -23,6 +23,7 @@ import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/supabase_provider.dart';
+import '../services/app_update_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
 import 'bookmarks_screen.dart';
@@ -174,6 +175,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_isInit) {
       _initApp();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(AppUpdateService.instance.checkAndPromptOnStartup(context));
+    });
   }
 
   Future<void> _loadCommunityPreview() async {

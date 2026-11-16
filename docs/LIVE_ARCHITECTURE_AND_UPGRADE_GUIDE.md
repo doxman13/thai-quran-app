@@ -109,6 +109,11 @@
 - If `remote.version > localVersion`, it downloads the JSON file from Supabase Storage bucket `app-content` into `${supportDir}/remote_content/` and, for `thai_v3`, runs `OfflineQuranDatabaseService.updateThaiTranslation()` to batch-update `verses.translation_th` inside `quran_offline.db`.
 - *(Note: On `thai-quran-web`, OTA downloads from Supabase Storage are intentionally bypassed in `src/lib/supabase/remoteContent.ts:46-50` so web traffic serves static Vercel assets without consuming Supabase Storage bandwidth.)*
 
+### 5.3 In-App Version Check & Force Update (`lib/services/app_update_service.dart`)
+- On launch in [`HomeScreen`](file:///Users/admin/Documents/gits/thai-quran-app/lib/screens/home_screen.dart) (`checkAndPromptOnStartup`) and manually from [`SettingsScreen`](file:///Users/admin/Documents/gits/thai-quran-app/lib/screens/settings_screen.dart) (`checkManuallyAndPrompt`), `AppUpdateService` compares `PackageInfo` (`version`, `buildNumber`) against `public.app_version_config` (`id = 'android' | 'ios'`).
+- **Force Update**: Triggered when the installed version/build is below `min_version` / `min_build_number`, or below `latest_version` / `latest_build_number` with `is_force_update = true`. Presents [`AppUpdateDialog`](file:///Users/admin/Documents/gits/thai-quran-app/lib/widgets/app_update_dialog.dart) with `barrierDismissible = false` and `PopScope(canPop: false)`.
+- **Soft Update**: Triggered when below `latest_version` / `latest_build_number` without force flag. Users can tap **Later** (`ไว้ภายหลัง`), which stores `app_update_dismissed_version` and `app_update_dismissed_at` in `SharedPreferences` for a 24-hour cooldown.
+
 ---
 
 ## 6. Cross-Device Database Sync Architecture (`Supabase`)
@@ -132,6 +137,7 @@ Both `thai-quran-web` and `thai-quran-app` connect to Supabase project `atouiczn
 | **Hifz Progress & Logs** | `hifz_progress`, `hifz_history` | `src/lib/hifz/hifzRepository.ts` | `HifzRepository` | `new_verses_completed = local \|\| remote`, `review_count = max(local, remote)`, history deletion tombstones (`hifz_deleted_history_ids`), synced on login & app resume. |
 | **User Settings** | `user_settings` | `src/lib/supabase/userSettings.ts` | `SettingsProvider` | LWW comparing local `settings_updated_at` vs remote `updated_at` (includes fonts, dark mode, translation slots, WBW toggle/lang, footnotes, Tajweed colors, reciter ID). |
 | **Account Deletion** | RPC `public.delete_own_account()` | `src/context/AppContext.tsx` (`/profile`) | `SupabaseProvider.deleteAccount()` (`SettingsScreen`) | `SECURITY DEFINER` RPC deletes all user rows across every table (including public/anonymous Tadabbur notes) + `auth.users` record, followed by local storage/SQLite wipe. |
+| **App Version Control** | `app_version_config` | *(Admin / Supabase Table Editor)* | `AppUpdateService` (`HomeScreen`, `SettingsScreen`) | Public read (`is_active = true`) for `anon`/`authenticated`; compares `PackageInfo` semver & build number against `min_*` and `latest_*` with 24h soft-update dismissal cooldown. |
 
 ---
 
@@ -180,3 +186,4 @@ Whenever a scholarly correction or typo fix is made to Quranic text, Thai transl
 | `2026-11-14` | Antigravity AI (Flash) | App (`thai-quran-app`) | Removed duplicate legacy Mushaf floating translation card (`_TranslationPanel`) in `lib/screens/mushaf_reader_screen.dart` so long-pressing a verse exclusively opens the modern `_MushafVerseDetailSheet` meaning & tafsir modal. |
 | `2026-11-14` | Antigravity AI (Flash) | Web (`thai-quran-web`) | Removed mobile-app-only settings from `src/app/settings/page.tsx`: "Keep Screen Awake / เปิดหน้าจอตลอดขณะอ่าน" (`keepAwake`) and "Offline Content / เนื้อหาออฟไลน์" (`showOfflineModal`). |
 | `2026-11-14` | Antigravity AI (Flash) | App (`thai-quran-app`) | Removed web-only / dead settings and dead code: removed `webHostUrl` / `web_host_url`, `meaningDisplayMode` from `SettingsProvider` and `localization.dart`, and removed duplicate ~340-line `_AuthBottomSheetContent` widget in `lib/screens/settings_screen.dart` delegating directly to canonical `AuthBottomSheet`. |
+| `2026-11-16` | Antigravity AI | App + Supabase | Added Supabase-driven In-App Update & Force Update system (`public.app_version_config`, `AppUpdateService`, `AppUpdateDialog`, Settings manual check + dynamic `PackageInfo` display), bumped app to `1.0.2+5`. |

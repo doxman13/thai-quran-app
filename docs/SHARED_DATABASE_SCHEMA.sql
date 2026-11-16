@@ -363,6 +363,7 @@ end $$;
 -- - translations: public read, admin-only write.
 -- - verse_tafsir/surah_summaries: public read, admin-only write.
 -- - thai_protected_terms: public read for active terms, admin-only write.
+-- - app_version_config: public read for active rows (anon/authenticated), super-user-only write.
 -- - reading_profiles/bookmarks/recent_readings/user_* tables:
 --   users can read/write only rows where user_id = auth.uid().
 -- - mushaf_profiles/mushaf_* tables:
@@ -372,3 +373,27 @@ end $$;
 -- - tadabbur_notes: users can read public active notes and their own notes;
 --   users can write only their own notes.
 -- - reactions/reports: authenticated users can create their own rows.
+
+-- Mobile In-App Update Configuration (Supabase Remote Version Control)
+create table if not exists public.app_version_config (
+  id text primary key, -- 'android' | 'ios'
+  platform text not null check (platform in ('android', 'ios')),
+  min_version text not null default '1.0.0',
+  min_build_number integer not null default 1,
+  latest_version text not null default '1.0.2',
+  latest_build_number integer not null default 5,
+  is_force_update boolean not null default false,
+  update_url text not null,
+  title_th text not null default 'มีเวอร์ชันใหม่พร้อมใช้งาน',
+  title_en text not null default 'Update Available',
+  message_th text not null default 'กรุณาอัปเดตแอปพลิเคชัน Thai Quran เป็นเวอร์ชันล่าสุดเพื่อฟีเจอร์ใหม่และการทำงานที่สมบูรณ์',
+  message_en text not null default 'Please update Thai Quran to the latest version for new features and improvements.',
+  release_notes_th text,
+  release_notes_en text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_version_config enable row level security;
+grant select on table public.app_version_config to anon, authenticated;
