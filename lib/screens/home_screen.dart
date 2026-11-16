@@ -4480,7 +4480,9 @@ class _ReaderHubSheetState extends State<_ReaderHubSheet> {
                                   return DropdownMenuItem<int>(
                                     value: a,
                                     child: Text(
-                                      '${isThai ? "อายะฮฺที่" : "Ayah"} $a (จาก $totalVerses)',
+                                      isThai
+                                          ? 'อายะฮฺที่ $a (จาก $totalVerses)'
+                                          : 'Ayah $a of $totalVerses',
                                       style: GoogleFonts.notoSansThai(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
