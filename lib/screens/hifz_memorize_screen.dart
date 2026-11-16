@@ -738,6 +738,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   void _toggleVoiceRecitationMic(RecitationTrackerProvider tracker) async {
     if (tracker.isListening) {
       await tracker.stopTracking();
+      _hintedVerse = null;
       _updateWakelockState();
       if (mounted) setState(() {});
       return;
@@ -2564,9 +2565,14 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       required String tooltip,
       required VoidCallback onPressed,
       bool active = false,
+      bool compact = false,
+      Color? accentColor,
+      Color? tintColor,
+      Color? foregroundColor,
     }) {
-      final foreground =
-          active ? colorScheme.primary : colorScheme.onSurfaceVariant;
+      final resolvedAccent = accentColor ?? colorScheme.primary;
+      final foreground = foregroundColor ??
+          (active ? resolvedAccent : colorScheme.onSurfaceVariant);
       return Expanded(
         child: Tooltip(
           message: tooltip,
@@ -2577,15 +2583,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               child: Container(
                 height: 34,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 8),
                 decoration: BoxDecoration(
                   color: active
-                      ? colorScheme.primary.withValues(alpha: 0.10)
+                      ? (tintColor ?? resolvedAccent.withValues(alpha: 0.10))
                       : colorScheme.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   border: Border.all(
                     color: active
-                        ? colorScheme.primary.withValues(alpha: 0.35)
+                        ? resolvedAccent.withValues(alpha: 0.45)
                         : colorScheme.outlineVariant.withValues(alpha: 0.35),
                   ),
                 ),
@@ -2593,7 +2599,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     icon,
-                    const SizedBox(width: 5),
+                    SizedBox(width: compact ? 4 : 5),
                     Flexible(
                       child: Text(
                         label,
@@ -2874,86 +2880,142 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         ],
           ),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              railButton(
-                icon: Icon(
-                  _isMushafView
-                      ? Icons.view_list_rounded
-                      : Icons.menu_book_rounded,
-                  size: 16,
-                  color: colorScheme.primary,
-                ),
-                label: isThai
-                    ? (_isMushafView ? 'รายการ' : 'มุศหัฟ')
-                    : (_isMushafView ? 'List' : 'Mushaf'),
-                tooltip: isThai
-                    ? (_isMushafView
-                        ? 'สลับเป็นมุมมองรายการ'
-                        : 'สลับเป็นมุมมองมุศหัฟ')
-                    : (_isMushafView
-                        ? 'Switch to List View'
-                        : 'Switch to Mushaf View'),
-                onPressed: _toggleMushafListView,
-              ),
-              if (!provider.isSessionCompleted &&
-                  provider.isCurrentStepDefaultHidden) ...[
-                const SizedBox(width: 8),
-                railButton(
-                  icon: Icon(
-                    provider.isTargetHidden
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
-                    size: 16,
-                    color: provider.isVisibilityOverridden
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
+          Consumer<RecitationTrackerProvider>(
+            builder: (context, tracker, _) {
+              final showVoiceHintOrSkip =
+                  tracker.isListening && provider.isVoiceTrackingEligible;
+              final isCurrentHinted =
+                  _hintedVerse == tracker.currentExpectedAyah;
+              final gapWidth = showVoiceHintOrSkip ? 6.0 : 8.0;
+              return Row(
+                children: [
+                  railButton(
+                    icon: Icon(
+                      _isMushafView
+                          ? Icons.view_list_rounded
+                          : Icons.menu_book_rounded,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    label: isThai
+                        ? (_isMushafView ? 'รายการ' : 'มุศหัฟ')
+                        : (_isMushafView ? 'List' : 'Mushaf'),
+                    tooltip: isThai
+                        ? (_isMushafView
+                            ? 'สลับเป็นมุมมองรายการ'
+                            : 'สลับเป็นมุมมองมุศหัฟ')
+                        : (_isMushafView
+                            ? 'Switch to List View'
+                            : 'Switch to Mushaf View'),
+                    compact: showVoiceHintOrSkip,
+                    onPressed: _toggleMushafListView,
                   ),
-                  label: provider.isTargetHidden
-                      ? (isThai ? 'แสดง' : 'Show')
-                      : (isThai ? 'ซ่อน' : 'Hide'),
-                  tooltip: isThai
-                      ? (provider.isTargetHidden ? 'แสดงอายะฮฺ' : 'ซ่อนอายะฮฺ')
-                      : (provider.isTargetHidden ? 'Show Verse' : 'Hide Verse'),
-                  active: provider.isVisibilityOverridden,
-                  onPressed: () => provider.toggleVisibilityOverride(),
-                ),
-              ],
-              const SizedBox(width: 8),
-              Consumer<MushafAudioProvider>(
-                builder: (context, audio, _) {
-                  return railButton(
-                    icon: audio.isLoading
-                        ? SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: colorScheme.primary,
-                            ),
-                          )
-                        : Icon(
-                            audio.isPlaying
-                                ? Icons.pause_circle_filled_rounded
-                                : Icons.volume_up_rounded,
-                            size: 16,
-                          ),
-                    label: isThai ? 'เสียง' : 'Audio',
-                    tooltip: audio.isLoading
-                        ? 'Loading audio...'
-                        : (isThai ? 'เสียงอ่าน' : 'Audio Recitation'),
-                    active: audio.isPlaying,
-                    onPressed: () {
-                      if (isReview) {
-                        _showReviewAudioOptionsDialog(context, provider);
-                      } else {
-                        _showNewVersesAudioOptionsDialog(context, provider);
-                      }
+                  if (!provider.isSessionCompleted &&
+                      provider.isCurrentStepDefaultHidden) ...[
+                    SizedBox(width: gapWidth),
+                    railButton(
+                      icon: Icon(
+                        provider.isTargetHidden
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                        size: 16,
+                        color: provider.isVisibilityOverridden
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                      label: provider.isTargetHidden
+                          ? (isThai ? 'แสดง' : 'Show')
+                          : (isThai ? 'ซ่อน' : 'Hide'),
+                      tooltip: isThai
+                          ? (provider.isTargetHidden ? 'แสดงอายะฮฺ' : 'ซ่อนอายะฮฺ')
+                          : (provider.isTargetHidden
+                              ? 'Show Verse'
+                              : 'Hide Verse'),
+                      active: provider.isVisibilityOverridden,
+                      compact: showVoiceHintOrSkip,
+                      onPressed: () => provider.toggleVisibilityOverride(),
+                    ),
+                  ],
+                  SizedBox(width: gapWidth),
+                  Consumer<MushafAudioProvider>(
+                    builder: (context, audio, _) {
+                      return railButton(
+                        icon: audio.isLoading
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.primary,
+                                ),
+                              )
+                            : Icon(
+                                audio.isPlaying
+                                    ? Icons.pause_circle_filled_rounded
+                                    : Icons.volume_up_rounded,
+                                size: 16,
+                              ),
+                        label: isThai ? 'เสียง' : 'Audio',
+                        tooltip: audio.isLoading
+                            ? 'Loading audio...'
+                            : (isThai ? 'เสียงอ่าน' : 'Audio Recitation'),
+                        active: audio.isPlaying,
+                        compact: showVoiceHintOrSkip,
+                        onPressed: () {
+                          if (isReview) {
+                            _showReviewAudioOptionsDialog(context, provider);
+                          } else {
+                            _showNewVersesAudioOptionsDialog(context, provider);
+                          }
+                        },
+                      );
                     },
-                  );
-                },
-              ),
-            ],
+                  ),
+                  if (showVoiceHintOrSkip) ...[
+                    SizedBox(width: gapWidth),
+                    railButton(
+                      icon: Icon(
+                        isCurrentHinted
+                            ? Icons.arrow_forward_rounded
+                            : Icons.lightbulb_outline_rounded,
+                        size: 16,
+                        color: isCurrentHinted
+                            ? colorScheme.onError
+                            : colorScheme.onPrimary,
+                      ),
+                      label: isCurrentHinted
+                          ? (isThai ? 'ข้าม' : 'Skip')
+                          : (isThai ? 'ใบ้คำ' : 'Hint'),
+                      tooltip: isCurrentHinted
+                          ? (isThai
+                              ? 'ข้ามอายะฮฺที่ ${tracker.currentExpectedAyah}'
+                              : 'Skip Ayah ${tracker.currentExpectedAyah}')
+                          : (isThai
+                              ? 'ใบ้คำแรกของอายะฮฺที่ ${tracker.currentExpectedAyah}'
+                              : 'Hint first word of Ayah ${tracker.currentExpectedAyah}'),
+                      active: true,
+                      compact: true,
+                      accentColor: isCurrentHinted
+                          ? colorScheme.error
+                          : colorScheme.primary,
+                      tintColor: isCurrentHinted
+                          ? colorScheme.error
+                          : colorScheme.primary,
+                      foregroundColor: isCurrentHinted
+                          ? colorScheme.onError
+                          : colorScheme.onPrimary,
+                      onPressed: () {
+                        if (isCurrentHinted) {
+                          _handleSkipCurrentVerse(tracker);
+                        } else {
+                          _handleHintCurrentVerse(tracker);
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),
