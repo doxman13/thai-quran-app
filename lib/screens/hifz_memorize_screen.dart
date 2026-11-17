@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -673,11 +674,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final inputMode = settings.hifzInputMode;
 
-    // 1. Sync input mode to native channel (hardware key interception)
+    // 1. Sync input mode to native channel (hardware key interception on Android only)
     final isShutter = inputMode == HifzInputMode.bluetoothShutter;
-    _channel.invokeMethod('setInputMode', {
-      'mode': isShutter ? 'bluetoothShutter' : 'none',
-    });
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _channel.invokeMethod<void>('setInputMode', {
+        'mode': isShutter ? 'bluetoothShutter' : 'none',
+      }).catchError((Object _) {});
+    }
 
     // 2. Configure method call handler for hardware/volume keys
     if (isShutter) {
@@ -745,6 +748,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
 
     if (!_hifzProvider.isVoiceTrackingEligible) {
+      return;
+    }
+
+    if (tracker.isStartingMic) {
       return;
     }
 
@@ -1047,7 +1054,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       _isBleListenerAttached = false;
     }
     // Always disable volume/hardware key interception when leaving Hifz session
-    _channel.invokeMethod('setInputMode', {'mode': 'none'});
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _channel
+          .invokeMethod<void>('setInputMode', {'mode': 'none'})
+          .catchError((Object _) {});
+    }
     _channel.setMethodCallHandler(null);
 
     _listScrollController.dispose();
@@ -4325,7 +4336,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         Provider.of<SettingsProvider>(context, listen: false).languageCode ==
             'th';
     final isListening = tracker.isListening;
-    final isInitializing = tracker.isInitializing;
+    final isInitializing = tracker.isInitializing || tracker.isStartingMic;
     final accent = isListening
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
@@ -4558,7 +4569,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           animation: Listenable.merge([tracker, _hifzProvider]),
           builder: (context, _) {
             final listening = tracker.isListening;
-            final initializing = tracker.isInitializing;
+            final initializing =
+                tracker.isInitializing || tracker.isStartingMic;
             final expected = tracker.currentExpectedAyah;
             final sensitivity = tracker.sensitivity;
             final sensitivityLabel = switch (sensitivity) {

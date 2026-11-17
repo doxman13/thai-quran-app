@@ -19,6 +19,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   String? _lastRecognizedText;
   String? _errorMessage;
   bool _isInitializing = false;
+  bool _isStartingMic = false;
   bool _isVoiceTrackingEnabled = true;
   RecitationSensitivity _sensitivity = RecitationSensitivity.balanced;
   bool _adaptiveNoise = true;
@@ -44,6 +45,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
   bool get isEngineReady => _engine.isInitialized;
   bool get isListening => _engine.isListening;
   bool get isInitializing => _isInitializing;
+  bool get isStartingMic => _isStartingMic;
   bool get isVoiceTrackingEnabled => _isVoiceTrackingEnabled;
   RecitationSensitivity get sensitivity => _sensitivity;
   bool get adaptiveNoise => _adaptiveNoise;
@@ -131,6 +133,10 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
     _errorMessage = null;
     _dismissAutoClearNotice();
 
+    if (_isStartingMic) return;
+    _isStartingMic = true;
+    notifyListeners();
+
     try {
       if (!_engine.isInitialized) {
         _isInitializing = true;
@@ -151,6 +157,7 @@ class RecitationTrackerProvider extends ChangeNotifier with WidgetsBindingObserv
       rethrow;
     } finally {
       _isInitializing = false;
+      _isStartingMic = false;
       notifyListeners();
     }
   }

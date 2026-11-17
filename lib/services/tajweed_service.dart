@@ -1,22 +1,40 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
 import '../models/mushaf_models.dart';
+
+Map<String, dynamic> _decodeTajweedJson(String raw) {
+  return jsonDecode(raw) as Map<String, dynamic>;
+}
 
 class TajweedService {
   static final Map<int, Map<String, dynamic>> _dataByMushaf = {};
-  
+  static final Map<int, Future<void>> _loadingByMushaf = {};
+
   static Future<void> load({int mushafId = 11}) async {
     if (_dataByMushaf.containsKey(mushafId)) return;
-    try {
-      final assetPath = mushafId == 21
-          ? 'assets/Tajweed/qul-hafs-tajweed.json'
-          : 'assets/Tajweed/qpc-hafs-tajweed.json';
-      final jsonString = await rootBundle.loadString(assetPath);
-      _dataByMushaf[mushafId] = jsonDecode(jsonString);
-    } catch (e) {
-      debugPrint("Error loading Tajweed JSON for mushaf $mushafId: $e");
+    final inFlight = _loadingByMushaf[mushafId];
+    if (inFlight != null) {
+      await inFlight;
+      return;
     }
+
+    final future = () async {
+      try {
+        final assetPath = mushafId == 21
+            ? 'assets/Tajweed/qul-hafs-tajweed.json'
+            : 'assets/Tajweed/qpc-hafs-tajweed.json';
+        final jsonString = await rootBundle.loadString(assetPath);
+        _dataByMushaf[mushafId] = await compute(_decodeTajweedJson, jsonString);
+      } catch (e) {
+        debugPrint("Error loading Tajweed JSON for mushaf $mushafId: $e");
+      } finally {
+        _loadingByMushaf.remove(mushafId);
+      }
+    }();
+
+    _loadingByMushaf[mushafId] = future;
+    await future;
   }
 
   static String? getVerse(int surah, int ayah, {int mushafId = 11}) {

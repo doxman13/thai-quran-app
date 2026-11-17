@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../data/medina_mushaf_pages.dart';
 import '../data/offline_surah_names.dart';
 import '../data/quran_repository.dart';
+import '../providers/mushaf_audio_provider.dart';
 import '../providers/settings_provider.dart';
 import '../screens/reading_screen.dart';
 import '../services/ctc_matcher.dart';
@@ -54,6 +55,8 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
   bool _isListening = false;
   bool _isStartingMic = false;
   bool _isProcessing = false;
+  bool _fetchingDetails = false;
+  bool _noMatchDetected = false;
   double _audioLevel = 0.0;
   String _recognizedText = '';
   String? _errorMessage;
@@ -83,26 +86,57 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
   @override
   void dispose() {
     _pulseController.dispose();
-    _engine.stopListening();
+    unawaited(_engine.stopListening());
     super.dispose();
+  }
+
+  String _formatSearchError(Object err, bool isThai) {
+    final msg = err.toString().replaceFirst('Exception: ', '').trim();
+    if (msg.contains('Microphone permission not granted')) {
+      return isThai
+          ? 'ยังไม่ได้รับอนุญาตใช้ไมโครโฟน กรุณาเปิดสิทธิ์ไมโครโฟนในการตั้งค่า'
+          : 'Microphone permission is required. Please enable microphone access in Settings.';
+    }
+    return msg;
   }
 
   Future<void> _startVoiceSearch() async {
     if (!mounted) return;
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
     setState(() {
       _isStartingMic = true;
       _isListening = false;
       _isProcessing = false;
+      _fetchingDetails = false;
+      _noMatchDetected = false;
       _errorMessage = null;
       _audioLevel = 0.0;
+      _recognizedText = '';
+      _searchResults = [];
     });
 
     try {
+      try {
+        final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+        if (audio.isPlaying) {
+          await audio.togglePlayPause();
+        }
+      } catch (_) {}
+
       await _engine.startVoiceSearch(
         onAudioLevel: (level) {
           if (mounted) {
             setState(() => _audioLevel = level);
           }
+        },
+        onNoMatch: (text) {
+          if (!mounted) return;
+          setState(() {
+            _noMatchDetected = true;
+            if (text.isNotEmpty) {
+              _recognizedText = text;
+            }
+          });
         },
         onResults: (results, text) async {
           if (!mounted) return;
@@ -112,38 +146,49 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
             return;
           }
 
-          // Stop listening once we receive a valid match so background noise
-          // never resets or refreshes the results until the user taps the mic again.
-          if (results.isNotEmpty) {
+          if (results.isEmpty) {
+            setState(() {
+              _noMatchDetected = false;
+              _recognizedText = text;
+              _searchResults = const [];
+            });
+            return;
+          }
+
+          // Ensure mic stops once a match is found.
+          if (_engine.isListening) {
             await _engine.stopListening();
           }
 
           if (!mounted) return;
           setState(() {
-            if (results.isNotEmpty) {
-              _isListening = false;
-              _audioLevel = 0.0;
-            }
+            _isListening = false;
+            _audioLevel = 0.0;
+            _noMatchDetected = false;
             _isProcessing = true;
+            _fetchingDetails = true;
             _recognizedText = text;
             _searchResults = results;
           });
 
-          // Fetch full verse details (Uthmani text and translations) from local DB
-          for (final r in results) {
-            final key = '${r.surah}:${r.ayah}';
-            if (!_verseDetailsCache.containsKey(key)) {
-              final data = await OfflineQuranDatabaseService.getVerse(key);
-              if (data != null && mounted) {
-                _verseDetailsCache[key] = data;
+          try {
+            // Fetch full verse details (Uthmani text and translations) from local DB
+            for (final r in results) {
+              final key = '${r.surah}:${r.ayah}';
+              if (!_verseDetailsCache.containsKey(key)) {
+                final data = await OfflineQuranDatabaseService.getVerse(key);
+                if (data != null && mounted) {
+                  _verseDetailsCache[key] = data;
+                }
               }
             }
-          }
-
-          if (mounted) {
-            setState(() {
-              _isProcessing = false;
-            });
+          } finally {
+            if (mounted) {
+              setState(() {
+                _fetchingDetails = false;
+                _isProcessing = false;
+              });
+            }
           }
         },
         onError: (err) {
@@ -152,7 +197,8 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
               _isStartingMic = false;
               _isListening = false;
               _isProcessing = false;
-              _errorMessage = err;
+              _fetchingDetails = false;
+              _errorMessage = _formatSearchError(err, isThai);
             });
           }
         },
@@ -169,19 +215,29 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
           _isStartingMic = false;
           _isListening = false;
           _isProcessing = false;
-          _errorMessage = e.toString();
+          _fetchingDetails = false;
+          _errorMessage = _formatSearchError(e, isThai);
         });
       }
     }
   }
 
   Future<void> _stopVoiceSearch() async {
-    await _engine.stopListening();
-    if (mounted) {
-      setState(() {
-        _isStartingMic = false;
-        _isListening = false;
-      });
+    if (!mounted) return;
+    setState(() {
+      _isStartingMic = false;
+      _isListening = false;
+      _isProcessing = true;
+      _audioLevel = 0.0;
+    });
+    try {
+      await _engine.finishVoiceSearch();
+    } finally {
+      if (mounted && !_fetchingDetails) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -303,7 +359,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                   },
                 ),
               )
-            else if (!_isListening && _recognizedText.isNotEmpty)
+            else if (!_isListening && !_isProcessing && _recognizedText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
@@ -312,6 +368,20 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                         ? 'ไม่พบอายะฮฺที่ตรงกัน ลองอ่านใหม่อีกครั้ง'
                         : 'No matching verse found. Please try reciting again.',
                     style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              )
+            else if (_isListening && _noMatchDetected && _searchResults.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Center(
+                  child: Text(
+                    isThai
+                        ? 'ไม่พบอายะฮฺที่ตรงกัน ลองอ่านอีกครั้งให้ชัดขึ้น'
+                        : 'No verse matched yet — try reciting again',
+                    style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -333,7 +403,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
         children: [
           GestureDetector(
             onTap: () {
-              if (_isStartingMic) return;
+              if (_isStartingMic || _isProcessing) return;
               if (_isListening) {
                 _stopVoiceSearch();
               } else {
@@ -347,7 +417,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                 height: 72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _isStartingMic
+                  color: (_isStartingMic || _isProcessing)
                       ? colorScheme.surfaceContainerHigh
                       : _isListening
                           ? colorScheme.primary
@@ -360,7 +430,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                       : null,
                 ),
                 child: Center(
-                  child: _isStartingMic
+                  child: (_isStartingMic || _isProcessing)
                       ? SizedBox(
                           width: 28,
                           height: 28,
@@ -370,7 +440,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
                           ),
                         )
                       : Icon(
-                          _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                          _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
                           color: _isListening ? colorScheme.onPrimary : colorScheme.onSurface,
                           size: 32,
                         ),
@@ -400,12 +470,23 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
               ),
               textAlign: TextAlign.center,
             ),
+          ] else if (_isProcessing) ...[
+            Text(
+              isThai
+                  ? 'กำลังค้นหาอายะฮฺที่ตรงกัน...'
+                  : 'Searching for matching verses...',
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ] else ...[
             Text(
               _isListening
                   ? (isThai
-                      ? 'กำลังฟัง... อ่านอายะฮฺภาษาอาหรับใดก็ได้'
-                      : 'Listening... Recite any Arabic verse or phrase')
+                      ? 'กำลังฟัง... หยุดพูดสักครู่ หรือแตะปุ่มเพื่อค้นหา'
+                      : 'Listening... Pause briefly or tap button to search')
                   : (isThai ? 'แตะไมโครโฟนเพื่อเริ่มอ่าน' : 'Tap microphone to recite'),
               style: textTheme.bodyMedium?.copyWith(
                 color: _isListening
@@ -415,6 +496,31 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet>
               ),
               textAlign: TextAlign.center,
             ),
+            if (_isListening && _recognizedText.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: _stopVoiceSearch,
+                icon: const Icon(Icons.search_rounded, size: 16),
+                label: Text(
+                  isThai ? 'ค้นหาอายะฮฺนี้' : 'Search Now',
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),
