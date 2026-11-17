@@ -582,7 +582,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'ชุมชนตดับบุร',
+                          'ชุมชนตะดับบุร',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -771,7 +771,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
             ),
           ),
           const SizedBox(width: 4),
-          // Tab 2: ชุมชนตดับบุร (Active)
+          // Tab 2: ชุมชนตะดับบุร (Active)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
@@ -785,7 +785,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 Icon(Icons.public, size: 14, color: colors.primary),
                 const SizedBox(width: 6),
                 Text(
-                  'ชุมชนตดับบุร (${_feed.length})',
+                  'ชุมชนตะดับบุร (${_feed.length})',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -901,7 +901,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ร่วมแบ่งปันข้อคิดใคร่ครวญ (ตดับบุร)',
+                'ร่วมแบ่งปันข้อคิดใคร่ครวญ (ตะดับบุร)',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,

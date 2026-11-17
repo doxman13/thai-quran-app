@@ -17,7 +17,7 @@
   - Added `1px solid borderSoft` borders to `CardThemeData` and `InputDecorationTheme`.
   - Added canonical `TajweedPalette.getColor(className, isDark:)` matching Web's 6-hue editorial palette (`src/lib/tajweedService.ts`).
 - **Tajweed Text & Guide**: Unified all renderers to use `TajweedPalette.getColor(...)`.
-- **Thai Terminology**: Cleaned up `มุศหัฟ`, `ซูเราะฮฺ`, `อายะฮฺ`, `ญุซอ์`, `ตดับบุร`, and eliminated all `FontWeight.w800`/`w900` on Thai text.
+- **Thai Terminology**: Cleaned up `มุศหัฟ`, `ซูเราะฮฺ`, `อายะฮฺ`, `ญุซอ์`, `ตะดับบุร`, and eliminated all `FontWeight.w800`/`w900` on Thai text.
 - **Verification**: `flutter analyze lib/theme/app_theme.dart` -> 0 errors, 0 warnings.
 
 ---
@@ -115,7 +115,7 @@
 
 ### Workstream 9 (`lib/screens/bookmarks_screen.dart`, `tadabbur_private_screen.dart`, `tadabbur_community_screen.dart`, `profile_screen.dart`)
 - `bookmarks_screen.dart`: Item count badges on tabs, Mode Filter Chips, instant search bar, remove 6-item cap, render `nameAr` + translation snippet, 6 Favorite Surah Shortcuts grid.
-- `tadabbur_private_screen.dart` & `tadabbur_community_screen.dart`: Unified Sub-Module Switcher (`🔒 บันทึกส่วนตัว` ↔ `🌍 ชุมชนตดับบุร`), Polite Guest Auth Card with local notes from `NotesProvider`, Full Quran Verse Quote Box.
+- `tadabbur_private_screen.dart` & `tadabbur_community_screen.dart`: Unified Sub-Module Switcher (`🔒 บันทึกส่วนตัว` ↔ `🌍 ชุมชนตะดับบุร`), Polite Guest Auth Card with local notes from `NotesProvider`, Full Quran Verse Quote Box.
 - `profile_screen.dart`: Purge legacy color checks, add Resume Reading Banner, inline Recent Reading list, My Reflections breakdown.
 
 ---

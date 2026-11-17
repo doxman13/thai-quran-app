@@ -119,7 +119,7 @@ class _TadabburAdminScreenState extends State<TadabburAdminScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-          'ไม่อนุมัติบันทึกตดับบุร',
+          'ไม่อนุมัติบันทึกตะดับบุร',
           style: GoogleFonts.notoSansThai(fontWeight: FontWeight.bold),
         ),
         content: Column(
@@ -237,7 +237,7 @@ class _TadabburAdminScreenState extends State<TadabburAdminScreen> {
       backgroundColor: const Color(0xFFFBF9F5),
       appBar: AppBar(
         title: Text(
-          'ตรวจสอบตดับบุร (Admin)',
+          'ตรวจสอบตะดับบุร (Admin)',
           style: GoogleFonts.notoSansThai(
             fontWeight: FontWeight.bold,
             fontSize: 16,

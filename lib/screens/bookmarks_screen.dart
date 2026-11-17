@@ -1213,7 +1213,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       children: [
                         Text(
                           isThai
-                              ? 'แบ่งปันตดับบุรในชุมชน'
+                              ? 'แบ่งปันตะดับบุรในชุมชน'
                               : 'Share Tadabbur in Community',
                           style: GoogleFonts.notoSansThai(
                             color: const Color(0xFF0E5A4A),
@@ -1354,7 +1354,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                               ),
                               subtitle: Text(
                                 isThai
-                                    ? 'ให้ผู้อื่นอ่านบทเรียนตดับบุรของคุณ'
+                                    ? 'ให้ผู้อื่นอ่านบทเรียนตะดับบุรของคุณ'
                                     : 'Allow others to read your reflection',
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 11,
@@ -1728,7 +1728,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       icon: Icons.edit_note_rounded,
                       title: isThai ? 'ยังไม่มีบันทึกส่วนตัว' : 'No Personal Notes Yet',
                       description: isThai
-                          ? 'คุณสามารถเพิ่มบันทึกตดับบุรในอายะฮฺต่าง ๆ ขณะอ่านอัลกุรอานเพื่อทบทวนบทเรียนชีวิต'
+                          ? 'คุณสามารถเพิ่มบันทึกตะดับบุรในอายะฮฺต่าง ๆ ขณะอ่านอัลกุรอานเพื่อทบทวนบทเรียนชีวิต'
                           : 'You can reflect and save personal notes on any verse while reading.',
                       isThai: isThai,
                       colorScheme: colorScheme,

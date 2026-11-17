@@ -14,7 +14,7 @@ When generating or modifying Thai UI strings, navigation, labels, tooltips, or i
 - `มะดะนียะฮฺ` (not มะดะนีย์ / มะดะนียะฮ์)
 - `บิสมิลลาฮฺ` (not บิสมิลลาห์ / บิสมิลลาฮ์)
 - `มุศหัฟ` (not มุสฮัฟ / มุศฮัฟ / มุสฮะฟ)
-- `ตดับบุร` (not ตะดับบุร)
+- `ตะดับบุร` (not ตดับบุร)
 
 # Anti-AI Editorial Manuscript Design System & Theme Standards (STRICT MANDATORY)
 Whenever creating, modifying, redesigning, or refining UI components, screens, or styling, you **MUST ALWAYS** strictly follow the Anti-AI Editorial Manuscript design system aligned 1:1 with `thai-quran-web/docs/DESIGN_STANDARDS.md`:

@@ -3324,7 +3324,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                isThai ? 'บันทึกตดับบุรจากชุมชน' : 'Tadabbur Community',
+                isThai ? 'บันทึกตะดับบุรจากชุมชน' : 'Tadabbur Community',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
@@ -3770,7 +3770,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Full Tadabbur note
                       Text(
-                        isThai ? 'บันทึกใคร่ครวญ (ตดับบุร)' : 'Tadabbur Reflection',
+                        isThai ? 'บันทึกใคร่ครวญ (ตะดับบุร)' : 'Tadabbur Reflection',
                         style: GoogleFonts.notoSansThai(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

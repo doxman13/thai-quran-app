@@ -3005,7 +3005,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 ListTile(
                   leading: Icon(Icons.forum_outlined, color: colors.primary),
                   title: Text(
-                    isThaiLang ? 'บันทึกตดับบุรจากชุมชน' : 'Community Reflections',
+                    isThaiLang ? 'บันทึกตะดับบุรจากชุมชน' : 'Community Reflections',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,

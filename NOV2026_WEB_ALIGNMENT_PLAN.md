@@ -127,7 +127,7 @@ flowchart TD
      - `ซูเราะฮ์` / `สูเราะฮ์` → **`ซูเราะฮฺ`**
      - `อายะฮ์` / `อายะห์` / `โองการ` → **`อายะฮฺ`**
      - `ยุซ` → **`ญุซอ์`**
-     - `ตะดับบุร` → **`ตดับบุร`**
+     - `ตดับบุร` → **`ตะดับบุร`**
 
 ---
 
@@ -166,7 +166,7 @@ flowchart TD
    - Use crisp `12px` radius and `1px solid borderSoft`.
    - Show Surah number badge (`#0E5A4A` with amber text), Ayah badge (`#F6EFE3` with `#8A6530` text), Uthmani Arabic (`28px`), full Thai translation, and an **always-visible Short Tafsir (`ตัฟซีรอัลมุคตะศ็อร`)** box on `#FAF8F4` (`surfaceMuted`) with `มุคตะศ็อร` badge (do not truncate to 2 lines by default).
 6. **Upgrade Community Tadabbur Preview (`_buildCommunityReflectionsSection` at lines `2636-2824`)**:
-   - Fix header spelling to `บันทึกตดับบุรจากชุมชน`.
+   - Fix header spelling to `บันทึกตะดับบุรจากชุมชน`.
    - Fetch 3 notes (or pool of recent notes) and add the **`สลับข้อคิดอื่น` (Shuffle)** button (`GuestLandingPage.tsx:690-699`).
    - Display the **Author name (`โดย {authorName}`)** on each reflection card alongside likes and Surah:Ayah pill.
 
@@ -319,7 +319,7 @@ flowchart TD
    - Replace bluish-slate dark background `Color(0xFF141820)` (line 1528) with Web's neutral dark canvas `#121212` and elevated neutral dark paper sheet `#1E1E1E` (Light mode: `#FBF9F5` canvas, `#FFFDF9` paper sheet with `#E8DFC8` border and `16px` outer radius).
    - Add inner page curvature gradient shadow along the spine edge and support **2-Page Book Spread (`คู่`) with a central physical spine/gutter** on tablet/landscape viewports (`width >= 880px`), while locking mobile screens (`< 768px`) to single-page view.
 2. **Single-Tap Verse Selection & Full Verse Detail Context Sheet (`page.tsx:1126-1129, 2031-2135, 2793-2944`)**:
-   - Change `_onVerseTap` (lines 913–916) so **single-tapping a verse** selects and highlights all words of that verse across lines (`#0E5A4A` `12%` fill + underline) and shows the **Floating Action Pill (`▶ ฟัง` | `บุ๊กมาร์ก` | `••• คำแปล & ตดับบุร`)** (tapping empty margin/header toggles chrome).
+   - Change `_onVerseTap` (lines 913–916) so **single-tapping a verse** selects and highlights all words of that verse across lines (`#0E5A4A` `12%` fill + underline) and shows the **Floating Action Pill (`▶ ฟัง` | `บุ๊กมาร์ก` | `••• คำแปล & ตะดับบุร`)** (tapping empty margin/header toggles chrome).
    - Upgrade `_TranslationPanel` / `•••` into Web's full **Verse Detail Context Sheet** containing:
      - Sanitized Uthmani Arabic verse script banner + Surah `nameAr` calligraphy header.
      - Full Thai/secondary translations + inline footnote expansion.
@@ -423,7 +423,7 @@ flowchart TD
    - In Favourites tab, add the **6 Favorite Surah Shortcuts Grid** (`#67 Al-Mulk`, `#18 Al-Kahf`, `#36 Ya-Sin`, `#55 Ar-Rahman`, `#56 Al-Waqi'ah`, `#112 Al-Ikhlas` with `nameAr` calligraphy).
    - Replace 1-line empty text with Web's **Warm Dual-CTA Empty State Card**: Primary Deep Emerald button (`อ่านฉบับแปล (อัลฟาติฮะฮฺ)`) and Secondary Classic Gold button (`เปิดมุศหัฟ (หน้า 1)`).
 2. **Overhaul [`lib/screens/tadabbur_private_screen.dart`](file:///Users/admin/Documents/gits/thai-quran-app/lib/screens/tadabbur_private_screen.dart) & [`lib/screens/tadabbur_community_screen.dart`](file:///Users/admin/Documents/gits/thai-quran-app/lib/screens/tadabbur_community_screen.dart)**:
-   - **Unified Sub-Module Switcher**: Add the top segmented switcher (`🔒 บันทึกส่วนตัว (N)` ↔ `🌍 ชุมชนตดับบุร (N)`) + manual `ซิงค์ข้อมูล` button on both screens.
+   - **Unified Sub-Module Switcher**: Add the top segmented switcher (`🔒 บันทึกส่วนตัว (N)` ↔ `🌍 ชุมชนตะดับบุร (N)`) + manual `ซิงค์ข้อมูล` button on both screens.
    - **Fix Guest Experience in Private Tadabbur (`tadabbur_private_screen.dart:41-48, 238-270`)**: When signed out, render a **Polite Guest Auth Card** (`เข้าสู่ระบบ / สมัครสมาชิก` to back up notes to cloud) AND load/display the guest's local notes from `NotesProvider` instead of showing an empty list!
    - **Full Quran Verse Quote Box on Every Reflection Card**: On both Private and Community reflection cards (and Compose preview), render an emerald-bordered quote box containing the **Uthmani Arabic ayah script**, **Thai translation**, and a `"ดูบริบทในหน้าอ่าน"` link.
    - **Surah Directory Filter with Note Count Badges**: Replace the plain 114-Surah dropdown with a searchable Surah filter strip/sheet showing per-Surah note count badges.
@@ -467,5 +467,5 @@ Every agent completing a workstream must verify:
 3. **Anti-AI Design Audit Grep Checks**:
    - Zero occurrences of `FontWeight.w900` or `FontWeight.w800` in `lib/`.
    - Zero occurrences of `Colors.blue`, `Colors.blueGrey`, `Colors.teal`, `Colors.purple`, `Colors.indigo`, `Colors.orange`, `0xFF0E5B59`, `0xFF062C2B`, `0xFF15803D`, `0xFF2196F3`, `0xFF0F172A`, `0xFF1E293B` in `lib/`.
-   - Zero occurrences of `มุสฮัฟ`, `มุศฮัฟ`, `ซูเราะฮ์`, `สูเราะฮ์`, `อายะฮ์`, `อายะห์`, `ตะดับบุร` in `lib/`.
+   - Zero occurrences of `มุสฮัฟ`, `มุศฮัฟ`, `ซูเราะฮ์`, `สูเราะฮ์`, `อายะฮ์`, `อายะห์`, `ตดับบุร` in `lib/`.
    - `AppTheme.radius` is `12.0` and no card uses `BorderRadius.circular(20)` / `24` / `28`.

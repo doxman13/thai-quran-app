@@ -261,7 +261,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'บันทึกตดับบุรส่วนตัว',
+                          'บันทึกตะดับบุรส่วนตัว',
                           style: GoogleFonts.notoSansThai(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -431,7 +431,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             ),
           ),
           const SizedBox(width: 4),
-          // Inactive Tab: ชุมชนตดับบุร
+          // Inactive Tab: ชุมชนตะดับบุร
           InkWell(
             borderRadius: BorderRadius.circular(AppTheme.radius - 4),
             onTap: () {
@@ -452,7 +452,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
                   Icon(Icons.public, size: 14, color: colors.textMuted),
                   const SizedBox(width: 6),
                   Text(
-                    'ชุมชนตดับบุร',
+                    'ชุมชนตะดับบุร',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -642,7 +642,7 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'คุณสามารถกดไอคอนตดับบุร (💭) บนอายะฮฺใดก็ได้ในหน้าอ่าน\nเพื่อจดบันทึกข้อคิดและเก็บรวบรวมไว้ที่นี่',
+              'คุณสามารถกดไอคอนตะดับบุร (💭) บนอายะฮฺใดก็ได้ในหน้าอ่าน\nเพื่อจดบันทึกข้อคิดและเก็บรวบรวมไว้ที่นี่',
               textAlign: TextAlign.center,
               style: GoogleFonts.notoSansThai(
                 fontSize: 13,
