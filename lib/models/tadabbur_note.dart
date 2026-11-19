@@ -15,6 +15,9 @@ class TadabburNote {
   final String? userEmail;
   final bool userLiked;
   final bool synced;
+  final String? source;
+
+  bool get isQuranReflect => source == 'quranreflect' || id.startsWith('qr-');
 
   TadabburNote({
     required this.id,
@@ -31,6 +34,7 @@ class TadabburNote {
     this.userEmail,
     this.userLiked = false,
     this.synced = true,
+    this.source,
   });
 
   factory TadabburNote.fromJson(Map<String, dynamic> json) {
@@ -51,6 +55,7 @@ class TadabburNote {
       userEmail: json['user_email'] as String?,
       userLiked: json['user_liked'] as bool? ?? false,
       synced: json['synced'] as bool? ?? true,
+      source: json['source'] as String?,
     );
   }
 
@@ -85,6 +90,7 @@ class TadabburNote {
     String? userEmail,
     bool? userLiked,
     bool? synced,
+    String? source,
   }) {
     return TadabburNote(
       id: id ?? this.id,
@@ -101,6 +107,7 @@ class TadabburNote {
       userEmail: userEmail ?? this.userEmail,
       userLiked: userLiked ?? this.userLiked,
       synced: synced ?? this.synced,
+      source: source ?? this.source,
     );
   }
 }

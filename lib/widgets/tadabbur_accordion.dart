@@ -28,7 +28,6 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
   final TextEditingController _notesController = TextEditingController();
   
   bool _isPublic = false;
-  bool _isAnonymous = false;
   bool _isSaving = false;
   bool _saveSuccess = false;
 
@@ -48,7 +47,6 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
         setState(() {
           _notesController.text = existingNote.noteText;
           _isPublic = existingNote.isPublic;
-          _isAnonymous = existingNote.isAnonymous;
         });
       }
     });
@@ -59,7 +57,15 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
   Future<void> _fetchCommunityNotes() async {
     setState(() => _isLoadingCommunity = true);
     final repo = TadabburRepository();
-    final notes = await repo.fetchCommunityNotes(widget.surahId, widget.verseId);
+    final results = await Future.wait([
+      repo.fetchCommunityNotes(widget.surahId, widget.verseId),
+      repo.fetchQuranReflectNotes(
+        surahId: widget.surahId,
+        verseId: widget.verseId,
+        limit: 10,
+      ),
+    ]);
+    final notes = [...results[0], ...results[1]];
     if (mounted) {
       setState(() {
         _communityNotes = notes;
@@ -83,7 +89,7 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
       verseId: widget.verseId,
       noteText: _notesController.text,
       isPublic: _isPublic,
-      isAnonymous: _isAnonymous,
+      isAnonymous: true,
     );
 
     if (mounted) {
@@ -168,30 +174,13 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: SwitchListTile(
-                  title: Text('Public Note', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong)),
-                  subtitle: Text('Share with community', style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted)),
-                  value: _isPublic,
-                  onChanged: (val) => setState(() => _isPublic = val),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              if (_isPublic)
-                Expanded(
-                  child: SwitchListTile(
-                    title: Text('Anonymous', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong)),
-                    subtitle: Text('Hide my name', style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted)),
-                    value: _isAnonymous,
-                    onChanged: (val) => setState(() => _isAnonymous = val),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
-                ),
-            ],
+          SwitchListTile(
+            title: Text('Public Note', style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong)),
+            subtitle: Text('Share with community', style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted)),
+            value: _isPublic,
+            onChanged: (val) => setState(() => _isPublic = val),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
           ),
           const SizedBox(height: 8),
           Row(
@@ -243,7 +232,13 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
       separatorBuilder: (_, _) => Divider(color: colors.borderSoft),
       itemBuilder: (context, index) {
         final note = _communityNotes[index];
-        final authorName = note.isAnonymous ? 'Anonymous' : (note.userEmail?.split('@').first ?? 'Someone');
+        final authorName = note.isQuranReflect
+            ? ((note.userEmail ?? '').trim().isNotEmpty
+                ? note.userEmail!.trim()
+                : 'QuranReflect')
+            : (note.isAnonymous
+                ? 'Anonymous'
+                : (note.userEmail?.split('@').first ?? 'Someone'));
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,11 +254,39 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  authorName,
-                  style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          authorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(fontSize: 12, fontWeight: FontWeight.w600, color: colors.textStrong),
+                        ),
+                      ),
+                      if (note.isQuranReflect) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: colors.primaryLight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'QuranReflect',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: colors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
                   timeago.format(note.createdAt),
                   style: GoogleFonts.notoSansThai(fontSize: 10, color: colors.textMuted),
@@ -279,12 +302,14 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
             Row(
               children: [
                 InkWell(
-                  onTap: () {
-                    setState(() {});
-                    notesProv.toggleLikeLocally(note, () {
-                       _fetchCommunityNotes();
-                    });
-                  },
+                  onTap: note.isQuranReflect
+                      ? null
+                      : () {
+                          setState(() {});
+                          notesProv.toggleLikeLocally(note, () {
+                            _fetchCommunityNotes();
+                          });
+                        },
                   child: Row(
                     children: [
                       Icon(

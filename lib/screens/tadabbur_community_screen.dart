@@ -34,14 +34,18 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   final _repo = TadabburRepository();
   final _foundationRepository = QuranFoundationRepository();
   List<TadabburNote> _feed = [];
+  List<TadabburNote> _qrFeed = [];
   bool _loading = true;
+  String _sourceFilter = 'all';
+  int _qrPage = 1;
+  bool _qrHasMore = false;
+  bool _qrLoadingMore = false;
   String? _filterSurahId;
   String? _filterVerseId;
   bool _showCompose = false;
 
   final _postController = TextEditingController();
   bool _isPosting = false;
-  bool _isAnonymous = false;
   String _postSurahId = '1';
   String _postVerseId = '1';
 
@@ -60,21 +64,63 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   Future<void> _loadFeed() async {
     setState(() => _loading = true);
     try {
-      final blockedUsers = await _repo.getBlockedUserIds();
-      final data = await _repo.fetchCommunityNotes(
-        _filterSurahId ?? '0',
-        _filterVerseId ?? '0',
-      );
+      final results = await Future.wait([
+        _repo.getBlockedUserIds(),
+        _repo.fetchCommunityNotes(
+          _filterSurahId ?? '0',
+          _filterVerseId ?? '0',
+        ),
+        _repo.fetchQuranReflectNotesWithMeta(
+          surahId: _filterSurahId,
+          verseId: _filterVerseId,
+          page: 1,
+          limit: 50,
+        ),
+      ]);
+      final blockedUsers = results[0] as Set<String>;
+      final data = results[1] as List<TadabburNote>;
+      final qrResult =
+          results[2] as ({List<TadabburNote> reflections, bool hasMore});
       final filtered =
           data.where((n) => !blockedUsers.contains(n.userId)).toList();
       if (mounted) {
         setState(() {
           _feed = filtered;
+          _qrFeed = qrResult.reflections;
+          _qrPage = 1;
+          _qrHasMore = qrResult.hasMore;
           _loading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMoreQr() async {
+    if (_qrLoadingMore || !_qrHasMore) return;
+    setState(() => _qrLoadingMore = true);
+    try {
+      final nextPage = _qrPage + 1;
+      final qrResult = await _repo.fetchQuranReflectNotesWithMeta(
+        surahId: _filterSurahId,
+        verseId: _filterVerseId,
+        page: nextPage,
+        limit: 30,
+      );
+      if (!mounted) return;
+      final existingIds = _qrFeed.map((n) => n.id).toSet();
+      final newNotes = qrResult.reflections
+          .where((n) => !existingIds.contains(n.id))
+          .toList();
+      setState(() {
+        _qrFeed = [..._qrFeed, ...newNotes];
+        _qrPage = nextPage;
+        _qrHasMore = qrResult.hasMore;
+        _qrLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _qrLoadingMore = false);
     }
   }
 
@@ -408,14 +454,12 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           verseId: _postVerseId,
           noteText: text,
           isPublic: true,
-          isAnonymous: _isAnonymous,
+          isAnonymous: true,
           likesCount: 0,
           language: 'th',
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
-          userEmail: _isAnonymous
-              ? 'ผู้ไม่ประสงค์ออกนาม'
-              : (user.email ?? 'ผู้ใคร่ครวญอัลกุรอาน'),
+          userEmail: 'ผู้ไม่ประสงค์ออกนาม',
           userLiked: false,
           synced: true,
         ),
@@ -424,7 +468,6 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         setState(() {
           _feed = [note, ..._feed];
           _postController.clear();
-          _isAnonymous = false;
           _showCompose = false;
         });
         if (mounted) {
@@ -503,9 +546,20 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     );
   }
 
+  List<TadabburNote> get _combinedFeedForSource {
+    switch (_sourceFilter) {
+      case 'th':
+        return _feed;
+      case 'en':
+        return _qrFeed;
+      default:
+        return [..._feed, ..._qrFeed];
+    }
+  }
+
   Map<String, int> get _surahCounts {
     final counts = <String, int>{};
-    for (final note in _feed) {
+    for (final note in _combinedFeedForSource) {
       counts[note.surahId] = (counts[note.surahId] ?? 0) + 1;
     }
     return counts;
@@ -517,8 +571,9 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   }
 
   List<TadabburNote> get _filteredFeed {
-    if (_filterSurahId == null) return _feed;
-    return _feed.where((n) {
+    final sourceFeed = _combinedFeedForSource;
+    if (_filterSurahId == null) return sourceFeed;
+    return sourceFeed.where((n) {
       if (n.surahId != _filterSurahId) return false;
       if (_filterVerseId != null && n.verseId != _filterVerseId) return false;
       return true;
@@ -671,12 +726,19 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
 
             // ── Unified Sub-Module Switcher ──────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: _buildSubModuleSwitcher(colors),
             ),
 
+            // ── Source / Language Filter Chips ───────────────────────────────
+            if (!_loading)
+              _buildSourceFilterStrip(
+                colors,
+                isThai: settings.languageCode == 'th',
+              ),
+
             // ── Surah Filter Chips Strip ────────────────────────────────────
-            if (!_loading && _feed.isNotEmpty)
+            if (!_loading && _combinedFeedForSource.isNotEmpty)
               _buildHorizontalSurahStrip(colors),
 
             // ── Feed / Compose Area ──────────────────────────────────────────
@@ -707,6 +769,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                                 colors: colors,
                                 primaryColor: primaryColor,
                                 currentUserId: user?.id,
+                                isThai: settings.languageCode == 'th',
                                 onLike: () => _handleLike(note),
                                 onDelete: () => _handleDeleteNote(note.id),
                                 onReport: () => _handleReportPost(note),
@@ -718,6 +781,45 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                               ),
                             );
                           }),
+                        if ((_sourceFilter == 'all' || _sourceFilter == 'en') &&
+                            _qrHasMore)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Center(
+                              child: OutlinedButton(
+                                onPressed: _qrLoadingMore ? null : _loadMoreQr,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colors.primary,
+                                  side: BorderSide(color: colors.borderSoft),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: _qrLoadingMore
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colors.primary,
+                                        ),
+                                      )
+                                    : Text(
+                                        settings.languageCode == 'th'
+                                            ? 'โหลดเพิ่มเติม'
+                                            : 'Load More',
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
             ),
@@ -785,7 +887,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                 Icon(Icons.public, size: 14, color: colors.primary),
                 const SizedBox(width: 6),
                 Text(
-                  'ชุมชนตะดับบุร (${_feed.length})',
+                  'ชุมชนตะดับบุร (${_combinedFeedForSource.length})',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -800,6 +902,61 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     );
   }
 
+  Widget _buildSourceFilterStrip(
+    AppThemeColors colors, {
+    required bool isThai,
+  }) {
+    final options = [
+      ('all', isThai ? 'ทั้งหมด' : 'All'),
+      ('th', isThai ? 'ไทย (ชุมชน)' : 'Thai'),
+      ('en', 'English (QuranReflect)'),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: options.map((opt) {
+            final value = opt.$1;
+            final label = opt.$2;
+            final selected = _sourceFilter == value;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(
+                  label,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                    color: selected ? Colors.white : colors.foreground,
+                  ),
+                ),
+                selected: selected,
+                showCheckmark: false,
+                selectedColor: colors.primary,
+                backgroundColor: colors.surface,
+                side: BorderSide(
+                  color: selected ? colors.primary : colors.borderSoft,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                ),
+                visualDensity: VisualDensity.compact,
+                onSelected: (_) {
+                  if (_sourceFilter == value) return;
+                  setState(() {
+                    _sourceFilter = value;
+                  });
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHorizontalSurahStrip(AppThemeColors colors) {
     return Container(
       height: 44,
@@ -809,7 +966,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           _buildSurahChip(
-            label: 'ทุกซูเราะฮฺ (${_feed.length})',
+            label: 'ทุกซูเราะฮฺ (${_combinedFeedForSource.length})',
             isSelected: _filterSurahId == null,
             colors: colors,
             onTap: () => setState(() {
@@ -1126,38 +1283,8 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           const SizedBox(height: 12),
 
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              InkWell(
-                onTap: () => setState(() => _isAnonymous = !_isAnonymous),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 4,
-                    horizontal: 2,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _isAnonymous
-                            ? Icons.check_box
-                            : Icons.check_box_outline_blank,
-                        size: 16,
-                        color: _isAnonymous ? colors.primary : colors.textMuted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'โพสต์โดยไม่ระบุชื่อ',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               ElevatedButton(
                 onPressed: _isPosting || _postController.text.trim().isEmpty
                     ? null
@@ -1263,12 +1390,13 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   }
 }
 
-class _CommunityNoteCard extends StatelessWidget {
+class _CommunityNoteCard extends StatefulWidget {
   final TadabburNote note;
   final QuranRepository repository;
   final AppThemeColors colors;
   final Color primaryColor;
   final String? currentUserId;
+  final bool isThai;
   final VoidCallback onLike;
   final VoidCallback onDelete;
   final VoidCallback onReport;
@@ -1282,6 +1410,7 @@ class _CommunityNoteCard extends StatelessWidget {
     required this.colors,
     required this.primaryColor,
     required this.currentUserId,
+    required this.isThai,
     required this.onLike,
     required this.onDelete,
     required this.onReport,
@@ -1291,7 +1420,20 @@ class _CommunityNoteCard extends StatelessWidget {
   });
 
   @override
+  State<_CommunityNoteCard> createState() => _CommunityNoteCardState();
+}
+
+class _CommunityNoteCardState extends State<_CommunityNoteCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final note = widget.note;
+    final repository = widget.repository;
+    final colors = widget.colors;
+    final currentUserId = widget.currentUserId;
+    final isThai = widget.isThai;
+
     final surahName = repository
         .getSurahName(note.surahId)
         .replaceAll(RegExp(r'^\d+\.\s*'), '');
@@ -1303,13 +1445,25 @@ class _CommunityNoteCard extends StatelessWidget {
       verse: verseObj,
     );
 
-    final isAuthor = currentUserId != null && currentUserId == note.userId;
-    final isGuestAuthor = note.userId.startsWith('guest-');
+    final isAuthor =
+        !note.isQuranReflect &&
+        currentUserId != null &&
+        currentUserId == note.userId;
+    final isGuestAuthor = !note.isQuranReflect && note.userId.startsWith('guest-');
     final canDelete = isAuthor || isGuestAuthor;
 
-    final authorName = note.isAnonymous
-        ? 'ผู้ไม่ประสงค์ออกนาม'
-        : (note.userEmail?.split('@').first ?? 'ผู้ใคร่ครวญอัลกุรอาน');
+    final authorName = note.isQuranReflect
+        ? ((note.userEmail ?? '').trim().isNotEmpty
+            ? note.userEmail!.trim()
+            : 'QuranReflect')
+        : (note.isAnonymous
+            ? 'ผู้ไม่ประสงค์ออกนาม'
+            : (note.userEmail?.split('@').first ?? 'ผู้ใคร่ครวญอัลกุรอาน'));
+
+    final isLongText = note.noteText.length > 320;
+    final displayedNoteText = isLongText && !_expanded
+        ? '${note.noteText.substring(0, 320).trimRight()}...'
+        : note.noteText;
 
     return Container(
       decoration: BoxDecoration(
@@ -1341,14 +1495,41 @@ class _CommunityNoteCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      authorName,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: colors.foreground,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            authorName,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: colors.foreground,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (note.isQuranReflect) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAF2EE),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'QuranReflect',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF0E5A4A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       timeago.format(note.updatedAt),
@@ -1396,59 +1577,61 @@ class _CommunityNoteCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, size: 18, color: colors.textMuted),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                onSelected: (value) {
-                  if (value == 'report') {
-                    onReport();
-                  } else if (value == 'block') {
-                    onBlockUser();
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  PopupMenuItem(
-                    value: 'report',
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.flag_outlined,
-                          size: 16,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'รายงานโพสต์ที่ไม่เหมาะสม (Report Post)',
-                          style: GoogleFonts.notoSansThai(fontSize: 12.5),
-                        ),
-                      ],
-                    ),
+              if (!note.isQuranReflect) ...[
+                const SizedBox(width: 4),
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, size: 18, color: colors.textMuted),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  if (!isAuthor && !isGuestAuthor)
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onSelected: (value) {
+                    if (value == 'report') {
+                      widget.onReport();
+                    } else if (value == 'block') {
+                      widget.onBlockUser();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
                     PopupMenuItem(
-                      value: 'block',
+                      value: 'report',
                       child: Row(
                         children: [
                           const Icon(
-                            Icons.block,
+                            Icons.flag_outlined,
                             size: 16,
-                            color: Colors.red,
+                            color: Colors.orange,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'ซ่อนโพสต์จากผู้ใช้นี้ (Block User)',
+                            'รายงานโพสต์ที่ไม่เหมาะสม (Report Post)',
                             style: GoogleFonts.notoSansThai(fontSize: 12.5),
                           ),
                         ],
                       ),
                     ),
-                ],
-              ),
+                    if (!isAuthor && !isGuestAuthor)
+                      PopupMenuItem(
+                        value: 'block',
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.block,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ซ่อนโพสต์จากผู้ใช้นี้ (Block User)',
+                              style: GoogleFonts.notoSansThai(fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -1514,13 +1697,34 @@ class _CommunityNoteCard extends StatelessWidget {
 
           // ── Note Text ──────────────────────────────────────────────────────
           Text(
-            note.noteText,
+            displayedNoteText,
             style: GoogleFonts.notoSansThai(
               fontSize: 13,
               height: 1.6,
               color: colors.foreground,
             ),
           ),
+          if (isLongText)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                  child: Text(
+                    _expanded
+                        ? (isThai ? 'ย่อข้อความ' : 'Show less')
+                        : (isThai ? 'อ่านเพิ่มเติม' : 'Read more'),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: colors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 14),
 
           // ── Footer Actions ─────────────────────────────────────────────────
@@ -1528,7 +1732,7 @@ class _CommunityNoteCard extends StatelessWidget {
             children: [
               // Like Button
               InkWell(
-                onTap: onLike,
+                onTap: note.isQuranReflect ? null : widget.onLike,
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1571,7 +1775,7 @@ class _CommunityNoteCard extends StatelessWidget {
               const Spacer(),
               // Meaning Reader button
               InkWell(
-                onTap: () => onOpenVerse(note.surahId, note.verseId),
+                onTap: () => widget.onOpenVerse(note.surahId, note.verseId),
                 borderRadius: BorderRadius.circular(6),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -1601,7 +1805,7 @@ class _CommunityNoteCard extends StatelessWidget {
               const SizedBox(width: 6),
               // Mushaf button
               InkWell(
-                onTap: () => onOpenMushaf(note.surahId, note.verseId),
+                onTap: () => widget.onOpenMushaf(note.surahId, note.verseId),
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1676,7 +1880,7 @@ class _CommunityNoteCard extends StatelessWidget {
                           TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
-                              onDelete();
+                              widget.onDelete();
                             },
                             child: Text(
                               'ลบ',

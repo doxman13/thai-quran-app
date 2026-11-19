@@ -11,6 +11,7 @@ import '../providers/supabase_provider.dart';
 import '../widgets/auth_bottom_sheet.dart';
 import '../data/quran_repository.dart';
 import '../data/quran_foundation_repository.dart';
+import '../data/tadabbur_repository.dart';
 import '../theme/app_theme.dart';
 import 'mushaf_reader_screen.dart';
 import '../models/mushaf_models.dart';
@@ -1257,7 +1258,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     ) {
       final textController = TextEditingController(text: note.noteText);
       bool isPublic = note.isPublic;
-      bool isAnonymous = note.isAnonymous;
+      const bool isAnonymous = true;
 
       showDialog(
         context: context,
@@ -1338,58 +1339,33 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                             ),
                           ),
                         ),
-                        child: Column(
-                          children: [
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                isThai
-                                    ? 'สาธารณะ (แชร์ในชุมชน)'
-                                    : 'Public (Share to Community)',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                              subtitle: Text(
-                                isThai
-                                    ? 'ให้ผู้อื่นอ่านบทเรียนตะดับบุรของคุณ'
-                                    : 'Allow others to read your reflection',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 11,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              value: isPublic,
-                              onChanged: (val) {
-                                setDialogState(() {
-                                  isPublic = val;
-                                });
-                              },
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(
+                            isThai
+                                ? 'สาธารณะ (แชร์ในชุมชน)'
+                                : 'Public (Share to Community)',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
                             ),
-                            if (isPublic) ...[
-                              const Divider(height: 1),
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  isThai
-                                      ? 'โพสต์แบบไม่ระบุตัวตน'
-                                      : 'Post Anonymously',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 12,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                value: isAnonymous,
-                                onChanged: (val) {
-                                  setDialogState(() {
-                                    isAnonymous = val ?? false;
-                                  });
-                                },
-                              ),
-                            ],
-                          ],
+                          ),
+                          subtitle: Text(
+                            isThai
+                                ? 'ให้ผู้อื่นอ่านบทเรียนตะดับบุรของคุณ'
+                                : 'Allow others to read your reflection',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          value: isPublic,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              isPublic = val;
+                            });
+                          },
                         ),
                       ),
                     ],
@@ -1410,14 +1386,129 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                       final newText = textController.text.trim();
                       if (newText.isEmpty) {
                         await notesProv.deleteNote(note.surahId, note.verseId);
-                      } else {
-                        await notesProv.saveNote(
-                          surahId: note.surahId,
-                          verseId: note.verseId,
-                          noteText: newText,
-                          isPublic: isPublic,
-                          isAnonymous: isAnonymous,
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        return;
+                      }
+
+                      if (isPublic && !note.isPublic) {
+                        final confirm = await showDialog<bool>(
+                          context: ctx,
+                          builder: (confirmCtx) => AlertDialog(
+                            backgroundColor: colorScheme.surface,
+                            title: Row(
+                              children: [
+                                Icon(
+                                  Icons.rate_review_outlined,
+                                  color: colorScheme.primary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'ส่งให้แอดมินตรวจสอบ',
+                                    style: GoogleFonts.notoSansThai(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            content: Text(
+                              'เพื่อรักษาความถูกต้องและคุณภาพของเนื้อหา บันทึกนี้จะถูกส่งให้แอดมินตรวจสอบก่อนแสดงในชุมชนสาธารณะ เมื่อได้รับอนุมัติ บันทึกจะแสดงสู่สาธารณะโดยอัตโนมัติ',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                height: 1.5,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(confirmCtx, false),
+                                child: Text(
+                                  'ยกเลิก',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.pop(confirmCtx, true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'ส่งตรวจสอบ',
+                                  style: GoogleFonts.notoSansThai(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         );
+
+                        if (confirm != true) return;
+
+                        try {
+                          await notesProv.saveNote(
+                            surahId: note.surahId,
+                            verseId: note.verseId,
+                            noteText: newText,
+                            isPublic: false,
+                            isAnonymous: isAnonymous,
+                          );
+                          final savedNote =
+                              notesProv.getNoteObjectForVerse(
+                                note.surahId,
+                                note.verseId,
+                              ) ??
+                              note;
+                          await TadabburRepository().submitForPublicReview(
+                            savedNote,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'ส่งบันทึกให้แอดมินตรวจสอบเรียบร้อยแล้ว',
+                                ),
+                                backgroundColor: Color(0xFF0E5A4A),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('เกิดข้อผิดพลาด: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                        return;
+                      }
+
+                      await notesProv.saveNote(
+                        surahId: note.surahId,
+                        verseId: note.verseId,
+                        noteText: newText,
+                        isPublic: isPublic,
+                        isAnonymous: isAnonymous,
+                      );
+                      if (note.isPublic && !isPublic) {
+                        await TadabburRepository().cancelReviewRequest(note.id);
                       }
                       if (ctx.mounted) Navigator.pop(ctx);
                     },

@@ -5,9 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/tadabbur_note.dart';
+import 'quran_foundation_repository.dart';
 
 class TadabburRepository {
   static const String _blockedUsersPrefsKey = 'blocked_tadabbur_user_ids';
+  static String? _qrCachedToken;
+  static DateTime? _qrTokenExpiry;
   final _client = Supabase.instance.client;
 
   /// Fetch all notes belonging to the current user
@@ -76,6 +79,492 @@ class TadabburRepository {
       debugPrint('TadabburRepository: Error fetching community notes: $e');
       return [];
     }
+  }
+
+  /// Fetch English Tadabbur reflections from Quran Foundation's QuranReflect API (tab=popular).
+  Future<List<TadabburNote>> fetchQuranReflectNotes({
+    String? surahId,
+    String? verseId,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final result = await fetchQuranReflectNotesWithMeta(
+      surahId: surahId,
+      verseId: verseId,
+      page: page,
+      limit: limit,
+    );
+    return result.reflections;
+  }
+
+  /// Fetch English QuranReflect reflections with pagination metadata.
+  Future<({List<TadabburNote> reflections, bool hasMore})>
+      fetchQuranReflectNotesWithMeta({
+    String? surahId,
+    String? verseId,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final normalizedSurah =
+        (surahId != null && surahId != '0' && surahId != 'all' && surahId.isNotEmpty)
+            ? surahId
+            : null;
+    final normalizedVerse =
+        (verseId != null && verseId != '0' && verseId.isNotEmpty)
+            ? verseId
+            : null;
+
+    // 1. Primary source: Direct Quran Foundation QuranReflect API
+    try {
+      final direct = await _fetchQuranReflectDirect(
+        surahId: normalizedSurah,
+        verseId: normalizedVerse,
+        page: page,
+        limit: limit,
+      );
+      if (direct.reflections.isNotEmpty || normalizedSurah != null) {
+        return direct;
+      }
+    } catch (e) {
+      debugPrint('TadabburRepository: Direct QuranReflect fetch failed: $e');
+    }
+
+    // 2. Secondary fallback: Backend proxy endpoint
+    try {
+      final secondary = await _fetchQuranReflectProxy(
+        surahId: normalizedSurah,
+        verseId: normalizedVerse,
+        page: page,
+        limit: limit,
+      );
+      if (secondary.reflections.isNotEmpty) {
+        return secondary;
+      }
+    } catch (e) {
+      debugPrint('TadabburRepository: Proxy QuranReflect fetch failed: $e');
+    }
+
+    // 3. Offline curated English reflections fallback
+    final curated = _curatedFallbackReflections().where((note) {
+      if (normalizedSurah != null && note.surahId != normalizedSurah) {
+        return false;
+      }
+      if (normalizedVerse != null && note.verseId != normalizedVerse) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    return (reflections: curated, hasMore: false);
+  }
+
+  Future<String> _getQuranReflectToken({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _qrCachedToken != null &&
+        _qrTokenExpiry != null &&
+        DateTime.now().isBefore(_qrTokenExpiry!)) {
+      return _qrCachedToken!;
+    }
+
+    final authBase = QuranFoundationConfig.authBaseUrl.isNotEmpty
+        ? QuranFoundationConfig.authBaseUrl.replaceAll(RegExp(r'/+$'), '')
+        : 'https://oauth2.quran.foundation';
+    final uri = Uri.parse('$authBase/oauth2/token');
+    final creds = base64Encode(
+      utf8.encode(
+        '${QuranFoundationConfig.clientId}:${QuranFoundationConfig.authToken}',
+      ),
+    );
+
+    final res = await http
+        .post(
+          uri,
+          headers: {
+            'accept': 'application/json',
+            'content-type': 'application/x-www-form-urlencoded',
+            'authorization': 'Basic $creds',
+          },
+          body: {'grant_type': 'client_credentials', 'scope': 'post.read'},
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('OAuth2 token request failed (${res.statusCode})');
+    }
+
+    final decoded = jsonDecode(res.body) as Map<String, dynamic>;
+    final token = decoded['access_token']?.toString() ?? '';
+    if (token.isEmpty) {
+      throw Exception('Empty QuranReflect access token');
+    }
+
+    final expiresIn = (decoded['expires_in'] as num?)?.toInt() ?? 3600;
+    _qrCachedToken = token;
+    _qrTokenExpiry = DateTime.now().add(
+      Duration(seconds: (expiresIn - 60).clamp(60, 86400)),
+    );
+    return token;
+  }
+
+  Future<({List<TadabburNote> reflections, bool hasMore})>
+      _fetchQuranReflectDirect({
+    String? surahId,
+    String? verseId,
+    required int page,
+    required int limit,
+  }) async {
+    var token = await _getQuranReflectToken();
+    final pagesNeeded = (limit / 10).ceil().clamp(1, 5);
+    final startUpstreamPage = (page - 1) * pagesNeeded + 1;
+
+    Future<Map<String, dynamic>> fetchPage(int upstreamPage, String authToken) async {
+      final params = <String, String>{
+        'tab': 'popular',
+        'languages': '2',
+        'page': upstreamPage.toString(),
+        'limit': '10',
+      };
+      if (surahId != null) {
+        params['filter[references][0][chapterId]'] = surahId;
+        if (verseId != null) {
+          params['filter[references][0][from]'] = verseId;
+          params['filter[references][0][to]'] = verseId;
+        }
+      }
+      final uri = Uri.https(
+        'apis.quran.foundation',
+        '/quran-reflect/v1/posts/feed',
+        params,
+      );
+      var res = await http
+          .get(
+            uri,
+            headers: {
+              'accept': 'application/json',
+              'x-client-id': QuranFoundationConfig.clientId,
+              'x-auth-token': authToken,
+            },
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (res.statusCode == 401) {
+        token = await _getQuranReflectToken(forceRefresh: true);
+        res = await http
+            .get(
+              uri,
+              headers: {
+                'accept': 'application/json',
+                'x-client-id': QuranFoundationConfig.clientId,
+                'x-auth-token': token,
+              },
+            )
+            .timeout(const Duration(seconds: 12));
+      }
+
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw Exception('QuranReflect feed failed (${res.statusCode})');
+      }
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+
+    final pagePayloads = await Future.wait(
+      List.generate(
+        pagesNeeded,
+        (idx) => fetchPage(startUpstreamPage + idx, token),
+      ),
+    );
+
+    final notes = <TadabburNote>[];
+    final seenIds = <String>{};
+    var hasMore = false;
+
+    for (final payload in pagePayloads) {
+      final currentPage = (payload['currentPage'] as num?)?.toInt() ?? 0;
+      final totalPages = (payload['pages'] as num?)?.toInt() ?? 0;
+      if (totalPages > 0 && currentPage < totalPages) {
+        hasMore = true;
+      }
+
+      final items = payload['data'] as List<dynamic>? ?? const [];
+      for (final raw in items) {
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final parsed = _parseQuranReflectItem(item, preferredSurahId: surahId);
+        if (parsed != null && seenIds.add(parsed.id)) {
+          notes.add(parsed);
+        }
+      }
+    }
+
+    return (reflections: notes, hasMore: hasMore);
+  }
+
+  Future<({List<TadabburNote> reflections, bool hasMore})>
+      _fetchQuranReflectProxy({
+    String? surahId,
+    String? verseId,
+    required int page,
+    required int limit,
+  }) async {
+    final params = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+    if (surahId != null) params['surahId'] = surahId;
+    if (verseId != null) params['verseId'] = verseId;
+
+    final uri = Uri.https(
+      'quran-th.com',
+      '/api/quran-foundation/reflections',
+      params,
+    );
+    final res = await http
+        .get(uri, headers: {'accept': 'application/json'})
+        .timeout(const Duration(seconds: 10));
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Proxy reflections failed (${res.statusCode})');
+    }
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is! Map<String, dynamic>) {
+      return (reflections: <TadabburNote>[], hasMore: false);
+    }
+
+    final rawList = (decoded['reflections'] ?? decoded['data']) as List<dynamic>? ??
+        const [];
+    final notes = <TadabburNote>[];
+    for (final raw in rawList) {
+      if (raw is! Map) continue;
+      final item = Map<String, dynamic>.from(raw);
+      if (item.containsKey('note_text')) {
+        notes.add(TadabburNote.fromJson({...item, 'source': 'quranreflect'}));
+      } else {
+        final parsed = _parseQuranReflectItem(item, preferredSurahId: surahId);
+        if (parsed != null) notes.add(parsed);
+      }
+    }
+    final hasMore = decoded['hasMore'] as bool? ?? false;
+    return (reflections: notes, hasMore: hasMore);
+  }
+
+  TadabburNote? _parseQuranReflectItem(
+    Map<String, dynamic> item, {
+    String? preferredSurahId,
+  }) {
+    final rawId = item['id']?.toString() ?? '';
+    if (rawId.isEmpty) return null;
+
+    final cleanBody = _stripHtmlTags(item['body']?.toString() ?? '');
+    if (cleanBody.isEmpty) return null;
+
+    final refs = item['references'] as List<dynamic>? ?? const [];
+    Map<String, dynamic>? chosenRef;
+    for (final r in refs) {
+      if (r is! Map) continue;
+      final refMap = Map<String, dynamic>.from(r);
+      final ch = (refMap['chapterId'] as num?)?.toInt() ??
+          int.tryParse(refMap['chapterId']?.toString() ?? '');
+      if (ch != null && ch >= 1 && ch <= 114) {
+        if (preferredSurahId != null && ch.toString() == preferredSurahId) {
+          chosenRef = refMap;
+          break;
+        }
+        chosenRef ??= refMap;
+      }
+    }
+    if (chosenRef == null) return null;
+
+    final chapterId = (chosenRef['chapterId'] as num?)?.toInt() ??
+        int.parse(chosenRef['chapterId'].toString());
+    final fromVerse = ((chosenRef['from'] as num?)?.toInt() ??
+            int.tryParse(chosenRef['from']?.toString() ?? '') ??
+            1)
+        .clamp(1, 286);
+
+    final author = item['author'] is Map
+        ? Map<String, dynamic>.from(item['author'] as Map)
+        : null;
+    final fullName = author?['fullName']?.toString().trim() ?? '';
+    final username = author?['username']?.toString().trim() ?? '';
+    final authorName = fullName.isNotEmpty
+        ? fullName
+        : (username.isNotEmpty ? username : 'QuranReflect');
+
+    final createdAt =
+        DateTime.tryParse(item['createdAt']?.toString() ?? '') ??
+        DateTime.now();
+    final updatedAt =
+        DateTime.tryParse(item['updatedAt']?.toString() ?? '') ?? createdAt;
+
+    return TadabburNote(
+      id: rawId.startsWith('qr-') ? rawId : 'qr-$rawId',
+      userId: 'qr-${author?['id']?.toString() ?? 'reader'}',
+      surahId: chapterId.toString(),
+      verseId: fromVerse.toString(),
+      noteText: cleanBody,
+      isPublic: true,
+      isAnonymous: false,
+      likesCount: (item['likesCount'] as num?)?.toInt() ?? 0,
+      language: 'en',
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      userEmail: authorName,
+      userLiked: false,
+      synced: true,
+      source: 'quranreflect',
+    );
+  }
+
+  String _stripHtmlTags(String raw) {
+    if (raw.isEmpty) return '';
+    return raw
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</(p|div|li|h[1-6])>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]+>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'")
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+
+  List<TadabburNote> _curatedFallbackReflections() {
+    final now = DateTime.utc(2026, 1, 1);
+    return [
+      TadabburNote(
+        id: 'qr-curated-1',
+        userId: 'qr-curated',
+        surahId: '1',
+        verseId: '1',
+        noteText:
+            'Beginning every action in the name of Allah, the Entirely Merciful, the Especially Merciful, transforms routine moments into conscious worship.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 120,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-2',
+        userId: 'qr-curated',
+        surahId: '2',
+        verseId: '255',
+        noteText:
+            'Ayat al-Kursi reminds the heart that Allah never slumbers nor sleeps. Whatever worries weigh us down tonight, His watchfulness and care never pause.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 98,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-3',
+        userId: 'qr-curated',
+        surahId: '2',
+        verseId: '286',
+        noteText:
+            'Allah does not burden a soul beyond that it can bear. The very fact that you are facing a trial is proof that He placed the capacity to endure within you.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 95,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-4',
+        userId: 'qr-curated',
+        surahId: '18',
+        verseId: '10',
+        noteText:
+            'The youth of the Cave asked for mercy first, then guidance. When we seek Allah’s mercy before clarity, He opens doors we could never plan ourselves.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 84,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-5',
+        userId: 'qr-curated',
+        surahId: '36',
+        verseId: '58',
+        noteText:
+            '"Peace," a word from a Merciful Lord. True tranquility is not the absence of worldly noise, but closeness to the One who speaks peace directly to the soul.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 76,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-6',
+        userId: 'qr-curated',
+        surahId: '55',
+        verseId: '13',
+        noteText:
+            'Every heartbeat, breath, and quiet blessing is an invitation to gratitude. Which of your Lord’s favors will you pause to thank Him for today?',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 88,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-7',
+        userId: 'qr-curated',
+        surahId: '67',
+        verseId: '2',
+        noteText:
+            'Allah tests us to see which of us is best in deeds—not merely most in quantity, but most sincere and excellent in quality.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 72,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+      TadabburNote(
+        id: 'qr-curated-8',
+        userId: 'qr-curated',
+        surahId: '96',
+        verseId: '1',
+        noteText:
+            '"Read in the name of your Lord who created." Sacred knowledge and learning begin with humility and connection to the Creator.',
+        isPublic: true,
+        isAnonymous: false,
+        likesCount: 91,
+        language: 'en',
+        createdAt: now,
+        updatedAt: now,
+        userEmail: 'QuranReflect',
+        source: 'quranreflect',
+      ),
+    ];
   }
 
   /// Upsert a single personal note to Supabase

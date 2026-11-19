@@ -41,6 +41,10 @@ import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
 extension _TadabburNoteAuthorExt on TadabburNote {
   String get authorName {
+    if (isQuranReflect) {
+      final raw = (userEmail ?? '').trim();
+      return raw.isNotEmpty ? raw : 'QuranReflect';
+    }
     if (isAnonymous) return 'ผู้ศรัทธา (ไม่ระบุชื่อ)';
     final raw = (userEmail ?? '').trim();
     if (raw.isEmpty) return 'ผู้ศรัทธา';
@@ -183,15 +187,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadCommunityPreview() async {
     try {
-      final notes = await _tadabburRepository.fetchCommunityNotes(
-        '0',
-        '0',
-        limit: 10,
-      );
+      final results = await Future.wait([
+        _tadabburRepository.fetchCommunityNotes(
+          '0',
+          '0',
+          limit: 15,
+        ),
+        _tadabburRepository.fetchQuranReflectNotes(limit: 50),
+      ]);
+      final thaiNotes = results[0];
+      final qrNotes = results[1];
+      final combined = _buildBalancedCommunityPreview(thaiNotes, qrNotes);
       if (!mounted) return;
       setState(() {
-        _communityPool = notes;
-        _communityPreview = notes;
+        _communityPool = combined;
+        _communityPreview = combined;
         _loadingCommunity = false;
       });
     } catch (_) {
@@ -202,15 +212,38 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<TadabburNote> _buildBalancedCommunityPreview(
+    List<TadabburNote> thaiNotes,
+    List<TadabburNote> qrNotes,
+  ) {
+    final result = <TadabburNote>[];
+    var tIdx = 0;
+    var qIdx = 0;
+
+    while (tIdx < thaiNotes.length || qIdx < qrNotes.length) {
+      for (var i = 0; i < 2 && tIdx < thaiNotes.length; i++) {
+        result.add(thaiNotes[tIdx++]);
+      }
+      if (qIdx < qrNotes.length) {
+        result.add(qrNotes[qIdx++]);
+      }
+    }
+    return result;
+  }
+
   void _shuffleCommunityPreview() {
     if (_communityPool.isEmpty) {
       unawaited(_loadCommunityPreview());
       return;
     }
     setState(() {
-      final shuffled = List<TadabburNote>.from(_communityPool)..shuffle();
-      _communityPool = shuffled;
-      _communityPreview = shuffled;
+      final thai = _communityPool.where((n) => !n.isQuranReflect).toList()
+        ..shuffle();
+      final qr = _communityPool.where((n) => n.isQuranReflect).toList()
+        ..shuffle();
+      final balanced = _buildBalancedCommunityPreview(thai, qr);
+      _communityPool = balanced;
+      _communityPreview = balanced;
     });
   }
 
@@ -3516,25 +3549,56 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Top Header Row
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '$surahName (${note.surahId}:${note.verseId})',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.primary,
-                                ),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '$surahName (${note.surahId}:${note.verseId})',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (note.isQuranReflect) ...[
+                                    const SizedBox(width: 5),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.secondary.withValues(alpha: 0.14),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'QuranReflect · EN',
+                                        style: GoogleFonts.notoSansThai(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: colorScheme.secondary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 6),
                             Icon(
                               Icons.favorite_rounded,
                               size: 12,

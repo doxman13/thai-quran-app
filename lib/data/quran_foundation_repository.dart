@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/mushaf_models.dart';
+import '../providers/settings_provider.dart';
 import '../services/tajweed_service.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import 'medina_mushaf_pages.dart';
@@ -19,15 +20,19 @@ class QuranFoundationConfig {
       'https://apis-prelive.quran.foundation/content/api/v4';
   static const contentBaseUrl = String.fromEnvironment(
     'QURAN_FOUNDATION_CONTENT_BASE_URL',
-    defaultValue: '',
+    defaultValue: liveContentBaseUrl,
   );
   static const authBaseUrl = String.fromEnvironment(
     'QURAN_FOUNDATION_AUTH_BASE_URL',
     defaultValue: 'https://oauth2.quran.foundation',
   );
-  static const clientId = String.fromEnvironment('QURAN_FOUNDATION_CLIENT_ID');
+  static const clientId = String.fromEnvironment(
+    'QURAN_FOUNDATION_CLIENT_ID',
+    defaultValue: 'eb0a66f1-c244-4281-8af2-46add645c1f8',
+  );
   static const authToken = String.fromEnvironment(
     'QURAN_FOUNDATION_AUTH_TOKEN',
+    defaultValue: 'dF_y_kC5K6u-w_kbivgM4Zz1-U',
   );
 
   static bool get isConfigured => clientId.isNotEmpty && authToken.isNotEmpty;
@@ -431,6 +436,21 @@ class QuranFoundationRepository {
       debugPrint('Failed to fetch recitation for reciter $recitationId: $e');
     }
 
+    // Use deterministic EveryAyah URL for supported reciters before falling back
+    // to another reciter's voice.
+    final parts = verseKey.split(':');
+    if (parts.length == 2) {
+      final reciter = kSupportedReciters.cast<ReciterOption?>().firstWhere(
+        (r) => r?.id == recitationId,
+        orElse: () => null,
+      );
+      if (reciter != null && reciter.everyAyahFolder.isNotEmpty) {
+        final chapter = parts[0].padLeft(3, '0');
+        final ayah = parts[1].padLeft(3, '0');
+        return 'https://everyayah.com/data/${reciter.everyAyahFolder}/$chapter$ayah.mp3';
+      }
+    }
+
     // Fallback to Mishari Rashid Al-Afasy (ID 7) if the primary reciter fails or is empty
     if (recitationId != 7) {
       debugPrint('Falling back to Mishari Rashid al-Afasy (ID 7) for $verseKey');
@@ -466,8 +486,14 @@ class QuranFoundationRepository {
       for (final item in timestampsList) {
         if (item is Map) {
           final vk = item['verse_key']?.toString();
-          final from = int.tryParse(item['timestamp_from']?.toString() ?? '');
-          final to = int.tryParse(item['timestamp_to']?.toString() ?? '');
+          final rawFrom = item['timestamp_from'];
+          final rawTo = item['timestamp_to'];
+          final from = rawFrom is num
+              ? rawFrom.round()
+              : double.tryParse(rawFrom?.toString() ?? '')?.round();
+          final to = rawTo is num
+              ? rawTo.round()
+              : double.tryParse(rawTo?.toString() ?? '')?.round();
           if (vk != null && from != null && to != null) {
             timestampsMap[vk] = {
               'from': from,

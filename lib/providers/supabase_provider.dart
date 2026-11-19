@@ -50,10 +50,16 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   String get displayName {
     final u = user;
     if (u != null) {
-      final metaName = u.userMetadata?['full_name']?.toString() ??
-          u.userMetadata?['name']?.toString() ??
-          '';
-      if (metaName.trim().isNotEmpty) return metaName.trim();
+      final candidates = [
+        u.userMetadata?['custom_display_name']?.toString(),
+        u.userMetadata?['display_name']?.toString(),
+        u.userMetadata?['full_name']?.toString(),
+        u.userMetadata?['name']?.toString(),
+      ];
+      for (final candidate in candidates) {
+        final trimmed = candidate?.trim() ?? '';
+        if (trimmed.isNotEmpty) return trimmed;
+      }
       final email = userEmail;
       if (email.isNotEmpty) {
         return email.split('@')[0];
@@ -344,10 +350,14 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // Sign Up with Email & Password
   Future<void> signUp(String email, String password, String displayName) async {
+    final trimmedName = displayName.trim();
     final response = await _client.auth.signUp(
       email: email.trim(),
       password: password,
-      data: {'full_name': displayName.trim()},
+      data: {
+        'full_name': trimmedName,
+        if (trimmedName.isNotEmpty) 'custom_display_name': trimmedName,
+      },
     );
     if (response.user != null) {
       await bootstrapUser(response.user!.id);
@@ -612,10 +622,16 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (trimmed.isEmpty) return;
 
     if (_user != null) {
-      await _client.auth.updateUser(
-        UserAttributes(data: {'full_name': trimmed}),
+      final response = await _client.auth.updateUser(
+        UserAttributes(
+          data: {
+            'custom_display_name': trimmed,
+            'display_name': trimmed,
+            'full_name': trimmed,
+          },
+        ),
       );
-      _user = _client.auth.currentUser;
+      _user = response.user ?? _client.auth.currentUser;
       notifyListeners();
     } else {
       _guestName = trimmed;

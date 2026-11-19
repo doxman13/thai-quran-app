@@ -69,7 +69,7 @@ const List<ReciterOption> kSupportedReciters = [
     name: 'Khalifah Al Tunaiji',
     nameTh: 'เคาะลีฟะฮ์ อัต-ตุนัยญี',
     style: 'Murattal (64 kbps)',
-    everyAyahFolder: 'Tunaiji_64kbps',
+    everyAyahFolder: 'khalefa_al_tunaiji_64kbps',
   ),
 ];
 

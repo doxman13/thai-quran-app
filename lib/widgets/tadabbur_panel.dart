@@ -32,7 +32,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
   final _repo = TadabburRepository();
   final _controller = TextEditingController();
   bool _isPublic = false;
-  bool _isAnonymous = false;
+  bool _isAnonymous = true;
   bool _isSaving = false;
   bool _saveSuccess = false;
   bool _isEditing = false;
@@ -74,7 +74,7 @@ class _TadabburPanelState extends State<TadabburPanel> {
         _reviewStatus = status;
         _controller.text = existing.noteText;
         _isPublic = existing.isPublic;
-        _isAnonymous = existing.isAnonymous;
+        _isAnonymous = true;
         _loading = false;
         if (existing.noteText.trim().isEmpty) {
           _isEditing = true;
