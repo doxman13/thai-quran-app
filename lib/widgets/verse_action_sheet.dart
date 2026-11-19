@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/notes_provider.dart';
 import '../providers/local_reading_provider.dart';
 import '../providers/settings_provider.dart';
@@ -151,28 +150,6 @@ class VerseActionSheet extends StatelessWidget {
               }
               Navigator.pop(context);
               _showThoughtsModal(context, settings, note, verse.surahId, verse.id);
-            },
-          ),
-
-          ListTile(
-            leading: Icon(Icons.people_outline, color: primaryColor),
-            title: Text(
-              'Community Reflections',
-              style: GoogleFonts.notoSansThai(fontSize: 14, color: colors.textStrong),
-            ),
-            onTap: () async {
-              Navigator.pop(context);
-              final urlString = 'https://quran-th.com/tadabbur/community?surah=${verse.surahId}&ayah=${verse.id}';
-              final uri = Uri.parse(urlString);
-              try {
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                } else {
-                  debugPrint('Could not launch $urlString');
-                }
-              } catch (e) {
-                debugPrint('Error launching url: $e');
-              }
             },
           ),
 
@@ -410,38 +387,8 @@ class VerseActionSheet extends StatelessWidget {
               ),
             ),
           ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
           actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           actions: [
-            // Left Action: View Community Reflections
-            TextButton(
-              onPressed: () async {
-                final urlString = 'https://quran-th.com/tadabbur/community?surah=$surahId&ayah=$verseId';
-                final uri = Uri.parse(urlString);
-                try {
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    debugPrint('Could not launch $urlString');
-                  }
-                } catch (e) {
-                  debugPrint('Error launching url: $e');
-                }
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Community Reflections ↗',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             // Right Action: Close
             ElevatedButton(
               onPressed: () => Navigator.pop(context),

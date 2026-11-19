@@ -620,8 +620,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
         showTafsirBox: false,
         showAuditBox: false,
         hasTafsir: false,
-        hasCommunityNotes: false,
-        communityNotesFuture: null,
       );
     }
     if (_isProgrammaticPageMove || provider.isChangingSurah) return;
@@ -3001,21 +2999,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(2),
                   ),
-                ),
-                ListTile(
-                  leading: Icon(Icons.forum_outlined, color: colors.primary),
-                  title: Text(
-                    isThaiLang ? 'บันทึกตะดับบุรจากชุมชน' : 'Community Reflections',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textStrong,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _verseCardController.showCommunityNotes?.call();
-                  },
                 ),
                 ListTile(
                   leading: Icon(Icons.content_copy_rounded, color: colors.primary),

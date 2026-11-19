@@ -15,7 +15,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/verse.dart';
 import '../models/tadabbur_note.dart';
 import '../data/quran_repository.dart';
-import '../data/tadabbur_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/progress_provider.dart';
 import '../providers/notes_provider.dart';
@@ -43,7 +42,6 @@ class VerseCardController extends ChangeNotifier {
   VoidCallback? stopAudio;
   VoidCallback? copyText;
   VoidCallback? shareImage;
-  VoidCallback? showCommunityNotes;
   VoidCallback? showWordByWord;
   VoidCallback? toggleBookmark;
   VoidCallback? toggleFavorite;
@@ -53,10 +51,8 @@ class VerseCardController extends ChangeNotifier {
   bool showTafsirBox = false;
   bool showAuditBox = false;
   bool hasTafsir = false;
-  bool hasCommunityNotes = false;
   bool isBookmarked = false;
   bool isFavorited = false;
-  Future<List<TadabburNote>>? communityNotesFuture;
 
   void updateState({
     bool? isAudioPlaying,
@@ -64,10 +60,8 @@ class VerseCardController extends ChangeNotifier {
     bool? showTafsirBox,
     bool? showAuditBox,
     bool? hasTafsir,
-    bool? hasCommunityNotes,
     bool? isBookmarked,
     bool? isFavorited,
-    Future<List<TadabburNote>>? communityNotesFuture,
   }) {
     bool changed = false;
     if (isAudioPlaying != null && this.isAudioPlaying != isAudioPlaying) {
@@ -90,21 +84,12 @@ class VerseCardController extends ChangeNotifier {
       this.hasTafsir = hasTafsir;
       changed = true;
     }
-    if (hasCommunityNotes != null &&
-        this.hasCommunityNotes != hasCommunityNotes) {
-      this.hasCommunityNotes = hasCommunityNotes;
-      changed = true;
-    }
     if (isBookmarked != null && this.isBookmarked != isBookmarked) {
       this.isBookmarked = isBookmarked;
       changed = true;
     }
     if (isFavorited != null && this.isFavorited != isFavorited) {
       this.isFavorited = isFavorited;
-      changed = true;
-    }
-    if (communityNotesFuture != null) {
-      this.communityNotesFuture = communityNotesFuture;
       changed = true;
     }
     if (changed) {
@@ -148,9 +133,7 @@ class _VerseCardState extends State<VerseCard> {
   final GlobalKey _shareBoundaryKey = GlobalKey();
   final GlobalKey _tafsirKey = GlobalKey();
   final GlobalKey _auditKey = GlobalKey();
-  final TadabburRepository _tadabburRepository = TadabburRepository();
   final TextEditingController _auditController = TextEditingController();
-  late Future<List<TadabburNote>> _communityNotesFuture;
 
   bool _isSavingAudit = false;
   bool _auditSaved = false;
@@ -216,10 +199,6 @@ class _VerseCardState extends State<VerseCard> {
   void initState() {
     super.initState();
     FootnoteService().addListener(_onFootnoteLoaded);
-    _communityNotesFuture = _tadabburRepository.fetchCommunityNotes(
-      widget.verse.surahId,
-      widget.verse.id,
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final settings = Provider.of<SettingsProvider>(context, listen: false);
       if (settings.showArabicText) {
@@ -236,10 +215,6 @@ class _VerseCardState extends State<VerseCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.verse != widget.verse ||
         oldWidget.controller != widget.controller) {
-      _communityNotesFuture = _tadabburRepository.fetchCommunityNotes(
-        widget.verse.surahId,
-        widget.verse.id,
-      );
       if (_isActiveCard()) {
         _bindController();
       }
@@ -293,13 +268,6 @@ class _VerseCardState extends State<VerseCard> {
       };
       widget.controller!.copyText = _copyVerseText;
       widget.controller!.shareImage = _shareVerseImage;
-      widget.controller!.showCommunityNotes = () {
-        _communityNotesFuture.then((notes) {
-          if (mounted && notes.isNotEmpty) {
-            _showCommunityNotesModal(notes);
-          }
-        });
-      };
       widget.controller!.showWordByWord = () {
         WordByWordSheet.show(
           context,
@@ -356,7 +324,6 @@ class _VerseCardState extends State<VerseCard> {
         showTafsirBox: _showTafsirBox,
         showAuditBox: _showAuditBox,
         hasTafsir: _getTafsir() != null,
-        hasCommunityNotes: true,
         isBookmarked: Provider.of<LocalReadingProvider>(
           context,
           listen: false,
@@ -367,7 +334,6 @@ class _VerseCardState extends State<VerseCard> {
               listen: false,
             ).getNoteObjectForVerse(widget.verse.surahId, widget.verse.id) !=
             null,
-        communityNotesFuture: _communityNotesFuture,
       );
     }
   }
@@ -729,107 +695,6 @@ class _VerseCardState extends State<VerseCard> {
         SnackBar(content: Text('Could not play ayah audio: $e')),
       );
     }
-  }
-
-  void _showCommunityNotesModal(List<TadabburNote> notes) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final colorScheme = Theme.of(ctx).colorScheme;
-        return DraggableScrollableSheet(
-          initialChildSize: 0.58,
-          minChildSize: 0.35,
-          maxChildSize: 0.88,
-          builder: (context, controller) {
-            return Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Community notes - ${widget.verse.surahId}:${widget.verse.id}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Close',
-                        onPressed: () => Navigator.pop(ctx),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.separated(
-                      controller: controller,
-                      itemCount: notes.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final note = notes[index];
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                note.noteText,
-                                locale: const Locale('th', 'TH'),
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 14,
-                                  height: 1.6,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.favorite_rounded,
-                                    size: 14,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${note.likesCount}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelSmall
-                                        ?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   @override
