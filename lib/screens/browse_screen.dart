@@ -97,9 +97,6 @@ class BrowseScreenState extends State<BrowseScreen> {
     return [114, 6];
   }
 
-  static const Set<int> _medinanSurahs = {
-    2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110,
-  };
   String _mode = 'surah';
   String _surahFilter = 'all'; // 'all', 'fav', 'juz'
 
@@ -540,7 +537,6 @@ class BrowseScreenState extends State<BrowseScreen> {
     required String arabicTitle,
     required int verseCount,
     required int startPage,
-    required bool isMedinan,
     required bool isCompleted,
   }) {
     final settings = context.read<SettingsProvider>();
@@ -551,13 +547,14 @@ class BrowseScreenState extends State<BrowseScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (modalCtx) {
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -616,10 +613,10 @@ class BrowseScreenState extends State<BrowseScreen> {
                               ),
                               if (isCompleted) ...[
                                 const SizedBox(width: 6),
-                                const Icon(
+                                Icon(
                                   Icons.check_circle_rounded,
                                   size: 15,
-                                  color: Color(0xFF0E5A4A),
+                                  color: colors.primary,
                                 ),
                               ],
                             ],
@@ -627,8 +624,8 @@ class BrowseScreenState extends State<BrowseScreen> {
                           const SizedBox(height: 2),
                           Text(
                             isThai
-                                ? '$surahNameEn · $verseCount อายะฮฺ · ${isMedinan ? "มะดะนียะฮฺ" : "มักกียะฮฺ"} · หน้า $startPage'
-                                : '$surahName · $verseCount verses · ${isMedinan ? "Medinan" : "Meccan"} · Page $startPage',
+                                ? '$verseCount อายะฮฺ · หน้า $startPage'
+                                : '$verseCount verses · Page $startPage',
                             style: GoogleFonts.notoSansThai(
                               fontSize: 12,
                               color: colors.foreground.withValues(alpha: 0.7),
@@ -641,10 +638,10 @@ class BrowseScreenState extends State<BrowseScreen> {
                       Text(
                         arabicTitle,
                         textDirection: TextDirection.rtl,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'UthmanicHafs',
                           fontSize: 24,
-                          color: Color(0xFF0E5A4A),
+                          color: colors.primary,
                         ),
                       ),
                   ],
@@ -898,13 +895,14 @@ class BrowseScreenState extends State<BrowseScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (modalCtx) {
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1165,7 +1163,6 @@ class BrowseScreenState extends State<BrowseScreen> {
           arabic: offlineSurahNamesAr[id.toString()] ?? '',
           count: widget.repository.getSurahVerses(id.toString()).length,
           startPage: getMedinaMushafPageNumber(id, 1),
-          isMedinan: _medinanSurahs.contains(id),
         ),
     ].where((surah) {
       if (isSearching) {
@@ -1407,7 +1404,6 @@ class BrowseScreenState extends State<BrowseScreen> {
                               arabicTitle: surah.arabic,
                               verseCount: surah.count,
                               startPage: surah.startPage,
-                              isMedinan: surah.isMedinan,
                               isCompleted: completedSurahs.contains(surah.id),
                             ),
                           ),
@@ -1821,7 +1817,6 @@ class BrowseScreenState extends State<BrowseScreen> {
                             arabicTitle: surah.arabic,
                             count: surah.count,
                             startPage: surah.startPage,
-                            isMedinan: surah.isMedinan,
                             completed: completedSurahs.contains(surah.id),
                             onTap: () => _showSurahReadOptionsModal(
                               context: context,
@@ -1831,7 +1826,6 @@ class BrowseScreenState extends State<BrowseScreen> {
                               arabicTitle: surah.arabic,
                               verseCount: surah.count,
                               startPage: surah.startPage,
-                              isMedinan: surah.isMedinan,
                               isCompleted: completedSurahs.contains(surah.id),
                             ),
                           ),
@@ -1858,7 +1852,6 @@ class _SurahCard extends StatelessWidget {
   final String arabicTitle;
   final int count;
   final int startPage;
-  final bool isMedinan;
   final bool completed;
   final VoidCallback onTap;
 
@@ -1871,7 +1864,6 @@ class _SurahCard extends StatelessWidget {
     required this.arabicTitle,
     required this.count,
     required this.startPage,
-    required this.isMedinan,
     required this.completed,
     required this.onTap,
   });
@@ -1879,7 +1871,6 @@ class _SurahCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryTitle = isThai ? title : englishTitle;
-    final secondaryTitle = isThai ? englishTitle : title;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -1944,21 +1935,21 @@ class _SurahCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 5, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEAF2EE),
+                                color: colors.primaryLight,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check_rounded,
-                                      size: 10.5, color: Color(0xFF0E5A4A)),
+                                  Icon(Icons.check_rounded,
+                                      size: 10.5, color: colors.primary),
                                   const SizedBox(width: 2),
                                   Text(
                                     isThai ? 'อ่านจบ' : 'Completed',
                                     style: GoogleFonts.notoSansThai(
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF0E5A4A),
+                                      color: colors.primary,
                                     ),
                                   ),
                                 ],
@@ -1968,51 +1959,16 @@ class _SurahCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4.5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: isMedinan
-                                  ? const Color(0xFFEAF2EE)
-                                  : const Color(0xFFF6EFE3),
-                              borderRadius: BorderRadius.circular(3.5),
-                              border: Border.all(
-                                color: isMedinan
-                                    ? const Color(0xFFB7D4C7)
-                                    : const Color(0xFFD7C299),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              isMedinan
-                                  ? (isThai ? 'มะดะนียะฮฺ' : 'Medinan')
-                                  : (isThai ? 'มักกียะฮฺ' : 'Meccan'),
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
-                                color: isMedinan
-                                    ? const Color(0xFF0E5A4A)
-                                    : const Color(0xFF8A6530),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              isThai
-                                  ? '$count อายะฮฺ · หน้า $startPage · $secondaryTitle'
-                                  : '$count verses · Page $startPage · $secondaryTitle',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.notoSans(
-                                fontSize: 11,
-                                color: colors.foreground.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        isThai
+                            ? '$count อายะฮฺ · หน้า $startPage'
+                            : '$count verses · Page $startPage',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSans(
+                          fontSize: 11,
+                          color: colors.foreground.withValues(alpha: 0.6),
+                        ),
                       ),
                     ],
                   ),
@@ -2024,10 +1980,10 @@ class _SurahCard extends StatelessWidget {
                   Text(
                     arabicTitle,
                     textDirection: TextDirection.rtl,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'UthmanicHafs',
                       fontSize: 18,
-                      color: Color(0xFF0E5A4A),
+                      color: colors.primary,
                     ),
                   ),
                   const SizedBox(width: 6),

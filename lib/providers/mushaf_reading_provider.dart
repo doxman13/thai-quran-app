@@ -66,6 +66,8 @@ class MushafReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
           debugPrint('Error syncing Mushaf after auth change: $e');
         }
       }
+    }, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('[MushafReadingProvider] onAuthStateChange error: $error');
     });
   }
 

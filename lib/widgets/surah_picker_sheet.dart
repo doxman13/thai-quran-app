@@ -240,9 +240,6 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                       final isSelected = surahNumber == widget.selectedSurah;
                       // Lead with the language the UI is set to.
                       final titleName = isThai ? names.th : names.en;
-                      final otherName = isThai ? names.en : names.th;
-                      final secondaryName =
-                          otherName == titleName ? '' : otherName;
 
                       return Material(
                         color: isSelected
@@ -280,7 +277,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                                 ),
                                 const SizedBox(width: 14),
 
-                                // English and Thai Name
+                                // Surah Name
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -294,9 +291,7 @@ class _SurahPickerSheetState extends State<SurahPickerSheet> {
                                         ),
                                       ),
                                       Text(
-                                        secondaryName.isEmpty
-                                            ? '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}'
-                                            : '$secondaryName · $totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
+                                        '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
                                         style: textTheme.bodySmall?.copyWith(
                                           color: colorScheme.onSurfaceVariant,
                                         ),
@@ -386,8 +381,6 @@ class SurahSelectorTile extends StatelessWidget {
     final showSteppers = onPrevious != null || onNext != null;
     // Lead with the language the UI is set to.
     final titleName = isThai ? names.th : names.en;
-    final otherName = isThai ? names.en : names.th;
-    final secondaryName = otherName == titleName ? '' : otherName;
 
     final card = Material(
       color: colorScheme.surfaceContainerLow,
@@ -434,9 +427,7 @@ class SurahSelectorTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      secondaryName.isEmpty
-                          ? '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}'
-                          : '$secondaryName · $totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
+                      '$totalVerses ${isThai ? 'อายะฮฺ' : 'verses'}',
                       style: textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),

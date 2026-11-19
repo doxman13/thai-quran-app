@@ -39,6 +39,19 @@ import '../widgets/auth_bottom_sheet.dart';
 import '../widgets/surah_picker_sheet.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 
+@visibleForTesting
+List<TadabburNote> selectHomepageCommunityNotes({
+  required List<TadabburNote> thaiNotes,
+  required List<TadabburNote> englishFallbackNotes,
+}) {
+  final validThai =
+      thaiNotes.where((n) => n.noteText.trim().isNotEmpty).toList();
+  if (validThai.isNotEmpty) return validThai;
+  return englishFallbackNotes
+      .where((n) => n.noteText.trim().isNotEmpty)
+      .toList();
+}
+
 extension _TadabburNoteAuthorExt on TadabburNote {
   String get authorName {
     if (isQuranReflect) {
@@ -159,8 +172,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loadingCommunity = true;
 
   // Custom Quick Links
-  List<CustomQuickLink> _quickLinks = [];
+  List<CustomQuickLink> _quickLinks = _defaultQuickLinks();
   StreamSubscription<AuthState>? _quickLinkAuthSubscription;
+  Future<void>? _quickLinksLoadFuture;
+  bool _quickLinksHydrated = false;
   String? _quickLinksLoadedForUser;
   int _quickLinksRevision = 0;
 
@@ -173,8 +188,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _quickLinkAuthSubscription = Supabase.instance.client.auth.onAuthStateChange
         .listen((data) {
       final userId = data.session?.user.id;
-      if (userId == _quickLinksLoadedForUser) return;
+      if (_quickLinksHydrated && userId == _quickLinksLoadedForUser) return;
       unawaited(_loadQuickLinks());
+    }, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('[HomeScreen] onAuthStateChange error: $error');
     });
     if (!_isInit) {
       _initApp();
@@ -188,20 +205,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCommunityPreview() async {
     try {
       final results = await Future.wait([
+        _tadabburRepository.getBlockedUserIds(),
         _tadabburRepository.fetchCommunityNotes(
           '0',
           '0',
-          limit: 15,
+          limit: 25,
         ),
-        _tadabburRepository.fetchQuranReflectNotes(limit: 50),
       ]);
-      final thaiNotes = results[0];
-      final qrNotes = results[1];
-      final combined = _buildBalancedCommunityPreview(thaiNotes, qrNotes);
+      final blockedUsers = results[0] as Set<String>;
+      final rawThaiNotes = results[1] as List<TadabburNote>;
+      final thaiNotes = rawThaiNotes
+          .where(
+            (n) =>
+                !blockedUsers.contains(n.userId) &&
+                n.noteText.trim().isNotEmpty,
+          )
+          .toList();
+
+      List<TadabburNote> englishFallback = const [];
+      if (thaiNotes.isEmpty) {
+        englishFallback = await _tadabburRepository.fetchQuranReflectNotes(
+          limit: 50,
+        );
+      }
+
+      final selected = selectHomepageCommunityNotes(
+        thaiNotes: thaiNotes,
+        englishFallbackNotes: englishFallback,
+      );
       if (!mounted) return;
       setState(() {
-        _communityPool = combined;
-        _communityPreview = combined;
+        _communityPool = selected;
+        _communityPreview = selected;
         _loadingCommunity = false;
       });
     } catch (_) {
@@ -212,38 +247,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<TadabburNote> _buildBalancedCommunityPreview(
-    List<TadabburNote> thaiNotes,
-    List<TadabburNote> qrNotes,
-  ) {
-    final result = <TadabburNote>[];
-    var tIdx = 0;
-    var qIdx = 0;
-
-    while (tIdx < thaiNotes.length || qIdx < qrNotes.length) {
-      for (var i = 0; i < 2 && tIdx < thaiNotes.length; i++) {
-        result.add(thaiNotes[tIdx++]);
-      }
-      if (qIdx < qrNotes.length) {
-        result.add(qrNotes[qIdx++]);
-      }
-    }
-    return result;
-  }
-
   void _shuffleCommunityPreview() {
     if (_communityPool.isEmpty) {
       unawaited(_loadCommunityPreview());
       return;
     }
     setState(() {
-      final thai = _communityPool.where((n) => !n.isQuranReflect).toList()
-        ..shuffle();
-      final qr = _communityPool.where((n) => n.isQuranReflect).toList()
-        ..shuffle();
-      final balanced = _buildBalancedCommunityPreview(thai, qr);
-      _communityPool = balanced;
-      _communityPreview = balanced;
+      final shuffled = List<TadabburNote>.from(_communityPool)..shuffle();
+      _communityPool = shuffled;
+      _communityPreview = shuffled;
     });
   }
 
@@ -343,12 +355,14 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CustomQuickLink> _decodeQuickLinks(String? raw) {
     if (raw == null || raw.isEmpty) return [];
     try {
-      final List<dynamic> decoded = jsonDecode(raw);
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
       return decoded
           .whereType<Map>()
           .map(
-            (e) => CustomQuickLink.fromJson(Map<String, dynamic>.from(e)),
+            (e) => CustomQuickLink.tryFromJson(Map<String, dynamic>.from(e)),
           )
+          .whereType<CustomQuickLink>()
           .toList();
     } catch (e) {
       debugPrint('Error decoding quick links: $e');
@@ -398,50 +412,97 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadQuickLinks() async {
+  Future<void> _loadQuickLinks() {
+    final future = _performLoadQuickLinks();
+    _quickLinksLoadFuture = future;
+    return future;
+  }
+
+  Future<void> _performLoadQuickLinks() async {
     final revision = _quickLinksRevision;
-    final prefs = await SharedPreferences.getInstance();
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final scope = _quickLinksScope(userId);
 
-    List<CustomQuickLink> links;
-    if (prefs.containsKey(_quickLinksStorageKey(scope))) {
-      links = _decodeQuickLinks(prefs.getString(_quickLinksStorageKey(scope)));
-    } else if (userId == null) {
-      // One-time migration of the old unscoped key. Only the guest scope keeps
-      // a local copy; signed-in accounts are restored from Supabase so that
-      // another account's links can never be adopted.
-      links = _decodeQuickLinks(prefs.getString(_legacyQuickLinksKey));
-    } else {
-      links = const [];
-    }
-    // The legacy blob was never account-scoped; drop it so it cannot leak into
-    // another account that signs in on this device later.
-    if (prefs.containsKey(_legacyQuickLinksKey)) {
-      await prefs.remove(_legacyQuickLinksKey);
-    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
 
-    links = _normalizeQuickLinks(links);
+      final currentAfterPrefs = Supabase.instance.client.auth.currentUser?.id;
+      if (currentAfterPrefs != userId) {
+        unawaited(_loadQuickLinks());
+        return;
+      }
 
-    if (userId != null) {
-      links = await _syncQuickLinksWithSupabase(userId, scope, links);
-    }
+      List<CustomQuickLink> links;
+      if (prefs.containsKey(_quickLinksStorageKey(scope))) {
+        links = _decodeQuickLinks(prefs.getString(_quickLinksStorageKey(scope)));
+      } else if (userId == null) {
+        // One-time migration of the old unscoped key. Only the guest scope keeps
+        // a local copy; signed-in accounts are restored from Supabase so that
+        // another account's links can never be adopted.
+        links = _decodeQuickLinks(prefs.getString(_legacyQuickLinksKey));
+      } else {
+        links = const [];
+      }
+      // The legacy blob was never account-scoped; drop it so it cannot leak into
+      // another account that signs in on this device later.
+      if (prefs.containsKey(_legacyQuickLinksKey)) {
+        await prefs.remove(_legacyQuickLinksKey);
+      }
 
-    // A local edit (or an account switch) landed while this load was in
-    // flight — keep the newer state instead of overwriting it.
-    if (!mounted ||
-        revision != _quickLinksRevision ||
-        Supabase.instance.client.auth.currentUser?.id != userId) {
-      return;
+      links = _normalizeQuickLinks(links);
+
+      // Apply local/default shortcuts immediately before waiting on Supabase
+      // so the UI renders shortcuts right away even offline or on slow networks.
+      if (!mounted) return;
+      if (Supabase.instance.client.auth.currentUser?.id != userId) {
+        unawaited(_loadQuickLinks());
+        return;
+      }
+      if (revision != _quickLinksRevision) {
+        return;
+      }
+      _quickLinksLoadedForUser = userId;
+      _quickLinksHydrated = true;
+      setState(() {
+        _quickLinks = links;
+      });
+
+      if (userId != null) {
+        links = await _syncQuickLinksWithSupabase(userId, scope, links);
+      }
+
+      if (!mounted) return;
+      if (Supabase.instance.client.auth.currentUser?.id != userId) {
+        unawaited(_loadQuickLinks());
+        return;
+      }
+      if (revision != _quickLinksRevision) {
+        return;
+      }
+      _quickLinksLoadedForUser = userId;
+      _quickLinksHydrated = true;
+      setState(() {
+        _quickLinks = links;
+      });
+      await _persistQuickLinks(prefs, scope, links);
+    } catch (e) {
+      debugPrint('Error loading quick links: $e');
+      if (!mounted) return;
+      if (Supabase.instance.client.auth.currentUser?.id != userId) {
+        unawaited(_loadQuickLinks());
+        return;
+      }
+      if (revision != _quickLinksRevision) return;
+      _quickLinksLoadedForUser = userId;
+      _quickLinksHydrated = true;
+      setState(() {
+        _quickLinks = _defaultQuickLinks();
+      });
     }
-    _quickLinksLoadedForUser = userId;
-    setState(() {
-      _quickLinks = links;
-    });
-    await _persistQuickLinks(prefs, scope, links);
   }
 
-  List<CustomQuickLink> _defaultQuickLinks() => [
+  static List<CustomQuickLink> _defaultQuickLinks() => [
         CustomQuickLink(
           id: 'system_mulk',
           surahNumber: 67,
@@ -514,26 +575,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _saveQuickLinks({bool syncRemote = true}) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    // The account changed while a reload is in flight; never write one
-    // account's list into another scope.
-    if (_quickLinksLoadedForUser != null &&
-        userId != _quickLinksLoadedForUser) {
+    // Wait for any in-flight initial load before saving so auto-sync never
+    // clobbers unhydrated state or aborts an active load.
+    if (!_quickLinksHydrated ||
+        (userId != null && _quickLinksLoadedForUser != userId)) {
+      final pendingLoad = _quickLinksLoadFuture;
+      if (pendingLoad != null) {
+        await pendingLoad;
+      }
+    }
+    final activeUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (!_quickLinksHydrated ||
+        (activeUserId != null && _quickLinksLoadedForUser != activeUserId) ||
+        (_quickLinksLoadedForUser != null &&
+            activeUserId != _quickLinksLoadedForUser)) {
       return;
     }
     _quickLinksRevision++;
     _quickLinks = _normalizeQuickLinks(_quickLinks);
     final prefs = await SharedPreferences.getInstance();
-    final scope = _quickLinksScope(userId);
+    final scope = _quickLinksScope(activeUserId);
     await _persistQuickLinks(prefs, scope, _quickLinks);
 
-    if (!syncRemote || userId == null) return;
+    if (!syncRemote || activeUserId == null) return;
     final merged = await _syncQuickLinksWithSupabase(
-      userId,
+      activeUserId,
       scope,
       _quickLinks,
     );
     if (!mounted ||
-        Supabase.instance.client.auth.currentUser?.id != userId) {
+        Supabase.instance.client.auth.currentUser?.id != activeUserId) {
       return;
     }
     setState(() {
@@ -559,10 +630,14 @@ class _HomeScreenState extends State<HomeScreen> {
           .from('custom_quick_links')
           .select('id, surah_number, label, sort_order, created_at, updated_at')
           .eq('user_id', userId)
-          .order('sort_order');
+          .order('sort_order')
+          .timeout(const Duration(seconds: 8));
       final remoteLinks = List<Map<String, dynamic>>.from(
         remoteRows,
-      ).map(CustomQuickLink.fromSupabase).toList();
+      )
+          .map(CustomQuickLink.tryFromSupabase)
+          .whereType<CustomQuickLink>()
+          .toList();
       final remoteById = <String, CustomQuickLink>{
         for (final link in remoteLinks) link.id: link,
       };
@@ -2740,7 +2815,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            if (_quickLinks.length < 8)
+            if (_quickLinks.where((link) => !link.isLocked).length < 8)
               TextButton.icon(
                 onPressed: _showAddQuickLinkSheet,
                 icon: const Icon(Icons.add_rounded, size: 16),
@@ -2762,7 +2837,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 76,
+          height: 86,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _quickLinks.length,
@@ -2828,13 +2903,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const Spacer(),
                             if (arName.isNotEmpty)
-                              Text(
-                                arName,
-                                style: const TextStyle(
-                                  fontFamily: 'UthmanicHafs',
-                                  fontSize: 13.5,
-                                  color: Color(0xFF8A6530),
-                                  height: 1.1,
+                              Flexible(
+                                child: Text(
+                                  arName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'UthmanicHafs',
+                                    fontSize: 13.5,
+                                    color: Color(0xFF8A6530),
+                                    height: 1.1,
+                                  ),
                                 ),
                               ),
                             if (!link.isLocked) ...[
@@ -2863,51 +2942,62 @@ class _HomeScreenState extends State<HomeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            InkWell(
-                              onTap: () =>
-                                  _openQuickLinkInMode(link, 'meaning'),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 1,
-                                ),
-                                child: Text(
-                                  isThai ? 'ความหมาย' : 'Meaning',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.primary,
+                            Flexible(
+                              child: InkWell(
+                                onTap: () =>
+                                    _openQuickLinkInMode(link, 'meaning'),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 1,
+                                  ),
+                                  child: Text(
+                                    isThai ? 'ความหมาย' : 'Meaning',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                            InkWell(
-                              onTap: () => _openQuickLinkInMode(link, 'mushaf'),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 1,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.import_contacts_rounded,
-                                      size: 10,
-                                      color: Color(0xFF8A6530),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      isThai ? 'มุศหัฟ' : 'Mushaf',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF8A6530),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: InkWell(
+                                onTap: () => _openQuickLinkInMode(link, 'mushaf'),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.import_contacts_rounded,
+                                        size: 10,
+                                        color: Color(0xFF8A6530),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          isThai ? 'มุศหัฟ' : 'Mushaf',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.notoSansThai(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF8A6530),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -3939,24 +4029,65 @@ class CustomQuickLink {
     'updatedAt': updatedAt.toUtc().toIso8601String(),
   };
 
-  factory CustomQuickLink.fromJson(Map<String, dynamic> json) =>
-      CustomQuickLink(
-        id: json['id']?.toString(),
-        surahNumber: json['surahNumber'],
-        label: json['label'] ?? '',
-        isLocked: json['isLocked'] ?? false,
-        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
-        updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
-      );
+  static int? _parseSurahNumber(Object? raw) {
+    int? parsed;
+    if (raw is int) {
+      parsed = raw;
+    } else if (raw is num) {
+      parsed = raw.toInt();
+    } else if (raw is String) {
+      parsed = int.tryParse(raw.trim());
+    }
+    if (parsed == null || parsed < 1 || parsed > 114) return null;
+    return parsed;
+  }
 
-  factory CustomQuickLink.fromSupabase(Map<String, dynamic> row) =>
-      CustomQuickLink(
-        id: row['id'].toString(),
-        surahNumber: row['surah_number'],
-        label: row['label']?.toString() ?? '',
-        createdAt: DateTime.tryParse(row['created_at']?.toString() ?? ''),
-        updatedAt: DateTime.tryParse(row['updated_at']?.toString() ?? ''),
-      );
+  static CustomQuickLink? tryFromJson(Map<String, dynamic> json) {
+    final surahNumber = _parseSurahNumber(
+      json['surahNumber'] ?? json['surah_number'],
+    );
+    if (surahNumber == null) return null;
+    final rawLocked = json['isLocked'] ?? json['is_locked'];
+    return CustomQuickLink(
+      id: json['id']?.toString(),
+      surahNumber: surahNumber,
+      label: json['label']?.toString() ?? '',
+      isLocked: rawLocked is bool ? rawLocked : false,
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? ''),
+      updatedAt: DateTime.tryParse(json['updatedAt']?.toString() ?? ''),
+    );
+  }
+
+  static CustomQuickLink? tryFromSupabase(Map<String, dynamic> row) {
+    final rawId = row['id']?.toString().trim() ?? '';
+    final surahNumber = _parseSurahNumber(
+      row['surah_number'] ?? row['surahNumber'],
+    );
+    if (rawId.isEmpty || surahNumber == null) return null;
+    return CustomQuickLink(
+      id: rawId,
+      surahNumber: surahNumber,
+      label: row['label']?.toString() ?? '',
+      createdAt: DateTime.tryParse(row['created_at']?.toString() ?? ''),
+      updatedAt: DateTime.tryParse(row['updated_at']?.toString() ?? ''),
+    );
+  }
+
+  factory CustomQuickLink.fromJson(Map<String, dynamic> json) {
+    final parsed = tryFromJson(json);
+    if (parsed == null) {
+      throw const FormatException('Invalid CustomQuickLink JSON');
+    }
+    return parsed;
+  }
+
+  factory CustomQuickLink.fromSupabase(Map<String, dynamic> row) {
+    final parsed = tryFromSupabase(row);
+    if (parsed == null) {
+      throw const FormatException('Invalid CustomQuickLink Supabase row');
+    }
+    return parsed;
+  }
 
   static String _fallbackId(int surahNumber, String label, bool isLocked) {
     if (isLocked && surahNumber == 67) return 'system_mulk';

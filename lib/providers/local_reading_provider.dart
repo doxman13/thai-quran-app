@@ -779,6 +779,8 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
         await _save(immediate: true);
         notifyListeners();
       }
+    }, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('[LocalReadingProvider] onAuthStateChange error: $error');
     });
   }
 

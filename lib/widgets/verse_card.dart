@@ -27,9 +27,7 @@ import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 import 'word_by_word_strip.dart';
-import 'mutashabihat_sheet.dart';
 import 'tajweed_text.dart';
-import '../services/offline_quran_database_service.dart';
 import '../services/footnote_service.dart';
 import '../services/tajweed_service.dart';
 import '../providers/supabase_provider.dart';
@@ -150,9 +148,9 @@ class _VerseCardState extends State<VerseCard> {
     }
   }
 
-  String _effectivePrimaryLang() {
+  String _effectivePrimaryLang({bool listen = false}) {
     if (!mounted) return 'th';
-    final settings = Provider.of<SettingsProvider>(context, listen: true);
+    final settings = Provider.of<SettingsProvider>(context, listen: listen);
     final transManager =
         Provider.of<TranslationManagerProvider>(context, listen: false);
     return resolveEffectiveTranslationLanguage(
@@ -162,18 +160,22 @@ class _VerseCardState extends State<VerseCard> {
     );
   }
 
-  bool _isNonThaiPrimary() => _effectivePrimaryLang() != 'th';
+  bool _isNonThaiPrimary({bool listen = false}) =>
+      _effectivePrimaryLang(listen: listen) != 'th';
 
-  bool _isMalayPrimary() => _effectivePrimaryLang() == 'ms';
+  bool _isMalayPrimary({bool listen = false}) =>
+      _effectivePrimaryLang(listen: listen) == 'ms';
 
-  String? _getTafsir() {
-    if (_isMalayPrimary()) {
+  String? _getTafsir({bool listen = false}) {
+    if (_isMalayPrimary(listen: listen)) {
       final idTafsir = widget.verse.shortTafsirId;
       if (idTafsir != null && idTafsir.trim().isNotEmpty) {
         return idTafsir;
       }
     }
-    final primaryTafsir = _isNonThaiPrimary() ? widget.verse.shortTafsirEn : widget.verse.shortTafsir;
+    final primaryTafsir = _isNonThaiPrimary(listen: listen)
+        ? widget.verse.shortTafsirEn
+        : widget.verse.shortTafsir;
     if (primaryTafsir != null && primaryTafsir.trim().isNotEmpty) {
       return primaryTafsir;
     }
@@ -263,12 +265,20 @@ class _VerseCardState extends State<VerseCard> {
       };
       widget.controller!.playAudio = _toggleAyahAudio;
       widget.controller!.stopAudio = () async {
+        if (!mounted) return;
         final mushafAudio = Provider.of<MushafAudioProvider>(context, listen: false);
         await mushafAudio.stop();
       };
-      widget.controller!.copyText = _copyVerseText;
-      widget.controller!.shareImage = _shareVerseImage;
+      widget.controller!.copyText = () {
+        if (!mounted) return;
+        _copyVerseText();
+      };
+      widget.controller!.shareImage = () {
+        if (!mounted) return;
+        _shareVerseImage();
+      };
       widget.controller!.showWordByWord = () {
+        if (!mounted) return;
         WordByWordSheet.show(
           context,
           verseKey: '${widget.verse.surahId}:${widget.verse.id}',
@@ -283,6 +293,7 @@ class _VerseCardState extends State<VerseCard> {
         );
       };
       widget.controller!.toggleBookmark = () async {
+        if (!mounted) return;
         final localReading = Provider.of<LocalReadingProvider>(
           context,
           listen: false,
@@ -293,7 +304,7 @@ class _VerseCardState extends State<VerseCard> {
         );
         if (!isBookmarked) {
           final ok = await GuestBookmarkWarningDialog.checkAndPrompt(context);
-          if (!ok) return;
+          if (!ok || !mounted) return;
         }
         await localReading.toggleBookmark(
           widget.verse.surahId,
@@ -302,6 +313,7 @@ class _VerseCardState extends State<VerseCard> {
         if (mounted) _updateControllerState();
       };
       widget.controller!.toggleFavorite = () {
+        if (!mounted) return;
         final notesProv = Provider.of<NotesProvider>(context, listen: false);
         final noteObj = notesProv.getNoteObjectForVerse(
           widget.verse.surahId,
@@ -900,25 +912,6 @@ class _VerseCardState extends State<VerseCard> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                          if (OfflineQuranDatabaseService.hasMutashabihatSync(
-                            '${widget.verse.surahId}:${widget.verse.id}',
-                          )) ...[
-                            const SizedBox(width: 4),
-                            _buildActionIcon(
-                              tooltip: _isNonThaiPrimary()
-                                  ? 'Similar Verses (Mutashabihat)'
-                                  : 'โองการที่คล้ายคลึงกัน (มุตะชาบิฮาต)',
-                              icon: Icons.sync_alt_rounded,
-                              active: true,
-                              color: colorScheme.primary,
-                              onPressed: () {
-                                MutashabihatSheet.show(
-                                  context,
-                                  '${widget.verse.surahId}:${widget.verse.id}',
-                                );
-                              },
-                            ),
-                          ],
                         ],
                       ),
                     ],
@@ -995,23 +988,6 @@ class _VerseCardState extends State<VerseCard> {
                           );
                         },
                       ),
-                      if (OfflineQuranDatabaseService.hasMutashabihatSync('${widget.verse.surahId}:${widget.verse.id}')) ...[
-                        const SizedBox(width: 4),
-                        _buildActionIcon(
-                          tooltip: _isNonThaiPrimary()
-                              ? 'Similar Verses (Mutashabihat)'
-                              : 'โองการที่คล้ายคลึงกัน (มุตะชาบิฮาต)',
-                          icon: Icons.sync_alt_rounded,
-                          active: true,
-                          color: colorScheme.primary,
-                          onPressed: () {
-                            MutashabihatSheet.show(
-                              context,
-                              '${widget.verse.surahId}:${widget.verse.id}',
-                            );
-                          },
-                        ),
-                      ],
                     ],
                   ),
                 ],

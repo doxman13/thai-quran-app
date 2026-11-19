@@ -34,10 +34,8 @@ import 'settings_screen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/tajweed_service.dart';
-import '../widgets/mutashabihat_sheet.dart';
 import '../widgets/word_by_word_strip.dart';
 import '../widgets/auth_bottom_sheet.dart';
-import '../services/offline_quran_database_service.dart';
 import '../shared/quran_translation_helper.dart';
 import '../utils/html_parser.dart';
 import '../providers/recitation_tracker_provider.dart';
@@ -3311,47 +3309,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ),
                             ),
                           ],
-                          if (OfflineQuranDatabaseService.hasMutashabihatSync(
-                              verseKey)) ...[
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () =>
-                                  MutashabihatSheet.show(context, verseKey),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: colorScheme.primary
-                                        .withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.sync_alt_rounded,
-                                      size: 13,
-                                      color: colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'โองการคล้ายกัน',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                       PopupMenuButton<String>(
@@ -3425,8 +3382,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             }
                           } else if (val == 'wbw') {
                             WordByWordSheet.show(context, verseKey: verseKey);
-                          } else if (val == 'mutashabihat') {
-                            MutashabihatSheet.show(context, verseKey);
                           }
                         },
                         itemBuilder: (_) => [
@@ -3506,23 +3461,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ],
                             ),
                           ),
-                          if (OfflineQuranDatabaseService.hasMutashabihatSync(
-                              verseKey))
-                            PopupMenuItem(
-                              value: 'mutashabihat',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.sync_alt_rounded,
-                                    size: 20,
-                                    color: colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                      'โองการที่คล้ายคลึงกัน (Similar Ayat)'),
-                                ],
-                              ),
-                            ),
                         ],
                       ),
                     ],
@@ -5754,42 +5692,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ),
                             ),
                           ],
-                          if (OfflineQuranDatabaseService.hasMutashabihatSync(verseKey)) ...[
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () => MutashabihatSheet.show(context, verseKey),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: colorScheme.primary.withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.sync_alt_rounded,
-                                      size: 13,
-                                      color: colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'โองการคล้ายกัน',
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                       PopupMenuButton<String>(
@@ -5862,8 +5764,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             }
                           } else if (val == 'wbw') {
                             WordByWordSheet.show(context, verseKey: verseKey);
-                          } else if (val == 'mutashabihat') {
-                            MutashabihatSheet.show(context, verseKey);
                           }
                         },
                         itemBuilder: (_) => [
@@ -5937,21 +5837,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ],
                             ),
                           ),
-                          if (OfflineQuranDatabaseService.hasMutashabihatSync(verseKey))
-                            PopupMenuItem(
-                              value: 'mutashabihat',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.sync_alt_rounded,
-                                    size: 20,
-                                    color: colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text('โองการที่คล้ายคลึงกัน (Similar Ayat)'),
-                                ],
-                              ),
-                            ),
                         ],
                       ),
                     ],

@@ -381,7 +381,7 @@ create table if not exists public.app_version_config (
   min_version text not null default '1.0.0',
   min_build_number integer not null default 1,
   latest_version text not null default '1.0.2',
-  latest_build_number integer not null default 7,
+  latest_build_number integer not null default 8,
   is_force_update boolean not null default false,
   update_url text not null,
   title_th text not null default 'มีเวอร์ชันใหม่พร้อมใช้งาน',

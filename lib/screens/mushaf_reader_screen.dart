@@ -3202,11 +3202,6 @@ const List<int> _juzStartPages = [
   402, 422, 442, 462, 482, 502, 522, 542, 562, 582,
 ];
 
-const Set<int> _mushafMedinanSurahs = {
-  2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49,
-  57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110,
-};
-
 int getSurahNumberForPage(int pageNumber) {
   int surahId = 1;
   for (int i = 1; i <= 114; i++) {
@@ -3449,7 +3444,6 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
               final cleanThaiName = rawName.replaceFirst(RegExp(r'^\d+\.\s*'), '');
               final enName = offlineSurahNamesEn[surahNumber.toString()] ?? '';
               final arName = offlineSurahNamesAr[surahNumber.toString()] ?? '';
-              final isMedinan = _mushafMedinanSurahs.contains(surahNumber);
               final verseCount = qcf.getVerseCount(surahNumber);
               final startPage = getStartPageForSurah(surahNumber);
 
@@ -3488,53 +3482,23 @@ class _MushafNavigatorSheetState extends State<_MushafNavigatorSheet>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    isThai ? cleanThaiName : (enName.isNotEmpty ? enName : cleanThaiName),
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: widget.colors.textStrong,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if ((isThai ? enName : cleanThaiName).isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    isThai ? enName : cleanThaiName,
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 12,
-                                      color: widget.colors.textMuted,
-                                    ),
-                                  ),
-                                ],
-                              ],
+                            Text(
+                              isThai ? cleanThaiName : (enName.isNotEmpty ? enName : cleanThaiName),
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: widget.colors.textStrong,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Text(
-                                  isMedinan
-                                      ? (isThai ? 'มะดะนียะฮฺ' : 'Medinan')
-                                      : (isThai ? 'มักกียะฮฺ' : 'Meccan'),
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 11,
-                                    color: widget.colors.primary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  ' • $verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'หน้า' : 'Page'} $startPage',
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 11,
-                                    color: widget.colors.textMuted,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'หน้า' : 'Page'} $startPage',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 11,
+                                color: widget.colors.textMuted,
+                              ),
                             ),
                           ],
                         ),

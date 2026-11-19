@@ -7,31 +7,33 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:913097538260:android:4a97f7445c47085b455941",
-        "android_client_info": {
-          "package_name": "com.abuzayd.iqra"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyCSxOSlkB9rxVRNWUHj5JjPtHPnLIwfeog"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:913097538260:android:29e240448957c134455941",
         "android_client_info": {
           "package_name": "com.thaiquran.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "913097538260-h9mun2im2h3sevktl0ase7jmotk722f4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thaiquran.app",
+            "certificate_hash": "e0efc685f87ac929bb29678531c05eaeed15b6e8"
+          }
+        },
+        {
+          "client_id": "913097538260-tk58fm5laolgecacs5adg14ugavmsan4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thaiquran.app",
+            "certificate_hash": "45f9ccec78e6dd00eb80d0680d55bf21419fbb2c"
+          }
+        },
+        {
+          "client_id": "913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCSxOSlkB9rxVRNWUHj5JjPtHPnLIwfeog"
@@ -39,7 +41,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "913097538260-svlehp7mmpgelajdvh15e090pnbvlq27.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.abuzayd.iqra"
+              }
+            }
+          ]
         }
       }
     }

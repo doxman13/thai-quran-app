@@ -237,52 +237,6 @@ class OfflineQuranDatabaseService {
     ''');
   }
 
-  static Set<String>? _mutashabihatVerseKeySet;
-
-  /// Preload / get all verse keys that have Mutashabihat
-  static Future<Set<String>> getMutashabihatVerseKeys() async {
-    if (_mutashabihatVerseKeySet != null) return _mutashabihatVerseKeySet!;
-    try {
-      final db = await database;
-      final results = await db.rawQuery('SELECT DISTINCT verse_key FROM mutashabihat');
-      _mutashabihatVerseKeySet = {
-        for (final row in results)
-          if (row['verse_key'] != null) row['verse_key'] as String,
-      };
-      return _mutashabihatVerseKeySet!;
-    } catch (e) {
-      debugPrint("Error loading mutashabihat keys: $e");
-      return {};
-    }
-  }
-
-  /// Synchronous check if a verse key has Mutashabihat
-  static bool hasMutashabihatSync(String verseKey) {
-    return _mutashabihatVerseKeySet?.contains(verseKey) ?? false;
-  }
-
-  /// Get all similar verses (Mutashabihat) for a specific verseKey ('2:48', etc.)
-  static Future<List<Map<String, dynamic>>> getMutashabihat(String verseKey) async {
-    final db = await database;
-    return await db.rawQuery('''
-      SELECT v.*, m.context_type 
-      FROM mutashabihat m
-      JOIN verses v ON m.matched_verse_key = v.verse_key
-      WHERE m.verse_key = ?
-      GROUP BY m.matched_verse_key
-      ORDER BY v.surah_id ASC, v.verse_id ASC
-    ''', [verseKey]);
-  }
-
-  /// Check if a verse has any Mutashabihat
-  static Future<int> getMutashabihatCount(String verseKey) async {
-    final db = await database;
-    final results = await db.rawQuery('''
-      SELECT COUNT(DISTINCT matched_verse_key) as count FROM mutashabihat WHERE verse_key = ?
-    ''', [verseKey]);
-    return (results.first['count'] as int?) ?? 0;
-  }
-
   /// Get QUL Ayah Themes for a specific Surah
   static Future<List<Map<String, dynamic>>> getQulThemesForSurah(int surah) async {
     final db = await database;

@@ -214,6 +214,8 @@ class SettingsProvider extends ChangeNotifier {
         if (user != null) {
           await loadAndApplySyncedSettings(user.id);
         }
+      }, onError: (Object error, StackTrace stackTrace) {
+        debugPrint('[SettingsProvider] onAuthStateChange error: $error');
       });
     } catch (e) {
       debugPrint('Supabase auth listener not initialized: $e');

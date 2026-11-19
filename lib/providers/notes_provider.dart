@@ -31,6 +31,8 @@ class NotesProvider extends ChangeNotifier {
       } else if (data.session?.user != null) {
         syncWithSupabase();
       }
+    }, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('[NotesProvider] onAuthStateChange error: $error');
     });
   }
 

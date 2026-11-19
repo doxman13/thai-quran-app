@@ -374,7 +374,43 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception:', '').trim();
+          _errorMessage = SupabaseProvider.formatAuthError(
+            e,
+            isThai: widget.isThai,
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleOAuthSignIn(
+    Future<bool> Function() signInAction,
+  ) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final completed = await signInAction();
+      if (!mounted) return;
+      if (!completed) {
+        setState(() => _errorMessage = null);
+        return;
+      }
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      if (SupabaseProvider.isAuthCancellation(e)) {
+        setState(() => _errorMessage = null);
+      } else {
+        setState(() {
+          _errorMessage = SupabaseProvider.formatAuthError(
+            e,
+            isThai: widget.isThai,
+          );
         });
       }
     } finally {
@@ -385,6 +421,7 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
   @override
   Widget build(BuildContext context) {
     final supabaseProv = Provider.of<SupabaseProvider>(context);
+    final isBusy = _isLoading || supabaseProv.isSigningIn;
 
     return SafeArea(
       child: Padding(
@@ -456,14 +493,9 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
                     color: widget.colors.textStrong,
                   ),
                 ),
-                onPressed: () async {
-                  try {
-                    await supabaseProv.signInWithGoogle();
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (e) {
-                    setState(() => _errorMessage = '$e');
-                  }
-                },
+                onPressed: isBusy
+                    ? null
+                    : () => _handleOAuthSignIn(supabaseProv.signInWithGoogle),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -484,14 +516,9 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
                     color: Colors.white,
                   ),
                 ),
-                onPressed: () async {
-                  try {
-                    await supabaseProv.signInWithApple();
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (e) {
-                    setState(() => _errorMessage = '$e');
-                  }
-                },
+                onPressed: isBusy
+                    ? null
+                    : () => _handleOAuthSignIn(supabaseProv.signInWithApple),
               ),
               const SizedBox(height: 16),
 
@@ -600,7 +627,7 @@ class _AuthBottomSheetContentState extends State<AuthBottomSheetContent> {
                     borderRadius: BorderRadius.circular(AppTheme.radius),
                   ),
                 ),
-                onPressed: _isLoading ? null : () => _handleEmailAuth(supabaseProv),
+                onPressed: isBusy ? null : () => _handleEmailAuth(supabaseProv),
                 child: _isLoading
                     ? const SizedBox(
                         width: 18,

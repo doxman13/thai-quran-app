@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -23,6 +22,33 @@ import '../services/tajweed_service.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/translation_download_dialog.dart';
+
+/// Returns `-1` to jump to the previous Surah or `1` to advance to the next
+/// Surah only when a horizontal overscroll at the root `PageView` crosses
+/// [threshold] past the first or last verse. Vertical and nested scroll
+/// notifications always return `0`.
+@visibleForTesting
+int detectHorizontalSurahOverscrollDirection(
+  ScrollNotification notification, {
+  required int currentIndex,
+  required int verseCount,
+  double threshold = 30.0,
+}) {
+  if (notification is! OverscrollNotification) return 0;
+  if (notification.depth != 0 ||
+      notification.metrics.axis != Axis.horizontal) {
+    return 0;
+  }
+  if (notification.overscroll < -threshold && currentIndex == 0) {
+    return -1;
+  }
+  if (notification.overscroll > threshold &&
+      verseCount > 0 &&
+      currentIndex >= verseCount - 1) {
+    return 1;
+  }
+  return 0;
+}
 
 class ReadingScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -51,16 +77,34 @@ class ReadingScreen extends StatefulWidget {
 }
 
 class _ReadingScreenState extends State<ReadingScreen> {
+  static const Set<int> _medinanSurahs = {
+    2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49,
+    57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 76, 98, 110,
+  };
+
   List<Verse> verses = [];
   String _currentSurah = '1';
   bool _isLoading = true;
   bool _isMenuVisible = true;
+  bool _hasIntroPage = false;
+  int _currentPageIndex = 0;
+
+  bool get _isOnIntroPage => _hasIntroPage && _currentPageIndex == 0;
+  int get _introOffset => _hasIntroPage ? 1 : 0;
+  int _pageIndexForVerseIndex(int verseIndex) => _introOffset + verseIndex;
+  int? _verseIndexForPageIndex(int pageIndex) {
+    if (_hasIntroPage && pageIndex == 0) return null;
+    final idx = pageIndex - _introOffset;
+    if (idx < 0 || idx >= verses.length) return null;
+    return idx;
+  }
   Map<int, Map<int, _ThaiThemeSection>> _themeSectionsBySurah = {};
   Map<String, _SurahObjective> _surahObjectives = {};
   Map<String, _SurahObjective> _surahObjectivesEn = {};
   late final PageController _versePageController;
   late final VerseCardController _verseCardController;
   bool _isProgrammaticPageMove = false;
+  bool _isSurahTransitionInFlight = false;
   Timer? _menuAutoHideTimer;
   DateTime? _lastSurahSwitchTime;
 
@@ -138,11 +182,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   Future<void> _initData() async {
     TajweedService.load();
-    await Future.wait([
-      widget.repository.init(),
-      _loadThemeSections(),
-      _loadSurahObjectives(),
-    ]);
+    unawaited(
+      Future.wait([
+        _loadThemeSections(),
+        _loadSurahObjectives(),
+      ]).then((_) {
+        if (mounted) setState(() {});
+      }),
+    );
+    await widget.repository.init();
     if (!mounted) return;
 
     if (widget.initialSurah != null) {
@@ -363,6 +411,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     String surahId, {
     int jumpToIndex = 0,
     String? jumpToVerseId,
+    bool skipIntroIfFirstVerse = false,
   }) async {
     _verseCardController.stopAudio?.call();
     final provider = Provider.of<ProgressProvider>(context, listen: false);
@@ -406,10 +455,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
             0,
             loadedVerses.isEmpty ? 0 : loadedVerses.length - 1,
           );
+    final hasIntroPage =
+        loadedVerses.isNotEmpty && loadedVerses.first.id == '1';
+    final targetPageIndex =
+        (safeTargetIndex == 0 && hasIntroPage && !skipIntroIfFirstVerse)
+            ? 0
+            : (hasIntroPage ? 1 : 0) + safeTargetIndex;
     provider.setTotalVerses(loadedVerses.length);
 
     setState(() {
       verses = loadedVerses;
+      _hasIntroPage = hasIntroPage;
+      _currentPageIndex = targetPageIndex;
       _isLoading = false;
     });
 
@@ -418,7 +475,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         if (!mounted || verses.isEmpty) return;
         _isProgrammaticPageMove = true;
         if (_versePageController.hasClients) {
-          _versePageController.jumpToPage(safeTargetIndex);
+          _versePageController.jumpToPage(targetPageIndex);
         }
         _isProgrammaticPageMove = false;
         provider.setVerseIndexAndScroll(safeTargetIndex);
@@ -512,72 +569,62 @@ class _ReadingScreenState extends State<ReadingScreen> {
     return null;
   }
 
-  Future<void> _goToAdjacentSurah(int direction) async {
-    final surahId = _adjacentVisibleSurahId(direction);
-    if (surahId == null) return;
-
-    final completedSurahId = _currentSurah;
-    final isThai = Provider.of<SettingsProvider>(context, listen: false).isThai;
-    final completedSurahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
-    final targetVerses = _visibleVersesForActiveProfile(
-      surahId,
-      widget.repository.getSurahVerses(surahId),
-    );
-    final targetVerseId = direction.isNegative && targetVerses.isNotEmpty
-        ? targetVerses.last.id
-        : null;
-
-    await _loadSurah(surahId, jumpToVerseId: targetVerseId);
-    if (!mounted) return;
-
-    final surahName = widget.repository.getSurahName(surahId, isThai: isThai);
-    final ayahCount = widget.repository.getSurahVerses(surahId).length;
-    if (direction > 0) {
-      _showSurahCompletionDialog(
-        completedSurahId: completedSurahId,
-        completedSurahName: completedSurahName,
-        nextSurahId: surahId,
-        nextSurahName: surahName,
-        nextAyahCount: ayahCount,
-      );
-      return;
-    }
-
-    final settings = Provider.of<SettingsProvider>(context, listen: false);
-    final isThaiLang = settings.languageCode == 'th';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isThaiLang
-              ? 'ซูเราะฮฺ $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount อายะฮฺ'
-              : 'Surah $surahId: ${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} - $ayahCount verses',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+  void _scheduleAdjacentSurah(int direction) {
+    if (_isSurahTransitionInFlight) return;
+    _isSurahTransitionInFlight = true;
+    _lastSurahSwitchTime = DateTime.now();
+    Future.microtask(() {
+      if (!mounted) {
+        _isSurahTransitionInFlight = false;
+        return;
+      }
+      _goToAdjacentSurah(direction, alreadyLocked: true);
+    });
   }
 
-  Future<void> _showSurahCompletionDialog({
-    required String completedSurahId,
-    required String completedSurahName,
-    required String nextSurahId,
-    required String nextSurahName,
-    required int nextAyahCount,
-  }) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return _SurahCompletionDialog(
-          completedSurahId: completedSurahId,
-          completedSurahName: completedSurahName,
-          nextSurahId: nextSurahId,
-          nextSurahName: nextSurahName,
-          nextAyahCount: nextAyahCount,
+  Future<void> _goToAdjacentSurah(
+    int direction, {
+    bool alreadyLocked = false,
+  }) async {
+    if (!alreadyLocked && _isSurahTransitionInFlight) return;
+    _isSurahTransitionInFlight = true;
+    try {
+      final surahId = _adjacentVisibleSurahId(direction);
+      if (surahId == null) return;
+
+      final isThai = Provider.of<SettingsProvider>(context, listen: false).isThai;
+      final targetVerses = _visibleVersesForActiveProfile(
+        surahId,
+        widget.repository.getSurahVerses(surahId),
+      );
+      final targetVerseId = direction.isNegative && targetVerses.isNotEmpty
+          ? targetVerses.last.id
+          : null;
+
+      await _loadSurah(surahId, jumpToVerseId: targetVerseId);
+      if (!mounted) return;
+
+      final surahName = widget.repository.getSurahName(surahId, isThai: isThai);
+      final ayahCount = widget.repository.getSurahVerses(surahId).length;
+      final settings = Provider.of<SettingsProvider>(context, listen: false);
+      final isThaiLang = settings.languageCode == 'th';
+      final cleanSurahName = surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isThaiLang
+                  ? 'ซูเราะฮฺ $surahId: $cleanSurahName - $ayahCount อายะฮฺ'
+                  : 'Surah $surahId: $cleanSurahName - $ayahCount verses',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
         );
-      },
-    );
+    } finally {
+      _isSurahTransitionInFlight = false;
+    }
   }
 
   void _selectVerseIndex(int index) {
@@ -588,15 +635,46 @@ class _ReadingScreenState extends State<ReadingScreen> {
     if (verses.isEmpty) return;
     _verseCardController.stopAudio?.call();
     final provider = Provider.of<ProgressProvider>(context, listen: false);
-    final targetIndex = index.clamp(0, verses.length).toInt();
+    final targetVerseIndex = index.clamp(0, verses.length - 1).toInt();
+    final targetPageIndex = _pageIndexForVerseIndex(targetVerseIndex);
 
     _isProgrammaticPageMove = true;
     try {
-      await provider.setVerseIndexAndScroll(targetIndex);
+      if (mounted && _currentPageIndex != targetPageIndex) {
+        setState(() {
+          _currentPageIndex = targetPageIndex;
+        });
+      }
+      await provider.setVerseIndexAndScroll(targetVerseIndex);
       if (_versePageController.hasClients) {
         await _versePageController.animateToPage(
-          targetIndex,
+          targetPageIndex,
           duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOutCubic,
+        );
+      }
+    } finally {
+      _isProgrammaticPageMove = false;
+    }
+  }
+
+  Future<void> _goToIntroPage() async {
+    if (!_hasIntroPage) return;
+    _verseCardController.stopAudio?.call();
+    final provider = Provider.of<ProgressProvider>(context, listen: false);
+
+    _isProgrammaticPageMove = true;
+    try {
+      if (mounted && _currentPageIndex != 0) {
+        setState(() {
+          _currentPageIndex = 0;
+        });
+      }
+      await provider.setVerseIndexAndScroll(0);
+      if (_versePageController.hasClients) {
+        await _versePageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeInOutCubic,
         );
       }
@@ -613,7 +691,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       });
       _cancelAutoHideTimer();
     }
-    if (index == verses.length) {
+    if (_hasIntroPage && index == 0) {
       _verseCardController.updateState(
         isAudioPlaying: false,
         isAudioLoading: false,
@@ -621,22 +699,53 @@ class _ReadingScreenState extends State<ReadingScreen> {
         showAuditBox: false,
         hasTafsir: false,
       );
+      if (!_isProgrammaticPageMove && !provider.isChangingSurah) {
+        if (_currentPageIndex != 0) {
+          setState(() {
+            _currentPageIndex = 0;
+          });
+        }
+        provider.setVerseIndexAndScroll(0);
+      }
+      return;
+    }
+    if (index >= _introOffset + verses.length) {
+      _verseCardController.updateState(
+        isAudioPlaying: false,
+        isAudioLoading: false,
+        showTafsirBox: false,
+        showAuditBox: false,
+        hasTafsir: false,
+      );
+      if (!_isProgrammaticPageMove &&
+          !provider.isChangingSurah &&
+          !_isSurahTransitionInFlight &&
+          _adjacentVisibleSurahId(1) != null) {
+        _scheduleAdjacentSurah(1);
+      }
+      return;
     }
     if (_isProgrammaticPageMove || provider.isChangingSurah) return;
-    if (index >= verses.length) return;
 
-    final currentIndex = provider.lastVerseIndex;
-    final delta = index - currentIndex;
-    final targetIndex = delta.abs() <= 1
-        ? index
-        : (currentIndex + delta.sign).clamp(0, verses.length - 1).toInt();
+    final verseIndex = index - _introOffset;
+    final currentVerseIndex = provider.lastVerseIndex;
+    final delta = verseIndex - currentVerseIndex;
+    final targetVerseIndex = delta.abs() <= 1
+        ? verseIndex
+        : (currentVerseIndex + delta.sign).clamp(0, verses.length - 1).toInt();
+    final targetPageIndex = _pageIndexForVerseIndex(targetVerseIndex);
 
-    provider.setVerseIndexAndScroll(targetIndex);
-    if (targetIndex != index && _versePageController.hasClients) {
+    if (_currentPageIndex != targetPageIndex) {
+      setState(() {
+        _currentPageIndex = targetPageIndex;
+      });
+    }
+    provider.setVerseIndexAndScroll(targetVerseIndex);
+    if (targetPageIndex != index && _versePageController.hasClients) {
       _isProgrammaticPageMove = true;
       _versePageController
           .animateToPage(
-            targetIndex,
+            targetPageIndex,
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeInOutCubic,
           )
@@ -648,32 +757,211 @@ class _ReadingScreenState extends State<ReadingScreen> {
     ScrollNotification notification,
     ProgressProvider provider,
   ) {
-    if (notification is OverscrollNotification) {
-      final now = DateTime.now();
-      if (_lastSurahSwitchTime != null &&
-          now.difference(_lastSurahSwitchTime!) < const Duration(milliseconds: 900)) {
-        return false;
-      }
-
-      if (notification.overscroll < -30) {
-        if (provider.lastVerseIndex == 0 && _adjacentVisibleSurahId(-1) != null) {
-          _lastSurahSwitchTime = now;
-          _goToAdjacentSurah(-1);
-          return true;
-        }
-      } else if (notification.overscroll > 30) {
-        if (provider.lastVerseIndex >= verses.length - 1 && _adjacentVisibleSurahId(1) != null) {
-          _lastSurahSwitchTime = now;
-          _goToAdjacentSurah(1);
-          return true;
-        }
-      }
+    if (notification.depth != 0 ||
+        notification.metrics.axis != Axis.horizontal) {
+      return false;
     }
-    return false;
+    if (_isProgrammaticPageMove ||
+        provider.isChangingSurah ||
+        _isSurahTransitionInFlight) {
+      return false;
+    }
+
+    final totalPages = verses.length + _introOffset;
+    final direction = detectHorizontalSurahOverscrollDirection(
+      notification,
+      currentIndex: _currentPageIndex,
+      verseCount: totalPages,
+    );
+    if (direction == 0) return false;
+
+    final now = DateTime.now();
+    if (_lastSurahSwitchTime != null &&
+        now.difference(_lastSurahSwitchTime!) < const Duration(milliseconds: 900)) {
+      return false;
+    }
+    if (_adjacentVisibleSurahId(direction) == null) return false;
+
+    _lastSurahSwitchTime = now;
+    _goToAdjacentSurah(direction);
+    return true;
   }
 
   bool _handleVerseEdgeScroll(ScrollNotification notification, int index) {
     return false;
+  }
+
+  Widget _buildSurahIntroPage(SettingsProvider settings, bool isDark) {
+    final colors = settings.getAppColors();
+    final isThai = settings.languageCode == 'th';
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final isNonThaiObj = _isNonThaiPrimary(context);
+    final objective =
+        isNonThaiObj ? _surahObjectivesEn[_currentSurah] : _surahObjectives[_currentSurah];
+    final objTitle =
+        isNonThaiObj ? "Surah's Objective" : 'เป้าหมายหลักของซูเราะฮ์';
+    final objSourceLabel = isNonThaiObj ? 'Source: ' : 'ที่มา: ';
+
+    final surahNum = int.tryParse(_currentSurah) ?? 1;
+    final isMedinan = _medinanSurahs.contains(surahNum);
+    final verseCount = widget.repository.getSurahVerses(_currentSurah).length;
+    final arabicName = offlineSurahNamesAr[_currentSurah] ?? '';
+    final cleanName = widget.repository
+        .getSurahName(_currentSurah, isThai: isThai)
+        .replaceFirst(RegExp(r'^\d+\.\s*'), '');
+    final revelationLabel = isMedinan
+        ? (isThai ? 'มะดะนียะฮฺ' : 'Medinan')
+        : (isThai ? 'มักกียะฮฺ' : 'Meccan');
+    final metadataLine = isThai
+        ? 'ซูเราะฮฺที่ $_currentSurah · $verseCount อายะฮฺ · $revelationLabel'
+        : 'Surah $_currentSurah · $verseCount Verses · $revelationLabel';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final vPad = isLandscape ? 12.0 : 20.0;
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 28, vertical: vPad),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - vPad * 2).clamp(
+                0.0,
+                double.infinity,
+              ),
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_currentSurah != '9') ...[
+                      SvgPicture.asset(
+                        'assets/Bismillah_Calligraphy6.svg',
+                        height: isLandscape ? 42 : 52,
+                        colorFilter: ColorFilter.mode(
+                          colors.textStrong,
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                      SizedBox(height: isLandscape ? 12 : 18),
+                    ],
+                    if (arabicName.isNotEmpty) ...[
+                      Text(
+                        arabicName,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontSize: isLandscape ? 26 : 30,
+                          height: 1.35,
+                          color: colors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    Text(
+                      cleanName,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: isLandscape ? 20 : 22,
+                        fontWeight: FontWeight.w800,
+                        color: colors.textStrong,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      metadataLine,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                    SizedBox(height: isLandscape ? 12 : 18),
+                    Container(
+                      width: 48,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                    if (objective != null) ...[
+                      SizedBox(height: isLandscape ? 12 : 18),
+                      Text(
+                        objTitle,
+                        textAlign: TextAlign.center,
+                        locale: isNonThaiObj ? null : const Locale('th', 'TH'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: colors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        objective.text,
+                        textAlign: TextAlign.center,
+                        locale: isNonThaiObj ? null : const Locale('th', 'TH'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.6,
+                          color: colors.textStrong,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$objSourceLabel${objective.source}',
+                        textAlign: TextAlign.center,
+                        locale: isNonThaiObj ? null : const Locale('th', 'TH'),
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: isLandscape ? 16 : 24),
+                    FilledButton(
+                      onPressed: () => _goToVerseIndex(0),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colors.primary,
+                        foregroundColor: colors.textInverse,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 11,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isThai ? 'เริ่มอ่าน' : 'Start Reading',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_rounded, size: 17),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildFocusedVersePage({
@@ -682,34 +970,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
     required SettingsProvider settings,
     required bool isDark,
   }) {
-    if (index == verses.length) {
-      return NotificationListener<ScrollNotification>(
-        onNotification: (notification) =>
-            _handleVerseEdgeScroll(notification, index),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: (constraints.maxHeight - 48).clamp(
-                    0.0,
-                    double.infinity,
-                  ),
-                ),
-                child: Align(
-                  alignment: const Alignment(0.0, -0.7),
-                  child: _buildCompletionCard(
-                    context,
-                    provider,
-                    settings,
-                    isDark,
-                  ),
-                ),
-              ),
-            );
-          },
+    if (_hasIntroPage && index == 0) {
+      return _buildSurahIntroPage(settings, isDark);
+    }
+
+    final verseIndex = _verseIndexForPageIndex(index);
+    if (verseIndex == null) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: settings.getPrimaryColor(),
         ),
       );
     }
@@ -719,7 +988,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       listen: false,
     );
     final progressProfile = _progressProfile(localReading);
-    final currentVerse = verses[index];
+    final currentVerse = verses[verseIndex];
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
 
@@ -727,7 +996,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
       key: ValueKey('${currentVerse.surahId}_${currentVerse.id}'),
       verse: currentVerse,
       repository: widget.repository,
-      index: index,
+      index: verseIndex,
       progressProfileId: progressProfile?.id,
       useExplicitProgressProfile: true,
       splitLandscape: isLandscape,
@@ -740,7 +1009,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     final pageScrollableBody = NotificationListener<ScrollNotification>(
       onNotification: (notification) =>
-          _handleVerseEdgeScroll(notification, index),
+          _handleVerseEdgeScroll(notification, verseIndex),
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -758,16 +1027,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               child: Align(
                 alignment: const Alignment(0.0, -0.7),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (index == 0 && _currentSurah != '9')
-                      _buildBismillahBanner(settings, isDark),
-                    if (index == 0)
-                      _buildObjectivesBanner(_currentSurah, settings, isDark),
-                    card,
-                  ],
-                ),
+                child: card,
               ),
             ),
           );
@@ -792,9 +1052,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 int leftPage = page.floor();
                 int rightPage = page.ceil();
 
-                String getThemeForIndex(int i) {
-                  if (i < 0 || i >= verses.length) return '';
-                  final v = verses[i];
+                String getThemeForPageIndex(int pageIdx) {
+                  final vIdx = _verseIndexForPageIndex(pageIdx);
+                  if (vIdx == null) return '';
+                  final v = verses[vIdx];
                   final vNum = int.tryParse(v.id);
                   if (vNum != null && shouldShowHeader(vNum)) {
                     return getHeaderTitle(context, vNum);
@@ -802,8 +1063,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   return '';
                 }
 
-                String themeLeft = getThemeForIndex(leftPage);
-                String themeRight = getThemeForIndex(rightPage);
+                String themeLeft = getThemeForPageIndex(leftPage);
+                String themeRight = getThemeForPageIndex(rightPage);
 
                 // If both transitioning pages share the exact same theme range,
                 // counteract horizontal page sliding completely so it stays pinned.
@@ -1447,116 +1708,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
     );
   }
 
-  Widget _buildBismillahBanner(SettingsProvider settings, bool isDark) {
-    final colors = settings.getAppColors();
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: isDark
-            ? colors.surfaceMuted.withValues(alpha: 0.5)
-            : colors.primaryLight.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderSoft),
-      ),
-      child: Center(
-        child: SvgPicture.asset(
-          'assets/Bismillah_Calligraphy6.svg',
-          height: 60,
-          colorFilter: ColorFilter.mode(colors.textStrong, BlendMode.srcIn),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildObjectivesBanner(
-    String surahId,
-    SettingsProvider settings,
-    bool isDark,
-  ) {
-    final isNonThai = _isNonThaiPrimary(context);
-    final objective = isNonThai ? _surahObjectivesEn[surahId] : _surahObjectives[surahId];
-    if (objective == null) return const SizedBox.shrink();
-
-    final colors = settings.getAppColors();
-    final title = isNonThai ? "Surah's Objective" : 'เป้าหมายหลักของซูเราะฮ์';
-    final sourceLabel = isNonThai ? 'Source: ' : 'ที่มา: ';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? colors.surfaceMuted.withValues(alpha: 0.7)
-            : colors.primaryLight.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.flag_rounded, color: colors.primary, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  locale: isNonThai ? null : const Locale('th', 'TH'),
-                  style: isNonThai 
-                    ? GoogleFonts.notoSansThai(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: colors.primary,
-                      )
-                    : GoogleFonts.notoSansThai(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: colors.primary,
-                      ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            objective.text,
-            locale: isNonThai ? null : const Locale('th', 'TH'),
-            style: isNonThai
-              ? GoogleFonts.notoSansThai(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                  color: colors.textStrong,
-                )
-              : GoogleFonts.notoSansThai(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                  color: colors.textStrong,
-                ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '$sourceLabel${objective.source}',
-            locale: isNonThai ? null : const Locale('th', 'TH'),
-            style: isNonThai
-              ? GoogleFonts.notoSansThai(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: colors.foreground.withValues(alpha: 0.72),
-                )
-              : GoogleFonts.notoSansThai(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: colors.foreground.withValues(alpha: 0.72),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showThemeDetailSheet({
     required _ThaiThemeSection section,
     required String surahId,
@@ -1782,7 +1933,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
       final surahName = widget.repository.getSurahName(_currentSurah, isThai: isThai);
 
       return InkWell(
-        onTap: () => _showSurahVersePickerSheet(context, colors, isThai, safeIndex),
+        onTap: () => _showSurahVersePickerSheet(
+          context,
+          colors,
+          isThai,
+          _isOnIntroPage ? -1 : safeIndex,
+        ),
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1818,7 +1974,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  activeVerseId,
+                  _isOnIntroPage ? (isThai ? 'บทนำ' : 'Intro') : activeVerseId,
                   style: TextStyle(
                     color: colors.primary,
                     fontWeight: FontWeight.w800,
@@ -2020,7 +2176,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 onTap: () {
                                   Navigator.pop(sheetCtx);
                                   if (selectedSurah != _currentSurah) {
-                                    _loadSurah(selectedSurah, jumpToIndex: idx, jumpToVerseId: ayahNum.toString());
+                                    _loadSurah(
+                                      selectedSurah,
+                                      jumpToIndex: idx,
+                                      jumpToVerseId: ayahNum.toString(),
+                                      skipIntroIfFirstVerse: true,
+                                    );
                                   } else {
                                     _selectVerseIndex(idx);
                                   }
@@ -2131,23 +2292,28 @@ class _ReadingScreenState extends State<ReadingScreen> {
                               padding: EdgeInsets.only(
                                 top: _isMenuVisible ? topMenuHeight : 4,
                                 bottom: _isMenuVisible
-                                    ? (isLandscape ? 92 : 112)
+                                    ? (isLandscape
+                                        ? 72
+                                        : (_isOnIntroPage ? 74 : 112))
                                     : (isLandscape ? 8 : 64),
                               ),
                               child: Column(
                                 children: [
                                   Consumer<ProgressProvider>(
                                     builder: (context, progressProv, child) {
-                                      final currentIndex =
-                                          progressProv.lastVerseIndex;
-                                      if (currentIndex >= verses.length) {
+                                      if (verses.isEmpty) {
                                         return const SizedBox.shrink();
                                       }
+                                      if (_isMenuVisible && !isLandscape) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final currentIndex =
+                                          progressProv.lastVerseIndex;
+                                      final safeIndex = currentIndex
+                                          .clamp(0, verses.length - 1)
+                                          .toInt();
                                       final activeVerseId =
-                                          (currentIndex >= 0 &&
-                                              currentIndex < verses.length)
-                                          ? verses[currentIndex].id
-                                          : '1';
+                                          verses[safeIndex].id;
                                       final surahAyahCount = widget.repository
                                           .getSurahVerses(_currentSurah)
                                           .length;
@@ -2156,9 +2322,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       final theme = Theme.of(context);
                                       final activeVerseNumber =
                                           int.tryParse(activeVerseId) ?? -1;
-                                      final activeTheme = _getActiveTheme(
-                                        activeVerseNumber,
-                                      );
+                                      final activeTheme = _isOnIntroPage
+                                          ? null
+                                          : _getActiveTheme(
+                                              activeVerseNumber,
+                                            );
 
                                       return Padding(
                                         padding: EdgeInsets.only(
@@ -2183,78 +2351,110 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                                 ),
                                               ),
                                               const SizedBox(width: 4),
-                                            ],
-                                            Expanded(
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    (isLandscape || !_isMenuVisible)
-                                                    ? MainAxisAlignment.start
-                                                    : MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.menu_book_rounded,
-                                                    color: theme
-                                                        .colorScheme
-                                                        .primary,
-                                                    size: 16,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Flexible(
-                                                    child: Text(
-                                                      '$surahName : $activeVerseId/$surahAyahCount',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: GoogleFonts.notoSansThai(
-                                                        color: theme
-                                                            .colorScheme
-                                                            .onSurface,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        fontSize: 13,
+                                              Expanded(
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.start,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.menu_book_rounded,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .primary,
+                                                      size: 16,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Flexible(
+                                                      child: Text(
+                                                        _isOnIntroPage
+                                                            ? surahName
+                                                            : '$surahName : $activeVerseId/$surahAyahCount',
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow.ellipsis,
+                                                        style: GoogleFonts.notoSansThai(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize: 13,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                  if (isLandscape &&
-                                                      activeTheme !=
-                                                          null) ...[
-                                                    const SizedBox(width: 4),
-                                                    IconButton(
-                                                      tooltip:
-                                                          settings
-                                                                  .languageCode ==
+                                                    if (isLandscape &&
+                                                        activeTheme !=
+                                                            null) ...[
+                                                      const SizedBox(width: 4),
+                                                      IconButton(
+                                                        tooltip:
+                                                            settings
+                                                                    .languageCode ==
+                                                                'th'
+                                                            ? 'หัวข้อและช่วงอายะฮ์'
+                                                            : 'Theme & verse range',
+                                                        visualDensity:
+                                                            VisualDensity.compact,
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                        constraints:
+                                                            const BoxConstraints(
+                                                              minWidth: 30,
+                                                              minHeight: 30,
+                                                            ),
+                                                        icon: Icon(
+                                                          Icons
+                                                              .auto_stories_rounded,
+                                                          size: 16,
+                                                          color: theme
+                                                              .colorScheme
+                                                              .primary,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _showThemeDetailSheet(
+                                                              section: activeTheme,
+                                                              surahId:
+                                                                  _currentSurah,
+                                                              surahName: surahName,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ] else ...[
+                                              const Spacer(),
+                                              if (isLandscape &&
+                                                  activeTheme != null)
+                                                IconButton(
+                                                  tooltip:
+                                                      settings.languageCode ==
                                                               'th'
                                                           ? 'หัวข้อและช่วงอายะฮ์'
                                                           : 'Theme & verse range',
-                                                      visualDensity:
-                                                          VisualDensity.compact,
-                                                      padding:
-                                                          EdgeInsets.zero,
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                            minWidth: 30,
-                                                            minHeight: 30,
-                                                          ),
-                                                      icon: Icon(
-                                                        Icons
-                                                            .auto_stories_rounded,
-                                                        size: 16,
-                                                        color: theme
-                                                            .colorScheme
-                                                            .primary,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  padding: EdgeInsets.zero,
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 30,
+                                                        minHeight: 30,
                                                       ),
-                                                      onPressed: () =>
-                                                          _showThemeDetailSheet(
-                                                            section: activeTheme,
-                                                            surahId:
-                                                                _currentSurah,
-                                                            surahName: surahName,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ),
+                                                  icon: Icon(
+                                                    Icons.auto_stories_rounded,
+                                                    size: 16,
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary,
+                                                  ),
+                                                  onPressed: () =>
+                                                      _showThemeDetailSheet(
+                                                        section: activeTheme,
+                                                        surahId: _currentSurah,
+                                                        surahName: surahName,
+                                                      ),
+                                                ),
+                                            ],
                                             if (isLandscape)
                                               _buildFixedActionMenu(
                                                 context,
@@ -2326,7 +2526,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                         reverse: false,
                                         physics:
                                             const PageScrollPhysics(parent: BouncingScrollPhysics()),
-                                        itemCount: verses.length + 1,
+                                        itemCount: verses.length +
+                                            _introOffset +
+                                            (_adjacentVisibleSurahId(1) != null ? 1 : 0),
                                         onPageChanged: (index) =>
                                             _handleVersePageChanged(
                                               index,
@@ -2458,12 +2660,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                       final currentIndex =
                                           progressProv.lastVerseIndex;
                                       final totalCount = verses.length;
-                                      final hasPrev = currentIndex > 0;
-                                      final hasNext =
-                                          currentIndex < totalCount - 1;
+                                      final onIntro = _isOnIntroPage;
+                                      final hasPrevVerse =
+                                          !onIntro && currentIndex > 0;
+                                      final canReturnToIntro =
+                                          !onIntro &&
+                                          currentIndex == 0 &&
+                                          _hasIntroPage;
                                       final hasPrevSurah =
-                                          !hasPrev &&
+                                          (onIntro ||
+                                              (!hasPrevVerse &&
+                                                  !canReturnToIntro)) &&
                                           _adjacentVisibleSurahId(-1) != null;
+                                      final hasNext =
+                                          onIntro ||
+                                          currentIndex < totalCount - 1;
                                       final hasNextSurah =
                                           !hasNext &&
                                           _adjacentVisibleSurahId(1) != null;
@@ -2480,12 +2691,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                                 'previous_ayah',
                                               ),
                                               compact: true,
-                                              onPressed: hasPrev
+                                              onPressed: hasPrevVerse
                                                   ? () {
                                                       _goToVerseIndex(
                                                         currentIndex - 1,
                                                       );
                                                     }
+                                                  : canReturnToIntro
+                                                  ? _goToIntroPage
                                                   : hasPrevSurah
                                                   ? () {
                                                       _goToAdjacentSurah(-1);
@@ -2584,7 +2797,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                               onPressed: hasNext
                                                   ? () {
                                                       _goToVerseIndex(
-                                                        currentIndex + 1,
+                                                        onIntro
+                                                            ? 0
+                                                            : currentIndex + 1,
                                                       );
                                                     }
                                                   : hasNextSurah
@@ -2623,7 +2838,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         builder: (context, progressProv, child) {
                           final currentIndex = progressProv.lastVerseIndex;
                           final hasActiveVerse =
-                              currentIndex >= 0 && currentIndex < verses.length;
+                              verses.isNotEmpty &&
+                              !_isOnIntroPage &&
+                              currentIndex >= 0 &&
+                              currentIndex < verses.length;
 
                           return AnimatedPositioned(
                             duration: const Duration(milliseconds: 200),
@@ -2695,151 +2913,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   ),
                 ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCompletionCard(
-    BuildContext context,
-    ProgressProvider progressProv,
-    SettingsProvider settingsProv,
-    bool isDark,
-  ) {
-    final primaryColor = settingsProv.getPrimaryColor();
-    final colors = settingsProv.getAppColors();
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 24),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark
-              ? Colors.blueGrey.shade800.withValues(alpha: 0.5)
-              : Colors.grey.shade200,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.check_circle_outline_rounded,
-              size: 28,
-              color: primaryColor,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            settingsProv.languageCode == 'th'
-                ? 'สิ้นสุดซูเราะฮฺแล้ว'
-                : 'End of Surah',
-            locale: Locale(settingsProv.languageCode),
-            style: GoogleFonts.notoSansThai(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: colors.textStrong,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            settingsProv.languageCode == 'th'
-                ? 'คุณอ่านมาถึงอายะฮฺสุดท้ายของซูเราะฮฺนี้แล้ว'
-                : 'You have reached the final ayah of this Surah',
-            textAlign: TextAlign.center,
-            locale: Locale(settingsProv.languageCode),
-            style: GoogleFonts.notoSansThai(
-              fontSize: 13,
-              color: isDark ? Colors.blueGrey.shade300 : Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Builder(
-            builder: (context) {
-              final isThai = context.watch<SettingsProvider>().isThai;
-              final int currentSurahInt = int.tryParse(_currentSurah) ?? 1;
-              final prevSurahId = (currentSurahInt - 1).toString();
-              final nextSurahId = (currentSurahInt + 1).toString();
-              final bool hasPrevSurah =
-                  currentSurahInt > 1 &&
-                  _activeProfileHasVisibleVersesInSurah(prevSurahId);
-              final bool hasNextSurah =
-                  currentSurahInt < 114 &&
-                  _activeProfileHasVisibleVersesInSurah(nextSurahId);
-
-              if (!hasPrevSurah && !hasNextSurah) {
-                return const SizedBox.shrink();
-              }
-
-              return Row(
-                children: [
-                  if (hasPrevSurah)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _loadSurah(prevSurahId),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: primaryColor,
-                          side: BorderSide(
-                            color: primaryColor.withValues(alpha: 0.5),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(
-                          isThai ? '⬅️ ซูเราะฮฺก่อนหน้า' : '⬅️ Previous Surah',
-                          locale: Locale(isThai ? 'th' : 'en'),
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (hasPrevSurah && hasNextSurah) const SizedBox(width: 12),
-                  if (hasNextSurah)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _loadSurah(nextSurahId),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: primaryColor,
-                          side: BorderSide(
-                            color: primaryColor.withValues(alpha: 0.5),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: Text(
-                          isThai ? 'ซูเราะฮฺถัดไป ➡️' : 'Next Surah ➡️',
-                          locale: Locale(isThai ? 'th' : 'en'),
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
       ),
     );
   }
@@ -3137,14 +3210,16 @@ class _VerseReaderActionButton extends StatelessWidget {
           Icon(icon, size: iconSize),
           SizedBox(width: compact ? 2 : 4),
         ],
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.notoSansThai(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w800,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.notoSansThai(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
         if (iconOnRight) ...[
@@ -3169,224 +3244,6 @@ class _VerseReaderActionButton extends StatelessWidget {
       ),
       child: child,
     );
-  }
-}
-
-class _SurahCompletionDialog extends StatefulWidget {
-  final String completedSurahId;
-  final String completedSurahName;
-  final String nextSurahId;
-  final String nextSurahName;
-  final int nextAyahCount;
-
-  const _SurahCompletionDialog({
-    required this.completedSurahId,
-    required this.completedSurahName,
-    required this.nextSurahId,
-    required this.nextSurahName,
-    required this.nextAyahCount,
-  });
-
-  @override
-  State<_SurahCompletionDialog> createState() => _SurahCompletionDialogState();
-}
-
-class _SurahCompletionDialogState extends State<_SurahCompletionDialog>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final ribbonColors = [
-      colorScheme.primary,
-      colorScheme.secondary,
-      colorScheme.tertiary,
-      colorScheme.primaryContainer,
-      colorScheme.secondaryContainer,
-    ];
-
-    final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
-
-    return Dialog(
-      elevation: 0,
-      backgroundColor: colorScheme.surface,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  return CustomPaint(
-                    painter: _RibbonFallPainter(
-                      progress: _controller.value,
-                      colors: ribbonColors,
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      color: colorScheme.onPrimaryContainer,
-                      size: 36,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    isThai ? 'อ่านสูเราะฮ์จบแล้ว' : 'Surah completed',
-                    textAlign: TextAlign.center,
-                    style: textTheme.headlineSmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isThai
-                        ? 'ขอแสดงความยินดี คุณอ่านซูเราะฮฺ ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} จบแล้ว'
-                        : 'Congratulations, you completed Surah ${widget.completedSurahId}: ${widget.completedSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.7,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          isThai ? 'กำลังอ่าน' : 'Now reading',
-                          style: textTheme.labelLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          isThai
-                              ? 'ซูเราะฮฺ ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}'
-                              : 'Surah ${widget.nextSurahId}: ${widget.nextSurahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')}',
-                          textAlign: TextAlign.center,
-                          style: textTheme.titleMedium?.copyWith(
-                            color: colorScheme.onSurface,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isThai ? '${widget.nextAyahCount} อายะฮ์' : '${widget.nextAyahCount} verses',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 48),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(isThai ? 'อ่านต่อ' : 'Continue'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RibbonFallPainter extends CustomPainter {
-  final double progress;
-  final List<Color> colors;
-
-  const _RibbonFallPainter({required this.progress, required this.colors});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (colors.isEmpty || size.isEmpty) return;
-
-    for (var index = 0; index < 28; index++) {
-      final lane = (index * 37) % 100 / 100;
-      final speed = 0.55 + ((index * 11) % 40) / 100;
-      final phase = (progress * speed + index * 0.071) % 1.0;
-      final xWave = math.sin((progress * math.pi * 2) + index) * 16;
-      final x = (lane * size.width) + xWave;
-      final y = (phase * (size.height + 96)) - 64;
-      final width = 6.0 + (index % 3) * 2;
-      final height = 16.0 + (index % 4) * 4;
-      final angle = progress * math.pi * 2 + index;
-      final color = colors[index % colors.length].withValues(alpha: 0.68);
-
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(angle);
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset.zero, width: width, height: height),
-        const Radius.circular(2),
-      );
-      canvas.drawRRect(rect, Paint()..color = color);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RibbonFallPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.colors != colors;
   }
 }
 

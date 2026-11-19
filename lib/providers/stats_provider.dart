@@ -28,6 +28,8 @@ class StatsProvider extends ChangeNotifier {
       } else if (user != null) {
         unawaited(syncWithSupabase(user.id));
       }
+    }, onError: (Object error, StackTrace stackTrace) {
+      debugPrint('[StatsProvider] onAuthStateChange error: $error');
     });
   }
 

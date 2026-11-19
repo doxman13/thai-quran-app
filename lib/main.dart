@@ -1,6 +1,4 @@
 // lib/main.dart
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:provider/provider.dart';
@@ -23,7 +21,6 @@ import 'data/quran_repository.dart';
 import 'screens/welcome_screen.dart';
 import 'theme/app_theme.dart';
 import 'services/background_download_service.dart';
-import 'services/offline_quran_database_service.dart';
 import 'services/remote_content_service.dart';
 import 'services/footnote_service.dart';
 import 'services/in_app_purchase_service.dart';
@@ -58,7 +55,6 @@ Future<void> _initializeAppServices() async {
   await _initializeAudioBackground();
   await initializeDownloadService();
   InAppPurchaseService().initialize();
-  unawaited(OfflineQuranDatabaseService.getMutashabihatVerseKeys());
   await footnoteFuture;
 }
 

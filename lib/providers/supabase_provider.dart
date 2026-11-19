@@ -2,12 +2,40 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/hifz_repository.dart';
+
+class OAuthDeepLinkParseResult {
+  final bool hasAuthParams;
+  final String? error;
+  final String? errorCode;
+  final String? errorDescription;
+  final bool hasSessionCodeOrToken;
+
+  const OAuthDeepLinkParseResult({
+    required this.hasAuthParams,
+    required this.error,
+    required this.errorCode,
+    required this.errorDescription,
+    required this.hasSessionCodeOrToken,
+  });
+
+  bool get hasError =>
+      (error != null && error!.isNotEmpty) ||
+      (errorCode != null && errorCode!.isNotEmpty) ||
+      (errorDescription != null && errorDescription!.isNotEmpty);
+
+  bool get isCancellation => SupabaseProvider._isOAuthValuesCancellation(
+    error: error,
+    errorCode: errorCode,
+    errorDescription: errorDescription,
+  );
+}
 
 class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   final _client = Supabase.instance.client;
@@ -76,18 +104,29 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _user = _client.auth.currentUser;
     _loadGuestName();
-    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
-      debugPrint('[SupabaseProvider] onAuthStateChange event: ${data.event}, session: ${data.session?.user.email}');
-      _user = data.session?.user ?? _client.auth.currentUser;
-      if (data.event == AuthChangeEvent.signedOut) {
-        _user = null;
-        unawaited(HifzRepository.instance.clearAllLocalData());
-      }
-      notifyListeners();
-      if (_user != null) {
-        unawaited(bootstrapUser(_user!.id));
-      }
-    });
+    _authSubscription = _client.auth.onAuthStateChange.listen(
+      (data) {
+        debugPrint('[SupabaseProvider] onAuthStateChange event: ${data.event}, session: ${data.session?.user.email}');
+        _user = data.session?.user ?? _client.auth.currentUser;
+        if (data.event == AuthChangeEvent.signedOut) {
+          _user = null;
+          unawaited(HifzRepository.instance.clearAllLocalData());
+        }
+        notifyListeners();
+        if (_user != null) {
+          unawaited(bootstrapUser(_user!.id));
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint('[SupabaseProvider] onAuthStateChange error: $error');
+        if (isAuthCancellation(error)) {
+          _authError = null;
+          _isSigningIn = false;
+          _activeSignInProvider = null;
+          notifyListeners();
+        }
+      },
+    );
 
     if (!kIsWeb) {
       _initDeepLinkListener();
@@ -142,23 +181,272 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  static Map<String, String> _safeSplitQueryString(String raw) {
+    if (raw.isEmpty) return const {};
+    try {
+      return Uri.splitQueryString(raw);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  @visibleForTesting
+  static OAuthDeepLinkParseResult parseOAuthErrorParams(Uri uri) {
+    final fragmentParams = _safeSplitQueryString(uri.fragment);
+    final queryParams = uri.queryParameters;
+
+    final error = queryParams['error'] ?? fragmentParams['error'];
+    final errorCode = queryParams['error_code'] ?? fragmentParams['error_code'];
+    final errorDescription =
+        queryParams['error_description'] ?? fragmentParams['error_description'];
+    final hasSessionCodeOrToken =
+        queryParams.containsKey('code') ||
+        queryParams.containsKey('access_token') ||
+        fragmentParams.containsKey('code') ||
+        fragmentParams.containsKey('access_token');
+    final hasAuthParams =
+        hasSessionCodeOrToken ||
+        queryParams.containsKey('error') ||
+        queryParams.containsKey('error_code') ||
+        queryParams.containsKey('error_description') ||
+        fragmentParams.containsKey('error') ||
+        fragmentParams.containsKey('error_code') ||
+        fragmentParams.containsKey('error_description');
+
+    return OAuthDeepLinkParseResult(
+      hasAuthParams: hasAuthParams,
+      error: error,
+      errorCode: errorCode,
+      errorDescription: errorDescription,
+      hasSessionCodeOrToken: hasSessionCodeOrToken,
+    );
+  }
+
+  static bool _isOAuthValuesCancellation({
+    String? error,
+    String? errorCode,
+    String? errorDescription,
+  }) {
+    final values = [error, errorCode, errorDescription]
+        .whereType<String>()
+        .map((s) => s.trim().toLowerCase())
+        .where((s) => s.isNotEmpty);
+
+    const exactMatches = {
+      'access_denied',
+      'user_cancelled_authorize',
+      'user_cancelled',
+      'user_canceled',
+      'canceled',
+      'cancelled',
+      'cancel',
+      'dismissed',
+      'popup_closed',
+      'popup_closed_by_user',
+      'sign_in_canceled',
+      'sign_in_cancelled',
+    };
+
+    const substrings = [
+      'access_denied',
+      'user_cancelled_authorize',
+      'user_cancelled',
+      'user_canceled',
+      'user cancelled',
+      'user canceled',
+      'cancelled',
+      'canceled',
+      'dismissed',
+      'popup_closed',
+    ];
+
+    for (final v in values) {
+      if (exactMatches.contains(v)) return true;
+      for (final sub in substrings) {
+        if (v.contains(sub)) return true;
+      }
+    }
+    return false;
+  }
+
+  static bool isAuthCancellation(Object error) {
+    if (error is PlatformException) {
+      final code = error.code.trim().toLowerCase();
+      final message = (error.message ?? '').trim().toLowerCase();
+      final details = (error.details?.toString() ?? '').trim().toLowerCase();
+
+      const cancelCodes = {
+        'sign_in_canceled',
+        'sign_in_cancelled',
+        'canceled',
+        'cancelled',
+        'user_canceled',
+        'user_cancelled',
+        'user_cancelled_authorize',
+        'err_canceled',
+        'error_canceled',
+        'authorizationerror_canceled',
+        '1001',
+        '12501',
+      };
+      if (cancelCodes.contains(code)) return true;
+
+      for (final text in [code, message, details]) {
+        if (_isOAuthValuesCancellation(error: text)) return true;
+        if (text.contains('asauthorizationerror') && text.contains('1001')) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (error is AuthException) {
+      return _isOAuthValuesCancellation(
+        error: error.message,
+        errorCode: error.code,
+      );
+    }
+
+    final raw = error.toString().toLowerCase();
+    if (raw.contains('asauthorizationerror') && raw.contains('1001')) {
+      return true;
+    }
+    return _isOAuthValuesCancellation(error: raw);
+  }
+
+  static String formatAuthError(Object error, {required bool isThai}) {
+    if (isAuthCancellation(error)) {
+      return isThai ? 'ยกเลิกการเข้าสู่ระบบ' : 'Sign-in was cancelled.';
+    }
+
+    final String code;
+    final String message;
+    if (error is PlatformException) {
+      code = error.code.toLowerCase();
+      message = (error.message ?? '').toLowerCase();
+    } else if (error is AuthException) {
+      code = (error.code ?? '').toLowerCase();
+      message = error.message.toLowerCase();
+    } else {
+      code = '';
+      message = error.toString().toLowerCase();
+    }
+
+    final combined = '$code $message';
+
+    if (combined.contains('network_error') ||
+        combined.contains('socketexception') ||
+        combined.contains('failed host lookup') ||
+        combined.contains('clientexception') ||
+        combined.contains('connection') ||
+        combined.contains('timeout') ||
+        combined.contains('timed out')) {
+      return isThai
+          ? 'ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้ กรุณาลองใหม่อีกครั้ง'
+          : 'Unable to connect to the network. Please try again.';
+    }
+
+    if (combined.contains('invalid_credentials') ||
+        combined.contains('invalid login credentials') ||
+        combined.contains('invalid email or password')) {
+      return isThai
+          ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
+          : 'Invalid email or password.';
+    }
+
+    if (combined.contains('email_not_confirmed') ||
+        combined.contains('email not confirmed')) {
+      return isThai
+          ? 'กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ'
+          : 'Please confirm your email address before signing in.';
+    }
+
+    if (combined.contains('user_already_exists') ||
+        combined.contains('already registered') ||
+        combined.contains('email_exists')) {
+      return isThai
+          ? 'อีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบแทน'
+          : 'This email is already registered. Please sign in instead.';
+    }
+
+    if (combined.contains('weak_password') ||
+        combined.contains('password should be at least')) {
+      return isThai
+          ? 'รหัสผ่านสั้นเกินไป กรุณาตั้งรหัสผ่านให้ปลอดภัยขึ้น'
+          : 'Password is too weak. Please choose a stronger password.';
+    }
+
+    if (combined.contains('invalid_email') ||
+        combined.contains('unable to validate email')) {
+      return isThai
+          ? 'รูปแบบอีเมลไม่ถูกต้อง'
+          : 'Please enter a valid email address.';
+    }
+
+    if (combined.contains('over_request_rate_limit') ||
+        combined.contains('rate limit') ||
+        combined.contains('too many requests')) {
+      return isThai
+          ? 'มีการทำรายการบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่'
+          : 'Too many attempts. Please wait a moment and try again.';
+    }
+
+    if (combined.contains('sign_in_failed') ||
+        combined.contains('id token') ||
+        combined.contains('oauth') ||
+        combined.contains('developer_error') ||
+        combined.contains('invalid_audience') ||
+        combined.contains('client_id')) {
+      return isThai
+          ? 'ไม่สามารถเข้าสู่ระบบด้วยบัญชีที่เลือกได้ กรุณาลองใหม่อีกครั้ง'
+          : 'Could not complete sign-in with this account. Please try again.';
+    }
+
+    return isThai
+        ? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'
+        : 'Sign-in failed. Please try again.';
+  }
+
+  @visibleForTesting
+  Future<void> handleIncomingDeepLinkForTest(Uri uri) =>
+      _handleIncomingDeepLink(uri);
+
   Future<void> _handleIncomingDeepLink(Uri uri) async {
     final uriStr = uri.toString();
     if (_isHandlingDeepLink || _lastHandledDeepLink == uriStr) return;
 
     if (uri.scheme != 'io.supabase.thaiquran') return;
 
-    final fragmentParams = Uri.splitQueryString(uri.fragment);
-    final hasAuthParams = uri.queryParameters.containsKey('code') ||
-        uri.queryParameters.containsKey('access_token') ||
-        uri.queryParameters.containsKey('error_description') ||
-        fragmentParams.containsKey('code') ||
-        fragmentParams.containsKey('access_token') ||
-        fragmentParams.containsKey('error_description');
-
-    if (!hasAuthParams) return;
+    final parsed = parseOAuthErrorParams(uri);
+    if (!parsed.hasAuthParams) return;
 
     debugPrint('[SupabaseProvider] Processing auth deep link: $uri');
+
+    if (parsed.isCancellation) {
+      _lastHandledDeepLink = uriStr;
+      _isHandlingDeepLink = false;
+      _isSigningIn = false;
+      _activeSignInProvider = null;
+      _authError = null;
+      notifyListeners();
+      return;
+    }
+
+    if (parsed.hasError && !parsed.hasSessionCodeOrToken) {
+      _lastHandledDeepLink = uriStr;
+      _isHandlingDeepLink = false;
+      _isSigningIn = false;
+      _activeSignInProvider = null;
+      _authError = formatAuthError(
+        AuthException(
+          parsed.errorDescription ?? parsed.error ?? 'OAuth sign-in failed',
+          code: parsed.errorCode ?? parsed.error,
+        ),
+        isThai: false,
+      );
+      notifyListeners();
+      return;
+    }
 
     // If user is already authenticated with session, sync and return
     if (_client.auth.currentUser != null) {
@@ -195,13 +483,16 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
       if (_client.auth.currentUser != null) {
         _user = _client.auth.currentUser;
         _authError = null;
+      } else if (isAuthCancellation(e)) {
+        _authError = null;
       } else {
-        _authError = e.toString().replaceAll('Exception:', '').trim();
+        _authError = formatAuthError(e, isThai: false);
       }
       notifyListeners();
     } finally {
       _isHandlingDeepLink = false;
       _isSigningIn = false;
+      _activeSignInProvider = null;
       _user = _client.auth.currentUser ?? _user;
       notifyListeners();
     }
@@ -236,11 +527,18 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
+  // Firebase project 913097538260 (iqra-quran-project) Web & iOS OAuth client IDs.
+  // Note: Supabase Dashboard -> Auth -> Providers -> Google -> Client IDs must include
+  // 913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com and
+  // 913097538260-u9ldacfut4e4gsb73qh01r98c4qjihrv.apps.googleusercontent.com
+  // alongside the web OAuth client 1011303318865-..., with Skip nonce checks enabled.
   static const String _googleWebClientId =
-      '1011303318865-jrub1rpu8e661lmo6eunphtrin1alcrl.apps.googleusercontent.com';
+      '913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com';
+  static const String _googleIosClientId =
+      '913097538260-u9ldacfut4e4gsb73qh01r98c4qjihrv.apps.googleusercontent.com';
 
   // Apple sign-in request (OAuth on Web, OAuth on Mobile)
-  Future<void> signInWithApple() async {
+  Future<bool> signInWithApple() async {
     _authError = null;
     _isSigningIn = true;
     _activeSignInProvider = 'apple';
@@ -248,20 +546,24 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       if (kIsWeb) {
-        await _client.auth.signInWithOAuth(
+        return await _client.auth.signInWithOAuth(
           OAuthProvider.apple,
           redirectTo: Uri.base.origin,
         );
-        return;
       }
 
-      await _client.auth.signInWithOAuth(
+      return await _client.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'io.supabase.thaiquran://login-callback',
       );
     } catch (e) {
       debugPrint('[SupabaseProvider] Apple sign-in error: $e');
-      _authError = e.toString().replaceAll('Exception:', '').trim();
+      if (isAuthCancellation(e)) {
+        _authError = null;
+        notifyListeners();
+        return false;
+      }
+      _authError = formatAuthError(e, isThai: false);
       notifyListeners();
       rethrow;
     } finally {
@@ -272,7 +574,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // Google sign-in request (Native Bottom Sheet on Mobile, OAuth on Web)
-  Future<void> signInWithGoogle() async {
+  Future<bool> signInWithGoogle() async {
     _authError = null;
     _isSigningIn = true;
     _activeSignInProvider = 'google';
@@ -280,24 +582,24 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       if (kIsWeb) {
-        await _client.auth.signInWithOAuth(
+        return await _client.auth.signInWithOAuth(
           OAuthProvider.google,
           redirectTo: Uri.base.origin,
         );
-        return;
       }
 
       final googleSignIn = GoogleSignIn(
+        clientId: defaultTargetPlatform == TargetPlatform.iOS
+            ? _googleIosClientId
+            : null,
         serverClientId: _googleWebClientId,
       );
 
       final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         // User cancelled account picker
-        _isSigningIn = false;
-        _activeSignInProvider = null;
-        notifyListeners();
-        return;
+        _authError = null;
+        return false;
       }
 
       final googleAuth = await googleUser.authentication;
@@ -318,21 +620,17 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         _user = response.user;
         await bootstrapUser(response.user!.id);
       }
+      return true;
     } catch (e) {
       debugPrint('[SupabaseProvider] Native Google sign-in error: $e');
-      debugPrint('[SupabaseProvider] Attempting Web OAuth fallback...');
-      try {
-        await _client.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: 'io.supabase.thaiquran://login-callback',
-        );
-        return;
-      } catch (fallbackError) {
-        debugPrint('[SupabaseProvider] Web OAuth fallback also failed: $fallbackError');
-        _authError = e.toString().replaceAll('Exception:', '').trim();
+      if (isAuthCancellation(e)) {
+        _authError = null;
         notifyListeners();
-        rethrow;
+        return false;
       }
+      _authError = formatAuthError(e, isThai: false);
+      notifyListeners();
+      rethrow;
     } finally {
       _isSigningIn = false;
       _activeSignInProvider = null;
