@@ -11,7 +11,7 @@
 
 | Repository / Service | Local Path | Stack & Runtime | Production Target | Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **`thai-quran-master-data`** | `/Users/admin/Documents/gits/thai-quran-master-data` | SQLite (`sqlite/thai_quran_master.db`), JSON, CSV, Python build scripts | GitHub (`doxman13/thai-quran-master-data`) | **Single Canonical Source of Truth** for all Quran Arabic text, Thai translations (`thai_v3`), WBW glosses, footnotes, Al-Mukhtasar tafsir, ayah themes, topics, and mutashabihat. |
+| **`thai-quran-master-data`** | `/Users/admin/Documents/gits/thai-quran-master-data` | SQLite (`sqlite/thai_quran_master.db`), JSON, CSV, Python build scripts | GitHub (`thai-quran/thai-quran-master-data`) | **Single Canonical Source of Truth** for all Quran Arabic text, Thai translations (`thai_v3`), WBW glosses, footnotes, Al-Mukhtasar tafsir, ayah themes, topics, and mutashabihat. |
 | **`thai-quran-web`** | `/Users/admin/Documents/gits/thai-quran-web` | Next.js `16.2.9` (App Router), React `19.2.4`, TypeScript `5`, Tailwind v4 | Vercel (`https://quran-th.com`) | Public web reader, Mushaf reader, Hifz studio, search, and admin moderation portals. |
 | **`voice-search-api`** | `/Users/admin/Documents/gits/thai-quran-web/services/voice-search-api` | Fastify (Node.js) + `@tilawa/core` + `onnxruntime-node` | Fly.io (`https://thai-quran-voice-api.fly.dev`, `sin`) | Server-side Quranic Arabic voice search fallback. |
 | **`thai-quran-app`** | `/Users/admin/Documents/gits/thai-quran-app` | Flutter (`^3.12.0`), Provider, `sqflite` (SQLite), `just_audio`, `onnxruntime_v2` | iOS App Store & Google Play (`com.abuzayd.iqra`) | 100% offline-capable native mobile reader, Mushaf, Hifz AI recitation tracker, and BLE smart-ring counter. |
