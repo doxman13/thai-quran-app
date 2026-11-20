@@ -3089,9 +3089,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.ios_share_rounded, color: colors.primary),
+                  leading: Icon(Icons.share_outlined, color: colors.primary),
                   title: Text(
-                    isThaiLang ? 'แชร์รูปภาพอายะฮฺ' : 'Share Verse Image',
+                    isThaiLang ? 'แชร์อายะฮฺ' : 'Share Verse',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,

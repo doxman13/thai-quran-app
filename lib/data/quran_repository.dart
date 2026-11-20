@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../models/verse.dart';
 import '../services/remote_content_service.dart';
+import '../shared/quran_translation_helper.dart';
 import 'offline_surah_names.dart';
 
 class QuranRepository {
@@ -255,12 +256,10 @@ class QuranRepository {
     return verses;
   }
 
-  // Fetches Arabic text from the Quran Foundation API.
-  // Prefers text_qpc_hafs from word data to ensure correct sukun rendering with UthmanicHafs font.
+  // Normalizes Uthmanic Arabic characters so black-circle and floating-meem glyphs
+  // render cleanly with UthmanicHafs.
   String _normalizeArabicText(String text) {
-    // Replace ARABIC SMALL HIGH ROUNDED ZERO (U+06DF) with standard ARABIC SUKUN (U+0652)
-    // to fix combining character black circle rendering bugs in the Flutter text engine.
-    return text.replaceAll('\u06DF', '\u0652');
+    return sanitizeUthmanicText(text);
   }
 
   Future<String> fetchArabicVerse(String surahId, String verseId) async {

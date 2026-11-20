@@ -32,16 +32,36 @@ String toArabicDigits(dynamic input) {
   return sb.toString();
 }
 
+/// Normalizes Uthmanic Arabic characters that produce black/dotted-circle glyph
+/// artifacts or floating meem misalignment when rendered with `UthmanicHafs.ttf`:
+/// - `U+06DF` (Small High Rounded Zero) -> `U+0652` (hollow sukun)
+/// - `U+06E3` (Small Low Seen) -> `U+06DC` (small high seen)
+/// - `U+06EB` (Empty Centre High Stop) & `U+25CC` (Dotted Circle) -> removed
+/// - Sequential tanween pseudo-marks -> canonical tanween or Iqlab meem pairs
+String sanitizeUthmanicText(String text) {
+  if (text.isEmpty) return '';
+  return text
+      .replaceAll('\u06DF', '\u0652')
+      .replaceAll('\u06E3', '\u06DC')
+      .replaceAll(RegExp(r'[\u06EB\u25CC]'), '')
+      .replaceAll('\u064B\u06ED', '\u064B')
+      .replaceAll('\u064C\u06ED', '\u064C')
+      .replaceAll('\u064D\u06E2', '\u064D')
+      .replaceAll('\u064C\u06E2', '\u064F\u06E2')
+      .replaceAll('\u064B\u06E2', '\u064E\u06E2')
+      .replaceAll('\u064D\u06ED', '\u0650\u06ED');
+}
+
 /// Normalizes and formats Arabic Quran verse text so that the end of the ayat
 /// includes the Quranic Arabic verse numeral formatted for the Uthmanic font.
 String formatArabicAyahText(String text, {dynamic verseNumber}) {
   String cleaned = text.trim();
   if (cleaned.isEmpty) return '';
 
-  // Standardize sukun characters if present
-  cleaned = cleaned.replaceAll('\u06DF', '\u0652');
+  // Sanitize Uthmanic characters that cause black-circle / dotted-circle glyphs
+  cleaned = sanitizeUthmanicText(cleaned);
 
-  // Strip any existing standalone \u06DD (۝) symbols to prevent duplicate circle rendering
+  // Strip any existing standalone \u06DD (۝) symbols to prevent double circle rendering
   cleaned = cleaned.replaceAll('\u06DD', '').replaceAll('۝', '').trim();
 
   String numStr = '';
@@ -57,8 +77,8 @@ String formatArabicAyahText(String text, {dynamic verseNumber}) {
     numStr = verseNumber.toString();
   }
 
-  // Remove any remaining stray pipe separators
-  cleaned = cleaned.split(' | ').join(' ').trim();
+  // Strip all remaining pipe separators (missing glyph in UthmanicHafs)
+  cleaned = cleaned.replaceAll(RegExp(r'\s*\|\s*'), ' ').trim();
 
   if (numStr.isNotEmpty) {
     final arabicNum = toArabicDigits(numStr);

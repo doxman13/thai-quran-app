@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -16,6 +15,7 @@ import '../models/tadabbur_note.dart';
 import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/auth_bottom_sheet.dart';
+import '../widgets/verse_share_sheet.dart';
 import 'reading_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'tadabbur_private_screen.dart';
@@ -56,6 +56,20 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
   bool _isPosting = false;
   String _postSurahId = '1';
   String _postVerseId = '1';
+  String _composeArabicKey = '';
+  Future<String>? _composeArabicFuture;
+
+  Future<String> _getComposeArabicFuture() {
+    final key = '$_postSurahId:$_postVerseId';
+    if (_composeArabicFuture == null || _composeArabicKey != key) {
+      _composeArabicKey = key;
+      _composeArabicFuture = widget.repository.fetchArabicVerse(
+        _postSurahId,
+        _postVerseId,
+      );
+    }
+    return _composeArabicFuture!;
+  }
 
   @override
   void initState() {
@@ -634,13 +648,26 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         : (note.isAnonymous
             ? (isThai ? 'ผู้ไม่ประสงค์ออกนาม' : 'Anonymous')
             : (note.userEmail?.split('@').first ?? 'Thai Quran'));
-    final shareText =
-        '${note.noteText}\n\n— $author ($sName ${note.surahId}:${note.verseId})\nhttps://quran-th.com';
-    try {
-      await SharePlus.instance.share(ShareParams(text: shareText));
-    } catch (e) {
-      debugPrint('Error sharing tadabbur note: $e');
-    }
+    final verseObj = widget.repository.getVerse(note.surahId, note.verseId);
+    final translationText = resolveVerseTranslationText(
+      context: context,
+      verseKey: '${note.surahId}:${note.verseId}',
+      verse: verseObj,
+      repository: widget.repository,
+    );
+    await VerseShareSheet.show(
+      context,
+      surahId: note.surahId,
+      verseId: note.verseId,
+      surahName: sName,
+      translationText: translationText,
+      reflectionText: note.noteText,
+      reflectionAuthor: author,
+      shareUrlOverride:
+          'https://quran-th.com/tadabbur/community?surah=${note.surahId}&ayah=${note.verseId}',
+      repository: widget.repository,
+      isThai: isThai,
+    );
   }
 
   @override
@@ -1312,26 +1339,74 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Translation Preview Box
-          if (translationText.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _AccentedQuoteBox(
-                colors: colors,
-                borderRadius: 8,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isThai
-                          ? 'คำแปล ($_postSurahId:$_postVerseId)'
-                          : 'Translation ($_postSurahId:$_postVerseId)',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: colors.primary,
+          // Live Arabic + Translation Ayah Preview Box
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _AccentedQuoteBox(
+              colors: colors,
+              borderRadius: AppTheme.radiusSm,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          isThai
+                              ? 'ตัวอย่างอายะฮฺ ($_postSurahId:$_postVerseId)'
+                              : 'Ayah Preview ($_postSurahId:$_postVerseId)',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: colors.primary,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          surahDisplayName(_postSurahId, isThai: isThai),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: colors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  FutureBuilder<String>(
+                    future: _getComposeArabicFuture(),
+                    builder: (context, snapshot) {
+                      final arabic = snapshot.data;
+                      if (arabic == null || arabic.trim().isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 4),
+                        child: Text(
+                          formatArabicAyahText(
+                            arabic,
+                            verseNumber: _postVerseId,
+                          ),
+                          textAlign: TextAlign.right,
+                          textDirection: TextDirection.rtl,
+                          locale: const Locale('ar'),
+                          style: TextStyle(
+                            fontFamily: 'UthmanicHafs',
+                            fontWeight: FontWeight.w400,
+                            fontSize: 18,
+                            height: 2.0,
+                            color: colors.textStrong,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (translationText.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       translationText,
@@ -1342,9 +1417,10 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
+          ),
 
           TextField(
             controller: _postController,
@@ -1749,9 +1825,12 @@ class _CommunityNoteCardState extends State<_CommunityNoteCard> {
                       if (surahAr != null) ...[
                         const SizedBox(width: 4),
                         Text(
-                          surahAr,
+                          sanitizeUthmanicText(surahAr),
+                          textDirection: TextDirection.rtl,
+                          locale: const Locale('ar'),
                           style: TextStyle(
                             fontFamily: 'UthmanicHafs',
+                            fontWeight: FontWeight.w400,
                             fontSize: 12,
                             color: colors.primary,
                           ),
@@ -1916,14 +1995,19 @@ class _CommunityNoteCardState extends State<_CommunityNoteCard> {
                       return Padding(
                         padding: const EdgeInsets.only(top: 6, bottom: 4),
                         child: Text(
-                          arabic,
+                          formatArabicAyahText(
+                            arabic,
+                            verseNumber: note.verseId,
+                          ),
                           textAlign: TextAlign.right,
                           textDirection: TextDirection.rtl,
+                          locale: const Locale('ar'),
                           style: TextStyle(
                             fontFamily: 'UthmanicHafs',
-                            fontSize: 17,
+                            fontWeight: FontWeight.w400,
+                            fontSize: 18,
                             height: 2.0,
-                            color: colors.foreground,
+                            color: colors.textStrong,
                           ),
                         ),
                       );

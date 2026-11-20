@@ -6,7 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../data/quran_repository.dart';
+import '../data/offline_surah_names.dart';
+import '../shared/shared.dart';
 import '../theme/app_theme.dart';
+import '../widgets/verse_share_sheet.dart';
 import 'reading_screen.dart';
 
 class NotesScreen extends StatelessWidget {
@@ -63,6 +66,7 @@ class NotesScreen extends StatelessWidget {
                 final surahName = repository.getSurahName(surahId);
 
                 return _NoteCard(
+                  repository: repository,
                   colorScheme: colorScheme,
                   primaryColor: primaryColor,
                   surahName: surahName,
@@ -182,7 +186,8 @@ class NotesScreen extends StatelessWidget {
   }
 }
 
-class _NoteCard extends StatelessWidget {
+class _NoteCard extends StatefulWidget {
+  final QuranRepository repository;
   final ColorScheme colorScheme;
   final Color primaryColor;
   final String surahName;
@@ -193,6 +198,7 @@ class _NoteCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _NoteCard({
+    required this.repository,
     required this.colorScheme,
     required this.primaryColor,
     required this.surahName,
@@ -204,83 +210,203 @@ class _NoteCard extends StatelessWidget {
   });
 
   @override
+  State<_NoteCard> createState() => _NoteCardState();
+}
+
+class _NoteCardState extends State<_NoteCard> {
+  late Future<String> _arabicFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _arabicFuture = widget.repository.fetchArabicVerse(
+      widget.surahId,
+      widget.verseId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _NoteCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.surahId != widget.surahId ||
+        oldWidget.verseId != widget.verseId) {
+      _arabicFuture = widget.repository.fetchArabicVerse(
+        widget.surahId,
+        widget.verseId,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isThai = Provider.of<SettingsProvider>(context, listen: false).languageCode == 'th';
+    final colors = context.appColors;
+    final cleanSurahName = widget.surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '');
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        border: Border.all(color: colors.borderSoft),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTheme.radius),
+        onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header row: surah reference + delete button
+              // Header row: surah reference + share + delete button
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.menu_book_rounded, size: 12, color: colorScheme.onPrimaryContainer),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${surahName.replaceFirst(RegExp(r'^\d+\.\s*'), '')} $surahId:$verseId',
-                          style: GoogleFonts.notoSansThai(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            color: colorScheme.onPrimaryContainer,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: colors.primaryLight,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(color: colors.primaryLightBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.menu_book_rounded, size: 12, color: colors.primary),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              '$cleanSurahName ${widget.surahId}:${widget.verseId}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: colors.primary,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const Spacer(),
                   InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    onTap: () {
+                      final verseObj = widget.repository.getVerse(
+                        widget.surahId,
+                        widget.verseId,
+                      );
+                      final translationText = resolveVerseTranslationText(
+                        context: context,
+                        verseKey: '${widget.surahId}:${widget.verseId}',
+                        verse: verseObj,
+                        repository: widget.repository,
+                      );
+                      VerseShareSheet.show(
+                        context,
+                        surahId: widget.surahId,
+                        verseId: widget.verseId,
+                        surahName: surahDisplayName(
+                          widget.surahId,
+                          isThai: isThai,
+                        ),
+                        translationText: translationText,
+                        reflectionText: widget.noteContent.trim().isNotEmpty
+                            ? widget.noteContent
+                            : null,
+                        repository: widget.repository,
+                        isThai: isThai,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.share_outlined,
+                        size: 18,
+                        color: colors.textMuted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    onTap: widget.onDelete,
                     child: Padding(
                       padding: const EdgeInsets.all(4),
                       child: Icon(
                         Icons.delete_outline_rounded,
                         size: 18,
-                        color: colorScheme.error,
+                        color: colors.danger,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              FutureBuilder<String>(
+                future: _arabicFuture,
+                builder: (context, snapshot) {
+                  final arabic = snapshot.data;
+                  if (arabic == null || arabic.trim().isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceMuted,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        border: Border.all(color: colors.borderSoft),
+                      ),
+                      child: Text(
+                        formatArabicAyahText(arabic, verseNumber: widget.verseId),
+                        textAlign: TextAlign.right,
+                        textDirection: TextDirection.rtl,
+                        locale: const Locale('ar'),
+                        style: TextStyle(
+                          fontFamily: 'UthmanicHafs',
+                          fontWeight: FontWeight.w400,
+                          fontSize: 17,
+                          height: 2.0,
+                          color: colors.textStrong,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
               // Note body with left accent bar
               Container(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                  ),
-                  border: Border(
-                    left: BorderSide(color: primaryColor, width: 3),
-                  ),
+                  color: colors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  border: Border.all(color: colors.borderSoft),
                 ),
-                child: Text(
-                  noteContent,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 14,
-                    color: colorScheme.onSurface,
-                    height: 1.6,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(width: 3, color: widget.primaryColor),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            child: Text(
+                              widget.noteContent,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 14,
+                                color: colors.textStrong,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -293,12 +419,12 @@ class _NoteCard extends StatelessWidget {
                     isThai ? 'แตะเพื่อเปิดอ่านอายะฮฺ' : 'Tap to read verse',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 11,
-                      color: colorScheme.primary,
+                      color: colors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded, size: 12, color: colorScheme.primary),
+                  Icon(Icons.arrow_forward_rounded, size: 12, color: colors.primary),
                 ],
               ),
             ],

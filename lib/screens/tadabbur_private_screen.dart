@@ -18,6 +18,7 @@ import 'reading_screen.dart';
 import 'mushaf_reader_screen.dart';
 import 'tadabbur_community_screen.dart';
 import '../widgets/auth_bottom_sheet.dart';
+import '../widgets/verse_share_sheet.dart';
 
 class TadabburPrivateScreen extends StatefulWidget {
   final QuranRepository repository;
@@ -404,62 +405,71 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
         border: Border.all(color: colors.borderSoft),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Active Tab: บันทึกส่วนตัว
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radius - 4),
-              border: Border.all(color: colors.borderSoft),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline, size: 14, color: colors.primary),
-                const SizedBox(width: 6),
-                Text(
-                  'บันทึกส่วนตัว (${_notes.length})',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: colors.primary,
-                  ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radius - 4),
+                border: Border.all(color: colors.borderSoft),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 14, color: colors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'บันทึกส่วนตัว (${_notes.length})',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: colors.primary,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 4),
           // Inactive Tab: ชุมชนตะดับบุร
-          InkWell(
-            borderRadius: BorderRadius.circular(AppTheme.radius - 4),
-            onTap: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TadabburCommunityScreen(
-                    repository: widget.repository,
-                  ),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.public, size: 14, color: colors.textMuted),
-                  const SizedBox(width: 6),
-                  Text(
-                    'ชุมชนตะดับบุร',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: colors.textMuted,
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radius - 4),
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TadabburCommunityScreen(
+                      repository: widget.repository,
                     ),
                   ),
-                ],
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.public, size: 14, color: colors.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        'ชุมชนตะดับบุร',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -722,14 +732,19 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'หมวดหมู่ซูเราะฮฺ',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: colors.foreground,
+                Expanded(
+                  child: Text(
+                    'หมวดหมู่ซูเราะฮฺ',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1217,11 +1232,16 @@ class _NoteCard extends StatefulWidget {
 class _NoteCardState extends State<_NoteCard> {
   bool _isEditing = false;
   final _editController = TextEditingController();
+  late Future<String> _arabicFuture;
 
   @override
   void initState() {
     super.initState();
     _editController.text = widget.note.noteText;
+    _arabicFuture = widget.repository.fetchArabicVerse(
+      widget.note.surahId,
+      widget.note.verseId,
+    );
   }
 
   @override
@@ -1229,6 +1249,13 @@ class _NoteCardState extends State<_NoteCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note.noteText != widget.note.noteText && !_isEditing) {
       _editController.text = widget.note.noteText;
+    }
+    if (oldWidget.note.surahId != widget.note.surahId ||
+        oldWidget.note.verseId != widget.note.verseId) {
+      _arabicFuture = widget.repository.fetchArabicVerse(
+        widget.note.surahId,
+        widget.note.verseId,
+      );
     }
   }
 
@@ -1265,54 +1292,60 @@ class _NoteCardState extends State<_NoteCard> {
         children: [
           // ── Verse Quote Box ────────────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: colors.surfaceMuted,
               borderRadius: BorderRadius.circular(10),
-              border: Border(
-                left: BorderSide(color: colors.primary, width: 3.5),
-                top: BorderSide(color: colors.borderSoft),
-                right: BorderSide(color: colors.borderSoft),
-                bottom: BorderSide(color: colors.borderSoft),
-              ),
+              border: Border.all(color: colors.borderSoft),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Surah Header & Read Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Container(width: 3.5, color: colors.primary),
                     Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '$surahName (${note.surahId}:${note.verseId})',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: colors.primary,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                // Surah Header & Read Actions
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 2,
+                      children: [
+                        Text(
+                          '$surahName (${note.surahId}:${note.verseId})',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
+                          ),
+                        ),
+                        if (surahAr != null)
+                          Text(
+                            sanitizeUthmanicText(surahAr),
+                            textDirection: TextDirection.rtl,
+                            locale: const Locale('ar'),
+                            style: TextStyle(
+                              fontFamily: 'UthmanicHafs',
+                              fontWeight: FontWeight.w400,
+                              fontSize: 14,
+                              color: colors.primary,
                             ),
                           ),
-                          if (surahAr != null) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              surahAr,
-                              style: const TextStyle(
-                                fontFamily: 'UthmanicHafs',
-                                fontSize: 14,
-                                color: Color(0xFF0E5A4A),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         InkWell(
                           onTap: () =>
@@ -1324,6 +1357,7 @@ class _NoteCardState extends State<_NoteCard> {
                               vertical: 2,
                             ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   'อ่านบริบท',
@@ -1389,10 +1423,7 @@ class _NoteCardState extends State<_NoteCard> {
 
                 // Arabic Verse Calligraphy
                 FutureBuilder<String>(
-                  future: widget.repository.fetchArabicVerse(
-                    note.surahId,
-                    note.verseId,
-                  ),
+                  future: _arabicFuture,
                   builder: (context, snapshot) {
                     final arabic = snapshot.data;
                     if (arabic == null || arabic.isEmpty) {
@@ -1401,14 +1432,19 @@ class _NoteCardState extends State<_NoteCard> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        arabic,
+                        formatArabicAyahText(
+                          arabic,
+                          verseNumber: note.verseId,
+                        ),
                         textAlign: TextAlign.right,
                         textDirection: TextDirection.rtl,
+                        locale: const Locale('ar'),
                         style: TextStyle(
                           fontFamily: 'UthmanicHafs',
+                          fontWeight: FontWeight.w400,
                           fontSize: 18,
                           height: 2.1,
-                          color: colors.foreground,
+                          color: colors.textStrong,
                         ),
                       ),
                     );
@@ -1426,7 +1462,13 @@ class _NoteCardState extends State<_NoteCard> {
                       color: colors.foreground,
                     ),
                   ),
-              ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -1670,14 +1712,68 @@ class _NoteCardState extends State<_NoteCard> {
                   ),
                 ],
                 const Spacer(),
-                Text(
-                  timeago.format(note.updatedAt),
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    color: colors.textMuted,
+                Flexible(
+                  child: Text(
+                    timeago.format(note.updatedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11,
+                      color: colors.textMuted,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(
+                    Icons.share_outlined,
+                    size: 17,
+                    color: colors.textMuted,
+                  ),
+                  tooltip: () {
+                    try {
+                      return Provider.of<SettingsProvider>(
+                        context,
+                        listen: false,
+                      ).isThai
+                          ? 'แชร์'
+                          : 'Share';
+                    } catch (_) {
+                      return 'แชร์';
+                    }
+                  }(),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                  onPressed: () {
+                    bool isThai = true;
+                    try {
+                      isThai = Provider.of<SettingsProvider>(
+                        context,
+                        listen: false,
+                      ).isThai;
+                    } catch (_) {}
+                    final displaySurahName = surahDisplayName(
+                      note.surahId,
+                      isThai: isThai,
+                    );
+                    VerseShareSheet.show(
+                      context,
+                      surahId: note.surahId,
+                      verseId: note.verseId,
+                      surahName: displaySurahName,
+                      translationText: translationText,
+                      reflectionText: note.noteText.trim().isNotEmpty
+                          ? note.noteText
+                          : null,
+                      shareUrlOverride: note.isPublic
+                          ? 'https://quran-th.com/tadabbur/community?surah=${note.surahId}&ayah=${note.verseId}'
+                          : 'https://quran-th.com/surah/${note.surahId}#v-${note.verseId}',
+                      repository: widget.repository,
+                      isThai: isThai,
+                    );
+                  },
+                ),
                 IconButton(
                   icon: Icon(
                     Icons.edit_outlined,
@@ -1686,16 +1782,20 @@ class _NoteCardState extends State<_NoteCard> {
                   ),
                   tooltip: context.tr('edit'),
                   visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
                   onPressed: () => setState(() => _isEditing = true),
                 ),
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline,
                     size: 17,
-                    color: Colors.red.shade400,
+                    color: colors.danger,
                   ),
                   tooltip: 'ลบบันทึก',
                   visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
                   onPressed: () {
                     showDialog(
                       context: context,

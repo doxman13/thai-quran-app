@@ -144,4 +144,21 @@ class FootnoteService extends ChangeNotifier {
     }
     return null;
   }
+
+  /// Lazily ensures footnotes are loaded and returns the list of [FootnoteItem]
+  /// for [verseKey] and [translationId].
+  Future<List<FootnoteItem>> getVerseFootnotes(
+    String verseKey, {
+    String translationId = 'thai_v3',
+  }) async {
+    final existing = getEntry(verseKey, translationId);
+    if (existing != null) return existing.footnotes;
+
+    try {
+      await init();
+    } catch (_) {
+      return const [];
+    }
+    return getEntry(verseKey, translationId)?.footnotes ?? const [];
+  }
 }

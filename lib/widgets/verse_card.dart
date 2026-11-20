@@ -1,19 +1,14 @@
 // lib/widgets/verse_card.dart
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/verse.dart';
 import '../models/tadabbur_note.dart';
+import '../data/offline_surah_names.dart';
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
 import '../providers/progress_provider.dart';
@@ -26,6 +21,7 @@ import '../providers/mushaf_audio_provider.dart';
 import '../shared/shared.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
+import 'verse_share_sheet.dart';
 import 'word_by_word_strip.dart';
 import 'tajweed_text.dart';
 import '../services/footnote_service.dart';
@@ -124,18 +120,15 @@ class _VerseCardState extends State<VerseCard> {
   // Audit and personal notes states
   bool _showAuditBox = false;
   bool _showTafsirBox = false;
-  bool _isPreparingShare = false;
   bool _isAudioLoading = false;
   bool _isAudioPlaying = false;
 
-  final GlobalKey _shareBoundaryKey = GlobalKey();
   final GlobalKey _tafsirKey = GlobalKey();
   final GlobalKey _auditKey = GlobalKey();
   final TextEditingController _auditController = TextEditingController();
 
   bool _isSavingAudit = false;
   bool _auditSaved = false;
-  final String _shareStatus = '';
   String? _lastTrackedVerseKey;
 
   bool _isActiveCard() {
@@ -604,7 +597,12 @@ class _VerseCardState extends State<VerseCard> {
   void _copyVerseText() {
     final text = StringBuffer();
     if (widget.verse.arabic.trim().isNotEmpty) {
-      text.writeln(widget.verse.arabic.split(' | ').join(' '));
+      text.writeln(
+        formatArabicAyahText(
+          widget.verse.arabic,
+          verseNumber: widget.verse.id,
+        ),
+      );
       text.writeln();
     }
     if (widget.verse.thaiV3.trim().isNotEmpty) {
@@ -634,58 +632,73 @@ class _VerseCardState extends State<VerseCard> {
     );
   }
 
-  Future<void> _shareVerseImage() async {
-    setState(() => _isPreparingShare = true);
-    await WidgetsBinding.instance.endOfFrame;
-
-    try {
-      final boundary =
-          _shareBoundaryKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) return;
-
-      final image = await boundary.toImage(pixelRatio: 3);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final bytes = byteData?.buffer.asUint8List();
-      if (bytes == null) return;
-
-      if (kIsWeb) {
-        final xFile = XFile.fromData(
-          bytes,
-          mimeType: 'image/png',
-          name: 'ayah_${widget.verse.surahId}_${widget.verse.id}.png',
-        );
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [xFile],
-            text: '${widget.verse.surahId}:${widget.verse.id}',
-          ),
-        );
-        return;
-      }
-
-      final directory = await getTemporaryDirectory();
-      final file = File(
-        '${directory.path}/ayah_${widget.verse.surahId}_${widget.verse.id}.png',
-      );
-      await file.writeAsBytes(bytes, flush: true);
-
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'image/png')],
-          text: '${widget.verse.surahId}:${widget.verse.id}',
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not prepare share image: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isPreparingShare = false);
+  String? _resolveTranslationShareLabel(
+    SettingsProvider settings,
+    TranslationManagerProvider transManager,
+  ) {
+    final canonical = TranslationConstants.resolveTranslationId(
+      settings.primaryTranslationId,
+    );
+    if (canonical == 'thai_v3') return 'ไทย - King Fahd';
+    final known = TranslationConstants.getKnownOption(canonical);
+    if (known != null) return known.name.replaceAll('(Offline)', '').trim();
+    final apiId = TranslationConstants.resolveApiId(
+      settings.primaryTranslationId,
+    );
+    if (apiId != null) {
+      for (final t in transManager.downloadedTranslations) {
+        if (t['id'] == apiId &&
+            (t['name']?.toString().trim().isNotEmpty ?? false)) {
+          return t['name'].toString().trim();
+        }
       }
     }
+    return null;
+  }
+
+  Future<void> _shareVerseImage() async {
+    if (!mounted) return;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final transManager = Provider.of<TranslationManagerProvider>(
+      context,
+      listen: false,
+    );
+    final isThai = settings.languageCode == 'th';
+    final verseKey = '${widget.verse.surahId}:${widget.verse.id}';
+    final surahName = surahDisplayName(
+      widget.verse.surahId,
+      isThai: isThai,
+    );
+    final translationText = resolveVerseTranslationText(
+      context: context,
+      verseKey: verseKey,
+      verse: widget.verse,
+      settings: settings,
+      transManager: transManager,
+      repository: widget.repository,
+    );
+    final translationLabel = _resolveTranslationShareLabel(
+      settings,
+      transManager,
+    );
+    final footnotes = FootnoteService()
+        .getEntry(verseKey, settings.primaryTranslationId)
+        ?.footnotes;
+
+    await VerseShareSheet.show(
+      context,
+      surahId: widget.verse.surahId,
+      verseId: widget.verse.id,
+      surahName: surahName,
+      arabicText: widget.verse.arabic,
+      translationText: translationText,
+      translationLabel: translationLabel,
+      shortTafsir: _getTafsir(),
+      shortTafsirSource: _getTafsirSource(),
+      footnotes: footnotes,
+      repository: widget.repository,
+      isThai: isThai,
+    );
   }
 
   Future<void> _toggleAyahAudio() async {
@@ -812,6 +825,7 @@ class _VerseCardState extends State<VerseCard> {
 
     final arabicStyle = TextStyle(
       fontFamily: 'UthmanicHafs',
+      fontWeight: FontWeight.w400,
       fontSize: settings.arabicFontSize,
       height: 2.0,
       color: arabicTextColor,
@@ -834,36 +848,13 @@ class _VerseCardState extends State<VerseCard> {
           notes.getNoteObjectForVerse(widget.verse.surahId, widget.verse.id) !=
           null,
     );
+    final shareTooltip = settings.languageCode == 'th' ? 'แชร์' : 'Share';
 
-    return RepaintBoundary(
-      key: _shareBoundaryKey,
-      child: Container(
-        margin: EdgeInsets.symmetric(
-          horizontal: _isPreparingShare ? 24 : 0,
-          vertical: 8,
-        ),
-        decoration: _isPreparingShare
-            ? BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.shadow.withValues(
-                      alpha: isDark ? 0.12 : 0.04,
-                    ),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              )
-            : null,
-        child: Padding(
-          padding: _isPreparingShare
-              ? const EdgeInsets.all(24)
-              : EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               if (isLandscapeSplit)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -903,15 +894,12 @@ class _VerseCardState extends State<VerseCard> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (_shareStatus.isNotEmpty)
-                            Text(
-                              _shareStatus,
-                              style: GoogleFonts.notoSansThai(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          _buildActionIcon(
+                            tooltip: shareTooltip,
+                            icon: Icons.share_outlined,
+                            color: colors.primary,
+                            onPressed: _shareVerseImage,
+                          ),
                         ],
                       ),
                     ],
@@ -958,15 +946,12 @@ class _VerseCardState extends State<VerseCard> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_shareStatus.isNotEmpty)
-                        Text(
-                          _shareStatus,
-                          style: GoogleFonts.notoSansThai(
-                            color: colorScheme.onSurfaceVariant,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      _buildActionIcon(
+                        tooltip: shareTooltip,
+                        icon: Icons.share_outlined,
+                        color: colors.primary,
+                        onPressed: _shareVerseImage,
+                      ),
                       _buildActionIcon(
                         tooltip: isBookmarked ? 'Remove bookmark' : 'Bookmark',
                         icon: isBookmarked
@@ -1242,9 +1227,7 @@ class _VerseCardState extends State<VerseCard> {
               ],
             ],
           ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -1295,6 +1278,7 @@ class _VerseCardState extends State<VerseCard> {
               return Directionality(
                 textDirection: TextDirection.rtl,
                 child: RichText(
+                  locale: const Locale('ar'),
                   text: TextSpan(
                     style: arabicStyle,
                     children: [
@@ -1314,6 +1298,7 @@ class _VerseCardState extends State<VerseCard> {
           Directionality(
             textDirection: TextDirection.rtl,
             child: RichText(
+              locale: const Locale('ar'),
               text: TextSpan(
                 style: arabicStyle,
                 children: [

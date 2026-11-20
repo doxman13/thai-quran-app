@@ -28,6 +28,7 @@ import '../theme/app_theme.dart';
 import '../shared/shared.dart';
 import '../widgets/tadabbur_panel.dart';
 import '../widgets/auth_bottom_sheet.dart';
+import '../widgets/verse_share_sheet.dart';
 import '../providers/supabase_provider.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
@@ -4450,6 +4451,7 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final arabicStyle = TextStyle(
       fontFamily: 'UthmanicHafs',
+      fontWeight: FontWeight.w400,
       fontSize: widget.settings.arabicFontSize,
       height: 2.0,
       color: widget.colors.textStrong,
@@ -4533,6 +4535,33 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
                     onPlay: widget.onPlay,
                     onBookmark: widget.onBookmark,
                     onFavorite: widget.onFavorite,
+                    onShare: () {
+                      final isThai = widget.settings.languageCode == 'th';
+                      final sName = surahDisplayName(
+                        widget.verse.surahId,
+                        isThai: isThai,
+                      );
+                      final shortTafsir = switch (effectiveLang) {
+                        'ms' => (widget.verse.shortTafsirId?.trim().isNotEmpty == true)
+                            ? widget.verse.shortTafsirId
+                            : (widget.verse.shortTafsirEn ?? widget.verse.shortTafsir),
+                        'en' => (widget.verse.shortTafsirEn?.trim().isNotEmpty == true)
+                            ? widget.verse.shortTafsirEn
+                            : widget.verse.shortTafsir,
+                        _ => widget.verse.shortTafsir,
+                      };
+                      VerseShareSheet.show(
+                        context,
+                        surahId: widget.verse.surahId,
+                        verseId: widget.verse.id,
+                        surahName: sName,
+                        arabicText: widget.verse.arabic,
+                        translationText: translation,
+                        shortTafsir: shortTafsir,
+                        repository: widget.quranRepository,
+                        isThai: isThai,
+                      );
+                    },
                   ),
                 ],
               ),
@@ -4554,10 +4583,14 @@ class _TranslationVerseRowState extends State<_TranslationVerseRow> {
                     );
                   }
                   final text = snapshot.data ?? '';
-                  final cleanArabicText = text.split(' | ').join(' ');
+                  final cleanArabicText = formatArabicAyahText(
+                    text,
+                    verseNumber: widget.verse.id,
+                  );
                   return Directionality(
                     textDirection: TextDirection.rtl,
                     child: RichText(
+                      locale: const Locale('ar'),
                       textAlign: TextAlign.right,
                       text: TextSpan(
                         style: arabicStyle,
@@ -4600,6 +4633,7 @@ class _VerseActionMenu extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback onBookmark;
   final VoidCallback onFavorite;
+  final VoidCallback onShare;
 
   const _VerseActionMenu({
     required this.colors,
@@ -4610,6 +4644,7 @@ class _VerseActionMenu extends StatelessWidget {
     required this.onPlay,
     required this.onBookmark,
     required this.onFavorite,
+    required this.onShare,
   });
 
   @override
@@ -4636,6 +4671,8 @@ class _VerseActionMenu extends StatelessWidget {
           onBookmark();
         } else if (value == 'favorite') {
           onFavorite();
+        } else if (value == 'share') {
+          onShare();
         }
       },
       itemBuilder: (context) => [
@@ -4664,6 +4701,14 @@ class _VerseActionMenu extends StatelessWidget {
                 ? Icons.favorite_rounded
                 : Icons.favorite_border_rounded,
             label: favorited ? 'Remove favorite' : 'Favorite',
+            colors: colors,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'share',
+          child: _VerseActionMenuItem(
+            icon: Icons.share_outlined,
+            label: 'Share',
             colors: colors,
           ),
         ),
@@ -4741,11 +4786,28 @@ class _MushafVerseDetailSheet extends StatefulWidget {
 class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
   late bool _bookmarked;
   bool _showWbw = false;
+  late String _arabicText;
 
   @override
   void initState() {
     super.initState();
     _bookmarked = widget.isBookmarked;
+    _arabicText = widget.arabicText.trim();
+    if (_arabicText.isEmpty) {
+      _loadArabic();
+    }
+  }
+
+  Future<void> _loadArabic() async {
+    try {
+      final fetched = await widget.quranRepository.fetchArabicVerse(
+        widget.surahId,
+        widget.verseId,
+      );
+      if (mounted && fetched.trim().isNotEmpty) {
+        setState(() => _arabicText = fetched.trim());
+      }
+    } catch (_) {}
   }
 
   @override
@@ -4835,16 +4897,36 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                   ),
                   if (surahArName.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: Text(
-                        surahArName,
+                        sanitizeUthmanicText(surahArName),
+                        textDirection: TextDirection.rtl,
+                        locale: const Locale('ar'),
                         style: TextStyle(
-                          fontFamily: 'Amiri',
-                          fontSize: 20,
-                          color: isDark ? const Color(0xFF80CBC4) : const Color(0xFF0E5A4A),
+                          fontFamily: 'UthmanicHafs',
+                          fontWeight: FontWeight.w400,
+                          fontSize: 18,
+                          color: colors.primary,
                         ),
                       ),
                     ),
+                  IconButton(
+                    tooltip: isThai ? 'แชร์' : 'Share',
+                    icon: Icon(Icons.share_outlined, color: colors.primary),
+                    onPressed: () {
+                      VerseShareSheet.show(
+                        context,
+                        surahId: widget.surahId,
+                        verseId: widget.verseId,
+                        surahName: surahName,
+                        arabicText: _arabicText,
+                        translationText: widget.translationText,
+                        shortTafsir: widget.shortTafsir,
+                        repository: widget.quranRepository,
+                        isThai: isThai,
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: Icon(Icons.close_rounded, color: colors.textMuted),
                     onPressed: () => Navigator.pop(context),
@@ -4861,24 +4943,29 @@ class _MushafVerseDetailSheetState extends State<_MushafVerseDetailSheet> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Arabic Box
-                    if (widget.arabicText.isNotEmpty)
+                    if (_arabicText.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF222222) : const Color(0xFFF9F7F1),
+                          color: colors.surfaceMuted,
                           borderRadius: BorderRadius.circular(AppTheme.radius),
                           border: Border.all(color: colors.borderSoft),
                         ),
                         child: Directionality(
                           textDirection: TextDirection.rtl,
                           child: Text(
-                            widget.arabicText,
+                            formatArabicAyahText(
+                              _arabicText,
+                              verseNumber: widget.verseId,
+                            ),
                             textAlign: TextAlign.right,
+                            locale: const Locale('ar'),
                             style: TextStyle(
                               fontFamily: 'UthmanicHafs',
+                              fontWeight: FontWeight.w400,
                               fontSize: 24,
-                              height: 1.8,
-                              color: isDark ? const Color(0xFF80CBC4) : const Color(0xFF0E5A4A),
+                              height: 2.0,
+                              color: colors.textStrong,
                             ),
                           ),
                         ),

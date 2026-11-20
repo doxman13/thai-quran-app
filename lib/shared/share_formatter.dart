@@ -40,3 +40,7 @@ String formatVerseShareText(
 
   return lines.join('\n');
 }
+
+/// Companion text attached alongside a shared verse or Tadabbur card image.
+String formatImageShareCaption(String surahId, String verseId, String url) =>
+    '$surahId:$verseId\n$url';

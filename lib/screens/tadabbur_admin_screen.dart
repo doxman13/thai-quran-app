@@ -556,9 +556,12 @@ class _TadabburAdminScreenState extends State<TadabburAdminScreen> {
                     if (surahAr != null) ...[
                       const SizedBox(width: 8),
                       Text(
-                        surahAr,
+                        sanitizeUthmanicText(surahAr),
+                        textDirection: TextDirection.rtl,
+                        locale: const Locale('ar'),
                         style: const TextStyle(
                           fontFamily: 'UthmanicHafs',
+                          fontWeight: FontWeight.w400,
                           fontSize: 14,
                           color: Color(0xFF0E5A4A),
                         ),
@@ -644,11 +647,13 @@ class _TadabburAdminScreenState extends State<TadabburAdminScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Text(
-                        ar,
+                        formatArabicAyahText(ar, verseNumber: verseId),
                         textAlign: TextAlign.right,
                         textDirection: TextDirection.rtl,
+                        locale: const Locale('ar'),
                         style: const TextStyle(
                           fontFamily: 'UthmanicHafs',
+                          fontWeight: FontWeight.w400,
                           fontSize: 16,
                           height: 2.0,
                           color: Color(0xFF1F2937),
