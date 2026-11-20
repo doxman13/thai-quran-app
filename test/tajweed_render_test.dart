@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:thai_quran_app/widgets/tajweed_text.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -71,5 +72,53 @@ void main() {
     final outFile = File('${tempDir.path}/rendered_shayan_fix_clear.png');
     outFile.writeAsBytesSync(pngBytes);
     print("Rendered clear comparison successfully to ${outFile.path}!");
+  });
+
+  group('TajweedText verse end circular mark', () {
+    test('ensureVerseEndMark prefixes U+06DD before trailing verse digits', () {
+      expect(
+        TajweedText.ensureVerseEndMark(
+          'قُلۡ هُوَ <rule class=ham_wasl>ٱ</rule>للَّهُ أَحَ<rule class=qalaqah>دٌ</rule> ١',
+        ),
+        'قُلۡ هُوَ <rule class=ham_wasl>ٱ</rule>للَّهُ أَحَ<rule class=qalaqah>دٌ</rule> \u06DD١',
+      );
+
+      expect(
+        TajweedText.ensureVerseEndMark('فَٱنصُرۡنَا ٢٨٦'),
+        'فَٱنصُرۡنَا \u06DD٢٨٦',
+      );
+
+      // Idempotent if U+06DD is already present
+      expect(
+        TajweedText.ensureVerseEndMark('قُلۡ \u06DD١٩'),
+        'قُلۡ \u06DD١٩',
+      );
+
+      // Fallback when verseNumber is supplied separately
+      expect(
+        TajweedText.ensureVerseEndMark('بِسۡمِ ٱللَّهِ', verseNumber: '12'),
+        'بِسۡمِ ٱللَّهِ \u06DD١٢',
+      );
+    });
+
+    testWidgets('TajweedText renders RichText with U+06DD circle marker',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: TajweedText(
+              text:
+                  'قُلۡ هُوَ <rule class=ham_wasl>ٱ</rule>للَّهُ أَحَ<rule class=qalaqah>دٌ</rule> ١',
+              verseNumber: '1',
+            ),
+          ),
+        ),
+      );
+
+      final richText = tester.widget<RichText>(find.byType(RichText));
+      final plainText = richText.text.toPlainText();
+      expect(plainText, contains('\u06DD١'));
+      expect(plainText, isNot(contains('\u06DD\u06DD')));
+    });
   });
 }

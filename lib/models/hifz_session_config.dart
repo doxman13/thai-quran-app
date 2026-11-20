@@ -109,6 +109,11 @@ class ActiveSessionSnapshot {
   final int? nvRepeatStart;
   final int? nvStartVerse;
   final int? nvEndVerse;
+  final bool nvChunkLongVerses;
+  final String? currentTaskId;
+  final int? currentVerse;
+  final int? totalSteps;
+  final Map<int, int>? verseTallyMap;
 
   // --- Review fields ---
   final ReviewGranularity? reviewGranularity;
@@ -128,6 +133,11 @@ class ActiveSessionSnapshot {
     this.nvRepeatStart,
     this.nvStartVerse,
     this.nvEndVerse,
+    this.nvChunkLongVerses = true,
+    this.currentTaskId,
+    this.currentVerse,
+    this.totalSteps,
+    this.verseTallyMap,
     this.reviewGranularity,
     this.reviewTargetParams,
     required this.currentStepIndex,

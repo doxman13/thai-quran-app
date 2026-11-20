@@ -200,7 +200,7 @@ class _TopicVersesScreenState extends State<TopicVersesScreen> {
                             formattedArabic,
                             textDirection: TextDirection.rtl,
                             style: const TextStyle(
-                              fontFamily: 'Tajweed',
+                              fontFamily: 'UthmanicHafs',
                               fontSize: 26,
                               height: 1.8,
                             ),

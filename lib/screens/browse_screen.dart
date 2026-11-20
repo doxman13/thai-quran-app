@@ -101,6 +101,7 @@ class BrowseScreenState extends State<BrowseScreen> {
   String _surahFilter = 'all'; // 'all', 'fav', 'juz'
 
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   late final QuranFoundationRepository _foundationRepo;
   QuranSearchResult? _apiSearchResult;
   bool _isApiSearching = false;
@@ -123,7 +124,40 @@ class BrowseScreenState extends State<BrowseScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void focusSearch() {
+    if (!mounted) return;
+    if (_mode != 'surah') {
+      setState(() => _mode = 'surah');
+    } else if (_searchFocusNode.canRequestFocus) {
+      _searchFocusNode.requestFocus();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _searchFocusNode.canRequestFocus) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void openVoiceSearch() {
+    if (!mounted) return;
+    VoiceSearchSheet.show(
+      context,
+      repository: widget.repository,
+      onOpenPage: (page, {highlightVerseKey}) {
+        if (widget.onOpenMushafPage != null) {
+          widget.onOpenMushafPage!(
+            page,
+            highlightVerseKey: highlightVerseKey,
+          );
+        } else {
+          widget.onOpenPage(page);
+        }
+      },
+    );
   }
 
   void _openMushafPage(int pageNumber) {
@@ -1226,6 +1260,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                 ),
                 child: TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   onChanged: _onSearchQueryChanged,
                   decoration: InputDecoration(
                     hintText: context.tr('search_hint'),
@@ -1270,22 +1305,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                               tooltip: isThai
                                   ? 'ค้นหาด้วยเสียง (อัลกุรอานภาษาอาหรับ)'
                                   : 'Voice Search (Arabic Quran)',
-                              onPressed: () {
-                                VoiceSearchSheet.show(
-                                  context,
-                                  repository: widget.repository,
-                                  onOpenPage: (page, {highlightVerseKey}) {
-                                    if (widget.onOpenMushafPage != null) {
-                                      widget.onOpenMushafPage!(
-                                        page,
-                                        highlightVerseKey: highlightVerseKey,
-                                      );
-                                    } else {
-                                      widget.onOpenPage(page);
-                                    }
-                                  },
-                                );
-                              },
+                              onPressed: openVoiceSearch,
                             ),
                           ),
                   ),

@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
@@ -22,6 +23,7 @@ import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/hifz_mastery_utils.dart';
 import '../widgets/surah_mastery_card.dart';
 import 'hifz_guide_screen.dart';
 import 'hifz_history_screen.dart';
@@ -70,6 +72,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   bool _hasActiveSession = false;
   ActiveSessionSnapshot? _activeSessionSnapshot;
   Map<int, SurahCompletionRecord> _completionMap = {};
+  Map<int, SurahMasterySummary> _summaries = {};
   bool _loading = true;
   _MasteryFilter _filterMode = _MasteryFilter.all;
   String _searchQuery = '';
@@ -85,7 +88,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       duration: const Duration(milliseconds: 500),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _loadStats();
+    _loadStats(syncCloud: true);
   }
 
   @override
@@ -94,35 +97,82 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     super.dispose();
   }
 
-  Future<void> _loadStats() async {
-    final repo = HifzRepository();
-    final records = await repo.getAllCompletionRecords();
-    final activeSession = await repo.loadActiveSession();
-    final map = <int, SurahCompletionRecord>{};
-    for (final r in records) {
-      map[r.surahNumber] = r;
+  String? _safeCurrentUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
     }
-    if (!mounted) return;
-    setState(() {
-      _completionMap = map;
-      _masteredCount = records.where(SurahMasteryCard.isMasteredRecord).length;
-      _inProgressCount =
-          records.where(SurahMasteryCard.isInProgressRecord).length;
-      _activeSessionSnapshot = activeSession;
-      _hasActiveSession = activeSession != null;
-      _loading = false;
-    });
-    _animController.forward();
+  }
+
+  Future<void> _loadStats({bool syncCloud = false}) async {
+    final repo = HifzRepository();
+
+    Future<void> applyLocalState() async {
+      final records = await repo.getAllCompletionRecords();
+      final history = await repo.getHistory(limit: 500);
+      final activeSession = await repo.loadActiveSession();
+      final map = <int, SurahCompletionRecord>{};
+      for (final r in records) {
+        map[r.surahNumber] = r;
+      }
+      final summaries = buildSurahMasterySummaries(
+        records: records,
+        history: history,
+        activeSession: activeSession,
+        masteredReviewThreshold: SurahMasteryCard.masteredReviewThreshold,
+      );
+      final masteredCount = summaries.values
+          .where((s) => s.status == HifzMasteryStatus.mastered)
+          .length;
+      final inProgressCount = summaries.values
+          .where((s) => s.status == HifzMasteryStatus.inProgress)
+          .length;
+      if (!mounted) return;
+      setState(() {
+        _completionMap = map;
+        _summaries = summaries;
+        _masteredCount = masteredCount;
+        _inProgressCount = inProgressCount;
+        _activeSessionSnapshot = activeSession;
+        _hasActiveSession = activeSession != null;
+        _loading = false;
+      });
+      _animController.forward();
+    }
+
+    await applyLocalState();
+
+    if (syncCloud) {
+      final userId = _safeCurrentUserId();
+      if (userId != null) {
+        await Future.wait([
+          repo.syncWithSupabase(userId),
+          repo.syncHistoryWithSupabase(),
+        ]);
+        await applyLocalState();
+      }
+    }
   }
 
   int get _notStartedCount =>
       math.max(0, 114 - _masteredCount - _inProgressCount);
 
-  Future<void> _openNewVerses({int? surahNum}) async {
+  Future<void> _openNewVerses({
+    int? surahNum,
+    int? startVerse,
+    int? endVerse,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     final targetSurah = surahNum ?? (prefs.getInt('hifz_nv_surah') ?? 67);
     final verseCount = qcf.getVerseCount(targetSurah);
+    final resolvedStart = startVerse ??
+        (surahNum != null ? 1 : (prefs.getInt('hifz_nv_start_verse') ?? 1));
+    final resolvedEnd = endVerse ??
+        (surahNum != null
+            ? math.min(5, verseCount)
+            : (prefs.getInt('hifz_nv_end_verse') ?? 5));
 
     await Navigator.push(
       context,
@@ -132,13 +182,11 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           foundationRepository: widget.foundationRepository,
           initialMode: HifzSessionType.newVerses,
           initialSurah: targetSurah,
-          initialStartVerse: surahNum != null
-              ? 1
-              : (prefs.getInt('hifz_nv_start_verse') ?? 1),
-          initialEndVerse: surahNum != null
-              ? math.min(5, verseCount)
-              : (prefs.getInt('hifz_nv_end_verse') ?? 5),
-          initialRepeatStart: prefs.getInt('hifz_nv_repeat_start') ?? 1,
+          initialStartVerse: resolvedStart.clamp(1, verseCount),
+          initialEndVerse: resolvedEnd.clamp(resolvedStart.clamp(1, verseCount), verseCount),
+          initialRepeatStart: surahNum != null
+              ? resolvedStart.clamp(1, verseCount)
+              : (prefs.getInt('hifz_nv_repeat_start') ?? 1),
           initialStep: 1,
         ),
       ),
@@ -240,16 +288,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     final all = List.generate(114, (i) => i + 1);
     final byFilter = switch (_filterMode) {
       _MasteryFilter.mastered => all
-          .where((s) => SurahMasteryCard.isMasteredRecord(_completionMap[s]))
+          .where((s) => _summaries[s]?.status == HifzMasteryStatus.mastered)
           .toList(),
       _MasteryFilter.inProgress => all
-          .where((s) => SurahMasteryCard.isInProgressRecord(_completionMap[s]))
+          .where((s) => _summaries[s]?.status == HifzMasteryStatus.inProgress)
           .toList(),
       _MasteryFilter.notStarted => all
           .where(
             (s) =>
-                !SurahMasteryCard.isMasteredRecord(_completionMap[s]) &&
-                !SurahMasteryCard.isInProgressRecord(_completionMap[s]),
+                (_summaries[s]?.status ?? HifzMasteryStatus.notStarted) ==
+                HifzMasteryStatus.notStarted,
           )
           .toList(),
       _MasteryFilter.juz29And30 =>
@@ -301,7 +349,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               ],
             ),
       body: RefreshIndicator(
-        onRefresh: _loadStats,
+        onRefresh: () => _loadStats(syncCloud: true),
         child: CustomScrollView(
           slivers: [
             // ── Top Bar when Embedded in Bottom Nav ────────────────────────
@@ -573,6 +621,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                       verseCount: verseCount,
                       juz: juz,
                       record: record,
+                      summary: _summaries[surahNum],
                       isThai: isThai,
                       onTap: () => _showSurahActionSheet(context, surahNum),
                     );
@@ -681,39 +730,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     );
   }
 
-  String _getResumeSessionSubtitle(ActiveSessionSnapshot snap, bool isThai) {
-    if (snap.sessionType == HifzSessionType.newVerses) {
-      final surah = snap.nvSurahNumber ?? 1;
-      final start = snap.nvStartVerse ?? 1;
-      final end = snap.nvEndVerse ?? 1;
-      final task = snap.currentStepIndex + 1;
-      final surahName = surahDisplayName(surah.toString(), isThai: isThai);
-      return isThai
-          ? '$surahName ($surah:$start-$end) • ขั้นที่ $task'
-          : '$surahName ($surah:$start-$end) • Step $task';
-    } else {
-      final gran = snap.reviewGranularity ?? ReviewGranularity.bySurah;
-      final step = snap.currentStepIndex + 1;
-      if (gran == ReviewGranularity.bySurah) {
-        final surah = snap.reviewTargetParams?.startSurah ?? 1;
-        return isThai
-            ? 'ทบทวนซูเราะฮฺ $surah • ขั้นที่ $step'
-            : 'Review Surah $surah • Step $step';
-      } else if (gran == ReviewGranularity.byVerses) {
-        final surah = snap.reviewTargetParams?.surahNumber ?? 1;
-        final start = snap.reviewTargetParams?.startVerse ?? 1;
-        final end = snap.reviewTargetParams?.endVerse ?? 1;
-        return isThai
-            ? 'ทบทวน $surah:$start-$end • ขั้นที่ $step'
-            : 'Review $surah:$start-$end • Step $step';
-      } else {
-        final page = snap.reviewTargetParams?.startPage ?? 1;
-        return isThai
-            ? 'ทบทวนหน้า $page • ขั้นที่ $step'
-            : 'Review Page $page • Step $step';
-      }
-    }
-  }
+  String _getResumeSessionSubtitle(ActiveSessionSnapshot snap, bool isThai) =>
+      formatActiveSessionSubtitle(snap, isThai: isThai);
 
   // ── 2. Deep Emerald Takrar Hero Card ────────────────────────────────────────
   Widget _buildHeroCard(
@@ -931,11 +949,21 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
         Provider.of<SettingsProvider>(context, listen: false).languageCode ==
             'th';
     final record = _completionMap[surahNum];
-    final isCompleted = record?.newVersesCompleted == true;
-    final reviewCount = record?.reviewCount ?? 0;
+    final summary = _summaries[surahNum];
+    final isCompleted =
+        summary?.newVersesCompleted ?? (record?.newVersesCompleted == true);
+    final isInProgress = summary?.status == HifzMasteryStatus.inProgress;
+    final hasActiveHere = summary?.hasActiveSession == true;
+    final furthest = summary?.furthestCompletedVerse ?? 0;
+    final reviewCount = summary?.reviewCount ?? (record?.reviewCount ?? 0);
     final names = surahNamePair(surahNum.toString());
     final verseCount = qcf.getVerseCount(surahNum);
     final juz = _juzOfSurah(surahNum);
+    final hasPartialContinue =
+        !isCompleted && furthest > 0 && furthest < verseCount;
+    final nextStartVerse = hasPartialContinue ? furthest + 1 : 1;
+    final nextEndVerse =
+        math.min(nextStartVerse + 4, verseCount);
 
     showModalBottomSheet<void>(
       context: context,
@@ -992,7 +1020,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                             ),
                           ),
                           Text(
-                            '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • Juz $juz${reviewCount > 0 ? ' • ${isThai ? 'ทบทวนแล้ว $reviewCount ครั้ง' : 'Reviewed ×$reviewCount'}' : ''}',
+                            '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • Juz $juz${hasPartialContinue ? ' • ${isThai ? 'ถึงอายะฮฺ $furthest/$verseCount' : 'Up to $furthest/$verseCount'}' : ''}${reviewCount > 0 ? ' • ${isThai ? 'ทบทวนแล้ว $reviewCount ครั้ง' : 'Reviewed ×$reviewCount'}' : ''}',
                             style: textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -1019,10 +1047,68 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                             color: colors.success,
                           ),
                         ),
+                      )
+                    else if (isInProgress)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.mushafGold.withValues(alpha: 0.14),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSm),
+                        ),
+                        child: Text(
+                          isThai ? 'กำลังท่อง' : 'In Progress',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: colors.mushafGold,
+                          ),
+                        ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 20),
+                if (hasActiveHere && _activeSessionSnapshot != null) ...[
+                  ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    tileColor: const Color(0xFFFFF8EB),
+                    leading: CircleAvatar(
+                      backgroundColor:
+                          const Color(0xFFD4A853).withValues(alpha: 0.22),
+                      child: const Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: Color(0xFF9A6B16),
+                      ),
+                    ),
+                    title: Text(
+                      isThai ? 'ท่องต่อจากที่ค้างไว้' : 'Resume Paused Session',
+                      style: GoogleFonts.notoSansThai(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2B2110),
+                      ),
+                    ),
+                    subtitle: Text(
+                      formatActiveSessionSubtitle(_activeSessionSnapshot!,
+                          isThai: isThai),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF7C5E24),
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      Navigator.pop(sheetCtx);
+                      _resumeSession();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 ListTile(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -1037,22 +1123,30 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                   ),
                   title: Text(
                     isThai
-                        ? 'ท่องจำอายะฮฺใหม่ (Takrar)'
-                        : 'Memorize New Verses (Takrar)',
+                        ? (hasPartialContinue
+                            ? 'ท่องต่ออายะฮฺใหม่ (Takrar)'
+                            : 'ท่องจำอายะฮฺใหม่ (Takrar)')
+                        : (hasPartialContinue
+                            ? 'Continue New Verses (Takrar)'
+                            : 'Memorize New Verses (Takrar)'),
                     style: GoogleFonts.notoSansThai(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   subtitle: Text(
                     isThai
-                        ? 'เริ่มที่อายะฮฺ 1–${math.min(5, verseCount)} (ปรับช่วงได้)'
-                        : 'Starts at verses 1–${math.min(5, verseCount)} (customizable)',
+                        ? 'เริ่มที่อายะฮฺ $nextStartVerse–$nextEndVerse (ปรับช่วงได้)'
+                        : 'Starts at verses $nextStartVerse–$nextEndVerse (customizable)',
                     style: textTheme.bodySmall,
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     Navigator.pop(sheetCtx);
-                    _openNewVerses(surahNum: surahNum);
+                    _openNewVerses(
+                      surahNum: surahNum,
+                      startVerse: nextStartVerse,
+                      endVerse: nextEndVerse,
+                    );
                   },
                 ),
                 const SizedBox(height: 10),

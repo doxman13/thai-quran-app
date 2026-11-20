@@ -17,6 +17,12 @@ enum HifzInputMode {
   inAppTally,
 }
 
+enum AppThemeModePreference {
+  system,
+  light,
+  dark,
+}
+
 class ReciterOption {
   final int id;
   final String name;
@@ -73,7 +79,7 @@ const List<ReciterOption> kSupportedReciters = [
   ),
 ];
 
-class SettingsProvider extends ChangeNotifier {
+class SettingsProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const quranOnlyMode = 'quran_only';
   static const translationOnlyMode = 'translation_only';
   static const quranTranslationMode = 'quran_translation';
@@ -82,8 +88,9 @@ class SettingsProvider extends ChangeNotifier {
     translationOnlyMode,
     quranTranslationMode,
   };
+  static const String _themeModePreferenceKey = 'themeModePreference';
 
-  bool _isDarkMode = false;
+  AppThemeModePreference _themeModePreference = AppThemeModePreference.system;
   bool _keepAwake = true;
   String _readingDisplayMode = quranTranslationMode;
   double _arabicFontSize = 28.0;
@@ -116,7 +123,30 @@ class SettingsProvider extends ChangeNotifier {
 
   StreamSubscription<AuthState>? _authSubscription;
 
-  bool get isDarkMode => _isDarkMode;
+  AppThemeModePreference get themeModePreference => _themeModePreference;
+
+  ThemeMode get flutterThemeMode {
+    switch (_themeModePreference) {
+      case AppThemeModePreference.system:
+        return ThemeMode.system;
+      case AppThemeModePreference.light:
+        return ThemeMode.light;
+      case AppThemeModePreference.dark:
+        return ThemeMode.dark;
+    }
+  }
+
+  bool get isDarkMode {
+    switch (_themeModePreference) {
+      case AppThemeModePreference.light:
+        return false;
+      case AppThemeModePreference.dark:
+        return true;
+      case AppThemeModePreference.system:
+        return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark;
+    }
+  }
   bool get keepAwake => _keepAwake;
   String get readingDisplayMode => _readingDisplayMode;
   String get readingMode => _readingDisplayMode;
@@ -201,8 +231,16 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   SettingsProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _loadSettings();
     _listenToAuthChanges();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_themeModePreference == AppThemeModePreference.system) {
+      notifyListeners();
+    }
   }
 
   void _listenToAuthChanges() {
@@ -224,6 +262,7 @@ class SettingsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     super.dispose();
   }
@@ -428,7 +467,20 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _languageCode = prefs.getString('languageCode') ?? 'th';
-    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    if (prefs.containsKey(_themeModePreferenceKey)) {
+      final savedThemePref = prefs.getString(_themeModePreferenceKey);
+      _themeModePreference = AppThemeModePreference.values.firstWhere(
+        (e) => e.name == savedThemePref,
+        orElse: () => AppThemeModePreference.system,
+      );
+    } else if (prefs.containsKey('isDarkMode')) {
+      final legacyDark = prefs.getBool('isDarkMode') ?? false;
+      _themeModePreference = legacyDark
+          ? AppThemeModePreference.dark
+          : AppThemeModePreference.light;
+    } else {
+      _themeModePreference = AppThemeModePreference.system;
+    }
     _keepAwake = prefs.getBool('keepAwake') ?? true;
     _showWordByWord = prefs.getBool('showWordByWord') ?? false;
     _wordByWordLanguage = prefs.getString('wordByWordLanguage') ?? 'th';
@@ -600,12 +652,21 @@ class SettingsProvider extends ChangeNotifier {
     );
   }
 
-  void toggleDarkMode(bool value) async {
-    _isDarkMode = value;
+  Future<void> setThemeModePreference(AppThemeModePreference pref) async {
+    _themeModePreference = pref;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', value);
-    // Device-local setting: do not sync dark mode to Supabase
+    await prefs.setString(_themeModePreferenceKey, pref.name);
+    if (pref != AppThemeModePreference.system) {
+      await prefs.setBool('isDarkMode', pref == AppThemeModePreference.dark);
+    }
+    // Device-local setting: do not sync theme mode to Supabase
+  }
+
+  void toggleDarkMode(bool value) {
+    setThemeModePreference(
+      value ? AppThemeModePreference.dark : AppThemeModePreference.light,
+    );
   }
 
   void toggleKeepAwake(bool value) async {
@@ -905,7 +966,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   AppThemeColors getAppColors() {
-    return AppTheme.colors(isDark: _isDarkMode, palette: 'teal');
+    return AppTheme.colors(isDark: isDarkMode, palette: 'teal');
   }
 
   Color getPrimaryColor() {

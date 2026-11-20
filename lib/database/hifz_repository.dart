@@ -4,6 +4,7 @@
 // Uses sqflite (already in pubspec.yaml) for on-device SQLite storage.
 // All methods are async and fire-and-forget safe for the auto-save use case.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -24,13 +25,19 @@ class HifzRepository {
   HifzRepository._internal();
 
   Database? _db;
+  Timer? _activePushTimer;
+  ActiveSessionSnapshot? _pendingActiveSnapshot;
 
   /// Clear all local Hifz database tables on account deletion.
   Future<void> clearAllLocalData() async {
+    _activePushTimer?.cancel();
+    _activePushTimer = null;
+    _pendingActiveSnapshot = null;
     final db = await database;
     await db.delete('active_session');
     await db.delete('completed_surahs');
     await db.delete('hifz_history');
+    await db.delete('hifz_sync_meta');
   }
 
   // ---------------------------------------------------------------------------
@@ -48,7 +55,7 @@ class HifzRepository {
 
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -65,6 +72,11 @@ class HifzRepository {
         nv_repeat_start INTEGER,
         nv_start_verse INTEGER,
         nv_end_verse INTEGER,
+        nv_chunk_long_verses INTEGER NOT NULL DEFAULT 1,
+        current_task_id TEXT,
+        current_verse INTEGER,
+        total_steps INTEGER,
+        verse_tally_map_json TEXT,
         current_step_index INTEGER NOT NULL DEFAULT 0,
         current_mode TEXT NOT NULL DEFAULT 'visible',
         current_tally INTEGER NOT NULL DEFAULT 0,
@@ -92,6 +104,14 @@ class HifzRepository {
         synced_to_cloud INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE hifz_sync_meta (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        cleared_session_id TEXT,
+        cleared_at_ms INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -105,6 +125,29 @@ class HifzRepository {
           title TEXT NOT NULL,
           completed_at TEXT NOT NULL,
           synced_to_cloud INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+    }
+    if (oldVersion < 4) {
+      final cols = await db.rawQuery('PRAGMA table_info(active_session)');
+      final colNames = cols.map((c) => c['name'] as String?).whereType<String>().toSet();
+      Future<void> addCol(String name, String ddl) async {
+        if (!colNames.contains(name)) {
+          await db.execute('ALTER TABLE active_session ADD COLUMN $ddl');
+        }
+      }
+
+      await addCol('nv_chunk_long_verses', 'nv_chunk_long_verses INTEGER NOT NULL DEFAULT 1');
+      await addCol('current_task_id', 'current_task_id TEXT');
+      await addCol('current_verse', 'current_verse INTEGER');
+      await addCol('total_steps', 'total_steps INTEGER');
+      await addCol('verse_tally_map_json', 'verse_tally_map_json TEXT');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS hifz_sync_meta (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          cleared_session_id TEXT,
+          cleared_at_ms INTEGER NOT NULL DEFAULT 0
         )
       ''');
     }
@@ -183,11 +226,43 @@ class HifzRepository {
           _snapshotToRow(snapshot),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
+        final meta = await txn.query(
+          'hifz_sync_meta',
+          where: 'id = 1',
+          limit: 1,
+        );
+        if (meta.isNotEmpty) {
+          final clearedAtMs = (meta.first['cleared_at_ms'] as int?) ?? 0;
+          if (clearedAtMs <= snapshot.lastUpdatedTimestamp) {
+            await txn.delete('hifz_sync_meta', where: 'id = 1');
+          }
+        }
       });
+
+      final userId = _currentSupabaseUserId();
+      if (userId != null) {
+        _pendingActiveSnapshot = snapshot;
+        _activePushTimer?.cancel();
+        _activePushTimer = Timer(const Duration(seconds: 1), () {
+          unawaited(flushPendingActiveSessionSync());
+        });
+      }
     } catch (e) {
       // Never throw on auto-save — log and continue.
       debugLog('HifzRepository.saveActiveSession error: $e');
     }
+  }
+
+  /// Immediately pushes any debounced active session snapshot to Supabase.
+  Future<void> flushPendingActiveSessionSync() async {
+    _activePushTimer?.cancel();
+    _activePushTimer = null;
+    final pending = _pendingActiveSnapshot;
+    if (pending == null) return;
+    final userId = _currentSupabaseUserId();
+    if (userId == null) return;
+    _pendingActiveSnapshot = null;
+    await _pushActiveSessionRow(userId, pending, isCleared: false);
   }
 
   /// Loads the most recently saved active session, if any.
@@ -260,14 +335,64 @@ class HifzRepository {
         a.endPage == b.endPage;
   }
 
-  /// Deletes active session (either specific ID or all).
+  /// Deletes active session (either specific ID or all) and pushes tombstone to cloud.
   Future<void> clearActiveSession({String? sessionId}) async {
     try {
+      _activePushTimer?.cancel();
+      _activePushTimer = null;
+      if (sessionId == null || _pendingActiveSnapshot?.sessionId == sessionId) {
+        _pendingActiveSnapshot = null;
+      }
+
       final db = await database;
+      final current = await loadActiveSession();
+      final clearedAtMs = DateTime.now().millisecondsSinceEpoch;
+
       if (sessionId != null) {
         await db.delete('active_session', where: 'session_id = ?', whereArgs: [sessionId]);
       } else {
         await db.delete('active_session');
+      }
+
+      await _saveClearedSessionMeta(
+        db,
+        sessionId: sessionId ?? current?.sessionId,
+        clearedAtMs: clearedAtMs,
+      );
+
+      final userId = _currentSupabaseUserId();
+      if (userId != null) {
+        final tombstoneSnap = current != null
+            ? ActiveSessionSnapshot(
+                sessionId: current.sessionId,
+                sessionType: current.sessionType,
+                nvSurahNumber: current.nvSurahNumber,
+                nvRepeatStart: current.nvRepeatStart,
+                nvStartVerse: current.nvStartVerse,
+                nvEndVerse: current.nvEndVerse,
+                nvChunkLongVerses: current.nvChunkLongVerses,
+                currentTaskId: current.currentTaskId,
+                currentVerse: current.currentVerse,
+                totalSteps: current.totalSteps,
+                verseTallyMap: current.verseTallyMap,
+                reviewGranularity: current.reviewGranularity,
+                reviewTargetParams: current.reviewTargetParams,
+                currentStepIndex: current.currentStepIndex,
+                currentMode: current.currentMode,
+                currentTally: current.currentTally,
+                targetTally: current.targetTally,
+                lastUpdatedTimestamp: clearedAtMs,
+              )
+            : ActiveSessionSnapshot(
+                sessionId: sessionId ?? 'cleared',
+                sessionType: HifzSessionType.newVerses,
+                currentStepIndex: 0,
+                currentMode: 'visible',
+                currentTally: 0,
+                targetTally: 10,
+                lastUpdatedTimestamp: clearedAtMs,
+              );
+        unawaited(_pushActiveSessionRow(userId, tombstoneSnap, isCleared: true));
       }
     } catch (e) {
       debugLog('HifzRepository.clearActiveSession error: $e');
@@ -482,6 +607,9 @@ class HifzRepository {
           }, onConflict: 'user_id,surah_number');
         }
       }
+
+      // Sync active midway session (cross-device resume)
+      await _syncActiveSessionWithSupabase(userId);
     } catch (e) {
       debugLog('HifzRepository.syncWithSupabase error: $e');
     }
@@ -526,6 +654,236 @@ class HifzRepository {
     return rows.isEmpty ? null : rows.first;
   }
 
+  String? _currentSupabaseUserId() {
+    try {
+      return Supabase.instance.client.auth.currentUser?.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isMissingActiveSessionsTableError(Object error) {
+    final msg = error.toString();
+    return msg.contains('PGRST205') ||
+        msg.contains('42P01') ||
+        msg.contains('hifz_active_sessions');
+  }
+
+  Future<({String? sessionId, int clearedAtMs})?> _loadClearedSessionMeta(Database db) async {
+    try {
+      final rows = await db.query('hifz_sync_meta', where: 'id = 1', limit: 1);
+      if (rows.isEmpty) return null;
+      return (
+        sessionId: rows.first['cleared_session_id'] as String?,
+        clearedAtMs: (rows.first['cleared_at_ms'] as int?) ?? 0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveClearedSessionMeta(
+    Database db, {
+    String? sessionId,
+    required int clearedAtMs,
+  }) async {
+    await db.insert(
+      'hifz_sync_meta',
+      {
+        'id': 1,
+        'cleared_session_id': sessionId,
+        'cleared_at_ms': clearedAtMs,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Map<String, dynamic> _toCloudActiveRow(
+    String userId,
+    ActiveSessionSnapshot s, {
+    required bool isCleared,
+  }) {
+    final verseTallyMap = <String, int>{};
+    if (s.verseTallyMap != null) {
+      for (final entry in s.verseTallyMap!.entries) {
+        verseTallyMap[entry.key.toString()] = entry.value;
+      }
+    }
+    return {
+      'user_id': userId,
+      'session_id': s.sessionId,
+      'session_type': s.sessionType.name,
+      'nv_surah_number': s.nvSurahNumber,
+      'nv_repeat_start': s.nvRepeatStart,
+      'nv_start_verse': s.nvStartVerse,
+      'nv_end_verse': s.nvEndVerse,
+      'nv_chunk_long_verses': s.nvChunkLongVerses,
+      'current_task_id': s.currentTaskId,
+      'current_verse': s.currentVerse,
+      'total_steps': s.totalSteps,
+      'verse_tally_map': verseTallyMap,
+      'review_granularity': s.reviewGranularity?.name,
+      'review_target_params': s.reviewTargetParams?.toJson(),
+      'current_step_index': s.currentStepIndex,
+      'current_mode': s.currentMode,
+      'current_tally': s.currentTally,
+      'target_tally': s.targetTally,
+      'last_updated_ms': s.lastUpdatedTimestamp,
+      'is_cleared': isCleared,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  ActiveSessionSnapshot _fromCloudActiveRow(Map<String, dynamic> row) {
+    final sessionTypeStr = row['session_type'] as String? ?? 'newVerses';
+    final sessionType = HifzSessionType.values.firstWhere(
+      (e) => e.name == sessionTypeStr,
+      orElse: () => HifzSessionType.newVerses,
+    );
+
+    ReviewGranularity? granularity;
+    final granStr = row['review_granularity'] as String?;
+    if (granStr != null) {
+      granularity = ReviewGranularity.values.firstWhere(
+        (e) => e.name == granStr,
+        orElse: () => ReviewGranularity.bySurah,
+      );
+    }
+
+    ReviewTargetParams? targetParams;
+    final rawParams = row['review_target_params'];
+    if (rawParams is Map) {
+      try {
+        targetParams = ReviewTargetParams.fromJson(
+          rawParams.map((k, v) => MapEntry(k.toString(), v)),
+        );
+      } catch (_) {}
+    }
+
+    Map<int, int>? verseTallyMap;
+    final rawTallyMap = row['verse_tally_map'];
+    if (rawTallyMap is Map && rawTallyMap.isNotEmpty) {
+      final parsed = <int, int>{};
+      for (final entry in rawTallyMap.entries) {
+        final k = int.tryParse(entry.key.toString());
+        final v = entry.value is num ? (entry.value as num).toInt() : int.tryParse(entry.value.toString());
+        if (k != null && v != null) {
+          parsed[k] = v;
+        }
+      }
+      if (parsed.isNotEmpty) verseTallyMap = parsed;
+    }
+
+    return ActiveSessionSnapshot(
+      sessionId: (row['session_id'] as String?) ?? const Uuid().v4(),
+      sessionType: sessionType,
+      nvSurahNumber: (row['nv_surah_number'] as num?)?.toInt(),
+      nvRepeatStart: (row['nv_repeat_start'] as num?)?.toInt(),
+      nvStartVerse: (row['nv_start_verse'] as num?)?.toInt(),
+      nvEndVerse: (row['nv_end_verse'] as num?)?.toInt(),
+      nvChunkLongVerses: (row['nv_chunk_long_verses'] as bool?) ?? true,
+      currentTaskId: row['current_task_id'] as String?,
+      currentVerse: (row['current_verse'] as num?)?.toInt(),
+      totalSteps: (row['total_steps'] as num?)?.toInt(),
+      verseTallyMap: verseTallyMap,
+      reviewGranularity: granularity,
+      reviewTargetParams: targetParams,
+      currentStepIndex: (row['current_step_index'] as num?)?.toInt() ?? 0,
+      currentMode: (row['current_mode'] as String?) ?? 'visible',
+      currentTally: (row['current_tally'] as num?)?.toInt() ?? 0,
+      targetTally: (row['target_tally'] as num?)?.toInt() ?? 10,
+      lastUpdatedTimestamp: (row['last_updated_ms'] as num?)?.toInt() ??
+          DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Future<void> _pushActiveSessionRow(
+    String userId,
+    ActiveSessionSnapshot snapshot, {
+    required bool isCleared,
+  }) async {
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('hifz_active_sessions')
+          .upsert(
+            _toCloudActiveRow(userId, snapshot, isCleared: isCleared),
+            onConflict: 'user_id',
+          );
+    } catch (e) {
+      if (!_isMissingActiveSessionsTableError(e)) {
+        debugLog('HifzRepository._pushActiveSessionRow error: $e');
+      }
+    }
+  }
+
+  Future<void> _syncActiveSessionWithSupabase(String userId) async {
+    try {
+      await flushPendingActiveSessionSync();
+      final supabase = Supabase.instance.client;
+      final cloudActive = await supabase
+          .from('hifz_active_sessions')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      final db = await database;
+      final localActive = await loadActiveSession();
+      final clearedMeta = await _loadClearedSessionMeta(db);
+      final localTs = localActive?.lastUpdatedTimestamp ?? 0;
+      final clearedTs = clearedMeta?.clearedAtMs ?? 0;
+      final effectiveLocalTs = math.max(localTs, clearedTs);
+      final cloudTs = cloudActive != null
+          ? ((cloudActive['last_updated_ms'] as num?)?.toInt() ?? 0)
+          : 0;
+
+      if (cloudActive != null && cloudTs > effectiveLocalTs) {
+        final isCleared = (cloudActive['is_cleared'] as bool?) ?? false;
+        if (isCleared) {
+          await db.delete('active_session');
+          await _saveClearedSessionMeta(
+            db,
+            sessionId: cloudActive['session_id'] as String?,
+            clearedAtMs: cloudTs,
+          );
+        } else {
+          final snap = _fromCloudActiveRow(cloudActive);
+          await db.transaction((txn) async {
+            await txn.delete('active_session');
+            await txn.insert(
+              'active_session',
+              _snapshotToRow(snap),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+            await txn.delete('hifz_sync_meta', where: 'id = 1');
+          });
+        }
+      } else if (effectiveLocalTs > cloudTs) {
+        if (localActive != null && localTs >= clearedTs) {
+          await _pushActiveSessionRow(userId, localActive, isCleared: false);
+        } else if (clearedMeta != null) {
+          await _pushActiveSessionRow(
+            userId,
+            ActiveSessionSnapshot(
+              sessionId: clearedMeta.sessionId ?? 'cleared',
+              sessionType: HifzSessionType.newVerses,
+              currentStepIndex: 0,
+              currentMode: 'visible',
+              currentTally: 0,
+              targetTally: 10,
+              lastUpdatedTimestamp: clearedTs,
+            ),
+            isCleared: true,
+          );
+        }
+      }
+    } catch (e) {
+      if (!_isMissingActiveSessionsTableError(e)) {
+        debugLog('HifzRepository._syncActiveSessionWithSupabase error: $e');
+      }
+    }
+  }
+
   Map<String, dynamic> _snapshotToRow(ActiveSessionSnapshot s) {
     final Map<String, dynamic> row = {
       'session_id': s.sessionId,
@@ -537,6 +895,13 @@ class HifzRepository {
       'nv_repeat_start': s.nvRepeatStart,
       'nv_start_verse': s.nvStartVerse,
       'nv_end_verse': s.nvEndVerse,
+      'nv_chunk_long_verses': s.nvChunkLongVerses ? 1 : 0,
+      'current_task_id': s.currentTaskId,
+      'current_verse': s.currentVerse,
+      'total_steps': s.totalSteps,
+      'verse_tally_map_json': s.verseTallyMap != null
+          ? jsonEncode(s.verseTallyMap!.map((k, v) => MapEntry(k.toString(), v)))
+          : null,
       'current_step_index': s.currentStepIndex,
       'current_mode': s.currentMode,
       'current_tally': s.currentTally,
@@ -571,6 +936,25 @@ class HifzRepository {
       } catch (_) {}
     }
 
+    Map<int, int>? verseTallyMap;
+    final tallyJson = row['verse_tally_map_json'] as String?;
+    if (tallyJson != null) {
+      try {
+        final decoded = jsonDecode(tallyJson);
+        if (decoded is Map) {
+          final parsed = <int, int>{};
+          for (final entry in decoded.entries) {
+            final k = int.tryParse(entry.key.toString());
+            final v = entry.value is num ? (entry.value as num).toInt() : int.tryParse(entry.value.toString());
+            if (k != null && v != null) {
+              parsed[k] = v;
+            }
+          }
+          if (parsed.isNotEmpty) verseTallyMap = parsed;
+        }
+      } catch (_) {}
+    }
+
     return ActiveSessionSnapshot(
       sessionId: row['session_id'] as String,
       sessionType: sessionType,
@@ -578,6 +962,11 @@ class HifzRepository {
       nvRepeatStart: row['nv_repeat_start'] as int?,
       nvStartVerse: row['nv_start_verse'] as int?,
       nvEndVerse: row['nv_end_verse'] as int?,
+      nvChunkLongVerses: (row['nv_chunk_long_verses'] as int? ?? 1) != 0,
+      currentTaskId: row['current_task_id'] as String?,
+      currentVerse: row['current_verse'] as int?,
+      totalSteps: row['total_steps'] as int?,
+      verseTallyMap: verseTallyMap,
       reviewGranularity: granularity,
       reviewTargetParams: targetParams,
       currentStepIndex: (row['current_step_index'] as int?) ?? 0,

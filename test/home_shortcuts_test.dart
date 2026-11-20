@@ -80,31 +80,29 @@ void main() {
     );
   }
 
-  group('HomeScreen Quick Surahs / Shortcuts tests', () {
+  group('HomeScreen Pinned Surahs / Shortcuts tests', () {
     testWidgets(
-      'renders Quick Surahs header, default shortcut cards, and Pin button immediately on startup (EN)',
+      'renders Pinned Surahs header, single-tap cards, and Pin button immediately on startup (EN)',
       (tester) async {
         await tester.pumpWidget(await buildTestHome(languageCode: 'en'));
         // Frame 0 + initial layout without waiting for network calls
         await tester.pump();
         await tester.scrollUntilVisible(
-          find.text('Quick Surahs'),
+          find.text('Pinned Surahs'),
           250,
           scrollable: find.byType(Scrollable).first,
         );
         await tester.pump();
 
-        expect(find.text('Quick Surahs'), findsOneWidget);
+        expect(find.text('Pinned Surahs'), findsOneWidget);
         expect(find.text('Pin'), findsOneWidget);
         expect(find.text('Al-Mulk'), findsOneWidget);
         expect(find.text('Al-Kahf'), findsOneWidget);
-        expect(find.text('Meaning'), findsWidgets);
-        expect(find.text('Mushaf'), findsWidgets);
       },
     );
 
     testWidgets(
-      'renders Thai header, default shortcut cards, and เพิ่มทางลัด button with zero overflow at 1.25x text scale',
+      'renders Thai header, default pinned cards, and ปักหมุด button with zero overflow at 1.25x text scale',
       (tester) async {
         final overflowErrors = <FlutterErrorDetails>[];
         final previousOnError = FlutterError.onError;
@@ -128,17 +126,18 @@ void main() {
             await buildTestHome(languageCode: 'th', textScale: 1.25),
           );
           await tester.pump();
-          await tester.drag(
-            find.byType(ListView).first,
-            const Offset(0, -450),
+          await tester.scrollUntilVisible(
+            find.text('ซูเราะฮฺที่ปักหมุด'),
+            250,
+            scrollable: find.byType(Scrollable).first,
           );
           await tester.pump(const Duration(milliseconds: 50));
         } finally {
           FlutterError.onError = previousOnError;
         }
 
-        expect(find.text('ทางลัดซูเราะฮฺยอดนิยม'), findsOneWidget);
-        expect(find.text('เพิ่มทางลัด'), findsOneWidget);
+        expect(find.text('ซูเราะฮฺที่ปักหมุด'), findsOneWidget);
+        expect(find.text('ปักหมุด'), findsOneWidget);
         expect(find.text('อัลมุลก์'), findsOneWidget);
         expect(find.text('อัลกะฮฺฟฺ'), findsOneWidget);
         expect(overflowErrors, isEmpty);

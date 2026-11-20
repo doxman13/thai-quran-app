@@ -73,7 +73,6 @@ flutter:
     - assets/surah_summary_en_exact.json
     - assets/tafsir_eng_mokhtasar.json
     - assets/tafsir_id_mokhtasar.json
-    - assets/images/
     - assets/qcf_v1_pages/
     - assets/qcf_v1_fonts/
     - assets/Tajweed/

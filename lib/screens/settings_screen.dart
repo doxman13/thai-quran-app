@@ -739,9 +739,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     iconBg: const Color(0xFFFFEDD5),
                     iconColor: const Color(0xFFEA580C),
                     title: isThai ? 'ธีมหน้าจอ' : 'Appearance',
-                    subtitle: settings.isDarkMode
-                        ? (isThai ? 'โหมดมืด (Dark)' : 'Dark')
-                        : (isThai ? 'โหมดสว่าง (Light)' : 'Light'),
+                    subtitle: switch (settings.themeModePreference) {
+                      AppThemeModePreference.system =>
+                        isThai ? 'ตามระบบ (อัตโนมัติ)' : 'Follow system',
+                      AppThemeModePreference.light =>
+                        isThai ? 'โหมดสว่าง (Light)' : 'Light',
+                      AppThemeModePreference.dark =>
+                        isThai ? 'โหมดมืด (Dark)' : 'Dark',
+                    },
                     onTap: () =>
                         _showAppearanceSheet(context, settings, colors, isThai),
                   ),
@@ -1522,13 +1527,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppThemeColors colors,
     bool isThai,
   ) {
+    final sheetColors = context.appColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: colors.surface,
+      backgroundColor: sheetColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppTheme.radius)),
       ),
       builder: (ctx) {
+        final modalColors = ctx.appColors;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -1542,7 +1549,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: colors.borderSoft,
+                      color: modalColors.borderSoft,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1551,33 +1558,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   isThai ? 'เลือกธีมหน้าจอ' : 'Choose Appearance',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: colors.textStrong,
+                    fontWeight: FontWeight.w700,
+                    color: modalColors.textStrong,
                   ),
                 ),
                 const SizedBox(height: 16),
                 _buildRadioTile(
+                  title: isThai ? 'ตามระบบ (อัตโนมัติ)' : 'Follow system',
+                  subtitle: isThai
+                      ? 'ปรับสว่าง/มืดตามการตั้งค่าเครื่อง'
+                      : 'Match device appearance',
+                  icon: Icons.brightness_auto_outlined,
+                  iconColor: modalColors.primary,
+                  isSelected:
+                      settings.themeModePreference ==
+                      AppThemeModePreference.system,
+                  colors: modalColors,
+                  onTap: () {
+                    settings.setThemeModePreference(
+                      AppThemeModePreference.system,
+                    );
+                    Navigator.pop(ctx);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildRadioTile(
                   title: isThai ? 'โหมดสว่าง (Light)' : 'Light',
                   subtitle: isThai ? 'พื้นหลังกระดาษนวลตา' : 'Warm paper tone',
                   icon: Icons.light_mode_outlined,
-                  iconColor: const Color(0xFFEA580C),
-                  isSelected: !settings.isDarkMode,
-                  colors: colors,
+                  iconColor: modalColors.mushafGold,
+                  isSelected:
+                      settings.themeModePreference ==
+                      AppThemeModePreference.light,
+                  colors: modalColors,
                   onTap: () {
-                    settings.toggleDarkMode(false);
+                    settings.setThemeModePreference(
+                      AppThemeModePreference.light,
+                    );
                     Navigator.pop(ctx);
                   },
                 ),
                 const SizedBox(height: 8),
                 _buildRadioTile(
                   title: isThai ? 'โหมดมืด (Dark)' : 'Dark',
-                  subtitle: isThai ? 'มืดสนิทเพื่อการอ่านกลางคืน' : 'Comfortable for night reading',
+                  subtitle: isThai
+                      ? 'มืดสนิทเพื่อการอ่านกลางคืน'
+                      : 'Comfortable for night reading',
                   icon: Icons.dark_mode_outlined,
-                  iconColor: const Color(0xFF6366F1),
-                  isSelected: settings.isDarkMode,
-                  colors: colors,
+                  iconColor: modalColors.textStrong,
+                  isSelected:
+                      settings.themeModePreference ==
+                      AppThemeModePreference.dark,
+                  colors: modalColors,
                   onTap: () {
-                    settings.toggleDarkMode(true);
+                    settings.setThemeModePreference(
+                      AppThemeModePreference.dark,
+                    );
                     Navigator.pop(ctx);
                   },
                 ),

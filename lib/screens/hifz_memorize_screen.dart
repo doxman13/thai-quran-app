@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -482,7 +484,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     WidgetsBinding.instance.addObserver(this);
     _currentPage = widget.initialPage;
     _selectedPage = widget.initialPage;
-    _chunkLongVerses = widget.chunkLongVerses;
+    _chunkLongVerses = widget.resumeSessionSnapshot != null
+        ? widget.resumeSessionSnapshot!.nvChunkLongVerses
+        : widget.chunkLongVerses;
 
     _chromeAnimController = AnimationController(
       vsync: this,
@@ -550,7 +554,10 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         _selectedStartVerse = snap.nvStartVerse ?? widget.startVerse;
         _selectedEndVerse = snap.nvEndVerse ?? widget.endVerse;
         final targetSurah = snap.nvSurahNumber ?? widget.surahNumber;
-        _currentPage = getMedinaMushafPageNumber(targetSurah, _selectedStartVerse);
+        final resumeVerse = restored.currentTask?.verseNumbers.first ??
+            snap.currentVerse ??
+            _selectedStartVerse;
+        _currentPage = getMedinaMushafPageNumber(targetSurah, resumeVerse);
         _selectedPage = _currentPage;
       } else {
         _isSurahMode = true;
@@ -629,12 +636,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     _newVersesPageController = PageController(initialPage: (_currentPage - 1).clamp(0, 603));
     _reviewPageController = PageController(initialPage: 10000 + _reviewPageOffset);
 
-    if (widget.initialSessionType != HifzSessionType.review) {
-      _loadVerseChunks();
+    if (_hifzProvider.sessionType == HifzSessionType.newVerses) {
+      _loadVerseChunks(syncAfterHydration: widget.resumeSessionSnapshot != null);
     }
   }
 
-  Future<void> _loadVerseChunks({bool regenerate = true}) async {
+  Future<void> _loadVerseChunks({
+    bool regenerate = true,
+    bool syncAfterHydration = false,
+  }) async {
     if (!_chunkLongVerses) {
       if (mounted) {
         setState(() {
@@ -643,6 +653,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       }
       if (regenerate) {
         _hifzProvider.setVerseChunks({}, enable: false);
+        if (syncAfterHydration) {
+          _syncToCurrentTaskOrStepStart();
+        }
       }
       return;
     }
@@ -662,6 +675,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       });
       if (regenerate) {
         _hifzProvider.setVerseChunks(chunksMap, enable: true);
+        if (syncAfterHydration) {
+          _syncToCurrentTaskOrStepStart();
+        }
       }
     } catch (e) {
       debugPrint('Error loading verse chunks: $e');
@@ -1034,11 +1050,16 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       if (mounted) {
         setState(() {});
       }
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      unawaited(_hifzProvider.flushActiveSessionSync());
     }
   }
 
   @override
   void dispose() {
+    unawaited(_hifzProvider.flushActiveSessionSync());
     WidgetsBinding.instance.removeObserver(this);
     _audioProvider?.removeListener(_onAudioStateChanged);
     final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
@@ -1194,6 +1215,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     if (!mounted) return;
     if (resume == true) {
+      _chunkLongVerses = snap.nvChunkLongVerses;
       final restored = snap.sessionType == HifzSessionType.newVerses
           ? HifzSessionProvider(
               surahNumber: snap.nvSurahNumber ?? widget.surahNumber,
@@ -1201,6 +1223,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               startVerse: snap.nvStartVerse ?? widget.startVerse,
               endVerse: snap.nvEndVerse ?? widget.endVerse,
               sessionId: snap.sessionId,
+              chunkLongVerses: _chunkLongVerses,
             )
           : HifzSessionProvider.review(
               granularity: snap.reviewGranularity ?? ReviewGranularity.bySurah,
@@ -1215,8 +1238,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         _selectedRepeatStart = snap.nvRepeatStart ?? _selectedRepeatStart;
         _selectedStartVerse = snap.nvStartVerse ?? _selectedStartVerse;
         _selectedEndVerse = snap.nvEndVerse ?? _selectedEndVerse;
+        final targetVerse = restored.currentTask?.verseNumbers.first ??
+            snap.currentVerse ??
+            _selectedStartVerse;
         targetPage =
-            getMedinaMushafPageNumber(restored.surahNumber, _selectedStartVerse);
+            getMedinaMushafPageNumber(restored.surahNumber, targetVerse);
       } else {
         final step = restored.currentReviewStep;
         if (step != null) {
@@ -1242,6 +1268,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       }
       if (_reviewPageController.hasClients) {
         _reviewPageController.jumpToPage(10000);
+      }
+      if (restored.sessionType == HifzSessionType.newVerses) {
+        unawaited(_loadVerseChunks(regenerate: true, syncAfterHydration: true));
       }
     } else {
       if (widget.initialSessionType != null) {

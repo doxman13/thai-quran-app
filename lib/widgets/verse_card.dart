@@ -1286,6 +1286,9 @@ class _VerseCardState extends State<VerseCard> {
                   child: TajweedText(
                     text: tajweedText,
                     fontSize: arabicStyle.fontSize ?? 26.0,
+                    verseNumber: widget.verse.id,
+                    textColor: arabicStyle.color,
+                    height: arabicStyle.height ?? 2.0,
                   ),
                 );
               }

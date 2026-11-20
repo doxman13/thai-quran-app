@@ -10,6 +10,7 @@
 //  - Auto-save fires asynchronously on every incrementProgress() call.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
@@ -18,6 +19,7 @@ import '../models/hifz_task.dart';
 import '../models/hifz_verse_chunk.dart';
 import '../models/hifz_session_config.dart';
 import '../database/hifz_repository.dart';
+import '../utils/hifz_mastery_utils.dart';
 
 class HifzSessionProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
@@ -65,6 +67,7 @@ class HifzSessionProvider extends ChangeNotifier {
   bool get chunkLongVerses => _chunkLongVerses;
   Map<int, List<HifzVerseChunk>> _verseChunksMap = {};
   Map<int, List<HifzVerseChunk>> get verseChunksMap => Map.unmodifiable(_verseChunksMap);
+  ActiveSessionSnapshot? _pendingResumeSnapshot;
 
   // ---------------------------------------------------------------------------
   // Constructor: New Verses mode (backward-compatible default)
@@ -216,6 +219,7 @@ class HifzSessionProvider extends ChangeNotifier {
     bool? chunkLongVerses,
     Map<int, List<HifzVerseChunk>>? verseChunksMap,
   }) {
+    _pendingResumeSnapshot = null;
     _sessionType = HifzSessionType.newVerses;
     if (surah != null) {
       _surahNumber = surah;
@@ -242,20 +246,13 @@ class HifzSessionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sets chunk data for the active session and regenerates tasks if in New Verses mode.
+  /// Sets chunk data for the active session and regenerates tasks if in New Verses mode,
+  /// preserving pending resume snapshots or live progress.
   void setVerseChunks(Map<int, List<HifzVerseChunk>> chunksMap, {bool enable = true}) {
     _chunkLongVerses = enable;
     _verseChunksMap = chunksMap;
     if (_sessionType == HifzSessionType.newVerses) {
-      _tasks = generateHifzRoutine(
-        _repeatStart,
-        _startVerse,
-        _endVerse,
-        verseChunksMap: enable ? _verseChunksMap : null,
-      );
-      _currentTaskIndex = 0;
-      _isPeekActive = false;
-      notifyListeners();
+      _regenerateNewVersesTasksPreservingProgress();
     }
   }
 
@@ -264,16 +261,55 @@ class HifzSessionProvider extends ChangeNotifier {
     if (_chunkLongVerses == enable) return;
     _chunkLongVerses = enable;
     if (_sessionType == HifzSessionType.newVerses) {
-      _tasks = generateHifzRoutine(
-        _repeatStart,
-        _startVerse,
-        _endVerse,
-        verseChunksMap: enable ? _verseChunksMap : null,
-      );
-      _currentTaskIndex = 0;
+      _regenerateNewVersesTasksPreservingProgress();
+    }
+  }
+
+  void _regenerateNewVersesTasksPreservingProgress() {
+    final effectiveMap = (_chunkLongVerses && _verseChunksMap.isNotEmpty) ? _verseChunksMap : null;
+    final pendingSnap = _pendingResumeSnapshot;
+    if (pendingSnap != null && pendingSnap.sessionType == HifzSessionType.newVerses) {
+      _pendingResumeSnapshot = null;
+      _hydrateNewVersesFromSnapshot(pendingSnap, chunksOverride: effectiveMap);
       _isPeekActive = false;
       notifyListeners();
+      unawaited(_autoSave());
+      return;
     }
+
+    final prevTask = currentTask;
+    final prevIdx = _currentTaskIndex;
+    final hadLiveProgress = prevIdx > 0 || (prevTask?.currentProgress ?? 0) > 0;
+    final generated = generateHifzRoutine(
+      _repeatStart,
+      _startVerse,
+      _endVerse,
+      verseChunksMap: effectiveMap,
+    );
+
+    if (hadLiveProgress && generated.isNotEmpty) {
+      final matchedIdx = prevTask != null ? generated.indexWhere((t) => t.id == prevTask.id) : -1;
+      final nextIdx = matchedIdx >= 0 ? matchedIdx : prevIdx.clamp(0, generated.length - 1);
+      for (int i = 0; i < generated.length; i++) {
+        if (i < nextIdx) {
+          generated[i].currentProgress = generated[i].targetRepetitions;
+        } else if (i == nextIdx) {
+          final maxPartial = (generated[i].targetRepetitions - 1).clamp(0, generated[i].targetRepetitions);
+          generated[i].currentProgress = (prevTask?.currentProgress ?? 0).clamp(0, maxPartial);
+        }
+      }
+      _tasks = generated;
+      _currentTaskIndex = nextIdx;
+      _isPeekActive = false;
+      notifyListeners();
+      unawaited(_autoSave());
+      return;
+    }
+
+    _tasks = generated;
+    _currentTaskIndex = 0;
+    _isPeekActive = false;
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
@@ -409,6 +445,7 @@ class HifzSessionProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   void incrementProgress() {
     // Automatically revert visibility override back to default upon clicking count
+    _pendingResumeSnapshot = null;
     _manualHiddenOverride = null;
     _isPeekActive = false;
     if (_sessionType == HifzSessionType.newVerses) {
@@ -421,25 +458,14 @@ class HifzSessionProvider extends ChangeNotifier {
   }
 
   void advanceStepOrPhase() {
+    _pendingResumeSnapshot = null;
     _manualHiddenOverride = null;
     _isPeekActive = false;
     if (_sessionType == HifzSessionType.newVerses) {
       if (currentTask == null || isNewVersesSessionCompleted) return;
       _currentTaskIndex++;
       if (isNewVersesSessionCompleted) {
-        final totalVersesInSurah = qcf.getVerseCount(_surahNumber);
-        final isFullSurahCompleted =
-            _startVerse == 1 && _endVerse >= totalVersesInSurah;
-        if (isFullSurahCompleted) {
-          unawaited(_repo.markNewVersesCompleted(_surahNumber));
-        }
-        final rangeLabel = isFullSurahCompleted
-            ? 'Surah $_surahNumber'
-            : 'Surah $_surahNumber:$_startVerse-$_endVerse';
-        unawaited(_repo.recordHistory(
-            HifzSessionType.newVerses, '$rangeLabel (New Verses)',
-            surahNumber: _surahNumber));
-        unawaited(_repo.clearActiveSession(sessionId: _sessionId));
+        unawaited(_handleNewVersesSessionCompleted());
       }
     } else {
       if (isReviewSessionCompleted) return;
@@ -471,6 +497,32 @@ class HifzSessionProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _handleNewVersesSessionCompleted() async {
+    final totalVersesInSurah = qcf.getVerseCount(_surahNumber);
+    final history = await _repo.getHistory(limit: 200);
+    final isRangeFullSurah = _startVerse == 1 && _endVerse >= totalVersesInSurah;
+    final isFullSurahCompleted = isRangeFullSurah ||
+        areAllSurahVersesCoveredFromHistory(
+          surahNumber: _surahNumber,
+          history: history,
+          extraRanges: [
+            VerseRange(startVerse: _startVerse, endVerse: _endVerse),
+          ],
+        );
+    if (isFullSurahCompleted) {
+      await _repo.markNewVersesCompleted(_surahNumber);
+    }
+    final rangeLabel = isRangeFullSurah
+        ? 'Surah $_surahNumber'
+        : 'Surah $_surahNumber:$_startVerse-$_endVerse';
+    await _repo.recordHistory(
+      HifzSessionType.newVerses,
+      '$rangeLabel (New Verses)',
+      surahNumber: _surahNumber,
+    );
+    await _repo.clearActiveSession(sessionId: _sessionId);
+  }
+
   void _incrementNewVerses() {
     if (currentTask == null || isNewVersesSessionCompleted) return;
     final task = currentTask!;
@@ -492,6 +544,7 @@ class HifzSessionProvider extends ChangeNotifier {
   }
 
   void undoLastIncrement() {
+    _pendingResumeSnapshot = null;
     if (_sessionType == HifzSessionType.newVerses) {
       _undoNewVerses();
     } else {
@@ -564,6 +617,7 @@ class HifzSessionProvider extends ChangeNotifier {
   }
 
   void resetCurrentTask() {
+    _pendingResumeSnapshot = null;
     _manualHiddenOverride = null;
     _isPeekActive = false;
     if (_sessionType == HifzSessionType.newVerses) {
@@ -580,6 +634,7 @@ class HifzSessionProvider extends ChangeNotifier {
   }
 
   void resetSession() {
+    _pendingResumeSnapshot = null;
     _manualHiddenOverride = null;
     _isPeekActive = false;
     if (_sessionType == HifzSessionType.newVerses) {
@@ -589,6 +644,9 @@ class HifzSessionProvider extends ChangeNotifier {
     }
     unawaited(_repo.clearActiveSession(sessionId: _sessionId));
   }
+
+  /// Flushes any debounced active session snapshot immediately to cloud.
+  Future<void> flushActiveSessionSync() => _repo.flushPendingActiveSessionSync();
 
   // ---------------------------------------------------------------------------
   // Restore from snapshot (called by resume dialog)
@@ -604,35 +662,115 @@ class HifzSessionProvider extends ChangeNotifier {
       _repeatStart = snap.nvRepeatStart ?? _repeatStart;
       _startVerse = snap.nvStartVerse ?? _startVerse;
       _endVerse = snap.nvEndVerse ?? _endVerse;
-      _tasks = generateHifzRoutine(
-        _repeatStart,
-        _startVerse,
-        _endVerse,
-        verseChunksMap: (_chunkLongVerses && _verseChunksMap.isNotEmpty) ? _verseChunksMap : null,
-      );
-      _currentTaskIndex = snap.currentStepIndex.clamp(0, _tasks.length);
-      // Restore partial tally on the active task
-      if (_currentTaskIndex < _tasks.length) {
-        _tasks[_currentTaskIndex].currentProgress = snap.currentTally;
-      }
-      _verseTallyMap.clear();
+      _chunkLongVerses = snap.nvChunkLongVerses;
+      // Preserve snapshot across imminent async _loadVerseChunks / setVerseChunks call
+      _pendingResumeSnapshot = snap;
+      _hydrateNewVersesFromSnapshot(snap);
     } else {
+      _pendingResumeSnapshot = null;
       _reviewGranularity = snap.reviewGranularity ?? ReviewGranularity.bySurah;
       _reviewTargetParams = snap.reviewTargetParams;
       if (_reviewTargetParams != null) {
         _reviewSteps =
             _buildReviewSteps(_reviewGranularity, _reviewTargetParams!);
       }
-      _reviewStepIndex =
-          snap.currentStepIndex.clamp(0, _reviewSteps.length);
-      _reviewPhase = snap.currentMode == 'hidden'
-          ? ReviewPhase.hidden
-          : ReviewPhase.visible;
-      _reviewTally = snap.currentTally;
+      if (_reviewSteps.isEmpty) {
+        _reviewStepIndex = 0;
+        _reviewPhase = ReviewPhase.visible;
+        _reviewTally = 0;
+      } else {
+        var stepIdx = snap.currentStepIndex.clamp(0, _reviewSteps.length - 1);
+        var phase = snap.currentMode == 'hidden'
+            ? ReviewPhase.hidden
+            : ReviewPhase.visible;
+        var tally = math.max(0, snap.currentTally);
+
+        if (tally >= _reviewTargetTally) {
+          if (phase == ReviewPhase.visible) {
+            phase = ReviewPhase.hidden;
+            tally = 0;
+          } else if (stepIdx + 1 < _reviewSteps.length) {
+            stepIdx += 1;
+            phase = ReviewPhase.visible;
+            tally = 0;
+          } else {
+            tally = _reviewTargetTally - 1;
+          }
+        }
+        _reviewStepIndex = stepIdx;
+        _reviewPhase = phase;
+        _reviewTally = tally;
+      }
     }
 
     _isPeekActive = false;
     notifyListeners();
+  }
+
+  void _hydrateNewVersesFromSnapshot(
+    ActiveSessionSnapshot snap, {
+    Map<int, List<HifzVerseChunk>>? chunksOverride,
+  }) {
+    final effectiveMap = chunksOverride ??
+        ((_chunkLongVerses && _verseChunksMap.isNotEmpty) ? _verseChunksMap : null);
+    final generated = generateHifzRoutine(
+      _repeatStart,
+      _startVerse,
+      _endVerse,
+      verseChunksMap: effectiveMap,
+    );
+
+    if (generated.isEmpty) {
+      _tasks = [];
+      _currentTaskIndex = 0;
+      _verseTallyMap.clear();
+      if (snap.verseTallyMap != null) {
+        _verseTallyMap.addAll(snap.verseTallyMap!);
+      }
+      return;
+    }
+
+    final matchedIdx = snap.currentTaskId != null
+        ? generated.indexWhere((t) => t.id == snap.currentTaskId)
+        : -1;
+    var restoredIndex = matchedIdx >= 0
+        ? matchedIdx
+        : snap.currentStepIndex.clamp(0, generated.length - 1);
+
+    final targetAtIdx = generated[restoredIndex].targetRepetitions;
+    var tallyAtIdx = math.max(0, snap.currentTally);
+
+    if (tallyAtIdx >= targetAtIdx && restoredIndex + 1 < generated.length) {
+      restoredIndex += 1;
+      tallyAtIdx = 0;
+    } else {
+      tallyAtIdx = tallyAtIdx.clamp(0, math.max(0, targetAtIdx - 1));
+    }
+
+    for (int i = 0; i < generated.length; i++) {
+      if (i < restoredIndex) {
+        generated[i].currentProgress = generated[i].targetRepetitions;
+      } else if (i == restoredIndex) {
+        generated[i].currentProgress = tallyAtIdx;
+      } else {
+        generated[i].currentProgress = 0;
+      }
+    }
+
+    _tasks = generated;
+    _currentTaskIndex = restoredIndex;
+    _verseTallyMap.clear();
+    if (snap.verseTallyMap != null && snap.verseTallyMap!.isNotEmpty) {
+      _verseTallyMap.addAll(snap.verseTallyMap!);
+    } else {
+      for (int i = 0; i <= restoredIndex && i < _tasks.length; i++) {
+        final t = _tasks[i];
+        final count = i < restoredIndex ? t.targetRepetitions : t.currentProgress;
+        for (final v in t.verseNumbers) {
+          _verseTallyMap[v] = (_verseTallyMap[v] ?? 0) + count;
+        }
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -640,8 +778,19 @@ class HifzSessionProvider extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   Future<void> _autoSave() async {
     try {
+      if (_pendingResumeSnapshot != null) return;
       late ActiveSessionSnapshot snap;
       if (_sessionType == HifzSessionType.newVerses) {
+        if (_tasks.isEmpty || isNewVersesSessionCompleted) return;
+        var savedStepIdx = _currentTaskIndex.clamp(0, _tasks.length - 1);
+        var savedTask = _tasks[savedStepIdx];
+        var savedTally = savedTask.currentProgress;
+        if (savedTally >= savedTask.targetRepetitions &&
+            savedStepIdx + 1 < _tasks.length) {
+          savedStepIdx += 1;
+          savedTask = _tasks[savedStepIdx];
+          savedTally = 0;
+        }
         snap = ActiveSessionSnapshot(
           sessionId: _sessionId,
           sessionType: _sessionType,
@@ -649,23 +798,54 @@ class HifzSessionProvider extends ChangeNotifier {
           nvRepeatStart: _repeatStart,
           nvStartVerse: _startVerse,
           nvEndVerse: _endVerse,
-          currentStepIndex: _currentTaskIndex,
-          currentMode: 'visible',
-          currentTally: currentTask?.currentProgress ?? 0,
-          targetTally:
-              currentTask?.targetRepetitions ?? 10,
+          nvChunkLongVerses: _chunkLongVerses,
+          currentTaskId: savedTask.id,
+          currentVerse: savedTask.verseNumbers.isNotEmpty
+              ? savedTask.verseNumbers.first
+              : _startVerse,
+          totalSteps: _tasks.length,
+          verseTallyMap: _verseTallyMap.isEmpty
+              ? null
+              : Map<int, int>.from(_verseTallyMap),
+          currentStepIndex: savedStepIdx,
+          currentMode:
+              savedTask.mode == TextVisibilityMode.hidden ? 'hidden' : 'visible',
+          currentTally: savedTally,
+          targetTally: savedTask.targetRepetitions,
           lastUpdatedTimestamp: DateTime.now().millisecondsSinceEpoch,
         );
       } else {
+        if (_reviewSteps.isEmpty || isReviewSessionCompleted) return;
+        var savedStepIdx = _reviewStepIndex.clamp(0, _reviewSteps.length - 1);
+        var savedPhase = _reviewPhase;
+        var savedTally = _reviewTally;
+        if (savedTally >= _reviewTargetTally) {
+          if (savedPhase == ReviewPhase.visible) {
+            savedPhase = ReviewPhase.hidden;
+            savedTally = 0;
+          } else if (savedStepIdx + 1 < _reviewSteps.length) {
+            savedStepIdx += 1;
+            savedPhase = ReviewPhase.visible;
+            savedTally = 0;
+          }
+        }
+        final savedStepObj = _reviewSteps[savedStepIdx];
+        final effectiveRevSurah = savedStepObj.surahNumber ??
+            (_reviewGranularity == ReviewGranularity.bySurah
+                ? savedStepObj.primaryIndex
+                : _reviewTargetParams?.surahNumber);
         snap = ActiveSessionSnapshot(
           sessionId: _sessionId,
           sessionType: _sessionType,
+          nvSurahNumber: effectiveRevSurah,
+          currentVerse: savedStepObj.verseStart ?? 1,
+          totalSteps: _reviewSteps.length,
           reviewGranularity: _reviewGranularity,
           reviewTargetParams: _reviewTargetParams,
-          currentStepIndex: _reviewStepIndex,
+          currentStepIndex: savedStepIdx,
           currentMode:
-              _reviewPhase == ReviewPhase.hidden ? 'hidden' : 'visible',
-          currentTally: _reviewTally,
+              savedPhase == ReviewPhase.hidden ? 'hidden' : 'visible',
+          currentTally: savedTally,
           targetTally: _reviewTargetTally,
           lastUpdatedTimestamp: DateTime.now().millisecondsSinceEpoch,
         );

@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../data/offline_surah_names.dart';
 import '../models/hifz_session_config.dart';
 import '../theme/app_theme.dart';
+import '../utils/hifz_mastery_utils.dart';
 
 class SurahMasteryCard extends StatelessWidget {
   /// Number of reviews required before a completed Surah is considered
@@ -21,6 +22,7 @@ class SurahMasteryCard extends StatelessWidget {
   final int verseCount;
   final int juz;
   final SurahCompletionRecord? record;
+  final SurahMasterySummary? summary;
   final bool isThai;
   final VoidCallback? onTap;
 
@@ -31,6 +33,7 @@ class SurahMasteryCard extends StatelessWidget {
     required this.verseCount,
     required this.juz,
     required this.record,
+    this.summary,
     required this.isThai,
     this.onTap,
   });
@@ -48,10 +51,36 @@ class SurahMasteryCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final colors = context.appColors;
-    final isMastered = isMasteredRecord(record);
-    final isInProgress = isInProgressRecord(record);
-    final reviewCount = record?.reviewCount ?? 0;
+    final isMastered = summary != null
+        ? summary!.status == HifzMasteryStatus.mastered
+        : isMasteredRecord(record);
+    final isInProgress = summary != null
+        ? summary!.status == HifzMasteryStatus.inProgress
+        : isInProgressRecord(record);
+    final reviewCount = summary?.reviewCount ?? record?.reviewCount ?? 0;
     final nameAr = offlineSurahNamesAr['$surahNumber'] ?? '';
+
+    String progressDetail = '';
+    final active = summary?.hasActiveSession == true ? summary?.activeSession : null;
+    if (active != null) {
+      if (active.sessionType == HifzSessionType.newVerses &&
+          active.currentVerse != null) {
+        progressDetail = isThai
+            ? ' • ค้างอายะฮฺ ${active.currentVerse} (${active.currentTally}/${active.targetTally})'
+            : ' • Paused A.${active.currentVerse} (${active.currentTally}/${active.targetTally})';
+      } else {
+        progressDetail = isThai
+            ? ' • ค้างอยู่ (${active.currentTally}/${active.targetTally})'
+            : ' • Paused (${active.currentTally}/${active.targetTally})';
+      }
+    } else if (summary != null &&
+        !summary!.newVersesCompleted &&
+        summary!.furthestCompletedVerse > 0 &&
+        summary!.furthestCompletedVerse < verseCount) {
+      progressDetail = isThai
+          ? ' • ถึงอายะฮฺ ${summary!.furthestCompletedVerse}/$verseCount'
+          : ' • Up to A.${summary!.furthestCompletedVerse}/$verseCount';
+    }
 
     final statusColor = isMastered
         ? colors.success
@@ -143,7 +172,7 @@ class SurahMasteryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'ญุซอ์' : 'Juz'} $juz${reviewCount > 0 ? ' • ${isThai ? 'ทบทวน $reviewCount รอบ' : 'Reviewed ×$reviewCount'}' : ''}',
+                      '$verseCount ${isThai ? 'อายะฮฺ' : 'verses'} • ${isThai ? 'ญุซอ์' : 'Juz'} $juz$progressDetail${reviewCount > 0 ? ' • ${isThai ? 'ทบทวน $reviewCount รอบ' : 'Reviewed ×$reviewCount'}' : ''}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.bodySmall?.copyWith(
