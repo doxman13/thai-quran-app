@@ -38,18 +38,63 @@ import 'mushaf_reader_screen.dart';
 import 'reading_screen.dart';
 import 'settings_screen.dart';
 import 'tadabbur_community_screen.dart';
-import 'topics_screen.dart';
 import '../widgets/auth_bottom_sheet.dart';
 import '../widgets/home/home_community_preview.dart';
 import '../widgets/home/home_continue_hero.dart';
 import '../widgets/home/home_goals_snapshot.dart';
-import '../widgets/home/home_header_strip.dart';
 import '../widgets/home/home_hifz_resume_banner.dart';
 import '../widgets/home/home_quick_surahs.dart';
 import '../widgets/home/home_study_hub_grid.dart';
 import '../widgets/surah_picker_sheet.dart';
 import '../widgets/voice_search_sheet.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+
+class _DailyQuranQuote {
+  final String surahId;
+  final String verseId;
+  final String arabicUthmanic;
+  final String meaningTh;
+  final String meaningEn;
+
+  const _DailyQuranQuote({
+    required this.surahId,
+    required this.verseId,
+    required this.arabicUthmanic,
+    required this.meaningTh,
+    required this.meaningEn,
+  });
+}
+
+const List<_DailyQuranQuote> _dailyQuranQuotes = [
+  _DailyQuranQuote(
+    surahId: '94',
+    verseId: '6',
+    arabicUthmanic: 'إِنَّ مَعَ ٱلۡعُسۡرِ يُسۡرٗا | ٦',
+    meaningTh: 'แท้จริงหลังจากความยากลำบาก ก็จะมีความง่าย',
+    meaningEn: 'Indeed, with hardship [will be] ease.',
+  ),
+  _DailyQuranQuote(
+    surahId: '55',
+    verseId: '60',
+    arabicUthmanic: 'هَلۡ جَزَآءُ ٱلۡإِحۡسَٰنِ إِلَّا ٱلۡإِحۡسَٰنُ | ٦٠',
+    meaningTh: 'จะมีการตอบแทนความดีอันใดเล่า นอกจากความดี',
+    meaningEn: 'Is the reward for good [anything] but good?',
+  ),
+  _DailyQuranQuote(
+    surahId: '93',
+    verseId: '5',
+    arabicUthmanic: 'وَلَسَوۡفَ يُعۡطِيكَ رَبُّكَ فَتَرۡضَىٰٓ | ٥',
+    meaningTh: 'และแน่นอน พระผู้อภิบาลของเจ้าจะให้แก่เจ้าจนกว่าจะพอใจ',
+    meaningEn: 'And your Lord is going to give you, and you will be satisfied.',
+  ),
+  _DailyQuranQuote(
+    surahId: '1',
+    verseId: '2',
+    arabicUthmanic: 'ٱلۡحَمۡدُ لِلَّهِ رَبِّ ٱلۡعَٰلَمِينَ | ٢',
+    meaningTh: 'การสรรเสริญทั้งหลายนั้นเป็นสิทธิของอัลลอฮฺ พระผู้อภิบาลแห่งสากลโลก',
+    meaningEn: 'All praise is due to Allah, Lord of the worlds.',
+  ),
+];
 
 @visibleForTesting
 List<TadabburNote> selectHomepageCommunityNotes({
@@ -1271,10 +1316,11 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: appColors.background,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: _navIndex != 0
-              ? IconButton(
+        appBar: _navIndex == 0
+            ? null
+            : AppBar(
+                automaticallyImplyLeading: false,
+                leading: IconButton(
                   icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     size: 18,
@@ -1282,76 +1328,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   tooltip: isThai ? 'กลับหน้าแรก' : 'Back to Home',
                   onPressed: _handleBackNavigation,
-                )
-              : null,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          backgroundColor: appColors.background,
-          titleSpacing: 16,
-          title: _buildAppBarTitleForTab(_navIndex, isThai, appColors),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.search_rounded, color: appColors.primary),
-              tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
-              onPressed: () {
-                setState(() => _navIndex = 1);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _browseKey.currentState?.focusSearch();
-                });
+                ),
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                backgroundColor: appColors.background,
+                titleSpacing: 16,
+                title: _buildAppBarTitleForTab(_navIndex, isThai, appColors),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.search_rounded, color: appColors.primary),
+                    tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
+                    onPressed: _openTabSearch,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.mic_none_rounded, color: appColors.primary),
+                    tooltip: isThai
+                        ? 'ค้นหาด้วยเสียง (อัลกุรอาน)'
+                        : 'Voice Search (Arabic Quran)',
+                    onPressed: _openVoiceSearchSheet,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: appColors.borderSoft.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: NavigationBar(
+              height: 66,
+              selectedIndex: _navIndex,
+              onDestinationSelected: (index) {
+                setState(() => _navIndex = index);
               },
+              elevation: 0,
+              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                  ? appColors.surface
+                  : appColors.surfaceMuted,
+              indicatorColor: appColors.primaryLight,
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
+                  label: isThai ? 'หน้าแรก' : 'Home',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.menu_book_outlined),
+                  selectedIcon: const Icon(Icons.menu_book_rounded),
+                  label: isThai ? 'ซูเราะฮฺ' : 'Surah',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.bookmark_border_rounded),
+                  selectedIcon: const Icon(Icons.bookmark_rounded),
+                  label: isThai ? 'ที่คั่น & บันทึก' : 'Bookmarks',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.person_outline_rounded),
+                  selectedIcon: const Icon(Icons.person_rounded),
+                  label: isThai ? 'โปรไฟล์' : 'Profile',
+                ),
+              ],
             ),
-            IconButton(
-              icon: Icon(Icons.mic_none_rounded, color: appColors.primary),
-              tooltip: isThai
-                  ? 'ค้นหาด้วยเสียง (อัลกุรอาน)'
-                  : 'Voice Search (Arabic Quran)',
-              onPressed: () {
-                VoiceSearchSheet.show(
-                  context,
-                  repository: widget.repository,
-                  onOpenPage: (page, {highlightVerseKey}) {
-                    _navigateToMushafFreeReadPage(
-                      page,
-                      highlightedVerseKey: highlightVerseKey,
-                    );
-                  },
-                );
-              },
-            ),
-            const SizedBox(width: 6),
-          ],
-        ),
-        bottomNavigationBar: NavigationBar(
-          height: 66,
-          selectedIndex: _navIndex,
-          onDestinationSelected: (index) {
-            setState(() => _navIndex = index);
-          },
-          elevation: 0,
-          backgroundColor: appColors.background,
-          indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.7),
-          destinations: [
-            NavigationDestination(
-              icon: const Icon(Icons.home_outlined),
-              selectedIcon: const Icon(Icons.home_rounded),
-              label: isThai ? 'หน้าแรก' : 'Home',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.menu_book_outlined),
-              selectedIcon: const Icon(Icons.menu_book_rounded),
-              label: isThai ? 'สารบัญ' : 'Surah',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.bookmark_border_rounded),
-              selectedIcon: const Icon(Icons.bookmark_rounded),
-              label: isThai ? 'ที่คั่น & บันทึก' : 'Bookmarks',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.person_outline_rounded),
-              selectedIcon: const Icon(Icons.person_rounded),
-              label: isThai ? 'โปรไฟล์' : 'Profile',
-            ),
-          ],
+          ),
         ),
         body: Stack(
           children: [
@@ -1419,8 +1462,343 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openTabSearch() {
+    setState(() => _navIndex = 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _browseKey.currentState?.focusSearch();
+    });
+  }
+
+  void _openVoiceSearchSheet() {
+    VoiceSearchSheet.show(
+      context,
+      repository: widget.repository,
+      onOpenPage: (page, {highlightVerseKey}) {
+        _navigateToMushafFreeReadPage(
+          page,
+          highlightedVerseKey: highlightVerseKey,
+        );
+      },
+    );
+  }
+
+  Widget _wrapHomeSection(Widget child) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  _DailyQuranQuote _todayQuranQuote() {
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year)).inDays;
+    return _dailyQuranQuotes[dayOfYear % _dailyQuranQuotes.length];
+  }
+
+  Widget _buildEditorialTopAtmosphere({
+    required SettingsProvider settings,
+    required AppThemeColors appColors,
+    required bool isThai,
+    required String displayName,
+    required int streakCount,
+    required bool hasReadToday,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cleanName = displayName.trim();
+    final kicker = isThai ? 'อัสสลามุอะลัยกุม,' : 'Assalamu Alaikum,';
+    final headline = cleanName.isNotEmpty
+        ? cleanName
+        : (isThai ? 'ผู้ศรัทธา' : 'Reader');
+    final streakLabel = isThai ? '$streakCount วันต่อเนื่อง' : '${streakCount}d streak';
+    final pillActionBg = isDark
+        ? appColors.surfaceMuted.withValues(alpha: 0.78)
+        : appColors.surface.withValues(alpha: 0.80);
+
+    final quote = _todayQuranQuote();
+    final verseObj = widget.repository.getVerse(quote.surahId, quote.verseId);
+    final rawArabic = (verseObj?.arabic ?? '').trim().isNotEmpty
+        ? verseObj!.arabic
+        : quote.arabicUthmanic;
+    final quoteArabic = formatArabicAyahText(
+      rawArabic,
+      verseNumber: quote.verseId,
+    );
+    final resolvedFromRepo = verseObj != null
+        ? resolveVerseTranslationText(
+            context: context,
+            verseKey: '${quote.surahId}:${quote.verseId}',
+            verse: verseObj,
+            settings: settings,
+          ).trim()
+        : '';
+    final quoteMeaning = resolvedFromRepo.isNotEmpty
+        ? resolvedFromRepo
+        : (isThai ? quote.meaningTh : quote.meaningEn);
+    final quoteSurahName = surahDisplayName(quote.surahId, isThai: isThai);
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(color: appColors.background),
+                Opacity(
+                  opacity: isDark ? 0.36 : 0.62,
+                  child: Image.asset(
+                    'assets/images/image_slider1_x.webp',
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0.0, 0.90),
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+                // Gentle left-side wash for crisp typography while leaving open Quran rehal clear bottom-right
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        appColors.background.withValues(alpha: isDark ? 0.72 : 0.76),
+                        appColors.background.withValues(alpha: isDark ? 0.42 : 0.44),
+                        appColors.background.withValues(alpha: 0.04),
+                      ],
+                      stops: const [0.0, 0.56, 1.0],
+                    ),
+                  ),
+                ),
+                // Soft bottom dissolve ONLY along bottom 16% so Quran illustration shines clearly above
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        appColors.background.withValues(alpha: 0.05),
+                        appColors.background.withValues(alpha: 0.14),
+                        appColors.background,
+                      ],
+                      stops: const [0.0, 0.80, 1.0],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 56),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                kicker,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: appColors.foreground,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                headline,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 27,
+                                  fontWeight: FontWeight.w700,
+                                  color: appColors.textStrong,
+                                  height: 1.15,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    hasReadToday
+                                        ? Icons.local_fire_department_rounded
+                                        : Icons.auto_awesome_outlined,
+                                    size: 14,
+                                    color: hasReadToday
+                                        ? appColors.primary
+                                        : appColors.mushafGold,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      streakLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: appColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: pillActionBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                              color: appColors.textStrong,
+                            ),
+                            tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
+                            onPressed: _openTabSearch,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: pillActionBg,
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: Icon(
+                              Icons.mic_none_rounded,
+                              size: 20,
+                              color: appColors.textStrong,
+                            ),
+                            tooltip: isThai
+                                ? 'ค้นหาด้วยเสียง (อัลกุรอาน)'
+                                : 'Voice Search (Arabic Quran)',
+                            onPressed: _openVoiceSearchSheet,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    Semantics(
+                      button: true,
+                      label: '$quoteSurahName ${quote.surahId}:${quote.verseId}: $quoteMeaning',
+                      child: InkWell(
+                        onTap: () => _navigateToReading(
+                          context,
+                          quote.surahId,
+                          verseId: quote.verseId,
+                          saveToFreeReadOnly: true,
+                        ),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                        child: Container(
+                          padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: appColors.primary.withValues(alpha: 0.72),
+                                width: 2.5,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isThai ? 'อายะฮฺประจำวัน' : 'Verse of the Day',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: appColors.mushafGold,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Text(
+                                  quoteArabic,
+                                  textDirection: TextDirection.rtl,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'UthmanicHafs',
+                                    fontSize: 22,
+                                    height: 1.55,
+                                    color: appColors.textStrong,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '“$quoteMeaning”',
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: appColors.foreground,
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isThai
+                                    ? '$quoteSurahName (${quote.surahId}:${quote.verseId}) · อ่านอายะฮฺนี้ →'
+                                    : '$quoteSurahName (${quote.surahId}:${quote.verseId}) · Read verse →',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: appColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ===========================================================================
-  // TAB 0: CLEAN HOME SHOWCASE (Editorial Manuscript Layout)
+  // TAB 0: CLEAN HOME SHOWCASE (Ultra-Minimal Editorial Layout)
   // ===========================================================================
   Widget _buildCleanHomeShowcase({
     required ColorScheme colorScheme,
@@ -1443,117 +1821,125 @@ class _HomeScreenState extends State<HomeScreen> {
         ]);
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.only(bottom: 32),
         children: [
-          HomeHeaderStrip(
+          _buildEditorialTopAtmosphere(
+            settings: settings,
+            appColors: appColors,
+            isThai: isThai,
             displayName: supabaseProv.displayName,
             streakCount: statsProvider.streakCount,
             hasReadToday: statsProvider.hasReadOn(DateTime.now()),
-            isThai: isThai,
-            appColors: appColors,
           ),
-          const SizedBox(height: 12),
-
-          _buildHeroSection(
-            readingProvider: readingProvider,
-            mushafReadingProvider: mushafReadingProvider,
-            isSignedIn: supabaseProv.isLoggedIn,
-            isThai: isThai,
+          _wrapHomeSection(
+            _buildHeroSection(
+              readingProvider: readingProvider,
+              mushafReadingProvider: mushafReadingProvider,
+              isSignedIn: supabaseProv.isLoggedIn,
+              isThai: isThai,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
 
-          if (_activeHifzSession != null) ...[
-            HomeHifzResumeBanner(
-              snapshot: _activeHifzSession!,
+          _wrapHomeSection(
+            HomeStudyHubGrid(
               isThai: isThai,
               appColors: appColors,
-              onResume: _resumeActiveHifzSession,
-              onDiscard: _discardActiveHifzSession,
+              hifzSubtitleOverride: _activeHifzSession != null
+                  ? formatActiveSessionSubtitle(
+                      _activeHifzSession!,
+                      isThai: isThai,
+                    )
+                  : null,
+              onOpenMeaning: _showMeaningHubModal,
+              onOpenMushaf: _showMushafHubModal,
+              onOpenHifz: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => HifzLandingScreen(
+                      quranRepository: widget.repository,
+                      foundationRepository: _foundationRepository,
+                    ),
+                  ),
+                ).then((_) => unawaited(_loadActiveHifzSession()));
+              },
+              onOpenGoals: () => _navigateToGoalsScreen(context),
             ),
-            const SizedBox(height: 16),
-          ] else
-            const SizedBox(height: 6),
+          ),
+          const SizedBox(height: 24),
 
-          _buildGoalsSection(
-            localReading: readingProvider,
-            mushafReading: mushafReadingProvider,
-            appColors: appColors,
-            isThai: isThai,
+          _wrapHomeSection(
+            _buildGoalsSection(
+              localReading: readingProvider,
+              mushafReading: mushafReadingProvider,
+              appColors: appColors,
+              isThai: isThai,
+            ),
+          ),
+          if (_activeHifzSession != null) ...[
+            const SizedBox(height: 18),
+            _wrapHomeSection(
+              HomeHifzResumeBanner(
+                snapshot: _activeHifzSession!,
+                isThai: isThai,
+                appColors: appColors,
+                onResume: _resumeActiveHifzSession,
+                onDiscard: _discardActiveHifzSession,
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          _wrapHomeSection(
+            HomeQuickSurahs(
+              items: _quickLinks
+                  .map(
+                    (l) => HomeQuickSurahItem(
+                      id: l.id,
+                      surahNumber: l.surahNumber,
+                      label: l.label,
+                      isLocked: l.isLocked,
+                    ),
+                  )
+                  .toList(),
+              canPinMore: _quickLinks.where((l) => !l.isLocked).length < 8,
+              isThai: isThai,
+              appColors: appColors,
+              onPinTap: _showAddQuickLinkSheet,
+              onItemTap: (item) {
+                final link = _quickLinks.firstWhere(
+                  (l) => l.id == item.id,
+                  orElse: () => CustomQuickLink(
+                    id: item.id,
+                    surahNumber: item.surahNumber,
+                    label: item.label,
+                    isLocked: item.isLocked,
+                  ),
+                );
+                unawaited(_onQuickLinkTap(link));
+              },
+              onItemLongPress: (item) {
+                final match =
+                    _quickLinks.where((l) => l.id == item.id).firstOrNull;
+                if (match != null && !match.isLocked) {
+                  unawaited(_confirmDeleteQuickLink(match, isThai, appColors));
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          _wrapHomeSection(
+            _buildCommunitySection(
+              settings: settings,
+              appColors: appColors,
+              isThai: isThai,
+            ),
           ),
           const SizedBox(height: 16),
 
-          HomeStudyHubGrid(
-            isThai: isThai,
-            appColors: appColors,
-            hifzSubtitleOverride: _activeHifzSession != null
-                ? formatActiveSessionSubtitle(
-                    _activeHifzSession!,
-                    isThai: isThai,
-                  )
-                : null,
-            onOpenMeaning: _showMeaningHubModal,
-            onOpenMushaf: _showMushafHubModal,
-            onOpenHifz: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HifzLandingScreen(
-                    quranRepository: widget.repository,
-                    foundationRepository: _foundationRepository,
-                  ),
-                ),
-              ).then((_) => unawaited(_loadActiveHifzSession()));
-            },
-            onOpenTopics: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const TopicsScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-
-          HomeQuickSurahs(
-            items: _quickLinks
-                .map(
-                  (l) => HomeQuickSurahItem(
-                    id: l.id,
-                    surahNumber: l.surahNumber,
-                    label: l.label,
-                    isLocked: l.isLocked,
-                  ),
-                )
-                .toList(),
-            canPinMore: _quickLinks.where((l) => !l.isLocked).length < 8,
-            isThai: isThai,
-            appColors: appColors,
-            onPinTap: _showAddQuickLinkSheet,
-            onItemTap: (item) {
-              final link = _quickLinks.firstWhere(
-                (l) => l.id == item.id,
-                orElse: () => CustomQuickLink(
-                  id: item.id,
-                  surahNumber: item.surahNumber,
-                  label: item.label,
-                  isLocked: item.isLocked,
-                ),
-              );
-              unawaited(_onQuickLinkTap(link));
-            },
-            onItemLongPress: (item) {
-              final match =
-                  _quickLinks.where((l) => l.id == item.id).firstOrNull;
-              if (match != null && !match.isLocked) {
-                unawaited(_confirmDeleteQuickLink(match, isThai, appColors));
-              }
-            },
-          ),
-          const SizedBox(height: 20),
-
-          _buildCommunitySection(settings: settings, appColors: appColors, isThai: isThai),
-          const SizedBox(height: 10),
-
-          _buildQuranThFooter(colorScheme, textTheme, isThai),
+          _wrapHomeSection(_buildQuranThFooter(colorScheme, textTheme, isThai)),
         ],
       ),
     );
@@ -1643,7 +2029,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else if (tabIndex == 1) {
       return Text(
-        isThai ? 'สารบัญอัลกุรอาน' : 'Quran Index',
+        isThai ? 'ซูเราะฮฺ' : 'Surah',
         style: GoogleFonts.notoSansThai(
           fontSize: 19,
           fontWeight: FontWeight.w700,
@@ -1687,55 +2073,78 @@ class _HomeScreenState extends State<HomeScreen> {
         (verseRecent == null || mushafRecent.at.isAfter(verseRecent.at));
 
     final String modeBadge;
+    final String contextTag;
     final String mainTitle;
     final String subDetail;
+    final String arabicSurahName;
+    final String surahNameLabel;
+    final double? progressFraction;
 
     if (showMushaf) {
       final profile = mushafReadingProvider.profileById(mushafRecent.profileId);
       final rel = formatRelativeReadTime(mushafRecent.at, isThai: isThai);
-      modeBadge = isThai
-          ? 'อ่านล่าสุด · ฉบับมุศหัฟ'
-          : 'Last Read · Madinah Mushaf';
+      final pageData = getMedinaMushafPageData(mushafRecent.pageNumber);
+      final sNum = pageData.isNotEmpty ? (pageData.first['surah'] ?? 1) : 1;
+      final sId = sNum.toString();
+      final arBare = offlineSurahNamesAr[sId] ?? '';
+      modeBadge = isThai ? 'อ่านต่อจากเดิม' : 'Continue Reading';
+      contextTag = profile != null && !profile.isFreeRead
+          ? profile.name
+          : (isThai ? 'โหมดอิสระ' : 'Free Read');
       mainTitle = isThai
-          ? 'หน้า ${mushafRecent.pageNumber} (จาก 604)'
-          : 'Page ${mushafRecent.pageNumber} of 604';
-      final contextName = profile != null && !profile.isFreeRead
-          ? '${isThai ? 'เป้าหมาย' : 'Goal'}: ${profile.name}'
-          : (isThai ? 'โหมดอ่านอิสระ' : 'Free Read');
-      subDetail = '$contextName · $rel';
+          ? 'หน้า ${mushafRecent.pageNumber}'
+          : 'Page ${mushafRecent.pageNumber}';
+      subDetail = isThai ? 'จาก 604 หน้า · $rel' : 'of 604 pages · $rel';
+      arabicSurahName = arBare.isNotEmpty ? 'سورة $arBare' : '';
+      surahNameLabel = surahDisplayName(sId, isThai: isThai);
+      progressFraction = (mushafRecent.pageNumber / 604).clamp(0.0, 1.0);
     } else if (verseRecent != null) {
       final sId = verseRecent.verse.surahId;
       final vId = verseRecent.verse.verseId;
+      final sInt = int.tryParse(sId) ?? 1;
+      final vInt = int.tryParse(vId) ?? 1;
+      final pageNum = getMedinaMushafPageNumber(sInt, vInt);
+      final arBare = offlineSurahNamesAr[sId] ?? '';
       final surahName = surahDisplayName(sId, isThai: isThai);
       final profile = verseRecent.profileId != null
           ? readingProvider.profileById(verseRecent.profileId!)
           : null;
       final rel = formatRelativeReadTime(verseRecent.at, isThai: isThai);
-      modeBadge = isThai
-          ? 'อ่านล่าสุด · พร้อมความหมาย'
-          : 'Last Read · Meaning Mode';
-      mainTitle = isThai
-          ? '$surahName · อายะฮฺที่ $vId'
-          : '$surahName · Ayah $vId';
-      final contextName = profile != null && !isFreeReadProfile(profile)
-          ? '${isThai ? 'เป้าหมาย' : 'Goal'}: ${profile.name}'
-          : (isThai ? 'ซูเราะฮฺที่ $sId:$vId' : 'Surah $sId:$vId');
-      subDetail = '$contextName · $rel';
+      modeBadge = isThai ? 'อ่านต่อจากเดิม' : 'Continue Reading';
+      contextTag = profile != null && !isFreeReadProfile(profile)
+          ? profile.name
+          : (isThai ? 'ความหมาย · อิสระ' : 'Meaning · Free');
+      mainTitle = isThai ? 'อายะฮฺที่ $vId' : 'Ayah $vId';
+      subDetail = isThai
+          ? 'หน้า $pageNum จาก 604 · $rel'
+          : 'Page $pageNum of 604 · $rel';
+      arabicSurahName = arBare.isNotEmpty ? 'سورة $arBare' : '';
+      surahNameLabel = surahName;
+      progressFraction = (pageNum / 604).clamp(0.0, 1.0);
     } else {
       final firstSurah = surahDisplayName('1', isThai: isThai);
+      final arBare = offlineSurahNamesAr['1'] ?? 'الفَاتِـحَة';
       modeBadge = isThai ? 'เริ่มต้นอ่านอัลกุรอาน' : 'Start Reading Quran';
+      contextTag = isThai ? 'หน้า 1 จาก 604' : 'Page 1 of 604';
       mainTitle = isThai ? '$firstSurah · อายะฮฺที่ 1' : '$firstSurah · Ayah 1';
       subDetail = isThai
-          ? '7 อายะฮฺ · หน้าที่ 1 · พร้อมคำแปลและตัฟซีรย่อ'
-          : '7 Ayahs · Page 1 · With translation & tafsir';
+          ? '7 อายะฮฺ · พร้อมคำแปลและตัฟซีรย่อ'
+          : '7 Ayahs · With translation & tafsir';
+      arabicSurahName = 'سورة $arBare';
+      surahNameLabel = '';
+      progressFraction = null;
     }
 
     return HomeContinueHero(
       hasHistory: hasHistory,
       isMushaf: showMushaf,
       modeBadge: modeBadge,
+      contextTag: contextTag,
       mainTitle: mainTitle,
       subDetail: subDetail,
+      arabicSurahName: arabicSurahName,
+      surahNameLabel: surahNameLabel,
+      progressFraction: progressFraction,
       isSignedIn: isSignedIn,
       isThai: isThai,
       onContinue: () => _openLastRead(readingProvider, mushafReadingProvider),

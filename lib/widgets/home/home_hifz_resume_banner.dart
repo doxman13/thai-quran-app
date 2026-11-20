@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../data/offline_surah_names.dart';
 import '../../models/hifz_session_config.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/hifz_mastery_utils.dart';
 
-/// Conditional Home banner shown whenever a midway Hifz session exists.
+/// Quiet warm-sand banner shown whenever a midway Hifz session exists.
 class HomeHifzResumeBanner extends StatelessWidget {
   final ActiveSessionSnapshot snapshot;
   final bool isThai;
@@ -24,44 +25,61 @@ class HomeHifzResumeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = formatActiveSessionSubtitle(snapshot, isThai: isThai);
     final isNewVerses = snapshot.sessionType == HifzSessionType.newVerses;
-    final header = isThai
-        ? (isNewVerses ? 'ท่องจำอายะฮฺค้างอยู่' : 'ทบทวนฮิฟซ์ค้างอยู่')
-        : (isNewVerses ? 'Paused Hifz Session' : 'Paused Hifz Review');
+    final String header;
+    final String subtitle;
+
+    if (isNewVerses) {
+      final surah = snapshot.nvSurahNumber ?? 1;
+      final start = snapshot.nvStartVerse ?? 1;
+      final end = snapshot.nvEndVerse ?? 1;
+      final surahName = surahDisplayName(surah.toString(), isThai: isThai);
+      header = isThai ? 'ท่องจำต่อ · $surahName' : 'Resume Hifz · $surahName';
+
+      final stepNum = snapshot.totalSteps != null && snapshot.totalSteps! > 0
+          ? (snapshot.currentStepIndex + 1).clamp(1, snapshot.totalSteps!)
+          : snapshot.currentStepIndex + 1;
+      final stepPart = snapshot.totalSteps != null && snapshot.totalSteps! > 0
+          ? (isThai
+              ? 'ขั้น $stepNum/${snapshot.totalSteps}'
+              : 'Step $stepNum/${snapshot.totalSteps}')
+          : (isThai ? 'ขั้น $stepNum' : 'Step $stepNum');
+      final tallyPart = isThai
+          ? 'รอบ ${snapshot.currentTally}/${snapshot.targetTally}'
+          : '${snapshot.currentTally}/${snapshot.targetTally}';
+      final versePart = snapshot.currentVerse != null
+          ? (isThai
+              ? 'อายะฮฺที่ ${snapshot.currentVerse}'
+              : 'Ayah ${snapshot.currentVerse}')
+          : null;
+      subtitle = [
+        '$surah:$start–$end',
+        ?versePart,
+        stepPart,
+        tallyPart,
+      ].join(' · ');
+    } else {
+      header = isThai ? 'ทบทวนต่อ · ฮิฟซ์' : 'Resume Hifz Review';
+      subtitle = formatActiveSessionSubtitle(snapshot, isThai: isThai);
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final stripBg = isDark ? appColors.surfaceMuted : appColors.mushafGoldSoft;
 
     return Semantics(
       container: true,
+      button: true,
       label: '$header: $subtitle',
       child: Material(
-        color: appColors.mushafGoldSoft,
+        color: stripBg,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: InkWell(
           onTap: onResume,
           borderRadius: BorderRadius.circular(AppTheme.radius),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-              border: Border.all(color: appColors.mushafGoldBorder),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 13, 8, 13),
             child: Row(
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: appColors.surface,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    border: Border.all(color: appColors.mushafGoldBorder),
-                  ),
-                  child: Icon(
-                    Icons.psychology_rounded,
-                    color: appColors.mushafGold,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,9 +89,9 @@ class HomeHifzResumeBanner extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: appColors.mushafGold,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: appColors.textStrong,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -82,36 +100,23 @@ class HomeHifzResumeBanner extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.notoSansThai(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: appColors.textStrong,
+                          fontSize: 12,
+                          color: appColors.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                FilledButton(
+                const SizedBox(width: 4),
+                IconButton(
                   onPressed: onResume,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: appColors.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(64, 40),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    ),
+                  icon: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 19,
+                    color: appColors.textStrong,
                   ),
-                  child: Text(
-                    isThai ? 'ท่องต่อ' : 'Resume',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  tooltip: isThai ? 'ท่องต่อ' : 'Resume',
+                  visualDensity: VisualDensity.compact,
                 ),
                 IconButton(
                   onPressed: onDiscard,

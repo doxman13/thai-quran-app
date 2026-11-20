@@ -18,7 +18,7 @@ class HomeQuickSurahItem {
   });
 }
 
-/// Option 1 Pinned Surahs horizontal strip with single-tap cards (no 4-target crowding).
+/// Lightweight horizontal strip of Pinned Surahs with minimal visual framing.
 class HomeQuickSurahs extends StatelessWidget {
   final List<HomeQuickSurahItem> items;
   final bool canPinMore;
@@ -44,22 +44,20 @@ class HomeQuickSurahs extends StatelessWidget {
     final isFriday = DateTime.now().weekday == DateTime.friday;
     final scaler = MediaQuery.textScalerOf(context);
     final listHeight =
-        (36 + scaler.scale(42) * 1.4).ceilToDouble().clamp(88.0, 148.0);
+        (34 + scaler.scale(34) * 1.35).ceilToDouble().clamp(72.0, 128.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.push_pin_outlined, size: 17, color: appColors.primary),
-            const SizedBox(width: 6),
             Expanded(
               child: Text(
                 isThai ? 'ซูเราะฮฺที่ปักหมุด' : 'Pinned Surahs',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
-                  fontSize: 15.5,
+                  fontSize: 16.5,
                   fontWeight: FontWeight.w700,
                   color: appColors.textStrong,
                 ),
@@ -68,19 +66,19 @@ class HomeQuickSurahs extends StatelessWidget {
             if (canPinMore)
               TextButton.icon(
                 onPressed: onPinTap,
-                icon: const Icon(Icons.add_rounded, size: 16),
+                icon: Icon(Icons.add_rounded, size: 17, color: appColors.foreground),
                 label: Text(
                   isThai ? 'ปักหมุด' : 'Pin',
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.foreground,
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  foregroundColor: appColors.primary,
                   visualDensity: VisualDensity.compact,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                   minimumSize: const Size(44, 36),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -99,18 +97,20 @@ class HomeQuickSurahs extends StatelessWidget {
               final sId = item.surahNumber.toString();
               final surahName = surahDisplayName(sId, isThai: isThai);
               final arName = offlineSurahNamesAr[sId] ?? '';
-              final subLabel = item.label.trim().isNotEmpty
-                  ? item.label.trim()
-                  : (isFriday && item.surahNumber == 18
-                      ? (isThai ? 'แนะนำวันศุกร์' : 'Friday Sunnah')
-                      : (isThai ? 'แตะเพื่อเปิดอ่าน' : 'Tap to read'));
               final isFridayKahf = isFriday && item.surahNumber == 18;
+              final customOrFridayTag = item.label.trim().isNotEmpty
+                  ? item.label.trim()
+                  : (isFridayKahf
+                      ? (isThai ? 'ซุนนะฮฺวันศุกร์' : 'Friday Sunnah')
+                      : null);
 
               return Semantics(
                 button: true,
-                label: '$surahName ($subLabel)',
+                label: customOrFridayTag != null
+                    ? '$surahName ($customOrFridayTag)'
+                    : surahName,
                 child: Material(
-                  color: appColors.surface,
+                  color: appColors.surfaceMuted,
                   borderRadius: BorderRadius.circular(AppTheme.radius),
                   child: InkWell(
                     onTap: () => onItemTap(item),
@@ -119,42 +119,31 @@ class HomeQuickSurahs extends StatelessWidget {
                         : null,
                     borderRadius: BorderRadius.circular(AppTheme.radius),
                     child: Container(
-                      width: 152,
+                      width: 138,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 10,
+                        vertical: 9,
                       ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppTheme.radius),
-                        border: Border.all(
-                          color: isFridayKahf
-                              ? appColors.mushafGoldBorder
-                              : appColors.borderSoft,
-                        ),
-                      ),
+                      decoration: isFridayKahf
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppTheme.radius),
+                              border: Border.all(
+                                color: appColors.mushafGoldBorder,
+                              ),
+                            )
+                          : null,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: appColors.primaryLight,
-                                  borderRadius:
-                                      BorderRadius.circular(AppTheme.radiusSm),
-                                ),
-                                child: Text(
-                                  sId,
-                                  style: GoogleFonts.notoSansThai(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: appColors.primary,
-                                  ),
+                              Text(
+                                sId,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: appColors.primary,
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -167,7 +156,7 @@ class HomeQuickSurahs extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontFamily: 'UthmanicHafs',
-                                      fontSize: 15,
+                                      fontSize: 14.5,
                                       color: appColors.mushafGold,
                                       height: 1.1,
                                     ),
@@ -185,22 +174,23 @@ class HomeQuickSurahs extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.notoSansThai(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w600,
                                   color: appColors.textStrong,
                                 ),
                               ),
-                              Text(
-                                subLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: isFridayKahf
-                                      ? appColors.mushafGold
-                                      : appColors.textMuted,
+                              if (customOrFridayTag != null)
+                                Text(
+                                  customOrFridayTag,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: isFridayKahf
+                                        ? appColors.mushafGold
+                                        : appColors.textMuted,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ],

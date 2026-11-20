@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Compact single-line greeting + flame streak counter placed above the Home hero.
+/// Editorial section header ("Today" / "วันนี้ของคุณ") paired with a subtle streak pill.
 class HomeHeaderStrip extends StatelessWidget {
   final String displayName;
   final int streakCount;
@@ -13,7 +13,7 @@ class HomeHeaderStrip extends StatelessWidget {
 
   const HomeHeaderStrip({
     super.key,
-    required this.displayName,
+    this.displayName = '',
     required this.streakCount,
     required this.hasReadToday,
     required this.isThai,
@@ -22,31 +22,29 @@ class HomeHeaderStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final greetingText = displayName.trim().isNotEmpty
-        ? (isThai ? 'ยินดีต้อนรับ, $displayName' : 'Welcome, $displayName')
-        : (isThai ? 'ยินดีต้อนรับสู่การอ่านวันนี้' : 'Welcome back');
-
-    final streakLabel = isThai ? '$streakCount วัน' : '${streakCount}d';
+    final todayLabel = isThai ? 'วันนี้ของคุณ' : 'Today';
+    final streakLabel = isThai ? '$streakCount วันต่อเนื่อง' : '${streakCount}d streak';
     final semanticStreak = isThai
         ? 'สถิติการอ่านต่อเนื่อง $streakCount วัน${hasReadToday ? ' อ่านแล้ววันนี้' : ' ยังไม่ได้อ่านวันนี้'}'
         : '$streakCount day reading streak${hasReadToday ? ', completed today' : ', not yet read today'}';
 
-    final pillBg = hasReadToday ? appColors.primaryLight : appColors.surfaceMuted;
-    final pillBorder =
-        hasReadToday ? appColors.primaryLightBorder : appColors.borderSoft;
-    final pillFg = hasReadToday ? appColors.primary : appColors.textMuted;
+    final pillBg = hasReadToday ? appColors.primaryLight : appColors.mushafGoldSoft;
+    final pillBorder = hasReadToday
+        ? appColors.primaryLightBorder.withValues(alpha: 0.7)
+        : appColors.mushafGoldBorder.withValues(alpha: 0.6);
+    final pillFg = hasReadToday ? appColors.primary : appColors.mushafGold;
 
     return Row(
       children: [
         Expanded(
           child: Text(
-            greetingText,
+            todayLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.notoSansThai(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: appColors.foreground,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w700,
+              color: appColors.textStrong,
             ),
           ),
         ),
@@ -54,7 +52,7 @@ class HomeHeaderStrip extends StatelessWidget {
         Semantics(
           label: semanticStreak,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
             decoration: BoxDecoration(
               color: pillBg,
               borderRadius: BorderRadius.circular(AppTheme.radiusSm),
@@ -66,16 +64,16 @@ class HomeHeaderStrip extends StatelessWidget {
                 Icon(
                   hasReadToday
                       ? Icons.local_fire_department_rounded
-                      : Icons.local_fire_department_outlined,
-                  size: 16,
+                      : Icons.auto_awesome_outlined,
+                  size: 15,
                   color: pillFg,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
                   streakLabel,
                   style: GoogleFonts.notoSansThai(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: pillFg,
                   ),
                 ),

@@ -1717,19 +1717,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                     colors: colors,
                   ),
 
-                // 1. Unified Continue Reading Hero Card (when active goals exist)
-                if (totalActive > 0) ...[
-                  _buildContinueReadingCard(
-                    isThai: isThai,
-                    colorScheme: colorScheme,
-                    colors: colors,
-                    readingProv: readingProv,
-                    mushafProv: mushafProv,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // 2. แม่แบบเป้าหมายยอดนิยม (Presets Strip) brought up to top!
+                // 1. แม่แบบเป้าหมายยอดนิยม (Presets Strip)
                 _buildPresetsStripCard(
                   isThai: isThai,
                   colorScheme: colorScheme,
@@ -2061,367 +2049,6 @@ class _GoalsScreenState extends State<GoalsScreen> {
     );
   }
 
-  Widget _buildContinueReadingCard({
-    required bool isThai,
-    required ColorScheme colorScheme,
-    required AppThemeColors colors,
-    required LocalReadingProvider readingProv,
-    required MushafReadingProvider mushafProv,
-  }) {
-    final activeMeaning = readingProv.activeProfile;
-    final activeMushaf = mushafProv.activeProfile;
-    final bool hasMeaning =
-        activeMeaning != null && !isFreeReadProfile(activeMeaning);
-    final bool hasMushaf = activeMushaf != null;
-
-    if (!hasMeaning && !hasMushaf) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: colors.borderSoft),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.auto_stories_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isThai ? 'เริ่มต้นอ่านต่อวันนี้' : 'Start Reading Today',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isThai
-                  ? 'ยังไม่มีเป้าหมายที่กำลังอ่าน เลือกเปิดอ่านเพื่อเริ่มนับความคืบหน้า'
-                  : 'No active reading target yet. Choose a mode below to start tracking.',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReadingScreen(
-                            repository: widget.repository,
-                            initialSurah: '1',
-                            initialVerseIndex: 0,
-                            initialVerseId: '1:1',
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.menu_book_rounded, size: 16),
-                    label: Text(
-                      isThai ? 'อ่านฉบับความหมาย' : 'Read Meaning',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MushafReaderScreen(
-                            quranRepository: widget.repository,
-                            foundationRepository: widget.foundationRepository,
-                            initialPage: 1,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.import_contacts_rounded, size: 16),
-                    label: Text(
-                      isThai ? 'เปิดมุศหัฟ 604 หน้า' : 'Open Mushaf',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF8A6530),
-                      side: const BorderSide(color: Color(0xFF8A6530)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (hasMushaf && (!hasMeaning || _filterTab == GoalFilterTab.mushaf)) {
-      final prog = _calculateMushafProgress(activeMushaf);
-      const accent = Color(0xFF8A6530);
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          border: Border.all(color: colors.borderSoft),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isThai
-                        ? 'เป้าหมายล่าสุด (มุศหัฟ)'
-                        : 'CURRENT GOAL (MUSHAF)',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: accent,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${prog.percent}%',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: accent,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              activeMushaf.name,
-              style: GoogleFonts.notoSansThai(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${isThai ? 'ค้างไว้ที่หน้า' : 'Currently at page'} ${activeMushaf.lastViewedPage} (${isThai ? 'เป้าหมายหน้า' : 'target page'} ${activeMushaf.targetPage})',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 12,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: prog.total > 0 ? (prog.done / prog.total) : 0.0,
-                minHeight: 6,
-                backgroundColor: colors.surfaceMuted,
-                valueColor: const AlwaysStoppedAnimation<Color>(accent),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${prog.done} / ${prog.total} ${isThai ? 'หน้า' : 'pages'}',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _openMushafGoal(activeMushaf),
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                  label: Text(
-                    isThai
-                        ? 'อ่านต่อจากหน้า ${activeMushaf.lastViewedPage}'
-                        : 'Continue P.${activeMushaf.lastViewedPage}',
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    final p = activeMeaning!;
-    final prog = _calculateMeaningProgress(p);
-    final resume = p.furthestUnread;
-    final resumeSurahName = widget.repository.getSurahName(resume.surahId);
-    final accent = colorScheme.primary;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        border: Border.all(color: colors.borderSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  isThai
-                      ? 'เป้าหมายล่าสุด (แปลความหมาย)'
-                      : 'CURRENT GOAL (MEANING)',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: accent,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${prog.percent}%',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: accent,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            p.name,
-            style: GoogleFonts.notoSansThai(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${isThai ? 'ค้างไว้ที่' : 'Currently at'} $resumeSurahName (${resume.verseKey})',
-            style: GoogleFonts.notoSansThai(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: prog.total > 0 ? (prog.done / prog.total) : 0.0,
-              minHeight: 6,
-              backgroundColor: colors.surfaceMuted,
-              valueColor: AlwaysStoppedAnimation<Color>(accent),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${prog.done} / ${prog.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () => _openMeaningGoal(p),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                label: Text(
-                  isThai ? 'อ่านต่อ' : 'Continue',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildGuestGoalBanner({
     required bool isThai,
     required ColorScheme colorScheme,
@@ -2732,25 +2359,30 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: emerald,
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: [
+                      Text(
+                        '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'อายะฮฺ' : 'ayahs'}',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: emerald,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${isThai ? 'อ่านถึง' : 'At'} $resumeSurahName ${resume.verseKey}',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 10,
-                        color: colorScheme.onSurfaceVariant,
+                      Text(
+                        '${isThai ? 'อ่านถึง' : 'At'} $resumeSurahName ${resume.verseKey}',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 10,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -2926,25 +2558,30 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'หน้า' : 'pages'}',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: amber,
+                SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: [
+                      Text(
+                        '${progress.percent}% • ${progress.done} / ${progress.total} ${isThai ? 'หน้า' : 'pages'}',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: amber,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${isThai ? 'อ่านถึงหน้าที่' : 'Page'} ${profile.lastViewedPage}',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 10,
-                        color: colorScheme.onSurfaceVariant,
+                      Text(
+                        '${isThai ? 'อ่านถึงหน้าที่' : 'Page'} ${profile.lastViewedPage}',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 10,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

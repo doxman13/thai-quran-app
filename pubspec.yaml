@@ -62,6 +62,7 @@ flutter:
     - assets/tafsir_thai_mokhtasar.json
     - assets/icons/playstore-icon.png
     - assets/icons/mipmap-xxxhdpi/
+    - assets/images/image_slider1_x.webp
     - assets/quran_arabic.json
     - assets/Bismillah_Calligraphy6.svg
     - assets/logo.svg

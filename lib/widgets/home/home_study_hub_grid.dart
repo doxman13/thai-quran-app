@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Calm editorial 2x2 mode grid aligned with Anti-AI Manuscript tokens.
+/// Unboxed single-row 4-shortcut bar for core daily actions (Meaning, Mushaf, Hifz, Goals).
 class HomeStudyHubGrid extends StatelessWidget {
   final bool isThai;
   final AppThemeColors appColors;
@@ -11,7 +11,7 @@ class HomeStudyHubGrid extends StatelessWidget {
   final VoidCallback onOpenMeaning;
   final VoidCallback onOpenMushaf;
   final VoidCallback onOpenHifz;
-  final VoidCallback onOpenTopics;
+  final VoidCallback onOpenGoals;
 
   const HomeStudyHubGrid({
     super.key,
@@ -21,191 +21,189 @@ class HomeStudyHubGrid extends StatelessWidget {
     required this.onOpenMeaning,
     required this.onOpenMushaf,
     required this.onOpenHifz,
-    required this.onOpenTopics,
+    required this.onOpenGoals,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.grid_view_rounded, size: 17, color: appColors.primary),
-            const SizedBox(width: 8),
-            Text(
-              isThai ? 'โหมดการศึกษา' : 'Study Hubs',
-              style: GoogleFonts.notoSansThai(
-                fontSize: 15.5,
-                fontWeight: FontWeight.w700,
-                color: appColors.textStrong,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    final shortcuts = [
+      _ShortcutItem(
+        icon: Icons.menu_book_outlined,
+        title: isThai ? 'ความหมาย' : 'Meaning',
+        isGoldAccent: false,
+        onTap: onOpenMeaning,
+      ),
+      _ShortcutItem(
+        icon: Icons.auto_stories_outlined,
+        title: isThai ? 'มุศหัฟ' : 'Mushaf',
+        isGoldAccent: true,
+        onTap: onOpenMushaf,
+      ),
+      _ShortcutItem(
+        icon: Icons.lightbulb_outline_rounded,
+        title: isThai ? 'ท่องจำ' : 'Hifz',
+        isGoldAccent: false,
+        hasBadgeDot: hifzSubtitleOverride != null,
+        onTap: onOpenHifz,
+      ),
+      _ShortcutItem(
+        icon: Icons.flag_outlined,
+        title: isThai ? 'เป้าหมาย' : 'Goals',
+        isGoldAccent: true,
+        onTap: onOpenGoals,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+        final useTwoByTwo = constraints.maxWidth < 300 || textScale >= 1.55;
+        if (useTwoByTwo) {
+          return Column(
             children: [
-              Expanded(
-                child: _EditorialModeCard(
-                  icon: Icons.menu_book_rounded,
-                  title: isThai ? 'อ่านฉบับแปล' : 'Meaning Reader',
-                  subtitle: isThai
-                      ? 'แปลไทย คำต่อคำ & ตัฟซีร'
-                      : 'Thai, Word-by-Word & Tafsir',
-                  isGoldAccent: false,
-                  appColors: appColors,
-                  onTap: onOpenMeaning,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _UnboxedShortcutTile(
+                      item: shortcuts[0],
+                      appColors: appColors,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _UnboxedShortcutTile(
+                      item: shortcuts[1],
+                      appColors: appColors,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _EditorialModeCard(
-                  icon: Icons.auto_stories_rounded,
-                  title: isThai ? 'มุศหัฟมะดีนะฮฺ' : 'Medina Mushaf',
-                  subtitle: isThai
-                      ? 'หน้า 1–604 · 15 บรรทัด'
-                      : 'Pages 1–604 · 15-Line',
-                  isGoldAccent: true,
-                  appColors: appColors,
-                  onTap: onOpenMushaf,
-                ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _UnboxedShortcutTile(
+                      item: shortcuts[2],
+                      appColors: appColors,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _UnboxedShortcutTile(
+                      item: shortcuts[3],
+                      appColors: appColors,
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _EditorialModeCard(
-                  icon: Icons.psychology_rounded,
-                  title: isThai ? 'ท่องจำอัลกุรอาน' : 'Hifz Memorize',
-                  subtitle: hifzSubtitleOverride ??
-                      (isThai ? 'ฝึกตักร็อร & ทบทวน' : 'Takrar & Review'),
-                  isGoldAccent: false,
-                  appColors: appColors,
-                  onTap: onOpenHifz,
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: shortcuts
+              .map(
+                (item) => Expanded(
+                  child: _UnboxedShortcutTile(
+                    item: item,
+                    appColors: appColors,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _EditorialModeCard(
-                  icon: Icons.category_outlined,
-                  title: isThai ? 'หัวข้ออัลกุรอาน' : 'Quran Topics',
-                  subtitle: isThai
-                      ? 'สำรวจอายะฮฺตามหมวดหมู่'
-                      : 'Browse Verses by Topic',
-                  isGoldAccent: true,
-                  appColors: appColors,
-                  onTap: onOpenTopics,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+              )
+              .toList(),
+        );
+      },
     );
   }
 }
 
-class _EditorialModeCard extends StatelessWidget {
+class _ShortcutItem {
   final IconData icon;
   final String title;
-  final String subtitle;
   final bool isGoldAccent;
-  final AppThemeColors appColors;
+  final bool hasBadgeDot;
   final VoidCallback onTap;
 
-  const _EditorialModeCard({
+  const _ShortcutItem({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.isGoldAccent,
-    required this.appColors,
+    this.hasBadgeDot = false,
     required this.onTap,
+  });
+}
+
+class _UnboxedShortcutTile extends StatelessWidget {
+  final _ShortcutItem item;
+  final AppThemeColors appColors;
+
+  const _UnboxedShortcutTile({
+    required this.item,
+    required this.appColors,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent = isGoldAccent ? appColors.mushafGold : appColors.primary;
+    final accent = item.isGoldAccent ? appColors.mushafGold : appColors.primary;
     final iconBg =
-        isGoldAccent ? appColors.mushafGoldSoft : appColors.primaryLight;
+        item.isGoldAccent ? appColors.mushafGoldSoft : appColors.primaryLight;
 
     return Semantics(
       button: true,
-      label: '$title, $subtitle',
-      child: Material(
-        color: appColors.surface,
+      label: item.title,
+      child: InkWell(
+        onTap: item.onTap,
         borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppTheme.radius),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 96),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTheme.radius),
-              border: Border.all(color: appColors.borderSoft),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: iconBg,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(AppTheme.radius),
+                    ),
+                    child: Icon(item.icon, size: 23, color: accent),
+                  ),
+                  if (item.hasBadgeDot)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: appColors.mushafGold,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                      child: Icon(icon, size: 18, color: accent),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: appColors.textMuted,
-                    ),
-                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  item.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: appColors.textStrong,
+                    height: 1.2,
+                  ),
                 ),
-                const SizedBox(height: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: appColors.textStrong,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: appColors.textMuted,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

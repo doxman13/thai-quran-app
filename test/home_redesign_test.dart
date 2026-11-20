@@ -21,6 +21,8 @@ import 'package:thai_quran_app/widgets/home/home_continue_hero.dart';
 import 'package:thai_quran_app/widgets/home/home_goals_snapshot.dart';
 import 'package:thai_quran_app/widgets/home/home_header_strip.dart';
 import 'package:thai_quran_app/widgets/home/home_hifz_resume_banner.dart';
+import 'package:thai_quran_app/widgets/home/home_quick_surahs.dart';
+import 'package:thai_quran_app/widgets/home/home_study_hub_grid.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -40,18 +42,70 @@ void main() {
   });
 
   final lightColors = AppThemeColors.teal(isDark: false);
+  final darkColors = AppThemeColors.teal(isDark: true);
 
-  Widget wrap(Widget child, {double textScale = 1.0}) {
+  Widget wrap(Widget child, {double textScale = 1.0, bool isDark = false}) {
     return MaterialApp(
+      theme: isDark
+          ? ThemeData.dark(useMaterial3: true)
+          : ThemeData.light(useMaterial3: true),
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: Scaffold(body: SingleChildScrollView(child: child)),
+        child: Scaffold(
+          backgroundColor: isDark ? darkColors.background : lightColors.background,
+          body: SingleChildScrollView(child: child),
+        ),
+      ),
+    );
+  }
+
+  Widget buildHomeHarness({
+    required double width,
+    required double height,
+    double textScale = 1.0,
+    bool isDark = false,
+    String languageCode = 'th',
+  }) {
+    SharedPreferences.setMockInitialValues({
+      'languageCode': languageCode,
+      'isDarkMode': isDark,
+    });
+    final settings = SettingsProvider();
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+        ChangeNotifierProvider<LocalReadingProvider>.value(
+          value: LocalReadingProvider(),
+        ),
+        ChangeNotifierProvider<MushafReadingProvider>.value(
+          value: MushafReadingProvider(),
+        ),
+        ChangeNotifierProvider<StatsProvider>.value(value: StatsProvider()),
+        ChangeNotifierProvider<SupabaseProvider>.value(value: SupabaseProvider()),
+        ChangeNotifierProvider<NotesProvider>.value(value: NotesProvider()),
+        ChangeNotifierProvider<TranslationManagerProvider>.value(
+          value: TranslationManagerProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        theme: isDark
+            ? ThemeData.dark(useMaterial3: true)
+            : ThemeData.light(useMaterial3: true),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: HomeScreen(
+          repository: QuranRepository(),
+          repositoryReady: true,
+        ),
       ),
     );
   }
 
   group('Modular Home Widgets', () {
-    testWidgets('HomeHeaderStrip shows filled/outline flame without weekday dots',
+    testWidgets('HomeHeaderStrip shows Today title & clean streak pill',
         (tester) async {
       await tester.pumpWidget(
         wrap(
@@ -64,8 +118,8 @@ void main() {
           ),
         ),
       );
-      expect(find.text('ยินดีต้อนรับ, Abdullah'), findsOneWidget);
-      expect(find.text('7 วัน'), findsOneWidget);
+      expect(find.text('วันนี้ของคุณ'), findsOneWidget);
+      expect(find.text('7 วันต่อเนื่อง'), findsOneWidget);
       expect(find.byIcon(Icons.local_fire_department_rounded), findsOneWidget);
 
       await tester.pumpWidget(
@@ -79,7 +133,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.local_fire_department_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.auto_awesome_outlined), findsOneWidget);
     });
 
     testWidgets('HomeContinueHero shows clean initial CTA + guest sync nudge',
@@ -91,8 +145,10 @@ void main() {
             hasHistory: false,
             isMushaf: false,
             modeBadge: 'เริ่มต้นอ่านอัลกุรอาน',
+            contextTag: 'หน้า 1 จาก 604',
             mainTitle: 'อัลฟาติหะฮฺ · อายะฮฺที่ 1',
-            subDetail: '7 อายะฮฺ · หน้าที่ 1',
+            subDetail: '7 อายะฮฺ · พร้อมคำแปลและตัฟซีรย่อ',
+            arabicSurahName: 'سورة الفَاتِـحَة',
             isSignedIn: false,
             isThai: true,
             onContinue: () {},
@@ -104,11 +160,71 @@ void main() {
       );
       expect(find.text('อ่านแบบความหมาย'), findsOneWidget);
       expect(find.text('เปิดมุศหัฟ'), findsOneWidget);
+      expect(find.text('سورة الفَاتِـحَة'), findsOneWidget);
       await tester.tap(find.text('เข้าสู่ระบบเพื่อซิงก์การอ่านข้ามอุปกรณ์'));
       expect(signInTapped, isTrue);
     });
 
-    testWidgets('HomeHifzResumeBanner renders active progress & handles actions',
+    testWidgets('HomeContinueHero shows Mushaf history + slim progress + switch CTA cleanly',
+        (tester) async {
+      var continued = false;
+      var switched = false;
+      await tester.pumpWidget(
+        wrap(
+          HomeContinueHero(
+            hasHistory: true,
+            isMushaf: true,
+            modeBadge: 'อ่านต่อจากเดิม',
+            contextTag: 'โหมดอิสระ',
+            mainTitle: 'หน้า 296',
+            subDetail: 'จาก 604 หน้า · 3 ชม.ที่แล้ว',
+            arabicSurahName: 'سورة الكَهْف',
+            surahNameLabel: 'อัลกะฮฺฟฺ',
+            progressFraction: 296 / 604,
+            isSignedIn: true,
+            isThai: true,
+            onContinue: () => continued = true,
+            onStartMeaning: () {},
+            onStartMushaf: () {},
+            onSwitchMode: () => switched = true,
+          ),
+        ),
+      );
+      expect(find.text('หน้า 296 · อัลกะฮฺฟฺ'), findsOneWidget);
+      expect(find.text('سورة الكَهْف'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      await tester.tap(find.text('หน้า 296 · อัลกะฮฺฟฺ'));
+      expect(continued, isTrue);
+      await tester.tap(find.text('สลับเป็นความหมาย'));
+      expect(switched, isTrue);
+    });
+
+    testWidgets('HomeStudyHubGrid displays 4 minimal icon+title shortcuts without subtitles',
+        (tester) async {
+      var opened = '';
+      await tester.pumpWidget(
+        wrap(
+          HomeStudyHubGrid(
+            isThai: true,
+            appColors: lightColors,
+            onOpenMeaning: () => opened = 'meaning',
+            onOpenMushaf: () => opened = 'mushaf',
+            onOpenHifz: () => opened = 'hifz',
+            onOpenGoals: () => opened = 'goals',
+          ),
+        ),
+      );
+      expect(find.text('ความหมาย'), findsOneWidget);
+      expect(find.text('มุศหัฟ'), findsOneWidget);
+      expect(find.text('ท่องจำ'), findsOneWidget);
+      expect(find.text('เป้าหมาย'), findsOneWidget);
+      expect(find.text('หัวข้อ'), findsNothing);
+      expect(find.text('โหมดการศึกษา'), findsNothing);
+      await tester.tap(find.text('เป้าหมาย'));
+      expect(opened, 'goals');
+    });
+
+    testWidgets('HomeHifzResumeBanner renders warm sand strip & handles actions',
         (tester) async {
       var resumed = false;
       var discarded = false;
@@ -140,15 +256,15 @@ void main() {
         ),
       );
 
-      expect(find.text('ท่องจำอายะฮฺค้างอยู่'), findsOneWidget);
+      expect(find.text('ท่องจำต่อ · อัลมุลก์'), findsOneWidget);
       expect(find.textContaining('อายะฮฺที่ 2'), findsOneWidget);
-      await tester.tap(find.text('ท่องต่อ'));
+      await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
       expect(resumed, isTrue);
       await tester.tap(find.byIcon(Icons.close_rounded));
       expect(discarded, isTrue);
     });
 
-    testWidgets('HomeGoalsSnapshot caps visible items at 2 and displays +N more',
+    testWidgets('HomeGoalsSnapshot caps visible items at 2 and displays view-all +N',
         (tester) async {
       final items = List.generate(
         4,
@@ -177,10 +293,44 @@ void main() {
       expect(find.text('Goal 1'), findsOneWidget);
       expect(find.text('Goal 2'), findsOneWidget);
       expect(find.text('Goal 3'), findsNothing);
-      expect(find.text('+2 ทั้งหมด'), findsOneWidget);
+      expect(find.text('ทั้งหมด +2'), findsOneWidget);
     });
 
-    testWidgets('HomeCommunityPreview renders single card without Shuffle',
+    testWidgets('HomeQuickSurahs omits default helper subtitle clutter',
+        (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          HomeQuickSurahs(
+            items: const [
+              HomeQuickSurahItem(
+                id: 'mulk',
+                surahNumber: 67,
+                label: '',
+                isLocked: true,
+              ),
+              HomeQuickSurahItem(
+                id: 'custom',
+                surahNumber: 36,
+                label: 'ก่อนนอน',
+                isLocked: false,
+              ),
+            ],
+            canPinMore: true,
+            isThai: true,
+            appColors: lightColors,
+            onPinTap: () {},
+            onItemTap: (_) {},
+          ),
+        ),
+      );
+
+      expect(find.text('ซูเราะฮฺที่ปักหมุด'), findsOneWidget);
+      expect(find.text('อัลมุลก์'), findsOneWidget);
+      expect(find.text('แตะเพื่อเปิดอ่าน'), findsNothing);
+      expect(find.text('ก่อนนอน'), findsOneWidget);
+    });
+
+    testWidgets('HomeCommunityPreview renders unboxed reflection block without Shuffle',
         (tester) async {
       final note = TadabburNote(
         id: 'n1',
@@ -217,85 +367,89 @@ void main() {
     });
   });
 
-  group('HomeScreen AppBar & Small Screen Layout', () {
-    testWidgets(
-      'AppBar replaces dark mode toggle with search + voice mic & zero overflow on 360x640 at 1.3x',
-      (tester) async {
-        final overflowErrors = <FlutterErrorDetails>[];
-        final previousOnError = FlutterError.onError;
-        tester.view.physicalSize = const Size(360, 640);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+  group('HomeScreen Editorial Responsive Layout', () {
+    Future<void> verifyViewport(
+      WidgetTester tester, {
+      required Size size,
+      double textScale = 1.0,
+      bool isDark = false,
+    }) async {
+      final overflowErrors = <FlutterErrorDetails>[];
+      final previousOnError = FlutterError.onError;
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-        FlutterError.onError = (details) {
-          if (details.exceptionAsString().contains('RenderFlex overflowed')) {
-            overflowErrors.add(details);
-          } else {
-            previousOnError?.call(details);
-          }
-        };
-
-        SharedPreferences.setMockInitialValues({'languageCode': 'th'});
-        final settings = SettingsProvider();
-
-        try {
-          await tester.pumpWidget(
-            MultiProvider(
-              providers: [
-                ChangeNotifierProvider<SettingsProvider>.value(value: settings),
-                ChangeNotifierProvider<LocalReadingProvider>.value(
-                  value: LocalReadingProvider(),
-                ),
-                ChangeNotifierProvider<MushafReadingProvider>.value(
-                  value: MushafReadingProvider(),
-                ),
-                ChangeNotifierProvider<StatsProvider>.value(
-                  value: StatsProvider(),
-                ),
-                ChangeNotifierProvider<SupabaseProvider>.value(
-                  value: SupabaseProvider(),
-                ),
-                ChangeNotifierProvider<NotesProvider>.value(
-                  value: NotesProvider(),
-                ),
-                ChangeNotifierProvider<TranslationManagerProvider>.value(
-                  value: TranslationManagerProvider(),
-                ),
-              ],
-              child: MaterialApp(
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(context)
-                      .copyWith(textScaler: const TextScaler.linear(1.3)),
-                  child: child!,
-                ),
-                home: HomeScreen(
-                  repository: QuranRepository(),
-                  repositoryReady: true,
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 50));
-          await tester.scrollUntilVisible(
-            find.text('Powered by quran-th.com'),
-            250,
-            scrollable: find.byType(Scrollable).first,
-          );
-          await tester.pump(const Duration(milliseconds: 50));
-        } finally {
-          FlutterError.onError = previousOnError;
+      FlutterError.onError = (details) {
+        if (details.exceptionAsString().contains('RenderFlex overflowed')) {
+          overflowErrors.add(details);
+        } else {
+          previousOnError?.call(details);
         }
+      };
 
+      try {
+        await tester.pumpWidget(
+          buildHomeHarness(
+            width: size.width,
+            height: size.height,
+            textScale: textScale,
+            isDark: isDark,
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.text('อัสสลามุอะลัยกุม,'), findsOneWidget);
+        expect(find.text('อายะฮฺประจำวัน'), findsOneWidget);
+        expect(find.textContaining('อ่านอายะฮฺนี้'), findsOneWidget);
+        expect(find.text('ซูเราะฮฺ'), findsOneWidget);
+        expect(find.text('สารบัญ'), findsNothing);
         expect(find.byIcon(Icons.dark_mode_outlined), findsNothing);
         expect(find.byIcon(Icons.light_mode_outlined), findsNothing);
         expect(find.byIcon(Icons.search_rounded), findsOneWidget);
         expect(find.byIcon(Icons.mic_none_rounded), findsOneWidget);
-        expect(overflowErrors, isEmpty);
-      },
-    );
+
+        await tester.scrollUntilVisible(
+          find.text('Powered by quran-th.com'),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+      } finally {
+        FlutterError.onError = previousOnError;
+      }
+
+      expect(overflowErrors, isEmpty);
+    }
+
+    testWidgets('360x640 at 1.3x text scale renders cleanly with zero overflow',
+        (tester) async {
+      await verifyViewport(
+        tester,
+        size: const Size(360, 640),
+        textScale: 1.3,
+      );
+    });
+
+    testWidgets('393x852 dark mode renders cleanly with zero overflow',
+        (tester) async {
+      await verifyViewport(
+        tester,
+        size: const Size(393, 852),
+        isDark: true,
+      );
+    });
+
+    testWidgets('840x1180 tablet layout centers content cleanly with zero overflow',
+        (tester) async {
+      await verifyViewport(
+        tester,
+        size: const Size(840, 1180),
+      );
+    });
   });
 }
