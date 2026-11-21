@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../data/quran_repository.dart';
 import '../providers/settings_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../providers/translation_manager_provider.dart';
 import '../services/footnote_service.dart';
 import '../services/offline_quran_database_service.dart';
@@ -1337,7 +1338,14 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 ],
                 if (_includeTranslation && _translationText.isNotEmpty) ...[
                   Text(
-                    _translationText,
+                    ThaiTextProtectionProvider.protectSafe(
+                      context,
+                      _translationText,
+                    ),
+                    locale: ThaiTextProtectionProvider.localeForText(
+                      _translationText,
+                      forceThai: isThai,
+                    ),
                     style: GoogleFonts.notoSansThai(
                       fontSize: compact ? 12.5 : 14,
                       fontWeight: FontWeight.w500,
@@ -1393,7 +1401,14 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          _shortTafsir!,
+                          ThaiTextProtectionProvider.protectSafe(
+                            context,
+                            _shortTafsir!,
+                          ),
+                          locale: ThaiTextProtectionProvider.localeForText(
+                            _shortTafsir!,
+                            forceThai: isThai,
+                          ),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 11.5,
                             height: 1.55,
@@ -1521,7 +1536,14 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        widget.reflectionText!.trim(),
+                        ThaiTextProtectionProvider.protectSafe(
+                          context,
+                          widget.reflectionText!.trim(),
+                        ),
+                        locale: ThaiTextProtectionProvider.localeForText(
+                          widget.reflectionText!,
+                          forceThai: isThai,
+                        ),
                         style: GoogleFonts.notoSansThai(
                           fontSize: compact ? 13 : 14,
                           fontWeight: FontWeight.w500,

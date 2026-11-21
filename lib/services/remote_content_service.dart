@@ -30,7 +30,7 @@ class RemoteContentUpdateResult {
 
 class RemoteContentBundledVersions {
   static const Map<String, String> versions = {
-    RemoteContentKey.thaiV3: '1.0.2',
+    RemoteContentKey.thaiV3: '1.0.3',
     RemoteContentKey.quranThemes: '1.0.0',
     RemoteContentKey.mokhtasarTafsir: '1.0.0',
   };
@@ -56,7 +56,7 @@ class RemoteContentService {
 
   final RemoteContentCache _cache = RemoteContentCache();
 
-  static const int appBuildCode = 17;
+  static const int appBuildCode = 18;
   static const _versionPrefix = 'remoteContentVersion_';
   static const _lastAutoCheckKey = 'remoteContentLastAutoCheckAt';
   static const _lastKnownBuildKey = 'lastKnownAppBuildCode';

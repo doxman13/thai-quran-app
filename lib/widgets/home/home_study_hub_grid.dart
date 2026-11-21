@@ -157,7 +157,7 @@ class _UnboxedShortcutTile extends StatelessWidget {
         onTap: item.onTap,
         borderRadius: BorderRadius.circular(AppTheme.radius),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -165,21 +165,24 @@ class _UnboxedShortcutTile extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: iconBg,
                       borderRadius: BorderRadius.circular(AppTheme.radius),
+                      border: Border.all(
+                        color: appColors.borderSoft.withValues(alpha: 0.5),
+                      ),
                     ),
-                    child: Icon(item.icon, size: 23, color: accent),
+                    child: Icon(item.icon, size: 22, color: accent),
                   ),
                   if (item.hasBadgeDot)
                     Positioned(
                       right: 4,
                       top: 4,
                       child: Container(
-                        width: 8,
-                        height: 8,
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
                           color: appColors.mushafGold,
                           shape: BoxShape.circle,
@@ -188,7 +191,7 @@ class _UnboxedShortcutTile extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -196,7 +199,7 @@ class _UnboxedShortcutTile extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   style: GoogleFonts.notoSansThai(
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: appColors.textStrong,
                     height: 1.2,

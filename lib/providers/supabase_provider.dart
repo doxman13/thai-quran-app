@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../database/hifz_repository.dart';
 
@@ -49,6 +50,8 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   String? _activeSignInProvider;
   String? _authError;
   bool _disposed = false;
+  Future<void>? _bootstrapFuture;
+  String? _bootstrappingUserId;
 
   @override
   void notifyListeners() {
@@ -110,7 +113,15 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         _user = data.session?.user ?? _client.auth.currentUser;
         if (data.event == AuthChangeEvent.signedOut) {
           _user = null;
-          unawaited(HifzRepository.instance.clearAllLocalData());
+          unawaited(
+            HifzRepository.instance.clearAllLocalData().catchError((Object e) {
+              debugPrint('[SupabaseProvider] Error clearing Hifz data on sign out: $e');
+            }),
+          );
+        } else if (_user != null) {
+          _authError = null;
+          _isSigningIn = false;
+          _activeSignInProvider = null;
         }
         notifyListeners();
         if (_user != null) {
@@ -269,6 +280,18 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     return false;
   }
 
+  static bool _isAppleNativeCancellationText(String text) {
+    if ((text.contains('asauthorizationerror') ||
+            text.contains('webauthenticationsession')) &&
+        text.contains('1001')) {
+      return true;
+    }
+    return text.contains(
+          'com.apple.authenticationservices.webauthenticationsession',
+        ) &&
+        text.contains('error 1');
+  }
+
   static bool isAuthCancellation(Object error) {
     if (error is PlatformException) {
       final code = error.code.trim().toLowerCase();
@@ -293,9 +316,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
 
       for (final text in [code, message, details]) {
         if (_isOAuthValuesCancellation(error: text)) return true;
-        if (text.contains('asauthorizationerror') && text.contains('1001')) {
-          return true;
-        }
+        if (_isAppleNativeCancellationText(text)) return true;
       }
       return false;
     }
@@ -308,15 +329,47 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     final raw = error.toString().toLowerCase();
-    if (raw.contains('asauthorizationerror') && raw.contains('1001')) {
+    if (_isAppleNativeCancellationText(raw)) {
       return true;
     }
     return _isOAuthValuesCancellation(error: raw);
   }
 
+  static bool _isNetworkError(Object error) {
+    final String code;
+    final String message;
+    if (error is PlatformException) {
+      code = error.code.toLowerCase();
+      message = (error.message ?? '').toLowerCase();
+    } else if (error is AuthException) {
+      code = (error.code ?? '').toLowerCase();
+      message = error.message.toLowerCase();
+    } else {
+      code = '';
+      message = error.toString().toLowerCase();
+    }
+
+    final combined = '$code $message';
+    return combined.contains('network_error') ||
+        combined.contains('socketexception') ||
+        combined.contains('failed host lookup') ||
+        combined.contains('clientexception') ||
+        combined.contains('connection') ||
+        combined.contains('internet') ||
+        combined.contains('offline') ||
+        combined.contains('timeout') ||
+        combined.contains('timed out');
+  }
+
   static String formatAuthError(Object error, {required bool isThai}) {
     if (isAuthCancellation(error)) {
       return isThai ? 'ยกเลิกการเข้าสู่ระบบ' : 'Sign-in was cancelled.';
+    }
+
+    if (_isNetworkError(error)) {
+      return isThai
+          ? 'ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้ กรุณาลองใหม่อีกครั้ง'
+          : 'Unable to connect to the network. Please try again.';
     }
 
     final String code;
@@ -333,18 +386,6 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     final combined = '$code $message';
-
-    if (combined.contains('network_error') ||
-        combined.contains('socketexception') ||
-        combined.contains('failed host lookup') ||
-        combined.contains('clientexception') ||
-        combined.contains('connection') ||
-        combined.contains('timeout') ||
-        combined.contains('timed out')) {
-      return isThai
-          ? 'ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้ กรุณาลองใหม่อีกครั้ง'
-          : 'Unable to connect to the network. Please try again.';
-    }
 
     if (combined.contains('invalid_credentials') ||
         combined.contains('invalid login credentials') ||
@@ -396,6 +437,9 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         combined.contains('oauth') ||
         combined.contains('developer_error') ||
         combined.contains('invalid_audience') ||
+        combined.contains('unacceptable audience') ||
+        combined.contains('nonce') ||
+        combined.contains('code verifier') ||
         combined.contains('client_id')) {
       return isThai
           ? 'ไม่สามารถเข้าสู่ระบบด้วยบัญชีที่เลือกได้ กรุณาลองใหม่อีกครั้ง'
@@ -405,6 +449,15 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     return isThai
         ? 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'
         : 'Sign-in failed. Please try again.';
+  }
+
+  Future<void> _closeInAppWebViewIfSupported() async {
+    if (kIsWeb) return;
+    try {
+      await closeInAppWebView();
+    } catch (_) {
+      // Ignore when no in-app web view is open or on test platforms.
+    }
   }
 
   @visibleForTesting
@@ -421,6 +474,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (!parsed.hasAuthParams) return;
 
     debugPrint('[SupabaseProvider] Processing auth deep link: $uri');
+    unawaited(_closeInAppWebViewIfSupported());
 
     if (parsed.isCancellation) {
       _lastHandledDeepLink = uriStr;
@@ -450,8 +504,11 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
 
     // If user is already authenticated with session, sync and return
     if (_client.auth.currentUser != null) {
+      _lastHandledDeepLink = uriStr;
       _user = _client.auth.currentUser;
       _authError = null;
+      _isSigningIn = false;
+      _activeSignInProvider = null;
       notifyListeners();
       return;
     }
@@ -468,6 +525,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         _user = _client.auth.currentUser;
         _authError = null;
         _isSigningIn = false;
+        _activeSignInProvider = null;
         _isHandlingDeepLink = false;
         notifyListeners();
         return;
@@ -480,6 +538,9 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
       await bootstrapUser(_user!.id);
     } catch (e) {
       debugPrint('[SupabaseProvider] Error extracting session from url: $e');
+      if (_client.auth.currentUser == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
       if (_client.auth.currentUser != null) {
         _user = _client.auth.currentUser;
         _authError = null;
@@ -527,17 +588,79 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  // Firebase project 913097538260 (iqra-quran-project) Web & iOS OAuth client IDs.
-  // Note: Supabase Dashboard -> Auth -> Providers -> Google -> Client IDs must include
-  // 913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com and
-  // 913097538260-u9ldacfut4e4gsb73qh01r98c4qjihrv.apps.googleusercontent.com
-  // alongside the web OAuth client 1011303318865-..., with Skip nonce checks enabled.
+  static const MethodChannel _iosOAuthChannel = MethodChannel(
+    'com.thaiquran.app/oauth_session',
+  );
+  static const String _mobileRedirectUrl =
+      'io.supabase.thaiquran://login-callback';
   static const String _googleWebClientId =
       '913097538260-shpuvop6pckuu7id8ig8mq954adleqhc.apps.googleusercontent.com';
-  static const String _googleIosClientId =
-      '913097538260-u9ldacfut4e4gsb73qh01r98c4qjihrv.apps.googleusercontent.com';
 
-  // Apple sign-in request (OAuth on Web, OAuth on Mobile)
+  Future<bool> _signInWithIosWebAuthSession(
+    OAuthProvider provider, {
+    Map<String, String>? queryParams,
+  }) async {
+    final oauthResponse = await _client.auth.getOAuthSignInUrl(
+      provider: provider,
+      redirectTo: _mobileRedirectUrl,
+      queryParams: queryParams,
+    );
+
+    String? callbackUrl;
+    try {
+      callbackUrl = await _iosOAuthChannel.invokeMethod<String>(
+        'authenticate',
+        <String, dynamic>{
+          'url': oauthResponse.url,
+          'callbackURLScheme': 'io.supabase.thaiquran',
+          'prefersEphemeralWebBrowserSession': false,
+        },
+      );
+    } on MissingPluginException {
+      return await _client.auth.signInWithOAuth(
+        provider,
+        redirectTo: _mobileRedirectUrl,
+        queryParams: queryParams,
+      );
+    }
+
+    if (callbackUrl == null || callbackUrl.trim().isEmpty) {
+      _authError = null;
+      return false;
+    }
+
+    final callbackUri = Uri.parse(callbackUrl);
+    final parsed = parseOAuthErrorParams(callbackUri);
+
+    if (parsed.isCancellation) {
+      _authError = null;
+      return false;
+    }
+
+    if (parsed.hasError && !parsed.hasSessionCodeOrToken) {
+      throw AuthException(
+        parsed.errorDescription ?? parsed.error ?? 'OAuth sign-in failed',
+        code: parsed.errorCode ?? parsed.error,
+      );
+    }
+
+    if (!parsed.hasSessionCodeOrToken) {
+      throw AuthException(
+        'OAuth callback did not return a valid session.',
+        code: 'oauth_missing_session',
+      );
+    }
+
+    _lastHandledDeepLink = callbackUrl;
+    final res = await _client.auth.getSessionFromUrl(callbackUri);
+    _user = res.session.user;
+    _authError = null;
+    notifyListeners();
+    await bootstrapUser(_user!.id);
+    return true;
+  }
+
+  // Apple sign-in request (OAuth on Web, ASWebAuthenticationSession on iOS, OAuth on Android)
   Future<bool> signInWithApple() async {
     _authError = null;
     _isSigningIn = true;
@@ -552,9 +675,13 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
 
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return await _signInWithIosWebAuthSession(OAuthProvider.apple);
+      }
+
       return await _client.auth.signInWithOAuth(
         OAuthProvider.apple,
-        redirectTo: 'io.supabase.thaiquran://login-callback',
+        redirectTo: _mobileRedirectUrl,
       );
     } catch (e) {
       debugPrint('[SupabaseProvider] Apple sign-in error: $e');
@@ -573,7 +700,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  // Google sign-in request (Native Bottom Sheet on Mobile, OAuth on Web)
+  // Google sign-in request (ASWebAuthenticationSession on iOS, Native Bottom Sheet on Android, OAuth on Web)
   Future<bool> signInWithGoogle() async {
     _authError = null;
     _isSigningIn = true;
@@ -588,10 +715,14 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         );
       }
 
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return await _signInWithIosWebAuthSession(
+          OAuthProvider.google,
+          queryParams: const {'prompt': 'select_account'},
+        );
+      }
+
       final googleSignIn = GoogleSignIn(
-        clientId: defaultTargetPlatform == TargetPlatform.iOS
-            ? _googleIosClientId
-            : null,
         serverClientId: _googleWebClientId,
       );
 
@@ -622,11 +753,30 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
       return true;
     } catch (e) {
-      debugPrint('[SupabaseProvider] Native Google sign-in error: $e');
+      debugPrint('[SupabaseProvider] Google sign-in error: $e');
       if (isAuthCancellation(e)) {
         _authError = null;
         notifyListeners();
         return false;
+      }
+      if (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          !_isNetworkError(e)) {
+        debugPrint('[SupabaseProvider] Falling back to Supabase OAuth on Android...');
+        try {
+          return await _client.auth.signInWithOAuth(
+            OAuthProvider.google,
+            redirectTo: _mobileRedirectUrl,
+            authScreenLaunchMode: LaunchMode.externalApplication,
+          );
+        } catch (fallbackError) {
+          debugPrint(
+            '[SupabaseProvider] Android OAuth fallback also failed: $fallbackError',
+          );
+          _authError = formatAuthError(fallbackError, isThai: false);
+          notifyListeners();
+          rethrow;
+        }
       }
       _authError = formatAuthError(e, isThai: false);
       notifyListeners();
@@ -699,7 +849,22 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // Bootstraps default rows for user if they don't exist
-  Future<void> bootstrapUser(String userId) async {
+  Future<void> bootstrapUser(String userId) {
+    if (_bootstrapFuture != null && _bootstrappingUserId == userId) {
+      return _bootstrapFuture!;
+    }
+    _bootstrappingUserId = userId;
+    final future = _runBootstrapUser(userId);
+    _bootstrapFuture = future;
+    return future.whenComplete(() {
+      if (identical(_bootstrapFuture, future)) {
+        _bootstrapFuture = null;
+        _bootstrappingUserId = null;
+      }
+    });
+  }
+
+  Future<void> _runBootstrapUser(String userId) async {
     try {
       final countResult = await _client
           .from('user_reading_profiles')

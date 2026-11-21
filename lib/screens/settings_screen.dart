@@ -54,8 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       QuranFoundationRepository();
   bool _isSyncing = false;
   bool _isCheckingUpdate = false;
-  String _appVersion = '1.0.2';
-  String _appBuildNumber = '8';
+  String _appVersion = '1.0.3';
+  String _appBuildNumber = '11';
 
   static const String _previewArabic = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
   static const String _previewTranslationTh =

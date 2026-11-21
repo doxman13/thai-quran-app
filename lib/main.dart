@@ -122,17 +122,11 @@ class _StartupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.toThemeData(isDark: false);
-    final colorScheme = theme.colorScheme;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
-      home: Scaffold(
-        backgroundColor: colorScheme.surface,
-        body: Center(
-          child: CircularProgressIndicator(color: colorScheme.primary),
-        ),
-      ),
+      home: const WelcomeSplashCanvas(),
     );
   }
 }
@@ -196,6 +190,9 @@ class ThaiQuranApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(
       builder: (context, settings, child) {
+        final applyThaiWordBreakLocale =
+            settings.languageCode == 'th' ||
+            settings.effectiveLanguageCode == 'th';
         return MaterialApp(
           title: 'Thai Quran',
           debugShowCheckedModeBanner: false,
@@ -208,11 +205,13 @@ class ThaiQuranApp extends StatelessWidget {
             isDark: false,
             palette: settings.themeColor,
             languageCode: settings.effectiveLanguageCode,
+            applyThaiWordBreakLocale: applyThaiWordBreakLocale,
           ),
           darkTheme: AppTheme.toThemeData(
             isDark: true,
             palette: settings.themeColor,
             languageCode: settings.effectiveLanguageCode,
+            applyThaiWordBreakLocale: applyThaiWordBreakLocale,
           ),
 
           home: WelcomeScreen(repository: repository),

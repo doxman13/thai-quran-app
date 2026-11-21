@@ -8,7 +8,7 @@ import '../data/offline_surah_names.dart';
 class OfflineQuranDatabaseService {
   static Database? _database;
   static const String _dbName = 'quran_offline.db';
-  static const int _targetDbVersion = 41;
+  static const int _targetDbVersion = 42;
 
   static Future<Database> get database async {
     if (_database != null) return _database!;

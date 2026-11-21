@@ -24,6 +24,7 @@ import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/stats_provider.dart';
 import '../providers/supabase_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../services/app_update_service.dart';
 import '../shared/shared.dart';
 import '../theme/app_theme.dart';
@@ -1361,7 +1362,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: MediaQuery.withClampedTextScaling(
             maxScaleFactor: 1.15,
             child: NavigationBar(
-              height: 66,
+              height: 62,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
               selectedIndex: _navIndex,
               onDestinationSelected: (index) {
                 setState(() => _navIndex = index);
@@ -1385,7 +1387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 NavigationDestination(
                   icon: const Icon(Icons.bookmark_border_rounded),
                   selectedIcon: const Icon(Icons.bookmark_rounded),
-                  label: isThai ? 'ที่คั่น & บันทึก' : 'Bookmarks',
+                  label: isThai ? 'ที่คั่นหน้า' : 'Bookmarks',
                 ),
                 NavigationDestination(
                   icon: const Icon(Icons.person_outline_rounded),
@@ -1510,14 +1512,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cleanName = displayName.trim();
-    final kicker = isThai ? 'อัสสลามุอะลัยกุม,' : 'Assalamu Alaikum,';
-    final headline = cleanName.isNotEmpty
+    final greeting = isThai ? 'อัสสลามุอะลัยกุม' : 'Assalamu Alaikum';
+    final subUser = cleanName.isNotEmpty
         ? cleanName
         : (isThai ? 'ผู้ศรัทธา' : 'Reader');
     final streakLabel = isThai ? '$streakCount วันต่อเนื่อง' : '${streakCount}d streak';
+    final streakBg = hasReadToday
+        ? appColors.primaryLight.withValues(alpha: 0.92)
+        : appColors.mushafGoldSoft.withValues(alpha: 0.92);
+    final streakFg = hasReadToday ? appColors.primary : appColors.mushafGold;
     final pillActionBg = isDark
-        ? appColors.surfaceMuted.withValues(alpha: 0.78)
-        : appColors.surface.withValues(alpha: 0.80);
+        ? appColors.surfaceMuted.withValues(alpha: 0.82)
+        : appColors.surface.withValues(alpha: 0.86);
 
     final quote = _todayQuranQuote();
     final verseObj = widget.repository.getVerse(quote.surahId, quote.verseId);
@@ -1536,9 +1542,14 @@ class _HomeScreenState extends State<HomeScreen> {
             settings: settings,
           ).trim()
         : '';
-    final quoteMeaning = resolvedFromRepo.isNotEmpty
+    final rawMeaning = resolvedFromRepo.isNotEmpty
         ? resolvedFromRepo
         : (isThai ? quote.meaningTh : quote.meaningEn);
+    final quoteMeaning = ThaiTextProtectionProvider.protectSafe(
+      context,
+      rawMeaning,
+      listen: true,
+    );
     final quoteSurahName = surahDisplayName(quote.surahId, isThai: isThai);
 
     return Stack(
@@ -1550,41 +1561,40 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 ColoredBox(color: appColors.background),
                 Opacity(
-                  opacity: isDark ? 0.36 : 0.62,
+                  opacity: isDark ? 0.36 : 0.70,
                   child: Image.asset(
                     'assets/images/image_slider1_x.webp',
                     fit: BoxFit.cover,
-                    alignment: const Alignment(0.0, 0.90),
+                    alignment: const Alignment(0.0, 0.80),
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
-                // Gentle left-side wash for crisp typography while leaving open Quran rehal clear bottom-right
+                // Light left wash keeping typography readable while letting sunlit Quran-on-rehal shine cleanly on the right
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        appColors.background.withValues(alpha: isDark ? 0.72 : 0.76),
-                        appColors.background.withValues(alpha: isDark ? 0.42 : 0.44),
-                        appColors.background.withValues(alpha: 0.04),
+                        appColors.background.withValues(alpha: isDark ? 0.84 : 0.78),
+                        appColors.background.withValues(alpha: isDark ? 0.58 : 0.48),
+                        appColors.background.withValues(alpha: isDark ? 0.24 : 0.08),
                       ],
-                      stops: const [0.0, 0.56, 1.0],
+                      stops: const [0.0, 0.55, 1.0],
                     ),
                   ),
                 ),
-                // Soft bottom dissolve ONLY along bottom 16% so Quran illustration shines clearly above
                 DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        appColors.background.withValues(alpha: 0.05),
-                        appColors.background.withValues(alpha: 0.14),
+                        appColors.background.withValues(alpha: isDark ? 0.10 : 0.06),
+                        appColors.background.withValues(alpha: isDark ? 0.16 : 0.12),
                         appColors.background,
                       ],
-                      stops: const [0.0, 0.80, 1.0],
+                      stops: const [0.0, 0.76, 1.0],
                     ),
                   ),
                 ),
@@ -1598,7 +1608,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 56),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1610,52 +1620,68 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                kicker,
+                                greeting,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.notoSansThai(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: appColors.foreground,
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                headline,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 27,
+                                  fontSize: 19,
                                   fontWeight: FontWeight.w700,
                                   color: appColors.textStrong,
-                                  height: 1.15,
-                                  letterSpacing: -0.3,
+                                  height: 1.2,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                              const SizedBox(height: 3),
+                              Wrap(
+                                spacing: 7,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Icon(
-                                    hasReadToday
-                                        ? Icons.local_fire_department_rounded
-                                        : Icons.auto_awesome_outlined,
-                                    size: 14,
-                                    color: hasReadToday
-                                        ? appColors.primary
-                                        : appColors.mushafGold,
+                                  Text(
+                                    subUser,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.notoSansThai(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: appColors.textMuted,
+                                    ),
                                   ),
-                                  const SizedBox(width: 5),
-                                  Flexible(
-                                    child: Text(
-                                      streakLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.notoSansThai(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: appColors.primary,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: streakBg,
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusSm,
                                       ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          hasReadToday
+                                              ? Icons.local_fire_department_rounded
+                                              : Icons.auto_awesome_outlined,
+                                          size: 12.5,
+                                          color: streakFg,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            streakLabel,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.notoSansThai(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: streakFg,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -1665,36 +1691,42 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
                             color: pillActionBg,
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: appColors.borderSoft.withValues(alpha: 0.45),
+                            ),
                           ),
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             icon: Icon(
                               Icons.search_rounded,
-                              size: 20,
+                              size: 19,
                               color: appColors.textStrong,
                             ),
                             tooltip: isThai ? 'ค้นหาอัลกุรอาน' : 'Search Quran',
                             onPressed: _openTabSearch,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 7),
                         Container(
-                          width: 38,
-                          height: 38,
+                          width: 36,
+                          height: 36,
                           decoration: BoxDecoration(
                             color: pillActionBg,
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: appColors.borderSoft.withValues(alpha: 0.45),
+                            ),
                           ),
                           child: IconButton(
                             padding: EdgeInsets.zero,
                             icon: Icon(
                               Icons.mic_none_rounded,
-                              size: 20,
+                              size: 19,
                               color: appColors.textStrong,
                             ),
                             tooltip: isThai
@@ -1705,87 +1737,105 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 26),
-                    Semantics(
-                      button: true,
-                      label: '$quoteSurahName ${quote.surahId}:${quote.verseId}: $quoteMeaning',
-                      child: InkWell(
-                        onTap: () => _navigateToReading(
-                          context,
-                          quote.surahId,
-                          verseId: quote.verseId,
-                          saveToFreeReadOnly: true,
-                        ),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                        child: Container(
-                          padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(
-                                color: appColors.primary.withValues(alpha: 0.72),
-                                width: 2.5,
+                    const SizedBox(height: 22),
+                    LayoutBuilder(
+                      builder: (ctx, constraints) {
+                        final scale = MediaQuery.textScalerOf(ctx).scale(1.0);
+                        final factor =
+                            (constraints.maxWidth < 340 || scale > 1.05)
+                                ? 0.88
+                                : 0.76;
+                        return FractionallySizedBox(
+                          widthFactor: factor,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Semantics(
+                            button: true,
+                            label: '$quoteSurahName ${quote.surahId}:${quote.verseId}: $quoteMeaning',
+                            child: InkWell(
+                              onTap: () => _navigateToReading(
+                                context,
+                                quote.surahId,
+                                verseId: quote.verseId,
+                                saveToFreeReadOnly: true,
+                              ),
+                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: appColors.mushafGold.withValues(alpha: 0.78),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Align(
+                                      alignment: AlignmentDirectional.centerStart,
+                                      child: Text(
+                                        quoteArabic,
+                                        textDirection: TextDirection.rtl,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'UthmanicHafs',
+                                          fontSize: 26,
+                                          height: 1.55,
+                                          color: appColors.textStrong,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      '“$quoteMeaning”',
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                      locale: ThaiTextProtectionProvider.localeForText(
+                                        rawMeaning,
+                                        forceThai: isThai,
+                                      ),
+                                      style: GoogleFonts.notoSansThai(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: appColors.foreground.withValues(
+                                          alpha: isDark ? 0.90 : 0.88,
+                                        ),
+                                        height: 1.48,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            '$quoteSurahName (${quote.surahId}:${quote.verseId})',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.notoSansThai(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: appColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 15,
+                                          color: appColors.primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isThai ? 'อายะฮฺประจำวัน' : 'Verse of the Day',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: appColors.mushafGold,
-                                  letterSpacing: 0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: Text(
-                                  quoteArabic,
-                                  textDirection: TextDirection.rtl,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontFamily: 'UthmanicHafs',
-                                    fontSize: 22,
-                                    height: 1.55,
-                                    color: appColors.textStrong,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '“$quoteMeaning”',
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: appColors.foreground,
-                                  height: 1.45,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                isThai
-                                    ? '$quoteSurahName (${quote.surahId}:${quote.verseId}) · อ่านอายะฮฺนี้ →'
-                                    : '$quoteSurahName (${quote.surahId}:${quote.verseId}) · Read verse →',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: appColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1839,7 +1889,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isThai: isThai,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           _wrapHomeSection(
             HomeStudyHubGrid(
@@ -1867,7 +1917,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onOpenGoals: () => _navigateToGoalsScreen(context),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           _wrapHomeSection(
             _buildGoalsSection(
@@ -1878,7 +1928,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (_activeHifzSession != null) ...[
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             _wrapHomeSection(
               HomeHifzResumeBanner(
                 snapshot: _activeHifzSession!,
@@ -1889,7 +1939,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           _wrapHomeSection(
             HomeQuickSurahs(
@@ -1907,6 +1957,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isThai: isThai,
               appColors: appColors,
               onPinTap: _showAddQuickLinkSheet,
+              onManageTap: _showManageQuickLinksSheet,
               onItemTap: (item) {
                 final link = _quickLinks.firstWhere(
                   (l) => l.id == item.id,
@@ -1928,7 +1979,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           _wrapHomeSection(
             _buildCommunitySection(
@@ -1937,7 +1988,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isThai: isThai,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           _wrapHomeSection(_buildQuranThFooter(colorScheme, textTheme, isThai)),
         ],
@@ -1952,7 +2003,7 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isThai,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
       child: Center(
         child: InkWell(
           onTap: () async {
@@ -1963,50 +2014,34 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Column(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.auto_stories_outlined,
-                      size: 14,
-                      color: colorScheme.primary.withValues(alpha: 0.85),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Powered by quran-th.com',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.open_in_new_rounded,
-                      size: 12,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                  ],
+                Icon(
+                  Icons.auto_stories_outlined,
+                  size: 13.5,
+                  color: colorScheme.primary.withValues(alpha: 0.78),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  isThai
-                      ? 'แพลตฟอร์มการอ่านและศึกษาอัลกุรอานแปลไทย'
-                      : 'Modern Thai Quran Reading & Study Platform',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'Powered by quran-th.com',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.75),
+                      letterSpacing: 0.2,
+                    ),
                   ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.open_in_new_rounded,
+                  size: 11.5,
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
                 ),
               ],
             ),
@@ -2087,10 +2122,13 @@ class _HomeScreenState extends State<HomeScreen> {
       final sNum = pageData.isNotEmpty ? (pageData.first['surah'] ?? 1) : 1;
       final sId = sNum.toString();
       final arBare = offlineSurahNamesAr[sId] ?? '';
+      final isCustomMushafGoal = profile != null &&
+          !profile.isFreeRead &&
+          profile.name.trim().toLowerCase() != 'free read';
       modeBadge = isThai ? 'อ่านต่อจากเดิม' : 'Continue Reading';
-      contextTag = profile != null && !profile.isFreeRead
-          ? profile.name
-          : (isThai ? 'โหมดอิสระ' : 'Free Read');
+      contextTag = isCustomMushafGoal
+          ? (isThai ? 'มุศหัฟ · ${profile.name}' : 'Mushaf · ${profile.name}')
+          : (isThai ? 'มุศหัฟ' : 'Mushaf');
       mainTitle = isThai
           ? 'หน้า ${mushafRecent.pageNumber}'
           : 'Page ${mushafRecent.pageNumber}';
@@ -2110,16 +2148,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ? readingProvider.profileById(verseRecent.profileId!)
           : null;
       final rel = formatRelativeReadTime(verseRecent.at, isThai: isThai);
+      final isCustomMeaningGoal =
+          profile != null && !isFreeReadProfile(profile);
       modeBadge = isThai ? 'อ่านต่อจากเดิม' : 'Continue Reading';
-      contextTag = profile != null && !isFreeReadProfile(profile)
-          ? profile.name
-          : (isThai ? 'ความหมาย · อิสระ' : 'Meaning · Free');
-      mainTitle = isThai ? 'อายะฮฺที่ $vId' : 'Ayah $vId';
+      contextTag = isCustomMeaningGoal
+          ? (isThai
+              ? 'ความหมาย · ${profile.name}'
+              : 'Meaning · ${profile.name}')
+          : (isThai ? 'ความหมาย' : 'Meaning');
+      mainTitle = surahName;
       subDetail = isThai
           ? 'หน้า $pageNum จาก 604 · $rel'
           : 'Page $pageNum of 604 · $rel';
       arabicSurahName = arBare.isNotEmpty ? 'سورة $arBare' : '';
-      surahNameLabel = surahName;
+      surahNameLabel = isThai ? 'อายะฮฺที่ $vId' : 'Ayah $vId';
       progressFraction = (pageNum / 604).clamp(0.0, 1.0);
     } else {
       final firstSurah = surahDisplayName('1', isThai: isThai);
@@ -2662,6 +2704,171 @@ class _HomeScreenState extends State<HomeScreen> {
     await _openQuickLinkInMode(link, mode);
   }
 
+  void _showManageQuickLinksSheet() {
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
+    final appColors = context.read<SettingsProvider>().getAppColors();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTheme.radius),
+        ),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final customCount =
+                _quickLinks.where((l) => !l.isLocked).length;
+            return SafeArea(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.72,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: appColors.borderSoft,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              isThai
+                                  ? 'ซูเราะฮฺที่ปักหมุด'
+                                  : 'Manage Pinned Surahs',
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                                color: appColors.textStrong,
+                              ),
+                            ),
+                          ),
+                          if (customCount < 8)
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.pop(sheetCtx);
+                                _showAddQuickLinkSheet();
+                              },
+                              icon: Icon(
+                                Icons.add_rounded,
+                                size: 17,
+                                color: appColors.primary,
+                              ),
+                              label: Text(
+                                isThai ? 'ปักหมุด' : 'Pin',
+                                style: GoogleFonts.notoSansThai(
+                                  fontWeight: FontWeight.w600,
+                                  color: appColors.primary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: _quickLinks.length,
+                          separatorBuilder: (_, _) => Divider(
+                            height: 1,
+                            color: appColors.borderSoft.withValues(alpha: 0.6),
+                          ),
+                          itemBuilder: (_, idx) {
+                            final link = _quickLinks[idx];
+                            final sId = link.surahNumber.toString();
+                            final sName =
+                                surahDisplayName(sId, isThai: isThai);
+                            final arName = offlineSurahNamesAr[sId] ?? '';
+                            return ListTile(
+                              dense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              leading: SizedBox(
+                                width: 28,
+                                child: Text(
+                                  sId,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.notoSansThai(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: appColors.primary,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                sName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.notoSansThai(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: appColors.textStrong,
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (arName.isNotEmpty)
+                                    Text(
+                                      arName,
+                                      textDirection: TextDirection.rtl,
+                                      style: TextStyle(
+                                        fontFamily: 'UthmanicHafs',
+                                        fontSize: 16,
+                                        color: appColors.mushafGold,
+                                      ),
+                                    ),
+                                  if (!link.isLocked) ...[
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 19,
+                                        color: appColors.danger,
+                                      ),
+                                      tooltip: isThai ? 'นำออก' : 'Remove',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () async {
+                                        await _deleteQuickLink(link);
+                                        if (ctx.mounted) setSheetState(() {});
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              onTap: () {
+                                Navigator.pop(sheetCtx);
+                                unawaited(_onQuickLinkTap(link));
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAddQuickLinkSheet() {
     int selectedSurah = 1;
     String customLabel = '';
@@ -2863,7 +3070,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFBF9F5),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(AppTheme.radius),
                             border: Border.all(color: const Color(0xFFE8DFC8)),
                           ),
                           child: Text(
@@ -2893,7 +3100,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          translationText,
+                          ThaiTextProtectionProvider.protectSafe(
+                            context,
+                            translationText,
+                          ),
+                          locale: ThaiTextProtectionProvider.localeForText(
+                            translationText,
+                            forceThai: isThai,
+                          ),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 14,
                             height: 1.6,
@@ -2917,13 +3131,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(AppTheme.radius),
                           border: Border.all(
                             color: colorScheme.outlineVariant.withValues(alpha: 0.35),
                           ),
                         ),
                         child: Text(
-                          note.noteText,
+                          ThaiTextProtectionProvider.protectSafe(
+                            context,
+                            note.noteText,
+                          ),
+                          locale: ThaiTextProtectionProvider.localeForText(
+                            note.noteText,
+                            forceThai: isThai,
+                          ),
                           style: GoogleFonts.notoSansThai(
                             fontSize: 14.5,
                             height: 1.6,

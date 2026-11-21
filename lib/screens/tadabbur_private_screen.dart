@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../data/quran_repository.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/offline_surah_names.dart';
@@ -1454,7 +1455,13 @@ class _NoteCardState extends State<_NoteCard> {
                 // Thai Translation
                 if (translationText.isNotEmpty)
                   Text(
-                    translationText,
+                    ThaiTextProtectionProvider.protectSafe(
+                      context,
+                      translationText,
+                    ),
+                    locale: ThaiTextProtectionProvider.localeForText(
+                      translationText,
+                    ),
                     style: GoogleFonts.notoSansThai(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -1555,7 +1562,13 @@ class _NoteCardState extends State<_NoteCard> {
           else ...[
             if (note.noteText.isNotEmpty)
               Text(
-                note.noteText,
+                ThaiTextProtectionProvider.protectSafe(
+                  context,
+                  note.noteText,
+                ),
+                locale: ThaiTextProtectionProvider.localeForText(
+                  note.noteText,
+                ),
                 style: GoogleFonts.notoSansThai(
                   fontSize: 14,
                   height: 1.6,

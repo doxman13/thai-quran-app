@@ -181,11 +181,34 @@ class AppTheme {
     return AppThemeColors.teal(isDark: isDark);
   }
 
+  static TextTheme applyTextLocale(TextTheme theme, Locale? locale) {
+    if (locale == null) return theme;
+    TextStyle? withLocale(TextStyle? style) => style?.copyWith(locale: locale);
+    return theme.copyWith(
+      displayLarge: withLocale(theme.displayLarge),
+      displayMedium: withLocale(theme.displayMedium),
+      displaySmall: withLocale(theme.displaySmall),
+      headlineLarge: withLocale(theme.headlineLarge),
+      headlineMedium: withLocale(theme.headlineMedium),
+      headlineSmall: withLocale(theme.headlineSmall),
+      titleLarge: withLocale(theme.titleLarge),
+      titleMedium: withLocale(theme.titleMedium),
+      titleSmall: withLocale(theme.titleSmall),
+      bodyLarge: withLocale(theme.bodyLarge),
+      bodyMedium: withLocale(theme.bodyMedium),
+      bodySmall: withLocale(theme.bodySmall),
+      labelLarge: withLocale(theme.labelLarge),
+      labelMedium: withLocale(theme.labelMedium),
+      labelSmall: withLocale(theme.labelSmall),
+    );
+  }
+
   /// Builds Material 3 ThemeData bridge using web theme tokens and language-appropriate typography.
   static ThemeData toThemeData({
     required bool isDark,
     String palette = 'teal',
     String languageCode = 'th',
+    bool applyThaiWordBreakLocale = false,
   }) {
     final c = colors(isDark: isDark, palette: palette);
     final baseTheme = ThemeData(
@@ -193,10 +216,15 @@ class AppTheme {
       brightness: isDark ? Brightness.dark : Brightness.light,
     );
     final isThai = languageCode == 'th';
-    final textTheme = (isThai
-            ? GoogleFonts.notoSansThaiTextTheme(baseTheme.textTheme)
-            : GoogleFonts.notoSansTextTheme(baseTheme.textTheme))
-        .apply(bodyColor: c.textStrong, displayColor: c.textStrong);
+    final effectiveLocale =
+        (isThai || applyThaiWordBreakLocale) ? const Locale('th', 'TH') : null;
+    final textTheme = applyTextLocale(
+      (isThai
+              ? GoogleFonts.notoSansThaiTextTheme(baseTheme.textTheme)
+              : GoogleFonts.notoSansTextTheme(baseTheme.textTheme))
+          .apply(bodyColor: c.textStrong, displayColor: c.textStrong),
+      effectiveLocale,
+    );
 
     final defaultFontFamily = isThai
         ? GoogleFonts.notoSansThai().fontFamily
@@ -261,12 +289,12 @@ class AppTheme {
                 color: c.textStrong,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-              )
+              ).copyWith(locale: effectiveLocale)
             : GoogleFonts.notoSans(
                 color: c.textStrong,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-              ),
+              ).copyWith(locale: effectiveLocale),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
@@ -296,8 +324,16 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radiusSm),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        labelStyle: TextStyle(color: c.textStrong, fontWeight: FontWeight.w600),
-        secondaryLabelStyle: TextStyle(color: c.textInverse, fontWeight: FontWeight.w600),
+        labelStyle: TextStyle(
+          color: c.textStrong,
+          fontWeight: FontWeight.w600,
+          locale: effectiveLocale,
+        ),
+        secondaryLabelStyle: TextStyle(
+          color: c.textInverse,
+          fontWeight: FontWeight.w600,
+          locale: effectiveLocale,
+        ),
       ),
 
       navigationBarTheme: NavigationBarThemeData(
@@ -321,12 +357,12 @@ class AppTheme {
                   color: color,
                   fontWeight: weight,
                   fontSize: 12,
-                )
+                ).copyWith(locale: effectiveLocale)
               : GoogleFonts.notoSans(
                   color: color,
                   fontWeight: weight,
                   fontSize: 12,
-                );
+                ).copyWith(locale: effectiveLocale);
         }),
       ),
 

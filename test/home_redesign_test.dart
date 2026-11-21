@@ -13,6 +13,7 @@ import 'package:thai_quran_app/providers/notes_provider.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
 import 'package:thai_quran_app/providers/stats_provider.dart';
 import 'package:thai_quran_app/providers/supabase_provider.dart';
+import 'package:thai_quran_app/providers/thai_text_protection_provider.dart';
 import 'package:thai_quran_app/providers/translation_manager_provider.dart';
 import 'package:thai_quran_app/screens/home_screen.dart';
 import 'package:thai_quran_app/theme/app_theme.dart';
@@ -294,10 +295,15 @@ void main() {
       expect(find.text('Goal 2'), findsOneWidget);
       expect(find.text('Goal 3'), findsNothing);
       expect(find.text('ทั้งหมด +2'), findsOneWidget);
+      expect(find.text('ความหมาย'), findsNWidgets(2));
+      expect(find.text('Subtitle 1'), findsNothing);
+      expect(find.text('25%'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
     });
 
-    testWidgets('HomeQuickSurahs omits default helper subtitle clutter',
+    testWidgets('HomeQuickSurahs shows only surah number, Arabic name, and Thai name without tag clutter',
         (tester) async {
+      var manageTapped = false;
       await tester.pumpWidget(
         wrap(
           HomeQuickSurahs(
@@ -305,13 +311,13 @@ void main() {
               HomeQuickSurahItem(
                 id: 'mulk',
                 surahNumber: 67,
-                label: '',
+                label: 'ก่อนนอน',
                 isLocked: true,
               ),
               HomeQuickSurahItem(
                 id: 'custom',
                 surahNumber: 36,
-                label: 'ก่อนนอน',
+                label: 'อ่านวันศุกร์',
                 isLocked: false,
               ),
             ],
@@ -319,18 +325,26 @@ void main() {
             isThai: true,
             appColors: lightColors,
             onPinTap: () {},
+            onManageTap: () => manageTapped = true,
             onItemTap: (_) {},
           ),
         ),
       );
 
       expect(find.text('ซูเราะฮฺที่ปักหมุด'), findsOneWidget);
+      expect(find.text('67'), findsOneWidget);
+      expect(find.text('36'), findsOneWidget);
       expect(find.text('อัลมุลก์'), findsOneWidget);
+      expect(find.text('ยาซีน'), findsOneWidget);
       expect(find.text('แตะเพื่อเปิดอ่าน'), findsNothing);
-      expect(find.text('ก่อนนอน'), findsOneWidget);
+      expect(find.text('ก่อนนอน'), findsNothing);
+      expect(find.text('อ่านวันศุกร์'), findsNothing);
+      expect(find.text('ซุนนะฮฺวันศุกร์'), findsNothing);
+      await tester.tap(find.text('จัดการ'));
+      expect(manageTapped, isTrue);
     });
 
-    testWidgets('HomeCommunityPreview renders unboxed reflection block without Shuffle',
+    testWidgets('HomeCommunityPreview renders compact reflection block without redundant translation preview',
         (tester) async {
       final note = TadabburNote(
         id: 'n1',
@@ -364,6 +378,9 @@ void main() {
       expect(find.byIcon(Icons.shuffle_rounded), findsNothing);
       expect(find.text('ดูทั้งหมด'), findsOneWidget);
       expect(find.text('Reflection text here'), findsOneWidget);
+      expect(find.text('The one who created death and life'), findsNothing);
+      expect(find.text('โดย Reader'), findsOneWidget);
+      expect(find.text('อ่านต่อ'), findsOneWidget);
     });
   });
 
@@ -403,10 +420,12 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        expect(find.text('อัสสลามุอะลัยกุม,'), findsOneWidget);
-        expect(find.text('อายะฮฺประจำวัน'), findsOneWidget);
-        expect(find.textContaining('อ่านอายะฮฺนี้'), findsOneWidget);
+        expect(find.text('อัสสลามุอะลัยกุม'), findsOneWidget);
+        expect(find.text('อายะฮฺประจำวัน'), findsNothing);
+        expect(find.textContaining('อ่านอายะฮฺนี้'), findsNothing);
+        expect(find.text('แตะเพื่ออ่านต่อ'), findsNothing);
         expect(find.text('ซูเราะฮฺ'), findsOneWidget);
+        expect(find.text('ที่คั่นหน้า'), findsOneWidget);
         expect(find.text('สารบัญ'), findsNothing);
         expect(find.byIcon(Icons.dark_mode_outlined), findsNothing);
         expect(find.byIcon(Icons.light_mode_outlined), findsNothing);
@@ -425,6 +444,117 @@ void main() {
 
       expect(overflowErrors, isEmpty);
     }
+
+    testWidgets('Manage Pinned Surahs sheet lists pinned items and allows removing custom pin',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'languageCode': 'th',
+        'custom_quick_links_v2_guest':
+            '[{"id":"custom_qaf","surahNumber":50,"label":"ศุกร์","isLocked":false}]',
+      });
+      final settings = SettingsProvider();
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+            ChangeNotifierProvider<LocalReadingProvider>.value(
+              value: LocalReadingProvider(),
+            ),
+            ChangeNotifierProvider<MushafReadingProvider>.value(
+              value: MushafReadingProvider(),
+            ),
+            ChangeNotifierProvider<StatsProvider>.value(value: StatsProvider()),
+            ChangeNotifierProvider<SupabaseProvider>.value(
+              value: SupabaseProvider(),
+            ),
+            ChangeNotifierProvider<NotesProvider>.value(value: NotesProvider()),
+            ChangeNotifierProvider<TranslationManagerProvider>.value(
+              value: TranslationManagerProvider(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ThemeData.light(useMaterial3: true),
+            home: HomeScreen(
+              repository: QuranRepository(),
+              repositoryReady: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      await tester.scrollUntilVisible(
+        find.text('จัดการ'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('จัดการ'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byIcon(Icons.delete_outline_rounded),
+        120,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+    });
+
+    testWidgets('Continue Reading displays Thai Mushaf label instead of raw Free Read',
+        (tester) async {
+      final now = DateTime.now();
+      final recentAt =
+          now.subtract(const Duration(minutes: 50)).toUtc().toIso8601String();
+      SharedPreferences.setMockInitialValues({
+        'languageCode': 'th',
+        'thai_quran_mushaf_store_v1':
+            '{"profiles":[{"id":"mushaf_free_1","userId":"local","name":"Free Read","slug":"mushaf_free_read","mushafId":1,"startPage":1,"targetPage":604,"currentPage":441,"furthestUnreadPage":441,"lastViewedPage":441,"sortOrder":0,"isArchived":false,"createdAt":"$recentAt","updatedAt":"$recentAt"}],"recentReadings":[{"mushafId":1,"pageNumber":441,"profileId":"mushaf_free_1","surahId":36,"updatedAt":"$recentAt"}],"pageBookmarks":[],"verseBookmarks":[]}',
+      });
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<SettingsProvider>.value(
+              value: SettingsProvider(),
+            ),
+            ChangeNotifierProvider<LocalReadingProvider>.value(
+              value: LocalReadingProvider(),
+            ),
+            ChangeNotifierProvider<MushafReadingProvider>.value(
+              value: MushafReadingProvider(),
+            ),
+            ChangeNotifierProvider<StatsProvider>.value(value: StatsProvider()),
+            ChangeNotifierProvider<SupabaseProvider>.value(
+              value: SupabaseProvider(),
+            ),
+            ChangeNotifierProvider<NotesProvider>.value(value: NotesProvider()),
+            ChangeNotifierProvider<TranslationManagerProvider>.value(
+              value: TranslationManagerProvider(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: ThemeData.light(useMaterial3: true),
+            home: HomeScreen(
+              repository: QuranRepository(),
+              repositoryReady: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      // Allow SharedPreferences microtask from MushafReadingProvider.load() to settle
+      await tester.pumpAndSettle();
+
+      final hero = tester.widget<HomeContinueHero>(find.byType(HomeContinueHero));
+      expect('${hero.mainTitle} · ${hero.surahNameLabel}', 'หน้า 441 · ยาซีน');
+      expect(hero.contextTag, 'มุศหัฟ');
+      expect(find.text('หน้า 441 · ยาซีน'), findsOneWidget);
+      expect(find.text('Free Read'), findsNothing);
+      expect(find.text('มุศหัฟ'), findsWidgets);
+    });
 
     testWidgets('360x640 at 1.3x text scale renders cleanly with zero overflow',
         (tester) async {
@@ -450,6 +580,68 @@ void main() {
         tester,
         size: const Size(840, 1180),
       );
+    });
+  });
+
+  group('Thai Word-Break Protection & Global Locale', () {
+    test('protectWithTerms keeps protected words joined with U+2060 and respects punctuation',
+        () {
+      const sample = '“การสรรเสริญทั้งหลายนั้นเป็นสิทธิของอัลลอฮฺ”';
+      final protected = ThaiTextProtectionProvider.protectWithTerms(
+        sample,
+        ThaiTextProtectionProvider.seedTerms,
+      );
+
+      // Word joiners keep 'อัลลอฮฺ' connected internally without splitting syllables
+      expect(protected.contains('\u2060'), isTrue);
+      // Clean word boundary BEFORE 'อัลลอฮฺ' so ICU breaks cleanly before the word
+      // Note: 'อั' stays joined together; U+2060 is placed before 'ล', not before combining mark 'ั'
+      expect(protected.contains('ของ\u200Bอั\u2060ล'), isTrue);
+      // Closing quotation mark remains glued to the protected term (no trailing ZWSP)
+      expect(protected.contains('\u200B”'), isFalse);
+      expect(protected.contains('“\u200B'), isFalse);
+    });
+
+    test('AppTheme.applyTextLocale propagates Locale(th, TH) globally for Thai word breaking',
+        () {
+      final lightTextTheme = AppTheme.applyTextLocale(
+        ThemeData.light().textTheme,
+        ThaiTextProtectionProvider.thaiLocale,
+      );
+      expect(lightTextTheme.bodyMedium?.locale, const Locale('th', 'TH'));
+      expect(lightTextTheme.bodyLarge?.locale, const Locale('th', 'TH'));
+      expect(lightTextTheme.titleMedium?.locale, const Locale('th', 'TH'));
+
+      final darkTextTheme = AppTheme.applyTextLocale(
+        ThemeData.dark().textTheme,
+        ThaiTextProtectionProvider.thaiLocale,
+      );
+      expect(darkTextTheme.bodyMedium?.locale, const Locale('th', 'TH'));
+      expect(darkTextTheme.labelSmall?.locale, const Locale('th', 'TH'));
+    });
+
+    testWidgets('HomeScreen Daily Verse assigns Locale(th, TH) and protectSafe protects even without ancestor provider',
+        (tester) async {
+      await tester.pumpWidget(
+        buildHomeHarness(width: 360, height: 640, textScale: 1.15),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final quoteTexts = tester
+          .widgetList<Text>(find.byType(Text))
+          .where((t) => (t.data ?? '').contains('“') && (t.data ?? '').contains('”'))
+          .toList();
+      expect(quoteTexts, isNotEmpty);
+      expect(quoteTexts.first.locale, const Locale('th', 'TH'));
+
+      final ctx = tester.element(find.byType(HomeScreen));
+      final protectedFallback = ThaiTextProtectionProvider.protectSafe(
+        ctx,
+        'แท้จริงสิทธิของอัลลอฮฺและอัลกุรอาน',
+      );
+      expect(protectedFallback.contains('\u2060'), isTrue);
+      expect(protectedFallback.contains('ของ\u200Bอั\u2060ล'), isTrue);
     });
   });
 }

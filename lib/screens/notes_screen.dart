@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../providers/notes_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../data/quran_repository.dart';
 import '../data/offline_surah_names.dart';
 import '../shared/shared.dart';
@@ -396,7 +397,14 @@ class _NoteCardState extends State<_NoteCard> {
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                             child: Text(
-                              widget.noteContent,
+                              ThaiTextProtectionProvider.protectSafe(
+                                context,
+                                widget.noteContent,
+                              ),
+                              locale: ThaiTextProtectionProvider.localeForText(
+                                widget.noteContent,
+                                forceThai: isThai,
+                              ),
                               style: GoogleFonts.notoSansThai(
                                 fontSize: 14,
                                 color: colors.textStrong,

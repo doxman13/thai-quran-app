@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../providers/settings_provider.dart';
+import '../providers/thai_text_protection_provider.dart';
 import '../data/quran_repository.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/offline_surah_names.dart';
@@ -1409,7 +1410,14 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
                   if (translationText.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      translationText,
+                      ThaiTextProtectionProvider.protectSafe(
+                        context,
+                        translationText,
+                      ),
+                      locale: ThaiTextProtectionProvider.localeForText(
+                        translationText,
+                        forceThai: isThai,
+                      ),
                       style: GoogleFonts.notoSansThai(
                         fontSize: 12,
                         color: colors.foreground,
@@ -1934,7 +1942,14 @@ class _CommunityNoteCardState extends State<_CommunityNoteCard> {
 
           // ── Post Body FIRST (Social Hierarchy) ─────────────────────────────
           Text(
-            displayedNoteText,
+            ThaiTextProtectionProvider.protectSafe(
+              context,
+              displayedNoteText,
+            ),
+            locale: ThaiTextProtectionProvider.localeForText(
+              displayedNoteText,
+              forceThai: isThai,
+            ),
             style: GoogleFonts.notoSansThai(
               fontSize: 14.5,
               height: 1.65,
@@ -2017,7 +2032,14 @@ class _CommunityNoteCardState extends State<_CommunityNoteCard> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        translationText,
+                        ThaiTextProtectionProvider.protectSafe(
+                          context,
+                          translationText,
+                        ),
+                        locale: ThaiTextProtectionProvider.localeForText(
+                          translationText,
+                          forceThai: isThai,
+                        ),
                         style: GoogleFonts.notoSansThai(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,

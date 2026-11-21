@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/offline_surah_names.dart';
 import '../../models/tadabbur_note.dart';
+import '../../providers/thai_text_protection_provider.dart';
 import '../../theme/app_theme.dart';
 
-/// Editorial unboxed Community Tadabbur preview with calm typography and left accent line.
+/// Compact Community Tadabbur preview showing reference, one short excerpt,
+/// author name, favourite count, and a clean read-more action.
 class HomeCommunityPreview extends StatelessWidget {
   final TadabburNote? featuredNote;
   final String translationText;
@@ -43,7 +45,7 @@ class HomeCommunityPreview extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
-                  fontSize: 16.5,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: appColors.textStrong,
                 ),
@@ -55,7 +57,7 @@ class HomeCommunityPreview extends StatelessWidget {
                 foregroundColor: appColors.foreground,
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                minimumSize: const Size(44, 36),
+                minimumSize: const Size(44, 34),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Row(
@@ -65,7 +67,7 @@ class HomeCommunityPreview extends StatelessWidget {
                     isThai ? 'ดูทั้งหมด' : 'View all',
                     style: GoogleFonts.notoSansThai(
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: appColors.foreground,
                     ),
                   ),
@@ -80,14 +82,14 @@ class HomeCommunityPreview extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         if (loading)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             child: Center(
               child: SizedBox(
-                width: 20,
-                height: 20,
+                width: 18,
+                height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: appColors.primary,
@@ -96,48 +98,57 @@ class HomeCommunityPreview extends StatelessWidget {
             ),
           )
         else if (featuredNote == null)
-          InkWell(
-            onTap: onOpenEmpty ?? onViewAll,
-            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: appColors.borderSoft),
-                  bottom: BorderSide(color: appColors.borderSoft),
-                ),
+          Material(
+            color: appColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              side: BorderSide(
+                color: appColors.borderSoft.withValues(alpha: 0.7),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.rate_review_outlined,
-                    size: 20,
-                    color: appColors.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isThai
-                          ? 'แบ่งปันข้อคิดจากการอ่านอัลกุรอาน หรืออ่านบันทึกจากชุมชน'
-                          : 'Share your Quran reflections or read community notes',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 13,
-                        color: appColors.foreground,
+            ),
+            child: InkWell(
+              onTap: onOpenEmpty ?? onViewAll,
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.rate_review_outlined,
+                      size: 18,
+                      color: appColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isThai
+                            ? 'อ่านบันทึกข้อคิดตะดับบุรจากชุมชน'
+                            : 'Explore community Tadabbur reflections',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: appColors.foreground,
+                        ),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: appColors.textMuted,
-                  ),
-                ],
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: appColors.textMuted,
+                    ),
+                  ],
+                ),
               ),
             ),
           )
         else
-          _EditorialReflectionBlock(
+          _CompactReflectionCard(
             note: featuredNote!,
-            translationText: translationText,
             authorName: authorName,
             isThai: isThai,
             appColors: appColors,
@@ -148,17 +159,15 @@ class HomeCommunityPreview extends StatelessWidget {
   }
 }
 
-class _EditorialReflectionBlock extends StatelessWidget {
+class _CompactReflectionCard extends StatelessWidget {
   final TadabburNote note;
-  final String translationText;
   final String authorName;
   final bool isThai;
   final AppThemeColors appColors;
   final VoidCallback? onTap;
 
-  const _EditorialReflectionBlock({
+  const _CompactReflectionCard({
     required this.note,
-    required this.translationText,
     required this.authorName,
     required this.isThai,
     required this.appColors,
@@ -174,59 +183,34 @@ class _EditorialReflectionBlock extends StatelessWidget {
       label: '$surahName ${note.surahId}:${note.verseId}, $authorName',
       child: Material(
         color: appColors.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          side: BorderSide(
+            color: appColors.borderSoft.withValues(alpha: 0.7),
+          ),
+        ),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppTheme.radius),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: appColors.primaryLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.format_quote_rounded,
-                        size: 16,
-                        color: appColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
                     Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            '$surahName (${note.surahId}:${note.verseId})',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: appColors.primary,
-                            ),
-                          ),
-                          if (note.isQuranReflect)
-                            Text(
-                              '· QuranReflect EN',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: appColors.mushafGold,
-                              ),
-                            ),
-                        ],
+                      child: Text(
+                        note.isQuranReflect
+                            ? '$surahName (${note.surahId}:${note.verseId}) · QuranReflect'
+                            : '$surahName (${note.surahId}:${note.verseId})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: appColors.primary,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -235,14 +219,14 @@ class _EditorialReflectionBlock extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.favorite_outline_rounded,
-                          size: 14,
+                          size: 13.5,
                           color: appColors.textMuted,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${note.likesCount}',
                           style: GoogleFonts.notoSansThai(
-                            fontSize: 12,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             color: appColors.textMuted,
                           ),
@@ -251,31 +235,25 @@ class _EditorialReflectionBlock extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (translationText.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    translationText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: 12,
-                      color: appColors.textMuted,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 6),
                 Text(
-                  note.noteText.trim(),
+                  ThaiTextProtectionProvider.protectSafe(
+                    context,
+                    note.noteText.trim(),
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  locale: ThaiTextProtectionProvider.localeForText(
+                    note.noteText,
+                    forceThai: isThai,
+                  ),
                   style: GoogleFonts.notoSansThai(
-                    fontSize: 13.5,
-                    height: 1.45,
+                    fontSize: 13,
+                    height: 1.4,
                     color: appColors.textStrong,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
@@ -289,13 +267,24 @@ class _EditorialReflectionBlock extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      isThai ? 'อ่านต่อ →' : 'Read note →',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: appColors.primary,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isThai ? 'อ่านต่อ' : 'Read note',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: appColors.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 15,
+                          color: appColors.primary,
+                        ),
+                      ],
                     ),
                   ],
                 ),

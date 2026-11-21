@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../providers/thai_text_protection_provider.dart';
 import '../../theme/app_theme.dart';
 
-/// Calm, single-banner "Continue Reading" hero card inspired by quiet editorial journals.
+/// Refined emerald "Continue Reading" card with dominant reading position,
+/// quiet timestamp metadata, current mode tag, and instant mode switching.
 class HomeContinueHero extends StatelessWidget {
   final bool hasHistory;
   final bool isMushaf;
@@ -63,7 +65,7 @@ class HomeContinueHero extends StatelessWidget {
           onTap: hasHistory ? onContinue : onStartMeaning,
           borderRadius: BorderRadius.circular(AppTheme.radius),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 15, 16, 15),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 13),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -72,12 +74,12 @@ class HomeContinueHero extends StatelessWidget {
                 else
                   _buildResumeContent(),
                 if (!isSignedIn && onSignInTap != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   InkWell(
                     onTap: onSignInTap,
                     borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     child: Container(
-                      padding: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.only(top: 9),
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
@@ -89,27 +91,28 @@ class HomeContinueHero extends StatelessWidget {
                         children: [
                           const Icon(
                             Icons.cloud_sync_outlined,
-                            size: 15,
+                            size: 14,
                             color: _heroGold,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 7),
                           Expanded(
                             child: Text(
                               isThai
                                   ? 'เข้าสู่ระบบเพื่อซิงก์การอ่านข้ามอุปกรณ์'
                                   : 'Sign in to sync reading across devices',
-                              maxLines: 2,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.notoSansThai(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.white.withValues(alpha: 0.88),
+                                color: Colors.white.withValues(alpha: 0.82),
                               ),
                             ),
                           ),
+                          const SizedBox(width: 6),
                           const Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 14,
+                            Icons.chevron_right_rounded,
+                            size: 16,
                             color: _heroGold,
                           ),
                         ],
@@ -132,100 +135,85 @@ class HomeContinueHero extends StatelessWidget {
     final switchLabel = isMushaf
         ? (isThai ? 'สลับเป็นความหมาย' : 'Switch to Meaning')
         : (isThai ? 'สลับเป็นมุศหัฟ' : 'Switch to Mushaf');
+    final activeModeLabel = contextTag.trim().isNotEmpty
+        ? contextTag.trim()
+        : (isMushaf
+            ? (isThai ? 'มุศหัฟ' : 'Mushaf')
+            : (isThai ? 'ความหมาย' : 'Meaning'));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isMushaf
-                    ? Icons.import_contacts_rounded
-                    : Icons.menu_book_rounded,
-                size: 20,
-                color: Colors.white,
+            Expanded(
+              child: Text(
+                modeBadge,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.80),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            if (arabicSurahName.trim().isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Flexible(
+                flex: 0,
+                child: Text(
+                  arabicSurahName,
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'UthmanicHafs',
+                    fontSize: 15,
+                    height: 1.1,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 5),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          modeBadge,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.80),
-                          ),
-                        ),
-                      ),
-                      if (arabicSurahName.trim().isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          flex: 2,
-                          child: Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: Text(
-                                arabicSurahName,
-                                textDirection: TextDirection.rtl,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  fontFamily: 'UthmanicHafs',
-                                  fontSize: 15,
-                                  height: 1.15,
-                                  color: Colors.white.withValues(alpha: 0.90),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
                   Text(
                     headlineText,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                    locale: isThai ? ThaiTextProtectionProvider.thaiLocale : null,
                     style: GoogleFonts.notoSansThai(
-                      fontSize: 17.5,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                       height: 1.2,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     subDetail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withValues(alpha: 0.68),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Container(
               width: 34,
               height: 34,
@@ -242,72 +230,83 @@ class HomeContinueHero extends StatelessWidget {
           ],
         ),
         if (progressFraction != null) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 11),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
               value: progressFraction!.clamp(0.0, 1.0),
-              minHeight: 4.5,
-              backgroundColor: Colors.white.withValues(alpha: 0.22),
+              minHeight: 3.5,
+              backgroundColor: Colors.white.withValues(alpha: 0.20),
               valueColor: const AlwaysStoppedAnimation<Color>(_heroIvory),
             ),
           ),
         ],
-        if (onSwitchMode != null) ...[
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  contextTag.trim().isNotEmpty
-                      ? contextTag
-                      : (isThai ? 'แตะเพื่ออ่านต่อ' : 'Tap to continue'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11.5,
-                    color: Colors.white.withValues(alpha: 0.72),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            Expanded(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isMushaf
+                        ? Icons.import_contacts_rounded
+                        : Icons.menu_book_rounded,
+                    size: 13.5,
+                    color: _heroGold,
                   ),
-                ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      activeModeLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.88),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+            if (onSwitchMode != null) ...[
               const SizedBox(width: 8),
-              Flexible(
-                flex: 0,
-                child: InkWell(
-                  onTap: onSwitchMode,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          switchLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: _heroIvory.withValues(alpha: 0.95),
-                          ),
+              InkWell(
+                onTap: onSwitchMode,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        switchLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: _heroIvory.withValues(alpha: 0.94),
                         ),
-                        const SizedBox(width: 3),
-                        Icon(
-                          Icons.swap_horiz_rounded,
-                          size: 14,
-                          color: _heroIvory.withValues(alpha: 0.95),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.swap_horiz_rounded,
+                        size: 14,
+                        color: _heroIvory.withValues(alpha: 0.94),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
-          ),
-        ],
+          ],
+        ),
       ],
     );
   }
@@ -319,20 +318,6 @@ class HomeContinueHero extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.menu_book_rounded,
-                size: 20,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,18 +327,18 @@ class HomeContinueHero extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: Colors.white.withValues(alpha: 0.78),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     mainTitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
-                      fontSize: 17.5,
+                      fontSize: 19,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                       height: 1.2,
@@ -362,18 +347,18 @@ class HomeContinueHero extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subDetail,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.notoSansThai(
                       fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.78),
+                      color: Colors.white.withValues(alpha: 0.72),
                     ),
                   ),
                 ],
               ),
             ),
             if (arabicSurahName.trim().isNotEmpty) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -381,15 +366,15 @@ class HomeContinueHero extends StatelessWidget {
                   textDirection: TextDirection.rtl,
                   style: TextStyle(
                     fontFamily: 'UthmanicHafs',
-                    fontSize: 20,
-                    color: Colors.white.withValues(alpha: 0.92),
+                    fontSize: 19,
+                    color: Colors.white.withValues(alpha: 0.90),
                   ),
                 ),
               ),
             ],
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 13),
         LayoutBuilder(
           builder: (context, constraints) {
             final meaningButton = FilledButton(

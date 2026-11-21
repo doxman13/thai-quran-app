@@ -6,7 +6,7 @@ import '../../models/hifz_session_config.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/hifz_mastery_utils.dart';
 
-/// Quiet warm-sand banner shown whenever a midway Hifz session exists.
+/// Lightweight inline task reminder shown whenever a midway Hifz session exists.
 class HomeHifzResumeBanner extends StatelessWidget {
   final ActiveSessionSnapshot snapshot;
   final bool isThai;
@@ -40,95 +40,113 @@ class HomeHifzResumeBanner extends StatelessWidget {
           ? (snapshot.currentStepIndex + 1).clamp(1, snapshot.totalSteps!)
           : snapshot.currentStepIndex + 1;
       final stepPart = snapshot.totalSteps != null && snapshot.totalSteps! > 0
-          ? (isThai
-              ? 'ขั้น $stepNum/${snapshot.totalSteps}'
-              : 'Step $stepNum/${snapshot.totalSteps}')
+          ? '$stepNum/${snapshot.totalSteps}'
           : (isThai ? 'ขั้น $stepNum' : 'Step $stepNum');
-      final tallyPart = isThai
-          ? 'รอบ ${snapshot.currentTally}/${snapshot.targetTally}'
-          : '${snapshot.currentTally}/${snapshot.targetTally}';
       final versePart = snapshot.currentVerse != null
           ? (isThai
               ? 'อายะฮฺที่ ${snapshot.currentVerse}'
               : 'Ayah ${snapshot.currentVerse}')
           : null;
-      subtitle = [
-        '$surah:$start–$end',
-        ?versePart,
-        stepPart,
-        tallyPart,
-      ].join(' · ');
+      subtitle = ['$surah:$start–$end', ?versePart, stepPart].join(' · ');
     } else {
       header = isThai ? 'ทบทวนต่อ · ฮิฟซ์' : 'Resume Hifz Review';
       subtitle = formatActiveSessionSubtitle(snapshot, isThai: isThai);
     }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final stripBg = isDark ? appColors.surfaceMuted : appColors.mushafGoldSoft;
 
     return Semantics(
       container: true,
       button: true,
       label: '$header: $subtitle',
       child: Material(
-        color: stripBg,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        color: appColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radius),
+          side: BorderSide(
+            color: appColors.borderSoft.withValues(alpha: 0.75),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onResume,
           borderRadius: BorderRadius.circular(AppTheme.radius),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 13, 8, 13),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        header,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: appColors.textStrong,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: appColors.mushafGold, width: 3),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          header,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: appColors.textStrong,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 12,
-                          color: appColors.textMuted,
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 11.5,
+                            color: appColors.textMuted,
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    onPressed: onResume,
+                    icon: Text(
+                      isThai ? 'ต่อ' : 'Continue',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: appColors.primary,
                       ),
-                    ],
+                    ),
+                    label: Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 15,
+                      color: appColors.primary,
+                    ),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      minimumSize: const Size(44, 34),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: onResume,
-                  icon: Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 19,
-                    color: appColors.textStrong,
+                  IconButton(
+                    onPressed: onDiscard,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: appColors.textMuted,
+                    ),
+                    tooltip: isThai ? 'ยกเลิกเซสชันนี้' : 'Discard session',
+                    visualDensity: VisualDensity.compact,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
                   ),
-                  tooltip: isThai ? 'ท่องต่อ' : 'Resume',
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  onPressed: onDiscard,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    size: 18,
-                    color: appColors.textMuted,
-                  ),
-                  tooltip: isThai ? 'ยกเลิกเซสชันนี้' : 'Discard session',
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

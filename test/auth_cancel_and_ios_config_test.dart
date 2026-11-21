@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -141,6 +142,92 @@ void main() {
       final enGen = SupabaseProvider.formatAuthError(genericErr, isThai: false);
       expect(enGen, equals('Sign-in failed. Please try again.'));
       expect(enGen, isNot(contains('Exception:')));
+    });
+
+    test('isAuthCancellation recognizes ASWebAuthenticationSession error 1', () {
+      expect(
+        SupabaseProvider.isAuthCancellation(
+          PlatformException(
+            code: 'oauth_session_failed',
+            message:
+                'The operation couldn’t be completed. (com.apple.AuthenticationServices.WebAuthenticationSession error 1.)',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('iOS signInWithApple cancellation via ASWebAuthenticationSession returns false cleanly', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      const channel = MethodChannel('com.thaiquran.app/oauth_session');
+      final recordedCalls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        recordedCalls.add(call);
+        throw PlatformException(
+          code: 'sign_in_canceled',
+          message: 'Sign-in was cancelled.',
+        );
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      final provider = SupabaseProvider();
+      addTearDown(provider.dispose);
+
+      final result = await provider.signInWithApple();
+      expect(result, isFalse);
+      expect(provider.authError, isNull);
+      expect(provider.isSigningIn, isFalse);
+      expect(recordedCalls, hasLength(1));
+      final args = Map<String, dynamic>.from(recordedCalls.single.arguments as Map);
+      final authUri = Uri.parse(args['url'] as String);
+      expect(authUri.queryParameters['provider'], equals('apple'));
+      expect(
+        authUri.queryParameters['redirect_to'],
+        equals('io.supabase.thaiquran://login-callback'),
+      );
+      expect(args['callbackURLScheme'], equals('io.supabase.thaiquran'));
+    });
+
+    test('iOS signInWithGoogle uses ASWebAuthenticationSession with select_account and handles error callback', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      const channel = MethodChannel('com.thaiquran.app/oauth_session');
+      final recordedCalls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        recordedCalls.add(call);
+        return 'io.supabase.thaiquran://login-callback?error=server_error&error_description=OAuth+provider+failure';
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      final provider = SupabaseProvider();
+      addTearDown(provider.dispose);
+
+      await expectLater(
+        provider.signInWithGoogle(),
+        throwsA(isA<AuthException>()),
+      );
+      expect(provider.authError, isNotNull);
+      expect(provider.authError, isNot(contains('AuthException')));
+      expect(provider.isSigningIn, isFalse);
+      expect(recordedCalls, hasLength(1));
+      final args = Map<String, dynamic>.from(recordedCalls.single.arguments as Map);
+      final authUri = Uri.parse(args['url'] as String);
+      expect(authUri.queryParameters['provider'], equals('google'));
+      expect(authUri.queryParameters['prompt'], equals('select_account'));
+      expect(
+        authUri.queryParameters['redirect_to'],
+        equals('io.supabase.thaiquran://login-callback'),
+      );
+      expect(args['callbackURLScheme'], equals('io.supabase.thaiquran'));
     });
 
     test('deep link query cancellation clears authError and isSigningIn', () async {

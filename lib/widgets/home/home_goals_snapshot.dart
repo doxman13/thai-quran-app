@@ -15,13 +15,13 @@ class HomeGoalSnapshotItem {
     required this.modeLabel,
     required this.isMushaf,
     required this.title,
-    required this.subtitle,
+    this.subtitle = '',
     required this.progress,
     required this.onTap,
   });
 }
 
-/// Calm "Your Progress"-style Reading Goals grouping with pastel circle icons & single clean container.
+/// Compact Reading Goals list prioritizing only goal name, mode, percentage, and progress bar.
 class HomeGoalsSnapshot extends StatelessWidget {
   final List<HomeGoalSnapshotItem> items;
   final int totalActiveCount;
@@ -59,7 +59,7 @@ class HomeGoalsSnapshot extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.notoSansThai(
-                  fontSize: 16.5,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: appColors.textStrong,
                 ),
@@ -104,64 +104,49 @@ class HomeGoalsSnapshot extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         if (totalActiveCount == 0)
           Material(
             color: appColors.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radius),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              side: BorderSide(
+                color: appColors.borderSoft.withValues(alpha: 0.7),
+              ),
+            ),
             child: InkWell(
               onTap: onManageTap,
               borderRadius: BorderRadius.circular(AppTheme.radius),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: appColors.primaryLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.flag_outlined,
-                        color: appColors.primary,
-                        size: 18,
-                      ),
+                    Icon(
+                      Icons.flag_outlined,
+                      color: appColors.primary,
+                      size: 18,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isThai
-                                ? 'ตั้งเป้าหมายการอ่านอัลกุรอาน'
-                                : 'Set a Reading Goal',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: appColors.textStrong,
-                            ),
-                          ),
-                          Text(
-                            isThai
-                                ? 'เลือกแผนอ่านจบ 30 วัน หรือกำหนดเป้าหมายเอง'
-                                : 'Pick a 30-day Khatam plan or custom target',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 12,
-                              color: appColors.textMuted,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        isThai
+                            ? 'ตั้งเป้าหมายการอ่านอัลกุรอาน'
+                            : 'Set a Reading Goal',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: appColors.textStrong,
+                        ),
                       ),
                     ),
                     Icon(
                       Icons.chevron_right_rounded,
+                      size: 18,
                       color: appColors.textMuted,
                     ),
                   ],
@@ -172,13 +157,20 @@ class HomeGoalsSnapshot extends StatelessWidget {
         else
           Material(
             color: appColors.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radius),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radius),
+              side: BorderSide(
+                color: appColors.borderSoft.withValues(alpha: 0.7),
+              ),
+            ),
             child: Column(
               children: [
                 for (int i = 0; i < visibleItems.length; i++) ...[
-                  _CalmGoalRow(
+                  _CompactGoalRow(
                     item: visibleItems[i],
                     appColors: appColors,
+                    isFirst: i == 0,
+                    isLast: i == visibleItems.length - 1,
                   ),
                   if (i < visibleItems.length - 1)
                     Padding(
@@ -198,106 +190,84 @@ class HomeGoalsSnapshot extends StatelessWidget {
   }
 }
 
-class _CalmGoalRow extends StatelessWidget {
+class _CompactGoalRow extends StatelessWidget {
   final HomeGoalSnapshotItem item;
   final AppThemeColors appColors;
+  final bool isFirst;
+  final bool isLast;
 
-  const _CalmGoalRow({
+  const _CompactGoalRow({
     required this.item,
     required this.appColors,
+    required this.isFirst,
+    required this.isLast,
   });
 
   @override
   Widget build(BuildContext context) {
     final accent = item.isMushaf ? appColors.mushafGold : appColors.primary;
-    final badgeBg =
-        item.isMushaf ? appColors.mushafGoldSoft : appColors.primaryLight;
     final pct = (item.progress * 100).round().clamp(0, 100);
+    final borderRadius = BorderRadius.vertical(
+      top: isFirst ? const Radius.circular(AppTheme.radius) : Radius.zero,
+      bottom: isLast ? const Radius.circular(AppTheme.radius) : Radius.zero,
+    );
 
     return Semantics(
       button: true,
-      label: '${item.title}, ${item.modeLabel}, ${item.subtitle}, $pct%',
+      label: '${item.title}, ${item.modeLabel}, $pct%',
       child: InkWell(
         onTap: item.onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: borderRadius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  item.isMushaf
-                      ? Icons.import_contacts_rounded
-                      : Icons.menu_book_rounded,
-                  size: 17,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.notoSansThai(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: appColors.textStrong,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '$pct%',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: accent,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item.modeLabel} · ${item.subtitle}',
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.notoSansThai(
-                        fontSize: 11.5,
-                        color: appColors.textMuted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: appColors.textStrong,
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: item.progress,
-                        minHeight: 3,
-                        backgroundColor: appColors.borderSoft.withValues(alpha: 0.7),
-                        valueColor: AlwaysStoppedAnimation<Color>(accent),
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '$pct%',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: accent,
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.modeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: appColors.textMuted,
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: appColors.textMuted,
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: item.progress,
+                  minHeight: 3.5,
+                  backgroundColor: appColors.borderSoft.withValues(alpha: 0.7),
+                  valueColor: AlwaysStoppedAnimation<Color>(accent),
+                ),
               ),
             ],
           ),
