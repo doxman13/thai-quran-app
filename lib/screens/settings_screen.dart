@@ -55,7 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSyncing = false;
   bool _isCheckingUpdate = false;
   String _appVersion = '1.0.3';
-  String _appBuildNumber = '11';
+  String _appBuildNumber = '12';
 
   static const String _previewArabic = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
   static const String _previewTranslationTh =

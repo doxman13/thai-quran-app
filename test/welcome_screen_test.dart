@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -69,15 +71,51 @@ void main() {
           tester.view.resetDevicePixelRatio();
         });
 
+        final boundaryKey = GlobalKey();
         await tester.pumpWidget(
-          const MaterialApp(home: WelcomeSplashCanvas()),
+          MaterialApp(
+            home: RepaintBoundary(
+              key: boundaryKey,
+              child: const WelcomeSplashCanvas(),
+            ),
+          ),
         );
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
         expect(scaffold.backgroundColor, const Color(0xFF0E5C59));
         expect(find.byType(SvgPicture), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        final logoCenter = tester.getCenter(find.byType(SvgPicture));
+        expect(logoCenter.dy, lessThanOrEqualTo(320));
+
+        // Verify the rendered SVG logo actually paints cream calligraphy (not a black fallback square)
+        await tester.runAsync(() async {
+          final boundary =
+              boundaryKey.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 1.0);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+          final data = bytes!.buffer.asUint8List();
+          var blackCount = 0;
+          var creamCount = 0;
+          var tealCount = 0;
+          for (var i = 0; i < data.length; i += 4) {
+            final r = data[i];
+            final g = data[i + 1];
+            final b = data[i + 2];
+            if (r < 5 && g < 5 && b < 5) blackCount++;
+            if (r > 230 && g > 220 && b > 200) creamCount++;
+            if (r == 14 && g == 92 && b == 89) tealCount++;
+          }
+          expect(blackCount, 0, reason: 'Logo SVG must not paint a black square');
+          expect(creamCount, greaterThan(500), reason: 'Logo SVG must render cream calligraphy');
+          expect(tealCount, greaterThan(1000), reason: 'Splash background must be brand teal');
+        });
       },
     );
 

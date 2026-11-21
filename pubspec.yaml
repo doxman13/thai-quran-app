@@ -2,7 +2,7 @@ name: thai_quran_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.3+11
+version: 1.0.3+12
 
 environment:
   sdk: ^3.12.0

@@ -27,25 +27,26 @@ class WelcomeSplashCanvas extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: brandBackground,
-        body: SafeArea(
-          child: SizedBox.expand(
-            child: Column(
-              children: [
-                const Spacer(flex: 3),
-                Center(
-                  child: Semantics(
-                    label: 'quran-th.com',
-                    image: true,
-                    child: SvgPicture.asset(
-                      'assets/quran-th-logo-clean.svg',
-                      width: logoSize,
-                      height: logoSize,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Align(
+              alignment: const Alignment(0, -0.05),
+              child: Semantics(
+                label: 'quran-th.com',
+                image: true,
+                child: SvgPicture.asset(
+                  'assets/quran-th-logo-clean.svg',
+                  width: logoSize,
+                  height: logoSize,
+                  fit: BoxFit.contain,
                 ),
-                const Spacer(flex: 2),
-                Padding(
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
                   padding: const EdgeInsets.only(bottom: 36),
                   child: SizedBox(
                     width: 22,
@@ -56,9 +57,9 @@ class WelcomeSplashCanvas extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
