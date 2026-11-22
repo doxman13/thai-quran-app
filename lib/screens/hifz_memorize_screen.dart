@@ -1053,13 +1053,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      unawaited(_hifzProvider.flushActiveSessionSync());
+      unawaited(HifzRepository.instance.flushPendingActiveSessionSync());
     }
   }
 
   @override
   void dispose() {
-    unawaited(_hifzProvider.flushActiveSessionSync());
+    unawaited(HifzRepository.instance.flushPendingActiveSessionSync());
     WidgetsBinding.instance.removeObserver(this);
     _audioProvider?.removeListener(_onAudioStateChanged);
     final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);

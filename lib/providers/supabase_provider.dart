@@ -52,6 +52,7 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _disposed = false;
   Future<void>? _bootstrapFuture;
   String? _bootstrappingUserId;
+  DateTime? _lastUserRefreshAt;
 
   @override
   void notifyListeners() {
@@ -107,6 +108,9 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _user = _client.auth.currentUser;
     _loadGuestName();
+    if (_user != null) {
+      unawaited(refreshCurrentUser());
+    }
     _authSubscription = _client.auth.onAuthStateChange.listen(
       (data) {
         debugPrint('[SupabaseProvider] onAuthStateChange event: ${data.event}, session: ${data.session?.user.email}');
@@ -122,6 +126,19 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
           _authError = null;
           _isSigningIn = false;
           _activeSignInProvider = null;
+          final hasCustomDisplayName =
+              (_user!.userMetadata?['custom_display_name']?.toString().trim() ?? '')
+                  .isNotEmpty;
+          if (!hasCustomDisplayName &&
+              _guestName.trim().isNotEmpty &&
+              _guestName != 'Reader' &&
+              _guestName != 'Local reader') {
+            unawaited(
+              updateDisplayName(_guestName).catchError((Object e) {
+                debugPrint('[SupabaseProvider] Error preserving guest display name: $e');
+              }),
+            );
+          }
         }
         notifyListeners();
         if (_user != null) {
@@ -144,6 +161,26 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> refreshCurrentUser({bool force = false}) async {
+    try {
+      if (_client.auth.currentSession == null) return;
+      if (!force &&
+          _lastUserRefreshAt != null &&
+          DateTime.now().difference(_lastUserRefreshAt!) <
+              const Duration(seconds: 15)) {
+        return;
+      }
+      _lastUserRefreshAt = DateTime.now();
+      final res = await _client.auth.getUser();
+      if (res.user != null) {
+        _user = res.user;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[SupabaseProvider] Error refreshing current user: $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -154,6 +191,9 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
         if (_user != null) {
           unawaited(bootstrapUser(_user!.id));
         }
+      }
+      if (current != null) {
+        unawaited(refreshCurrentUser());
       }
     }
   }
@@ -915,13 +955,8 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
             ),
       ];
 
-      // Add Hifz sync
-      try {
-        futures.add(HifzRepository().syncWithSupabase(userId));
-        futures.add(HifzRepository().syncHistoryWithSupabase());
-      } catch (e) {
-        debugPrint('Error triggering hifz sync: $e');
-      }
+      // Stage 1: Default user rows + current user metadata refresh
+      futures.add(refreshCurrentUser());
 
       if (countResult == null) {
         futures.add(
@@ -938,6 +973,14 @@ class SupabaseProvider extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       await Future.wait(futures);
+
+      // Stage 2: Sequential Hifz syncs to avoid PostgREST connection spikes
+      try {
+        await HifzRepository().syncWithSupabase(userId);
+        await HifzRepository().syncHistoryWithSupabase();
+      } catch (e) {
+        debugPrint('Error triggering hifz sync: $e');
+      }
     } catch (e) {
       debugPrint('Error bootstrapping Supabase user defaults: $e');
     }

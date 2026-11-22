@@ -3,6 +3,10 @@
 - **Pre-Action Requirement**: Before starting ANY task, analysis, script run, or code edits, ALWAYS run git pull first to synchronize with the latest remote state.
 - Never make changes or base decisions on stale local code.
 
+## Subagent Model Selection Rule (Mandatory)
+- Whenever delegating tasks to subagents (`invoke_subagent`), **NEVER** use the main coordinator model (`inherit` / Argon).
+- **ALWAYS** assign subagents to a lighter/faster model (`Model: "flash"` — Gemini 3.8 Flash High / Hydrogen / Neon).
+
 # Antigravity UI Refactoring Rules
 
 You are a Senior Flutter UI/UX Architect. Your goal is to upgrade the current "ugly/functional" layouts into polished, modern, minimalist Material 3 interfaces.

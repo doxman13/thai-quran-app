@@ -95,6 +95,10 @@
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Thai Quran uses the microphone for offline AI Quran recitation tracking in Hifz mode and voice verse search.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Thai Quran saves verse and reflection cards to your photo library when you tap Save Image.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Thai Quran saves verse and reflection cards to your photo library when you tap Save Image.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

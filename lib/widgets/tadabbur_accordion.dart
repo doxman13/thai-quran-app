@@ -83,18 +83,37 @@ class _TadabburAccordionState extends State<TadabburAccordion> with SingleTicker
 
   void _saveNote(NotesProvider notesProv) async {
     setState(() => _isSaving = true);
-    
-    await notesProv.saveNote(
-      surahId: widget.surahId,
-      verseId: widget.verseId,
-      noteText: _notesController.text,
-      isPublic: _isPublic,
-      isAnonymous: true,
-    );
+
+    final existing = notesProv.getNoteObjectForVerse(widget.surahId, widget.verseId);
+    final text = _notesController.text.trim();
+    final isAlreadyPublic = existing?.isPublic ?? false;
+    final textChanged = existing != null && existing.noteText.trim() != text;
+    final shouldSubmitReview =
+        _isPublic && text.isNotEmpty && (!isAlreadyPublic || textChanged);
+    final isPublicToSave = (isAlreadyPublic && !textChanged) ? _isPublic : false;
+
+    try {
+      await notesProv.saveNote(
+        surahId: widget.surahId,
+        verseId: widget.verseId,
+        noteText: text,
+        isPublic: isPublicToSave,
+        isAnonymous: true,
+      );
+
+      if (shouldSubmitReview) {
+        final savedObj = notesProv.getNoteObjectForVerse(widget.surahId, widget.verseId);
+        if (savedObj != null) {
+          await TadabburRepository().submitForPublicReview(savedObj);
+        }
+      }
+    } catch (e) {
+      debugPrint('TadabburAccordion: Error saving note: $e');
+    }
 
     if (mounted) {
       setState(() => _isSaving = false);
-      if (_notesController.text.trim().isNotEmpty) {
+      if (text.isNotEmpty) {
         setState(() => _saveSuccess = true);
         Future.delayed(const Duration(milliseconds: 1600), () {
           if (mounted) {

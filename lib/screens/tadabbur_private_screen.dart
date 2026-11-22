@@ -1171,14 +1171,32 @@ class _TadabburPrivateScreenState extends State<TadabburPrivateScreen> {
           },
           onEdit: (note, newText) async {
             try {
+              final trimmed = newText.trim();
+              final needsReReview =
+                  note.isPublic && trimmed != note.noteText.trim();
               await notesProv.saveNote(
                 surahId: note.surahId,
                 verseId: note.verseId,
-                noteText: newText.trim(),
-                isPublic: note.isPublic,
+                noteText: trimmed,
+                isPublic: needsReReview ? false : note.isPublic,
                 isAnonymous: note.isAnonymous,
               );
+              if (needsReReview) {
+                await _repo.submitForPublicReview(
+                  note.copyWith(noteText: trimmed, isPublic: false),
+                );
+              }
               await _loadNotes();
+              if (needsReReview && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'แก้ไขข้อคิดแล้ว และส่งให้แอดมินตรวจสอบใหม่เรียบร้อยแล้ว',
+                    ),
+                    backgroundColor: Color(0xFF0E5A4A),
+                  ),
+                );
+              }
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(

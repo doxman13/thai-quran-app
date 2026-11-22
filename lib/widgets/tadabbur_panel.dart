@@ -106,8 +106,10 @@ class _TadabburPanelState extends State<TadabburPanel> {
     setState(() => _isSaving = true);
     final notesProv = context.read<NotesProvider>();
     final isAlreadyPublic = _savedNote?.isPublic ?? false;
-    final shouldSubmitReview = _isPublic && text.isNotEmpty && !isAlreadyPublic;
-    final isPublicToSave = isAlreadyPublic ? _isPublic : false;
+    final textChanged = _savedNote != null && _savedNote!.noteText.trim() != text;
+    final shouldSubmitReview =
+        _isPublic && text.isNotEmpty && (!isAlreadyPublic || textChanged);
+    final isPublicToSave = (isAlreadyPublic && !textChanged) ? _isPublic : false;
 
     await notesProv.saveNote(
       surahId: widget.surahId,
@@ -197,17 +199,20 @@ class _TadabburPanelState extends State<TadabburPanel> {
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      isThai
-                          ? 'รายการโปรดและข้อคิด — อายะฮฺ ${widget.surahId}:${widget.verseId}'
-                          : 'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textStrong,
+                    Expanded(
+                      child: Text(
+                        isThai
+                            ? 'รายการโปรดและข้อคิด — อายะฮฺ ${widget.surahId}:${widget.verseId}'
+                            : 'Favorite & Reflection — Ayah ${widget.surahId}:${widget.verseId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colors.textStrong,
+                        ),
                       ),
                     ),
-                    const Spacer(),
                     if (_savedNote != null)
                       TextButton.icon(
                         onPressed: () =>

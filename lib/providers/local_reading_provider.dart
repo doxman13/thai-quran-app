@@ -1044,22 +1044,12 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
 
         // Fetch remote recent readings
         try {
-          List<dynamic> dbRecent;
-          try {
-            dbRecent = await client
-                .from('recent_readings')
-                .select('id, surah_id, verse_id, read_at, profile_id')
-                .eq('user_id', userId)
-                .order('read_at', ascending: false)
-                .limit(20);
-          } catch (_) {
-            dbRecent = await client
-                .from('recent_readings')
-                .select('id, surah_id, last_read_verse, updated_at, profile_id')
-                .eq('user_id', userId)
-                .order('updated_at', ascending: false)
-                .limit(20);
-          }
+          final List<dynamic> dbRecent = await client
+              .from('recent_readings')
+              .select('id, surah_id, verse_id, read_at, profile_id')
+              .eq('user_id', userId)
+              .order('read_at', ascending: false)
+              .limit(20);
 
           final otherRecent = _recentReadings
               .where(
@@ -2550,50 +2540,75 @@ class LocalReadingProvider extends ChangeNotifier with WidgetsBindingObserver {
     final uuidRegExp = RegExp(
       r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
     );
+    final bool isKnownProfile =
+        profileId != null &&
+        _profiles.any(
+          (p) =>
+              p.id == profileId &&
+              p.userId == userId &&
+              p.deletedAt == null &&
+              !isShortcutProfile(p),
+        );
     final String? safeProfileId =
         (profileId != null &&
             uuidRegExp.hasMatch(profileId) &&
-            !isShortcutProfileId(profileId))
+            !isShortcutProfileId(profileId) &&
+            isKnownProfile)
         ? profileId
         : null;
 
-    try {
-      await client.from('recent_readings').upsert({
-        'user_id': userId,
-        'surah_id': surahId,
-        'verse_id': verseId,
-        'profile_id': safeProfileId,
-        'read_at': now,
-      }, onConflict: 'user_id,surah_id');
-    } catch (e) {
-      // Fallback for legacy schema column names (last_read_verse / updated_at)
-      try {
-        final existing = await client
-            .from('recent_readings')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('surah_id', surahId)
-            .limit(1)
-            .maybeSingle();
-
-        if (existing != null && existing['id'] != null) {
-          await client.from('recent_readings').update({
-            'last_read_verse': verseId,
-            'profile_id': safeProfileId,
-            'updated_at': now,
-          }).eq('id', existing['id']);
-        } else {
-          await client.from('recent_readings').insert({
-            'user_id': userId,
-            'surah_id': surahId,
-            'last_read_verse': verseId,
-            'profile_id': safeProfileId,
-            'updated_at': now,
-          });
-        }
-      } catch (fallbackError) {
-        debugPrint('Error syncing recent reading to Supabase: $fallbackError');
+    Future<void> writeWithProfileId(String? targetProfileId) async {
+      var query = client
+          .from('recent_readings')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('surah_id', surahId);
+      if (targetProfileId != null) {
+        query = query.eq('profile_id', targetProfileId);
+      } else {
+        query = query.isFilter('profile_id', null);
       }
+      final existing = await query
+          .order('read_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (existing != null && existing['id'] != null) {
+        await client
+            .from('recent_readings')
+            .update({
+              'verse_id': verseId,
+              'read_at': now,
+            })
+            .eq('id', existing['id']);
+      } else {
+        await client.from('recent_readings').insert({
+          'user_id': userId,
+          'surah_id': surahId,
+          'verse_id': verseId,
+          'profile_id': targetProfileId,
+          'read_at': now,
+        });
+      }
+    }
+
+    try {
+      await writeWithProfileId(safeProfileId);
+    } on PostgrestException catch (e) {
+      if (safeProfileId != null &&
+          (e.code == '23503' ||
+              e.message.contains('recent_readings_profile_id_fkey'))) {
+        try {
+          await writeWithProfileId(null);
+          return;
+        } catch (retryErr) {
+          debugPrint('Error retrying recent reading sync with null profile_id: $retryErr');
+        }
+      } else {
+        debugPrint('Error syncing recent reading to Supabase: $e');
+      }
+    } catch (e) {
+      debugPrint('Error syncing recent reading to Supabase: $e');
     }
   }
 

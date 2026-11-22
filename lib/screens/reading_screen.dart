@@ -3074,6 +3074,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   ),
                 ),
                 ListTile(
+                  leading: Icon(Icons.edit_note_rounded, color: colors.primary),
+                  title: Text(
+                    isThaiLang ? 'บันทึกตะดับบุร' : 'Tadabbur Note',
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colors.textStrong,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _verseCardController.openTadabbur?.call();
+                  },
+                ),
+                ListTile(
                   leading: Icon(Icons.content_copy_rounded, color: colors.primary),
                   title: Text(
                     isThaiLang ? 'คัดลอกข้อความอายะฮฺ' : 'Copy Verse Text',

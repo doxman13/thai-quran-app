@@ -28,6 +28,7 @@ import 'package:thai_quran_app/screens/tadabbur_private_screen.dart';
 import 'package:thai_quran_app/services/footnote_service.dart';
 import 'package:thai_quran_app/shared/quran_translation_helper.dart';
 import 'package:thai_quran_app/shared/share_formatter.dart';
+import 'package:thai_quran_app/widgets/tadabbur_panel.dart';
 import 'package:thai_quran_app/widgets/verse_card.dart';
 import 'package:thai_quran_app/widgets/verse_share_sheet.dart';
 
@@ -57,6 +58,14 @@ class _FakeQuranRepository extends QuranRepository {
   List<Verse> getSurahVerses(String surahId) {
     return [getVerse(surahId, '1')!];
   }
+}
+
+class _FakeLoggedInSupabaseProvider extends SupabaseProvider {
+  @override
+  bool get isLoggedIn => true;
+
+  @override
+  String get userId => 'test-user-1';
 }
 
 class _FakeTadabburRepository extends TadabburRepository {
@@ -480,6 +489,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(cardColor(), const Color(0xFFFDFBF7));
 
+          // 4-button action bar includes Copy Text, Copy Image, Save Image, and Share
+          expect(find.text('คัดลอกข้อความ'), findsOneWidget);
+          expect(find.text('คัดลอกรูป'), findsOneWidget);
+          expect(find.text('บันทึกภาพ'), findsOneWidget);
+          expect(find.text('แชร์'), findsOneWidget);
+
           // Copy text button copies formatted payload and displays feedback
           await tester.tap(find.text('คัดลอกข้อความ'));
           await tester.pump();
@@ -492,6 +507,90 @@ void main() {
         }
 
         expect(overflowErrors, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'VerseShareSheet 4-button bottom bar invokes copyImage and saveImage via media_share channel',
+      (tester) async {
+        final previousOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          if (details.exceptionAsString().contains('allowRuntimeFetching')) {
+            return;
+          }
+          previousOnError?.call(details);
+        };
+
+        const mediaShareChannel = MethodChannel(
+          'com.thaiquran.app/media_share',
+        );
+        final mediaCalls = <MethodCall>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(mediaShareChannel, (call) async {
+          mediaCalls.add(call);
+          return true;
+        });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(mediaShareChannel, null);
+        });
+
+        try {
+          await tester.pumpWidget(
+            buildSheetHost(
+              languageCode: 'th',
+              triggerBuilder: (ctx) => Center(
+                child: ElevatedButton(
+                  onPressed: () {
+                    VerseShareSheet.show(
+                      ctx,
+                      surahId: '2',
+                      verseId: '255',
+                      surahName: 'อัลบะเกาะเราะฮฺ',
+                      arabicText: 'ٱللَّهُ لَا إِلَٰهَ إِلَّا هُوَ',
+                      translationText:
+                          'อัลลอฮฺนั้น ไม่มีผู้ใดที่ควรได้รับการเคารพภักดีนอกจากพระองค์',
+                      isThai: true,
+                    );
+                  },
+                  child: const Text('Open Share'),
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.tap(find.text('Open Share'));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('คัดลอกรูป'));
+          await tester.pump();
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 150)),
+          );
+          await tester.pump();
+          expect(mediaCalls.any((c) => c.method == 'copyImage'), isTrue);
+          final copyCall = mediaCalls.firstWhere((c) => c.method == 'copyImage');
+          expect(
+            (copyCall.arguments as Map)['fileName'],
+            'quran_2_255.png',
+          );
+          expect(
+            ((copyCall.arguments as Map)['bytes'] as Uint8List).isNotEmpty,
+            isTrue,
+          );
+          expect(find.text('คัดลอกรูปภาพแล้ว กดวางได้เลย'), findsOneWidget);
+
+          await tester.tap(find.text('บันทึกภาพ'));
+          await tester.pump();
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 150)),
+          );
+          await tester.pump();
+          expect(mediaCalls.any((c) => c.method == 'saveImage'), isTrue);
+          expect(find.text('บันทึกรูปภาพลงอัลบั้มสำเร็จ'), findsOneWidget);
+        } finally {
+          FlutterError.onError = previousOnError;
+        }
       },
     );
 
@@ -638,6 +737,14 @@ void main() {
               ChangeNotifierProvider<StatsProvider>.value(value: stats),
             ],
             child: MaterialApp(
+              builder: (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: const TextScaler.linear(0.5)),
+                  child: child!,
+                );
+              },
               home: Scaffold(
                 body: SingleChildScrollView(
                   child: VerseCard(
@@ -901,6 +1008,123 @@ void main() {
           FlutterError.onError = previousOnError;
         }
         expect(overflowErrors, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'VerseCard shows Note pill, Favorite dialog with Tadabbur action, and openTadabbur controller hook',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({'languageCode': 'th'});
+        final settings = SettingsProvider();
+        final progress = ProgressProvider();
+        final localReading = LocalReadingProvider();
+        final transManager = TranslationManagerProvider();
+        final thaiProtection = ThaiTextProtectionProvider();
+        final audio = MushafAudioProvider();
+        final notes = NotesProvider();
+        final supabase = _FakeLoggedInSupabaseProvider();
+        final stats = StatsProvider();
+        final repo = _FakeQuranRepository();
+        final controller = VerseCardController();
+        addTearDown(controller.dispose);
+        final verse = Verse(
+          id: '255',
+          surahId: '2',
+          thaiV3: 'อัลลอฮฺนั้น ไม่มีผู้ใดที่ควรได้รับการเคารพภักดีนอกจากพระองค์',
+          thaiV2: 'อัลลอฮฺนั้น ไม่มีผู้ใดที่ควรได้รับการเคารพภักดีนอกจากพระองค์',
+          english: 'Allah - there is no deity except Him.',
+          arabic: 'ٱللَّهُ لَا إِلَٰهَ إِلَّا هُوَ',
+        );
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<SettingsProvider>.value(value: settings),
+              ChangeNotifierProvider<ProgressProvider>.value(value: progress),
+              ChangeNotifierProvider<LocalReadingProvider>.value(
+                value: localReading,
+              ),
+              ChangeNotifierProvider<TranslationManagerProvider>.value(
+                value: transManager,
+              ),
+              ChangeNotifierProvider<ThaiTextProtectionProvider>.value(
+                value: thaiProtection,
+              ),
+              ChangeNotifierProvider<MushafAudioProvider>.value(value: audio),
+              ChangeNotifierProvider<NotesProvider>.value(value: notes),
+              ChangeNotifierProvider<SupabaseProvider>.value(value: supabase),
+              ChangeNotifierProvider<StatsProvider>.value(value: stats),
+            ],
+            child: MaterialApp(
+              builder: (context, child) {
+                return MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: const TextScaler.linear(0.5)),
+                  child: child!,
+                );
+              },
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: VerseCard(
+                    verse: verse,
+                    repository: repo,
+                    index: 0,
+                    controller: controller,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Initially no Note badge
+        expect(find.text('โน้ต'), findsNothing);
+        expect(controller.openTadabbur, isNotNull);
+
+        // Tap Heart on un-favorited verse -> saves favorite & opens dialog
+        await tester.ensureVisible(find.byIcon(Icons.favorite_border_rounded));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.favorite_border_rounded));
+        await tester.pumpAndSettle();
+        expect(find.text('รายการโปรด: อายะฮฺ 2:255'), findsOneWidget);
+        expect(find.text('เขียนโน้ต / ตะดับบุร'), findsOneWidget);
+        expect(find.text('ลบรายการโปรด'), findsOneWidget);
+        expect(find.text('เรียบร้อย'), findsOneWidget);
+
+        // Close dialog with เรียบร้อย -> heart remains favorited
+        await tester.tap(find.text('เรียบร้อย'));
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+
+        // Save a non-empty Tadabbur note -> Note pill appears in header
+        await notes.saveNote(
+          surahId: '2',
+          verseId: '255',
+          noteText: 'ข้อคิดเตือนใจเรื่องการพึ่งพาอัลลอฮฺ',
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('โน้ต'), findsOneWidget);
+
+        // Tapping Heart when note exists shows View / Edit Note option
+        await tester.ensureVisible(find.byIcon(Icons.favorite_rounded));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.favorite_rounded));
+        await tester.pumpAndSettle();
+        expect(find.text('ดู / แก้ไขโน้ตของฉัน'), findsOneWidget);
+        await tester.tap(find.text('ดู / แก้ไขโน้ตของฉัน'));
+        await tester.pumpAndSettle();
+        expect(find.byType(TadabburPanel), findsOneWidget);
+
+        // Close TadabburPanel, then verify controller.openTadabbur opens it too
+        Navigator.of(tester.element(find.byType(TadabburPanel))).pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(TadabburPanel), findsNothing);
+
+        controller.openTadabbur!.call();
+        await tester.pumpAndSettle();
+        expect(find.byType(TadabburPanel), findsOneWidget);
       },
     );
   });

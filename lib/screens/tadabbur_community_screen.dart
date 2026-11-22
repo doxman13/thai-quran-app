@@ -428,6 +428,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
     final text = _postController.text.trim();
     if (text.isEmpty) return;
 
+    final isThai = context.read<SettingsProvider>().languageCode == 'th';
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       await AuthRequiredDialog.show(
@@ -493,7 +494,7 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
           surahId: _postSurahId,
           verseId: _postVerseId,
           noteText: text,
-          isPublic: true,
+          isPublic: false,
           isAnonymous: true,
           likesCount: 0,
           language: 'th',
@@ -505,14 +506,22 @@ class _TadabburCommunityScreenState extends State<TadabburCommunityScreen> {
         ),
       );
       if (note != null) {
-        setState(() {
-          _feed = [note, ..._feed];
-          _postController.clear();
-          _showCompose = false;
-        });
+        await _repo.submitForPublicReview(note);
         if (mounted) {
+          setState(() {
+            _postController.clear();
+            _showCompose = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('แบ่งปันข้อคิดเรียบร้อยแล้ว')),
+            SnackBar(
+              content: Text(
+                isThai
+                    ? 'ส่งบันทึกให้แอดมินตรวจสอบเรียบร้อยแล้ว (จะแสดงในชุมชนเมื่อได้รับอนุมัติ)'
+                    : 'Submitted reflection for admin review.',
+                style: GoogleFonts.notoSansThai(),
+              ),
+              backgroundColor: const Color(0xFF0E5A4A),
+            ),
           );
         }
       }

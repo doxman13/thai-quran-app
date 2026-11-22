@@ -235,6 +235,10 @@ class VerseShareSheet extends StatefulWidget {
 }
 
 class _VerseShareSheetState extends State<VerseShareSheet> {
+  static const MethodChannel _mediaShareChannel = MethodChannel(
+    'com.thaiquran.app/media_share',
+  );
+
   final GlobalKey _cardKey = GlobalKey();
   final GlobalKey _shareButtonKey = GlobalKey();
 
@@ -256,6 +260,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   ShareCardTheme _theme = ShareCardTheme.emerald;
   bool _isCompactScale = false;
   bool _isGenerating = false;
+  bool _isCopyingImage = false;
+  bool _isSavingImage = false;
 
   String? _toastMessage;
   Timer? _toastTimer;
@@ -651,25 +657,95 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     _showToast(isThai ? 'คัดลอกข้อความแล้ว' : 'Copied text');
   }
 
+  Future<Uint8List> _captureCardPngBytes() async {
+    await WidgetsBinding.instance.endOfFrame;
+    final boundary = _cardKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary?;
+    if (boundary == null) {
+      throw StateError('Share card render boundary is unavailable.');
+    }
+
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final bytes = byteData?.buffer.asUint8List();
+    if (bytes == null) {
+      throw StateError('Failed to encode share card PNG.');
+    }
+    return bytes;
+  }
+
+  Future<void> _handleCopyImage() async {
+    if (_isCopyingImage || _isSavingImage || _isGenerating) return;
+    final isThai = _isThaiUi();
+    setState(() => _isCopyingImage = true);
+
+    try {
+      final bytes = await _captureCardPngBytes();
+      await _mediaShareChannel.invokeMethod<bool>('copyImage', {
+        'bytes': bytes,
+        'fileName': 'quran_${widget.surahId}_${widget.verseId}.png',
+      });
+      _showToast(
+        isThai ? 'คัดลอกรูปภาพแล้ว กดวางได้เลย' : 'Image copied to clipboard',
+      );
+    } catch (e) {
+      debugPrint('Error copying verse card image: $e');
+      _showToast(
+        isThai ? 'ไม่สามารถคัดลอกรูปภาพได้' : 'Could not copy image',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCopyingImage = false);
+      }
+    }
+  }
+
+  Future<void> _handleSaveImage() async {
+    if (_isSavingImage || _isCopyingImage || _isGenerating) return;
+    final isThai = _isThaiUi();
+    setState(() => _isSavingImage = true);
+
+    try {
+      final bytes = await _captureCardPngBytes();
+      await _mediaShareChannel.invokeMethod<bool>('saveImage', {
+        'bytes': bytes,
+        'fileName': 'quran_${widget.surahId}_${widget.verseId}.png',
+      });
+      _showToast(
+        isThai ? 'บันทึกรูปภาพลงอัลบั้มสำเร็จ' : 'Image saved to Photos',
+      );
+    } on PlatformException catch (e) {
+      debugPrint('Error saving verse card image: $e');
+      if (e.code == 'permission_denied') {
+        _showToast(
+          isThai
+              ? 'กรุณาอนุญาตการเข้าถึงคลังรูปภาพเพื่อบันทึก'
+              : 'Please allow photo library access to save',
+        );
+      } else {
+        _showToast(
+          isThai ? 'ไม่สามารถบันทึกรูปภาพได้' : 'Could not save image',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving verse card image: $e');
+      _showToast(
+        isThai ? 'ไม่สามารถบันทึกรูปภาพได้' : 'Could not save image',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingImage = false);
+      }
+    }
+  }
+
   Future<void> _handleShareImage() async {
-    if (_isGenerating) return;
+    if (_isGenerating || _isCopyingImage || _isSavingImage) return;
     final isThai = _isThaiUi();
     setState(() => _isGenerating = true);
 
     try {
-      await WidgetsBinding.instance.endOfFrame;
-      final boundary = _cardKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        throw StateError('Share card render boundary is unavailable.');
-      }
-
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      final bytes = byteData?.buffer.asUint8List();
-      if (bytes == null) {
-        throw StateError('Failed to encode share card PNG.');
-      }
+      final bytes = await _captureCardPngBytes();
 
       Rect? origin;
       final btnBox = _shareButtonKey.currentContext?.findRenderObject()
@@ -684,6 +760,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         _shareUrl,
       );
 
+      File? tempFile;
       final XFile xFile;
       if (kIsWeb) {
         xFile = XFile.fromData(
@@ -693,27 +770,61 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         );
       } else {
         final dir = await getTemporaryDirectory();
-        final file = File(
+        tempFile = File(
           '${dir.path}/quran_${widget.surahId}_${widget.verseId}.png',
         );
-        await file.writeAsBytes(bytes, flush: true);
-        xFile = XFile(file.path, mimeType: 'image/png');
+        await tempFile.writeAsBytes(bytes, flush: true);
+        xFile = XFile(tempFile.path, mimeType: 'image/png');
       }
 
-      await SharePlus.instance.share(
+      // Reset loading spinner BEFORE opening the native share sheet so it
+      // never stays stuck behind the iPad popover.
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+
+      // Copy caption to clipboard for convenient pasting in apps like Facebook Feed.
+      await Clipboard.setData(ClipboardData(text: caption));
+
+      if (!kIsWeb && Platform.isIOS && tempFile != null) {
+        try {
+          final status = await _mediaShareChannel.invokeMethod<String>(
+            'shareImage',
+            {
+              'filePath': tempFile.path,
+              'text': caption,
+              'originX': origin?.left,
+              'originY': origin?.top,
+              'originWidth': origin?.width,
+              'originHeight': origin?.height,
+            },
+          );
+          if (status == 'completed') {
+            _showToast(isThai ? 'แชร์รูปภาพสำเร็จ' : 'Shared successfully');
+          }
+          return;
+        } on MissingPluginException {
+          // Fall back to SharePlus if native channel is unavailable (e.g. tests).
+        }
+      }
+
+      final shareResult = await SharePlus.instance.share(
         ShareParams(
           files: [xFile],
           text: caption,
           sharePositionOrigin: origin,
         ),
       );
+      if (shareResult.status == ShareResultStatus.success) {
+        _showToast(isThai ? 'แชร์รูปภาพสำเร็จ' : 'Shared successfully');
+      }
     } catch (e) {
       debugPrint('Error sharing verse card image: $e');
       _showToast(
         isThai ? 'ไม่สามารถสร้างรูปภาพสำหรับแชร์ได้' : 'Could not share image',
       );
     } finally {
-      if (mounted) {
+      if (mounted && _isGenerating) {
         setState(() => _isGenerating = false);
       }
     }
@@ -781,9 +892,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                   Positioned(
                     left: 24,
                     right: 24,
-                    bottom: 74,
-                    child: Center(
-                      child: Container(
+                    bottom: 126,
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 8,
@@ -803,6 +915,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                           ),
                         ),
                       ),
+                    ),
                     ),
                   ),
               ],
@@ -1598,81 +1711,130 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     );
   }
 
+  Widget _buildSecondaryActionButton({
+    required AppThemeColors colors,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    bool isLoading = false,
+  }) {
+    return Expanded(
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: colors.surfaceMuted,
+          foregroundColor: colors.textStrong,
+          side: BorderSide(color: colors.borderSoft),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          ),
+        ),
+        icon: isLoading
+            ? SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.primary,
+                ),
+              )
+            : Icon(icon, size: 16, color: colors.textMuted),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.notoSansThai(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: colors.textStrong,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStickyBottomBar(AppThemeColors colors, bool isThai) {
+    final anyBusy = _isGenerating || _isCopyingImage || _isSavingImage;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(top: BorderSide(color: colors.borderSoft)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: _handleCopyText,
-              style: OutlinedButton.styleFrom(
-                backgroundColor: colors.surfaceMuted,
-                foregroundColor: colors.textStrong,
-                side: BorderSide(color: colors.borderSoft),
-                padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                ),
+          Row(
+            children: [
+              _buildSecondaryActionButton(
+                colors: colors,
+                icon: Icons.copy_rounded,
+                label: isThai ? 'คัดลอกข้อความ' : 'Copy Text',
+                onPressed: _handleCopyText,
               ),
-              icon: Icon(
-                Icons.copy_rounded,
-                size: 16,
-                color: colors.textMuted,
+              const SizedBox(width: 8),
+              _buildSecondaryActionButton(
+                colors: colors,
+                icon: Icons.image_outlined,
+                label: isThai ? 'คัดลอกรูป' : 'Copy Image',
+                isLoading: _isCopyingImage,
+                onPressed: anyBusy ? null : _handleCopyImage,
               ),
-              label: Text(
-                isThai ? 'คัดลอกข้อความ' : 'Copy Text',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: colors.textStrong,
-                ),
-              ),
-            ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ElevatedButton.icon(
-              key: _shareButtonKey,
-              onPressed: _isGenerating ? null : _handleShareImage,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0E5A4A),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildSecondaryActionButton(
+                colors: colors,
+                icon: Icons.download_rounded,
+                label: isThai ? 'บันทึกภาพ' : 'Save Image',
+                isLoading: _isSavingImage,
+                onPressed: anyBusy ? null : _handleSaveImage,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  key: _shareButtonKey,
+                  onPressed: anyBusy ? null : _handleShareImage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0E5A4A),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                  ),
+                  icon: _isGenerating
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.share_outlined, size: 16),
+                  label: Text(
+                    _isGenerating
+                        ? (isThai ? 'กำลังสร้างภาพ...' : 'Sharing...')
+                        : (isThai ? 'แชร์' : 'Share'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
-              icon: _isGenerating
-                  ? const SizedBox(
-                      width: 15,
-                      height: 15,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.share_outlined, size: 16),
-              label: Text(
-                _isGenerating
-                    ? (isThai ? 'กำลังสร้างภาพ...' : 'Sharing...')
-                    : (isThai ? 'แชร์' : 'Share'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+            ],
           ),
         ],
       ),

@@ -7,6 +7,7 @@
 // 3. 3 Interactive Stat/Control Pills (Mastered / 114, In Progress / 114, Input Mode -> Settings)
 // 4. Embedded 114-Surah Mastery List with Filter Chips & Search
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -66,7 +67,7 @@ class HifzLandingScreen extends StatefulWidget {
 }
 
 class _HifzLandingScreenState extends State<HifzLandingScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   int _masteredCount = 0;
   int _inProgressCount = 0;
   bool _hasActiveSession = false;
@@ -79,20 +80,42 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _loadStats(syncCloud: true);
+    try {
+      _authSubscription =
+          Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        if (!mounted) return;
+        if (data.event == AuthChangeEvent.signedIn ||
+            data.event == AuthChangeEvent.tokenRefreshed ||
+            data.event == AuthChangeEvent.signedOut) {
+          _loadStats(syncCloud: true);
+        }
+      });
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _loadStats(syncCloud: true);
+    }
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _animController.dispose();
     super.dispose();
   }
@@ -192,7 +215,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       ),
     );
     if (mounted) {
-      _loadStats();
+      _loadStats(syncCloud: true);
     }
   }
 
@@ -217,7 +240,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       ),
     );
     if (mounted) {
-      _loadStats();
+      _loadStats(syncCloud: true);
     }
   }
 
@@ -271,7 +294,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       ),
     );
     if (mounted) {
-      _loadStats();
+      _loadStats(syncCloud: true);
     }
   }
 

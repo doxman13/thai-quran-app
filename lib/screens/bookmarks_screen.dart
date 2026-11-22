@@ -1393,7 +1393,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                         return;
                       }
 
-                      if (isPublic && !note.isPublic) {
+                      final textChanged = newText != note.noteText.trim();
+                      if (isPublic && (!note.isPublic || textChanged)) {
                         final confirm = await showDialog<bool>(
                           context: ctx,
                           builder: (confirmCtx) => AlertDialog(

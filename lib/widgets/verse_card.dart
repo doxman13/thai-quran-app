@@ -19,6 +19,7 @@ import '../providers/local_reading_provider.dart';
 import '../providers/thai_text_protection_provider.dart';
 import '../providers/mushaf_audio_provider.dart';
 import '../shared/shared.dart';
+import '../theme/app_theme.dart';
 import '../utils/html_parser.dart';
 import 'tadabbur_panel.dart';
 import 'verse_share_sheet.dart';
@@ -39,6 +40,7 @@ class VerseCardController extends ChangeNotifier {
   VoidCallback? showWordByWord;
   VoidCallback? toggleBookmark;
   VoidCallback? toggleFavorite;
+  VoidCallback? openTadabbur;
 
   bool isAudioPlaying = false;
   bool isAudioLoading = false;
@@ -316,6 +318,7 @@ class _VerseCardState extends State<VerseCard> {
           if (mounted) _updateControllerState();
         });
       };
+      widget.controller!.openTadabbur = _openTadabburModal;
 
       _updateControllerState();
     }
@@ -395,15 +398,20 @@ class _VerseCardState extends State<VerseCard> {
     if (!supabaseProv.isLoggedIn) {
       AuthRequiredDialog.show(
         context,
-        featureName: 'บันทึกอายะฮ์ที่ชอบ (Favorite Verse)',
-        reason: 'การบันทึกอายะฮ์ที่ชอบและข้อคิดจำเป็นต้องเข้าสู่ระบบ เพื่อซิงค์ข้อมูลกับบัญชีของคุณ',
+        featureName: 'บันทึกอายะฮฺที่ชอบ (Favorite Verse)',
+        reason: 'การบันทึกอายะฮฺที่ชอบและข้อคิดจำเป็นต้องเข้าสู่ระบบ เพื่อซิงค์ข้อมูลกับบัญชีของคุณ',
       );
       return;
     }
 
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    final colors = settings.getAppColors();
+    final isThai = settings.languageCode == 'th';
     final messenger = ScaffoldMessenger.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasNoteText = noteObj?.noteText.trim().isNotEmpty ?? false;
+    final hasNoteText =
+        noteObj != null &&
+        noteObj.noteText.trim().isNotEmpty &&
+        noteObj.noteText != '__favorited__';
 
     if (noteObj == null) {
       await notesProv.saveNote(
@@ -412,96 +420,178 @@ class _VerseCardState extends State<VerseCard> {
         noteText: '',
       );
       if (!mounted) return;
-
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-            backgroundColor: isDark
-                ? const Color(0xFF1E293B)
-                : const Color(0xFF0F172A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: isDark
-                    ? const Color(0xFF334155)
-                    : const Color(0xFF1E293B),
-                width: 1,
-              ),
-            ),
-            content: Text(
-              'Verse saved as favorite',
-              style: GoogleFonts.notoSansThai(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            action: SnackBarAction(
-              label: 'Add note',
-              textColor: const Color(0xFFFBBF24),
-              onPressed: _openTadabburModal,
-            ),
-          ),
-        );
-      return;
+      _updateControllerState();
     }
 
-    if (!hasNoteText) {
-      await notesProv.deleteNote(widget.verse.surahId, widget.verse.id);
-      if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(context.tr('removed_from_favorites'))));
-      return;
-    }
-
-    final remove = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
+      barrierDismissible: true,
       builder: (ctx) {
-        final settings = Provider.of<SettingsProvider>(ctx, listen: false);
-        final colors = settings.getAppColors();
-        return AlertDialog(
-          title: Text(
-            ctx.tr('remove_favorite_title'),
-            style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w900),
+        return Dialog(
+          backgroundColor: colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radius),
+            side: BorderSide(color: colors.borderSoft),
           ),
-          content: Text(
-            ctx.tr('remove_favorite_with_note'),
-            style: GoogleFonts.notoSansThai(color: colors.foreground),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(
-                ctx.tr('cancel'),
-                style: GoogleFonts.notoSansThai(fontWeight: FontWeight.w800),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.favorite_rounded,
+                        color: colors.danger,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isThai
+                              ? 'รายการโปรด: อายะฮฺ ${widget.verse.surahId}:${widget.verse.id}'
+                              : 'Favorite: Ayah ${widget.verse.surahId}:${widget.verse.id}',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: colors.textStrong,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    hasNoteText
+                        ? (isThai
+                            ? 'อายะฮฺนี้มีบันทึกตะดับบุรของคุณอยู่แล้ว'
+                            : 'You have a saved Tadabbur note for this ayah.')
+                        : (isThai
+                            ? 'บันทึกอายะฮฺนี้ในรายการโปรดแล้ว คุณสามารถเขียนข้อคิดตะดับบุรเพิ่มเติมได้'
+                            : 'Saved to favorites. You can write a Tadabbur note for this ayah.'),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 13.5,
+                      height: 1.5,
+                      color: colors.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _openTadabburModal();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0E5A4A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_note_rounded, size: 18),
+                    label: Text(
+                      hasNoteText
+                          ? (isThai
+                              ? 'ดู / แก้ไขโน้ตของฉัน'
+                              : 'View / Edit Note')
+                          : (isThai
+                              ? 'เขียนโน้ต / ตะดับบุร'
+                              : 'Write Note / Tadabbur'),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await notesProv.deleteNote(
+                              widget.verse.surahId,
+                              widget.verse.id,
+                            );
+                            if (!mounted) return;
+                            _updateControllerState();
+                            messenger
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    context.tr('removed_from_favorites'),
+                                  ),
+                                ),
+                              );
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.danger,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSm,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'ลบรายการโปรด' : 'Remove Favorite',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.danger,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: colors.surfaceMuted,
+                            foregroundColor: colors.textStrong,
+                            side: BorderSide(color: colors.borderSoft),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSm,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            isThai ? 'เรียบร้อย' : 'Done',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colors.textStrong,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                ctx.tr('remove'),
-                style: GoogleFonts.notoSansThai(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.red.shade500,
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
-
-    if (remove == true) {
-      await notesProv.deleteNote(widget.verse.surahId, widget.verse.id);
-      if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Removed from favorites')));
-    }
   }
 
   Future<void> _loadArabic() async {
@@ -842,13 +932,20 @@ class _VerseCardState extends State<VerseCard> {
       });
     }
 
-    // Select only this specific verse's favorite note status
-    final isFavorited = context.select<NotesProvider, bool>(
-      (notes) =>
-          notes.getNoteObjectForVerse(widget.verse.surahId, widget.verse.id) !=
-          null,
+    // Select only this specific verse's favorite / note status
+    final noteObj = context.select<NotesProvider, TadabburNote?>(
+      (notes) => notes.getNoteObjectForVerse(
+        widget.verse.surahId,
+        widget.verse.id,
+      ),
     );
-    final shareTooltip = settings.languageCode == 'th' ? 'แชร์' : 'Share';
+    final isFavorited = noteObj != null;
+    final hasTadabburNote =
+        noteObj != null &&
+        noteObj.noteText.trim().isNotEmpty &&
+        noteObj.noteText != '__favorited__';
+    final isThai = settings.languageCode == 'th';
+    final shareTooltip = isThai ? 'แชร์' : 'Share';
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -861,35 +958,12 @@ class _VerseCardState extends State<VerseCard> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Color.alphaBlend(
-                            colors.primary.withValues(
-                              alpha: isDark ? 0.12 : 0.06,
-                            ),
-                            colors.background,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: colors.borderSoft,
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          context.tr(
-                            'ayah_number',
-                            args: {'number': widget.verse.id},
-                          ),
-                          style: GoogleFonts.notoSansThai(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
+                      _buildAyahAndNoteBadges(
+                        colors: colors,
+                        colorScheme: colorScheme,
+                        isDark: isDark,
+                        hasTadabburNote: hasTadabburNote,
+                        isThai: isThai,
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -918,30 +992,12 @@ class _VerseCardState extends State<VerseCard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Color.alphaBlend(
-                        colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
-                        colors.background,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: colors.borderSoft, width: 1),
-                    ),
-                    child: Text(
-                      context.tr(
-                        'ayah_number',
-                        args: {'number': widget.verse.id},
-                      ),
-                      style: GoogleFonts.notoSansThai(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
+                  _buildAyahAndNoteBadges(
+                    colors: colors,
+                    colorScheme: colorScheme,
+                    isDark: isDark,
+                    hasTadabburNote: hasTadabburNote,
+                    isThai: isThai,
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1455,6 +1511,76 @@ class _VerseCardState extends State<VerseCard> {
           translationId: translationId,
         ),
       ),
+    );
+  }
+
+  Widget _buildAyahAndNoteBadges({
+    required AppThemeColors colors,
+    required ColorScheme colorScheme,
+    required bool isDark,
+    required bool hasTadabburNote,
+    required bool isThai,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Color.alphaBlend(
+              colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+              colors.background,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            border: Border.all(color: colors.borderSoft, width: 1),
+          ),
+          child: Text(
+            context.tr(
+              'ayah_number',
+              args: {'number': widget.verse.id},
+            ),
+            style: GoogleFonts.notoSansThai(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        if (hasTadabburNote) ...[
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _openTadabburModal,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: colors.mushafGoldSoft,
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                border: Border.all(color: colors.mushafGoldBorder, width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 14,
+                    color: colors.mushafGold,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isThai ? 'โน้ต' : 'Note',
+                    style: GoogleFonts.notoSansThai(
+                      color: colors.mushafGold,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 

@@ -200,6 +200,14 @@ class HifzRepository {
     try {
       final db = await database;
       await db.delete('hifz_history', where: 'id = ?', whereArgs: [id]);
+      final userId = _currentSupabaseUserId();
+      if (userId != null) {
+        await Supabase.instance.client
+            .from('hifz_history')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', userId);
+      }
     } catch (e) {
       debugLog('HifzRepository.deleteHistory error: $e');
     }
@@ -551,7 +559,9 @@ class HifzRepository {
 
       // 3. Merge: Take the max of review_count, and boolean OR for new_verses_completed.
       final Set<int> allSurahs = {...localMap.keys, ...cloudMap.keys};
-      
+      final List<Map<String, dynamic>> cloudUpserts = [];
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+
       for (final surah in allSurahs) {
         final local = localMap[surah];
         final cloud = cloudMap[surah];
@@ -579,7 +589,7 @@ class HifzRepository {
               'surah_number': surah,
               'new_verses_completed': mergedNewVerses ? 1 : 0,
               'review_count': mergedReviewCount,
-              'last_completed_at': DateTime.now().toUtc().toIso8601String(),
+              'last_completed_at': nowIso,
             });
           } else {
             await db.update(
@@ -587,7 +597,7 @@ class HifzRepository {
               {
                 'new_verses_completed': mergedNewVerses ? 1 : 0,
                 'review_count': mergedReviewCount,
-                'last_completed_at': DateTime.now().toUtc().toIso8601String(),
+                'last_completed_at': nowIso,
               },
               where: 'surah_number = ?',
               whereArgs: [surah],
@@ -595,17 +605,23 @@ class HifzRepository {
           }
         }
 
-        // Update cloud
+        // Collect cloud updates for single batch upsert
         if (needsCloudUpdate) {
-          await supabase.from('hifz_progress').upsert({
+          cloudUpserts.add({
             'user_id': userId,
             'surah_number': surah,
             'new_verses_completed': mergedNewVerses,
             'review_count': mergedReviewCount,
-            'last_completed_at': DateTime.now().toUtc().toIso8601String(),
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          }, onConflict: 'user_id,surah_number');
+            'last_completed_at': nowIso,
+            'updated_at': nowIso,
+          });
         }
+      }
+
+      if (cloudUpserts.isNotEmpty) {
+        await supabase
+            .from('hifz_progress')
+            .upsert(cloudUpserts, onConflict: 'user_id,surah_number');
       }
 
       // Sync active midway session (cross-device resume)
@@ -774,25 +790,28 @@ class HifzRepository {
       if (parsed.isNotEmpty) verseTallyMap = parsed;
     }
 
+    int? parseInt(Object? v) =>
+        v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
+
     return ActiveSessionSnapshot(
       sessionId: (row['session_id'] as String?) ?? const Uuid().v4(),
       sessionType: sessionType,
-      nvSurahNumber: (row['nv_surah_number'] as num?)?.toInt(),
-      nvRepeatStart: (row['nv_repeat_start'] as num?)?.toInt(),
-      nvStartVerse: (row['nv_start_verse'] as num?)?.toInt(),
-      nvEndVerse: (row['nv_end_verse'] as num?)?.toInt(),
+      nvSurahNumber: parseInt(row['nv_surah_number']),
+      nvRepeatStart: parseInt(row['nv_repeat_start']),
+      nvStartVerse: parseInt(row['nv_start_verse']),
+      nvEndVerse: parseInt(row['nv_end_verse']),
       nvChunkLongVerses: (row['nv_chunk_long_verses'] as bool?) ?? true,
       currentTaskId: row['current_task_id'] as String?,
-      currentVerse: (row['current_verse'] as num?)?.toInt(),
-      totalSteps: (row['total_steps'] as num?)?.toInt(),
+      currentVerse: parseInt(row['current_verse']),
+      totalSteps: parseInt(row['total_steps']),
       verseTallyMap: verseTallyMap,
       reviewGranularity: granularity,
       reviewTargetParams: targetParams,
-      currentStepIndex: (row['current_step_index'] as num?)?.toInt() ?? 0,
+      currentStepIndex: parseInt(row['current_step_index']) ?? 0,
       currentMode: (row['current_mode'] as String?) ?? 'visible',
-      currentTally: (row['current_tally'] as num?)?.toInt() ?? 0,
-      targetTally: (row['target_tally'] as num?)?.toInt() ?? 10,
-      lastUpdatedTimestamp: (row['last_updated_ms'] as num?)?.toInt() ??
+      currentTally: parseInt(row['current_tally']) ?? 0,
+      targetTally: parseInt(row['target_tally']) ?? 10,
+      lastUpdatedTimestamp: parseInt(row['last_updated_ms']) ??
           DateTime.now().millisecondsSinceEpoch,
     );
   }
@@ -833,8 +852,10 @@ class HifzRepository {
       final localTs = localActive?.lastUpdatedTimestamp ?? 0;
       final clearedTs = clearedMeta?.clearedAtMs ?? 0;
       final effectiveLocalTs = math.max(localTs, clearedTs);
+      int? parseInt(Object? v) =>
+          v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
       final cloudTs = cloudActive != null
-          ? ((cloudActive['last_updated_ms'] as num?)?.toInt() ?? 0)
+          ? (parseInt(cloudActive['last_updated_ms']) ?? 0)
           : 0;
 
       if (cloudActive != null && cloudTs > effectiveLocalTs) {
@@ -1017,10 +1038,17 @@ class HifzRepository {
       final cloudData = await supabase
           .from('hifz_history')
           .select('id, session_type, surah_number, title, completed_at')
-          .eq('user_id', userId);
+          .eq('user_id', userId)
+          .order('completed_at', ascending: false)
+          .limit(200);
 
+      final cloudIds = <String>{};
       // Insert or replace local rows to match cloud exactly (to sync across devices)
       for (final row in cloudData) {
+        final idStr = row['id']?.toString();
+        if (idStr != null && idStr.isNotEmpty) {
+          cloudIds.add(idStr);
+        }
         await db.insert('hifz_history', {
           'id': row['id'],
           'session_type': row['session_type'],
@@ -1029,6 +1057,30 @@ class HifzRepository {
           'completed_at': row['completed_at'],
           'synced_to_cloud': 1,
         }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+
+      // Remove synced local rows that were deleted on another device
+      final localSyncedRows = await db.query(
+        'hifz_history',
+        columns: ['id'],
+        where: 'synced_to_cloud = 1',
+      );
+      final idsToDelete = localSyncedRows
+          .map((r) => r['id']?.toString())
+          .whereType<String>()
+          .where((id) => !cloudIds.contains(id))
+          .toList();
+      for (var i = 0; i < idsToDelete.length; i += 500) {
+        final batch = idsToDelete.sublist(
+          i,
+          math.min(i + 500, idsToDelete.length),
+        );
+        final placeholders = List.filled(batch.length, '?').join(',');
+        await db.delete(
+          'hifz_history',
+          where: 'synced_to_cloud = 1 AND id IN ($placeholders)',
+          whereArgs: batch,
+        );
       }
     } catch (e) {
       debugLog('HifzRepository.syncHistoryWithSupabase error: $e');

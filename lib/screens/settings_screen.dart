@@ -65,11 +65,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadAppVersion();
-    if (widget.initialCategory != SettingsCategoryTab.profile) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Provider.of<SupabaseProvider>(context, listen: false).refreshCurrentUser();
+      if (widget.initialCategory != SettingsCategoryTab.profile) {
         _handleInitialCategoryNavigation();
-      });
-    }
+      }
+    });
   }
 
   Future<void> _loadAppVersion() async {
@@ -174,6 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isSyncing = true);
 
     try {
+      await supabaseProv.refreshCurrentUser();
       await readingProv.flushPendingProfileSyncs();
       await readingProv.flushPendingRecentReadingSync();
       await readingProv.flushPendingReadingStateSync();
