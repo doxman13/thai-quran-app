@@ -163,7 +163,7 @@ class _WordByWordViewState extends State<WordByWordView> {
   }
 
   static String _cleanWordArabicText(String text) {
-    return sanitizeUthmanicText(text).trim();
+    return sanitizeWbwUthmanicText(text).trim();
   }
 
   void _showWordDetailSheet(BuildContext context, Map<String, dynamic> word, int wordIndexOneBased) {
@@ -248,6 +248,7 @@ class _WordByWordViewState extends State<WordByWordView> {
                             fontFamily: 'UthmanicHafs',
                             fontSize: 36,
                             fontWeight: FontWeight.w400,
+                            letterSpacing: 0,
                             color: modalColors.textStrong,
                           ),
                         ),
@@ -465,10 +466,13 @@ class _WordByWordViewState extends State<WordByWordView> {
                                   ),
                                   child: Text(
                                     rootArabic,
+                                    textDirection: TextDirection.rtl,
+                                    locale: const Locale('ar'),
                                     style: TextStyle(
                                       fontFamily: 'UthmanicHafs',
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
+                                      letterSpacing: 0,
                                       color: modalColors.mushafGold,
                                     ),
                                   ),
@@ -659,6 +663,7 @@ class _WordByWordViewState extends State<WordByWordView> {
                   fontSize: 22,
                   fontWeight: FontWeight.w400,
                   height: 1.35,
+                  letterSpacing: 0,
                   color: isHidden
                       ? Colors.transparent
                       : (isPlaying ? colors.primary : colors.textStrong),

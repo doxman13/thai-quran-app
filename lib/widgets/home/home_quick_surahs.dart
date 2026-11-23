@@ -170,12 +170,15 @@ class HomeQuickSurahs extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       arName,
+                                      textDirection: TextDirection.rtl,
+                                      locale: const Locale('ar'),
                                       textAlign: TextAlign.end,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontFamily: 'UthmanicHafs',
                                         fontSize: 14.5,
+                                        letterSpacing: 0,
                                         color: appColors.mushafGold,
                                         height: 1.1,
                                       ),

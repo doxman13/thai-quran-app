@@ -37,6 +37,7 @@ String toArabicDigits(dynamic input) {
 /// - `U+06DF` (Small High Rounded Zero) -> `U+0652` (hollow sukun)
 /// - `U+06E3` (Small Low Seen) -> `U+06DC` (small high seen)
 /// - `U+06EB` (Empty Centre High Stop) & `U+25CC` (Dotted Circle) -> removed
+/// - `U+0654\u0652` (Hamza above + standard sukun) -> `U+0654\u06E1` (mkmk-supported Quranic sukun)
 /// - Sequential tanween pseudo-marks -> canonical tanween or Iqlab meem pairs
 String sanitizeUthmanicText(String text) {
   if (text.isEmpty) return '';
@@ -44,12 +45,28 @@ String sanitizeUthmanicText(String text) {
       .replaceAll('\u06DF', '\u0652')
       .replaceAll('\u06E3', '\u06DC')
       .replaceAll(RegExp(r'[\u06EB\u25CC]'), '')
+      .replaceAll('\u0654\u0652', '\u0654\u06E1')
       .replaceAll('\u064B\u06ED', '\u064B')
       .replaceAll('\u064C\u06ED', '\u064C')
       .replaceAll('\u064D\u06E2', '\u064D')
       .replaceAll('\u064C\u06E2', '\u064F\u06E2')
       .replaceAll('\u064B\u06E2', '\u064E\u06E2')
       .replaceAll('\u064D\u06ED', '\u0650\u06ED');
+}
+
+/// Normalizes Quran.com WBW Arabic text (`words.text_uthmani`) for `UthmanicHafs.ttf`.
+///
+/// Raw WBW tokens encode consonantal sukun as `U+0652` and silent rounded zero
+/// as `U+06DF`. Converting consonantal `U+0652` (excluding `U+0627\u0652`) to
+/// Quranic sukun `U+06E1` before `U+06DF -> U+0652` prevents hamza + sukun
+/// overlap (`ـْٔ` -> `ـٔۡ`) via `mkmk` positioning and matches verse text.
+String sanitizeWbwUthmanicText(String text) {
+  if (text.isEmpty) return '';
+  final withHafsSukun = text.replaceAllMapped(
+    RegExp(r'(?<!\u0627)\u0652'),
+    (_) => '\u06E1',
+  );
+  return sanitizeUthmanicText(withHafsSukun);
 }
 
 /// Normalizes and formats Arabic Quran verse text so that the end of the ayat

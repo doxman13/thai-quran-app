@@ -182,24 +182,24 @@ class AppTheme {
   }
 
   static TextTheme applyTextLocale(TextTheme theme, Locale? locale) {
-    if (locale == null) return theme;
-    TextStyle? withLocale(TextStyle? style) => style?.copyWith(locale: locale);
+    TextStyle? normalizeStyle(TextStyle? style) =>
+        style?.copyWith(locale: locale, letterSpacing: 0);
     return theme.copyWith(
-      displayLarge: withLocale(theme.displayLarge),
-      displayMedium: withLocale(theme.displayMedium),
-      displaySmall: withLocale(theme.displaySmall),
-      headlineLarge: withLocale(theme.headlineLarge),
-      headlineMedium: withLocale(theme.headlineMedium),
-      headlineSmall: withLocale(theme.headlineSmall),
-      titleLarge: withLocale(theme.titleLarge),
-      titleMedium: withLocale(theme.titleMedium),
-      titleSmall: withLocale(theme.titleSmall),
-      bodyLarge: withLocale(theme.bodyLarge),
-      bodyMedium: withLocale(theme.bodyMedium),
-      bodySmall: withLocale(theme.bodySmall),
-      labelLarge: withLocale(theme.labelLarge),
-      labelMedium: withLocale(theme.labelMedium),
-      labelSmall: withLocale(theme.labelSmall),
+      displayLarge: normalizeStyle(theme.displayLarge),
+      displayMedium: normalizeStyle(theme.displayMedium),
+      displaySmall: normalizeStyle(theme.displaySmall),
+      headlineLarge: normalizeStyle(theme.headlineLarge),
+      headlineMedium: normalizeStyle(theme.headlineMedium),
+      headlineSmall: normalizeStyle(theme.headlineSmall),
+      titleLarge: normalizeStyle(theme.titleLarge),
+      titleMedium: normalizeStyle(theme.titleMedium),
+      titleSmall: normalizeStyle(theme.titleSmall),
+      bodyLarge: normalizeStyle(theme.bodyLarge),
+      bodyMedium: normalizeStyle(theme.bodyMedium),
+      bodySmall: normalizeStyle(theme.bodySmall),
+      labelLarge: normalizeStyle(theme.labelLarge),
+      labelMedium: normalizeStyle(theme.labelMedium),
+      labelSmall: normalizeStyle(theme.labelSmall),
     );
   }
 

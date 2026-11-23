@@ -84,7 +84,7 @@ const List<_DailyQuranQuote> _dailyQuranQuotes = [
   _DailyQuranQuote(
     surahId: '93',
     verseId: '5',
-    arabicUthmanic: 'وَلَسَوۡفَ يُعۡطِيكَ رَبُّكَ فَتَرۡضَىٰٓ | ٥',
+    arabicUthmanic: 'وَلَسَوۡفَ يُعۡطِيكَ رَبُّكَ فَتَرۡضَىٰ | ٥',
     meaningTh: 'และแน่นอน พระผู้อภิบาลของเจ้าจะให้แก่เจ้าจนกว่าจะพอใจ',
     meaningEn: 'And your Lord is going to give you, and you will be satisfied.',
   ),
@@ -1777,12 +1777,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Text(
                                         quoteArabic,
                                         textDirection: TextDirection.rtl,
+                                        locale: const Locale('ar'),
                                         maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontFamily: 'UthmanicHafs',
                                           fontSize: 26,
                                           height: 1.55,
+                                          letterSpacing: 0,
                                           color: appColors.textStrong,
                                         ),
                                       ),
@@ -2826,9 +2828,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(
                                       arName,
                                       textDirection: TextDirection.rtl,
+                                      locale: const Locale('ar'),
                                       style: TextStyle(
                                         fontFamily: 'UthmanicHafs',
                                         fontSize: 16,
+                                        letterSpacing: 0,
                                         color: appColors.mushafGold,
                                       ),
                                     ),
@@ -3074,12 +3078,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             border: Border.all(color: const Color(0xFFE8DFC8)),
                           ),
                           child: Text(
-                            arabicText,
+                            formatArabicAyahText(
+                              arabicText,
+                              verseNumber: note.verseId,
+                            ),
                             textAlign: TextAlign.right,
                             textDirection: TextDirection.rtl,
+                            locale: const Locale('ar'),
                             style: const TextStyle(
                               fontFamily: 'UthmanicHafs',
                               fontSize: 22,
+                              letterSpacing: 0,
                               color: Color(0xFF0E5A4A),
                               height: 1.8,
                             ),

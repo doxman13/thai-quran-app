@@ -918,6 +918,7 @@ class _VerseCardState extends State<VerseCard> {
       fontWeight: FontWeight.w400,
       fontSize: settings.arabicFontSize,
       height: 2.0,
+      letterSpacing: 0,
       color: arabicTextColor,
     );
 

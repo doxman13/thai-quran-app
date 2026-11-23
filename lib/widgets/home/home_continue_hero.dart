@@ -165,12 +165,14 @@ class HomeContinueHero extends StatelessWidget {
                 child: Text(
                   arabicSurahName,
                   textDirection: TextDirection.rtl,
+                  locale: const Locale('ar'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'UthmanicHafs',
                     fontSize: 15,
                     height: 1.1,
+                    letterSpacing: 0,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
                 ),
@@ -364,9 +366,11 @@ class HomeContinueHero extends StatelessWidget {
                 child: Text(
                   arabicSurahName,
                   textDirection: TextDirection.rtl,
+                  locale: const Locale('ar'),
                   style: TextStyle(
                     fontFamily: 'UthmanicHafs',
                     fontSize: 19,
+                    letterSpacing: 0,
                     color: Colors.white.withValues(alpha: 0.90),
                   ),
                 ),

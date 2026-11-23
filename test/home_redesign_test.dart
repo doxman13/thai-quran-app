@@ -635,6 +635,14 @@ void main() {
       expect(quoteTexts, isNotEmpty);
       expect(quoteTexts.first.locale, const Locale('th', 'TH'));
 
+      final arabicQuoteTexts = tester
+          .widgetList<Text>(find.byType(Text))
+          .where((t) => t.style?.fontFamily == 'UthmanicHafs' && t.maxLines == 3)
+          .toList();
+      expect(arabicQuoteTexts, isNotEmpty);
+      expect(arabicQuoteTexts.first.locale, const Locale('ar'));
+      expect(arabicQuoteTexts.first.style?.letterSpacing, 0);
+
       final ctx = tester.element(find.byType(HomeScreen));
       final protectedFallback = ThaiTextProtectionProvider.protectSafe(
         ctx,

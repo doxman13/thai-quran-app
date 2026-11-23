@@ -151,6 +151,14 @@ void main() {
         expect(formatted.contains('\u06DD'), isFalse);
         expect(formatted.contains('۝'), isFalse);
         expect(formatted.endsWith(' ١١'), isTrue);
+
+        // Hamza above + standard sukun (e.g. 23:43 يَسْتَـْٔخِرُونَ) normalizes to Quranic sukun (U+06E1)
+        const wbwHamzaSukun = 'يَسْتَـْٔخِرُونَ تُـْٔوِيهِ فَٱرْجِعُوا۟';
+        final sanitizedWbw = sanitizeWbwUthmanicText(wbwHamzaSukun);
+        expect(sanitizedWbw, 'يَسۡتَـٔۡخِرُونَ تُـٔۡوِيهِ فَٱرۡجِعُواْ');
+        expect(sanitizedWbw.contains('\u0654\u0652'), isFalse);
+        expect(sanitizedWbw.contains('\u0654\u06E1'), isTrue);
+        expect(sanitizeUthmanicText('يَسۡتَـْٔخِرُونَ'), 'يَسۡتَـٔۡخِرُونَ');
       },
     );
 

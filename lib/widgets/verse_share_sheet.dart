@@ -555,7 +555,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   String _wbwWordArabic(Map<String, dynamic> w) {
     final raw = (w['text_uthmani'] ?? w['text'] ?? w['arabic'] ?? '')
         .toString();
-    return sanitizeUthmanicText(raw).trim();
+    return sanitizeWbwUthmanicText(raw).trim();
   }
 
   String _wbwWordMeaning(Map<String, dynamic> w) {
@@ -1384,6 +1384,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                       fontWeight: FontWeight.w400,
                       fontSize: compact ? 20 : 24,
                       height: compact ? 2.0 : 2.15,
+                      letterSpacing: 0,
                       color: palette.arabicText,
                     ),
                   ),
@@ -1424,6 +1425,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                                     fontWeight: FontWeight.w400,
                                     fontSize: 16,
                                     height: 1.4,
+                                    letterSpacing: 0,
                                     color: palette.arabicText,
                                   ),
                                 ),
