@@ -513,6 +513,12 @@ void main() {
           );
 
           await tapChip(find.text('ตัฟซีรสั้น'));
+          final tafsirCardFinder = find.byKey(const ValueKey('share_card_tafsir'));
+          expect(tafsirCardFinder, findsOneWidget);
+          final tafsirDecoration =
+              tester.widget<Container>(tafsirCardFinder).decoration as BoxDecoration?;
+          expect(tafsirDecoration?.border, isNull);
+          expect(tafsirDecoration?.borderRadius, BorderRadius.circular(14));
           expect(
             find.descendant(
               of: cardFinder,
@@ -533,7 +539,7 @@ void main() {
             greaterThan(tester.getTopLeft(cardTranslationFinder).dy),
           );
 
-          // Switch across all 7 solid + scenic themes and verify exact background colors
+          // Switch across all 8 solid + scenic themes and verify exact background colors
           Color? cardColor() {
             final container = tester.widget<Container>(cardFinder);
             return (container.decoration as BoxDecoration?)?.color;
@@ -558,6 +564,9 @@ void main() {
 
           await tapChip(find.text('ฟ้าราตรี'));
           expect(cardColor(), const Color(0xFF0D1321));
+
+          await tapChip(find.text('ทะเลฟ้าคราม'));
+          expect(cardColor(), const Color(0xFF1B5E86));
 
           await tapChip(find.text('มรกต'));
           expect(cardColor(), const Color(0xFFFDFBF7));

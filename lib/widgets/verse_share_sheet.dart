@@ -30,6 +30,7 @@ enum ShareCardTheme {
   mist,
   dusk,
   night,
+  ocean,
 }
 
 enum ShareCardAspectRatio {
@@ -99,10 +100,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFF0E5A4A).withValues(alpha: 0.70),
           arabicText: const Color(0xFF1C1917),
           meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFFFAFAF9),
-          innerCardBorder: const Color(0xFFE7E5E4),
-          reflectionBg: const Color(0xFFF2F7F5),
-          reflectionBorder: const Color(0xFFB7D4C7),
+          innerCardBg: const Color(0xFF0E5A4A).withValues(alpha: 0.05),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF0E5A4A).withValues(alpha: 0.06),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFF0E5A4A),
           divider: const Color(0xFF0E5A4A).withValues(alpha: 0.12),
           footerText: const Color(0xFF78716C),
@@ -117,10 +118,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFF8A6530).withValues(alpha: 0.76),
           arabicText: const Color(0xFF1C1917),
           meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFFF5EFE1),
-          innerCardBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.35),
-          reflectionBg: const Color(0xFFF5EFE1),
-          reflectionBorder: const Color(0xFFD7C299),
+          innerCardBg: const Color(0xFF8A6530).withValues(alpha: 0.06),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF8A6530).withValues(alpha: 0.07),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFF8A6530),
           divider: const Color(0xFF8A6530).withValues(alpha: 0.14),
           footerText: const Color(0xFF57534E),
@@ -135,10 +136,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFF94A3B8),
           arabicText: const Color(0xFFFFFFFF),
           meaningText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
-          innerCardBg: const Color(0xFF1C1B18),
-          innerCardBorder: const Color(0xFF2E2C27),
-          reflectionBg: const Color(0xFF162420),
-          reflectionBorder: const Color(0xFF233A33),
+          innerCardBg: Colors.white.withValues(alpha: 0.055),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF4A9E89).withValues(alpha: 0.12),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFF4A9E89),
           divider: const Color(0xFFFFFFFF).withValues(alpha: 0.10),
           footerText: const Color(0xFF94A3B8),
@@ -153,10 +154,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFF78716C),
           arabicText: const Color(0xFF1C1917),
           meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFFFAFAF9),
-          innerCardBorder: const Color(0xFFE7E5E4),
-          reflectionBg: const Color(0xFFFAFAF9),
-          reflectionBorder: const Color(0xFFE7E5E4),
+          innerCardBg: const Color(0xFF1C1917).withValues(alpha: 0.04),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF1C1917).withValues(alpha: 0.04),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFF78716C),
           divider: const Color(0xFFE7E5E4),
           footerText: const Color(0xFF78716C),
@@ -171,10 +172,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFFFFFFFF).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
           meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.35),
-          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
-          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
-          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.25),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.25),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFFA7F3D0),
           divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
           footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
@@ -190,10 +191,10 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFFFEF3C7).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
           meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.35),
-          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
-          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
-          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.25),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.25),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFFFDE68A),
           divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
           footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
@@ -209,16 +210,35 @@ class _ShareCardPalette {
           headerSubText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
           meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.40),
-          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
-          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.35),
-          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.30),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
+          reflectionBorder: Colors.transparent,
           reflectionAccent: const Color(0xFFA7F3D0),
           divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
           footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
           watermark: const Color(0xFFA7F3D0),
           accentLine: const Color(0xFFA7F3D0),
           backgroundAsset: 'assets/images/share/scenic-night.jpg',
+        );
+      case ShareCardTheme.ocean:
+        return _ShareCardPalette(
+          containerBg: const Color(0xFF1B5E86),
+          containerBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          headerText: const Color(0xFFFFFFFF),
+          headerSubText: const Color(0xFFFFFFFF).withValues(alpha: 0.85),
+          arabicText: const Color(0xFFFFFFFF),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.85),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.20),
+          innerCardBorder: Colors.transparent,
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.20),
+          reflectionBorder: Colors.transparent,
+          reflectionAccent: const Color(0xFFFFFFFF),
+          divider: const Color(0xFFFFFFFF).withValues(alpha: 0.25),
+          footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.80),
+          watermark: const Color(0xFFFFFFFF),
+          accentLine: const Color(0xFFFFFFFF),
+          backgroundAsset: 'assets/images/share/scenic-ocean.jpg',
         );
     }
   }
@@ -390,6 +410,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         'assets/images/share/scenic-mist.jpg',
         'assets/images/share/scenic-dusk.jpg',
         'assets/images/share/scenic-night.jpg',
+        'assets/images/share/scenic-ocean.jpg',
       ]) {
         unawaited(precacheImage(AssetImage(asset), context).catchError((_) {}));
       }
@@ -1312,6 +1333,15 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 activeFg: const Color(0xFFFFFFFF),
                 thumbnailAsset: 'assets/images/share/scenic-night.jpg',
               ),
+              _buildThemePill(
+                colors: colors,
+                theme: ShareCardTheme.ocean,
+                label: isThai ? 'ทะเลฟ้าคราม' : 'Ocean',
+                swatchColor: const Color(0xFF1B5E86),
+                activeBg: const Color(0xFF0E5A4A),
+                activeFg: const Color(0xFFFFFFFF),
+                thumbnailAsset: 'assets/images/share/scenic-ocean.jpg',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1638,21 +1668,15 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         ? Directionality(
             textDirection: TextDirection.rtl,
             child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 16,
+              runSpacing: 10,
               alignment: WrapAlignment.center,
               children: [
                 for (final word in _wbwWords)
-                  Container(
+                  Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.innerCardBg,
-                      border: Border.all(
-                        color: palette.innerCardBorder,
-                      ),
+                      horizontal: 4,
+                      vertical: 2,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1718,11 +1742,12 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
 
     final tafsirWidget = _hasTafsir
         ? Container(
+            key: const ValueKey('share_card_tafsir'),
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             decoration: BoxDecoration(
               color: palette.innerCardBg,
-              border: Border.all(color: palette.innerCardBorder),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -1975,11 +2000,17 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         stops: const [0.0, 0.48, 1.0],
-                        colors: [
-                          const Color(0xFF0A0E12).withValues(alpha: 0.60),
-                          const Color(0xFF0A0E12).withValues(alpha: 0.48),
-                          const Color(0xFF0A0E12).withValues(alpha: 0.75),
-                        ],
+                        colors: _theme == ShareCardTheme.ocean
+                            ? [
+                                const Color(0xFF0A2A44).withValues(alpha: 0.24),
+                                const Color(0xFF0A2A44).withValues(alpha: 0.30),
+                                const Color(0xFF09243C).withValues(alpha: 0.46),
+                              ]
+                            : [
+                                const Color(0xFF0A0E12).withValues(alpha: 0.60),
+                                const Color(0xFF0A0E12).withValues(alpha: 0.48),
+                                const Color(0xFF0A0E12).withValues(alpha: 0.75),
+                              ],
                       ),
                     ),
                   ),
@@ -1998,12 +2029,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         color: palette.reflectionBg,
-        border: Border.symmetric(
-          horizontal: BorderSide(color: palette.reflectionBorder),
-        ),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
