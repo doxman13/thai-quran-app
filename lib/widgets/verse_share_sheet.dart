@@ -24,6 +24,8 @@ import '../theme/app_theme.dart';
 
 enum ShareCardTheme { emerald, parchment, midnight, minimal }
 
+enum ShareCardLayout { vertical, landscape }
+
 class _ShareCardPalette {
   final Color containerBg;
   final Color containerBorder;
@@ -258,7 +260,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool _includeTafsir = false;
   bool _includeFootnotes = false;
   ShareCardTheme _theme = ShareCardTheme.emerald;
-  bool _isCompactScale = false;
+  ShareCardLayout _layout = ShareCardLayout.vertical;
+  double _fontScale = 1.0;
   bool _isGenerating = false;
   bool _isCopyingImage = false;
   bool _isSavingImage = false;
@@ -588,13 +591,17 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool get _hasFootnotes => _includeFootnotes && _footnotes.isNotEmpty;
   bool get _hasWbw => _includeWbw && _wbwWords.isNotEmpty;
 
-  bool get _useCompactMode {
-    final isMultiContent =
-        (_hasTafsir && _hasFootnotes) ||
-        ((_hasTafsir || _hasFootnotes || _hasWbw || _hasReflection) &&
-            (_includeArabic || _includeTranslation));
-    return _isCompactScale || isMultiContent;
-  }
+  bool get _isLandscape => _layout == ShareCardLayout.landscape;
+  double get _cardWidth => _isLandscape ? 640.0 : 390.0;
+  int get _fontScalePercent => (_fontScale * 100).round();
+
+  bool get _isMultiContent =>
+      (_hasTafsir && _hasFootnotes) ||
+      ((_hasTafsir || _hasFootnotes || _hasWbw || _hasReflection) &&
+          (_includeArabic || _includeTranslation));
+
+  bool get _useCompactMode =>
+      _fontScale <= 0.90 || (_fontScalePercent == 100 && _isMultiContent);
 
   Future<void> _handleCopyText() async {
     final isThai = _isThaiUi();
@@ -674,6 +681,25 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     return bytes;
   }
 
+  Future<({Uint8List bytes, String ext, String mime})>
+  _captureCardJpegOrFallback() async {
+    final pngBytes = await _captureCardPngBytes();
+    if (!kIsWeb) {
+      try {
+        final encoded = await _mediaShareChannel.invokeMethod<Object?>(
+          'encodeJpeg',
+          {'bytes': pngBytes, 'quality': 95},
+        );
+        if (encoded is Uint8List && encoded.isNotEmpty) {
+          return (bytes: encoded, ext: 'jpg', mime: 'image/jpeg');
+        }
+      } on MissingPluginException {
+        // Native channel unavailable (e.g., unit tests); fall back to PNG bytes.
+      } catch (_) {}
+    }
+    return (bytes: pngBytes, ext: 'png', mime: 'image/png');
+  }
+
   Future<void> _handleCopyImage() async {
     if (_isCopyingImage || _isSavingImage || _isGenerating) return;
     final isThai = _isThaiUi();
@@ -706,10 +732,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     setState(() => _isSavingImage = true);
 
     try {
-      final bytes = await _captureCardPngBytes();
+      final pngBytes = await _captureCardPngBytes();
       await _mediaShareChannel.invokeMethod<bool>('saveImage', {
-        'bytes': bytes,
-        'fileName': 'quran_${widget.surahId}_${widget.verseId}.png',
+        'bytes': pngBytes,
+        'fileName': 'quran_${widget.surahId}_${widget.verseId}.jpg',
       });
       _showToast(
         isThai ? 'บันทึกรูปภาพลงอัลบั้มสำเร็จ' : 'Image saved to Photos',
@@ -745,7 +771,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     setState(() => _isGenerating = true);
 
     try {
-      final bytes = await _captureCardPngBytes();
+      final captured = await _captureCardJpegOrFallback();
 
       Rect? origin;
       final btnBox = _shareButtonKey.currentContext?.findRenderObject()
@@ -764,17 +790,17 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
       final XFile xFile;
       if (kIsWeb) {
         xFile = XFile.fromData(
-          bytes,
-          mimeType: 'image/png',
-          name: 'quran-${widget.surahId}-${widget.verseId}.png',
+          captured.bytes,
+          mimeType: captured.mime,
+          name: 'quran-${widget.surahId}-${widget.verseId}.${captured.ext}',
         );
       } else {
         final dir = await getTemporaryDirectory();
         tempFile = File(
-          '${dir.path}/quran_${widget.surahId}_${widget.verseId}.png',
+          '${dir.path}/quran_${widget.surahId}_${widget.verseId}.${captured.ext}',
         );
-        await tempFile.writeAsBytes(bytes, flush: true);
-        xFile = XFile(tempFile.path, mimeType: 'image/png');
+        await tempFile.writeAsBytes(captured.bytes, flush: true);
+        xFile = XFile(tempFile.path, mimeType: captured.mime);
       }
 
       // Reset loading spinner BEFORE opening the native share sheet so it
@@ -872,7 +898,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                                 child: RepaintBoundary(
                                   key: _cardKey,
                                   child: SizedBox(
-                                    width: 390,
+                                    width: _cardWidth,
                                     child: _buildShareCard(
                                       palette: palette,
                                       isThai: isThai,
@@ -1153,9 +1179,37 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 activeBg: const Color(0xFF1C1917),
                 activeFg: const Color(0xFFFFFFFF),
               ),
-              _buildScaleToggle(colors, isThai),
             ],
           ),
+          const SizedBox(height: 10),
+          Divider(height: 1, color: colors.borderSoft),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                isThai ? 'รูปแบบ:' : 'Layout:',
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textMuted,
+                ),
+              ),
+              const SizedBox(width: 6),
+              _buildLayoutPill(
+                colors: colors,
+                layout: ShareCardLayout.vertical,
+                label: isThai ? 'แนวตั้ง' : 'Vertical',
+              ),
+              const SizedBox(width: 6),
+              _buildLayoutPill(
+                colors: colors,
+                layout: ShareCardLayout.landscape,
+                label: isThai ? 'แนวนอน' : 'Landscape',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildFontSizeControl(colors, isThai),
         ],
       ),
     );
@@ -1252,25 +1306,139 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     );
   }
 
-  Widget _buildScaleToggle(AppThemeColors colors, bool isThai) {
+  Widget _buildLayoutPill({
+    required AppThemeColors colors,
+    required ShareCardLayout layout,
+    required String label,
+  }) {
+    final isSelected = _layout == layout;
     return InkWell(
-      onTap: () => setState(() => _isCompactScale = !_isCompactScale),
+      onTap: () => setState(() => _layout = layout),
       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: _isCompactScale ? colors.textStrong : colors.surface,
+          color: isSelected ? colors.primary : colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
           border: Border.all(
-            color: _isCompactScale ? colors.textStrong : colors.borderSoft,
+            color: isSelected ? colors.primary : colors.borderSoft,
           ),
         ),
         child: Text(
-          '${isThai ? 'ขนาด:' : 'Size:'} ${_isCompactScale ? (isThai ? 'กะทัดรัด' : 'Compact') : (isThai ? 'ปกติ' : 'Normal')}',
+          label,
           style: GoogleFonts.notoSansThai(
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
-            color: _isCompactScale ? colors.textInverse : colors.foreground,
+            color: isSelected ? colors.textInverse : colors.foreground,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFontSizeControl(AppThemeColors colors, bool isThai) {
+    final percent = _fontScalePercent;
+    return Row(
+      children: [
+        Text(
+          isThai ? 'ตัวอักษร:' : 'Font:',
+          style: GoogleFonts.notoSansThai(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colors.textMuted,
+          ),
+        ),
+        const SizedBox(width: 6),
+        _buildFontStepButton(
+          key: const ValueKey('share_font_decrease'),
+          colors: colors,
+          label: 'A-',
+          enabled: _fontScale > 0.751,
+          onTap: () => setState(
+            () => _fontScale = (_fontScale - 0.05).clamp(0.75, 1.50),
+          ),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              activeTrackColor: colors.primary,
+              inactiveTrackColor: colors.borderSoft,
+              thumbColor: colors.primary,
+            ),
+            child: Slider(
+              key: const ValueKey('share_font_slider'),
+              value: _fontScale.clamp(0.75, 1.50),
+              min: 0.75,
+              max: 1.50,
+              divisions: 15,
+              onChanged: (v) => setState(() => _fontScale = v),
+            ),
+          ),
+        ),
+        _buildFontStepButton(
+          key: const ValueKey('share_font_increase'),
+          colors: colors,
+          label: 'A+',
+          enabled: _fontScale < 1.499,
+          onTap: () => setState(
+            () => _fontScale = (_fontScale + 0.05).clamp(0.75, 1.50),
+          ),
+        ),
+        const SizedBox(width: 6),
+        InkWell(
+          onTap: percent == 100 ? null : () => setState(() => _fontScale = 1.0),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              border: Border.all(color: colors.borderSoft),
+            ),
+            child: Text(
+              '$percent%',
+              style: GoogleFonts.notoSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colors.textStrong,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFontStepButton({
+    Key? key,
+    required AppThemeColors colors,
+    required String label,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.4,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            border: Border.all(color: colors.borderSoft),
+          ),
+          child: Text(
+            label,
+            style: GoogleFonts.notoSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: colors.textStrong,
+            ),
           ),
         ),
       ),
@@ -1282,13 +1450,247 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     required bool isThai,
   }) {
     final compact = _useCompactMode;
+    final scale = _fontScale;
     final cleanLabel = _translationLabel.replaceAll('(ปรับปรุง)', '').trim();
+
+    final baseArabic = _isMultiContent ? 21.0 : 24.0;
+    final arabicSize = (baseArabic * scale).clamp(15.0, 42.0);
+    final wbwArabicSize = (16.0 * scale).clamp(12.0, 26.0);
+    final wbwMeaningSize = (10.5 * scale).clamp(8.5, 16.0);
+    final baseMeaning = _isMultiContent ? 13.0 : 14.5;
+    final meaningSize = (baseMeaning * scale).clamp(11.0, 24.0);
+    final reflectionSize = ((_isMultiContent ? 13.0 : 14.0) * scale).clamp(11.0, 23.0);
+    final tafsirSize = (11.5 * scale).clamp(10.0, 19.0);
+    final footnoteSize = (10.5 * scale).clamp(9.0, 17.0);
+
+    final hasArabicSide = (_includeArabic && _arabicText.isNotEmpty) || _hasWbw;
+    final hasMeaningSide =
+        _hasReflection || (_includeTranslation && _translationText.isNotEmpty);
+    final useTwoColumnLandscape =
+        _isLandscape && hasArabicSide && hasMeaningSide;
+
+    final arabicWidget = (_includeArabic && _arabicText.isNotEmpty)
+        ? Text(
+            formatArabicAyahText(
+              _arabicText,
+              verseNumber: widget.verseId,
+            ),
+            textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
+            locale: const Locale('ar'),
+            style: TextStyle(
+              fontFamily: 'UthmanicHafs',
+              fontWeight: FontWeight.w400,
+              fontSize: arabicSize,
+              height: scale > 1.2 ? 2.0 : 2.15,
+              letterSpacing: 0,
+              color: palette.arabicText,
+            ),
+          )
+        : null;
+
+    final wbwWidget = _hasWbw
+        ? Directionality(
+            textDirection: TextDirection.rtl,
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.start,
+              children: [
+                for (final word in _wbwWords)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.innerCardBg,
+                      border: Border.all(
+                        color: palette.innerCardBorder,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _wbwWordArabic(word),
+                          textDirection: TextDirection.rtl,
+                          locale: const Locale('ar'),
+                          style: TextStyle(
+                            fontFamily: 'UthmanicHafs',
+                            fontWeight: FontWeight.w400,
+                            fontSize: wbwArabicSize,
+                            height: 1.4,
+                            letterSpacing: 0,
+                            color: palette.arabicText,
+                          ),
+                        ),
+                        if (_wbwWordMeaning(word).isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            _wbwWordMeaning(word),
+                            textDirection: TextDirection.ltr,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: wbwMeaningSize,
+                              fontWeight: FontWeight.w500,
+                              color: palette.meaningText.withValues(
+                                alpha: 0.85,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : null;
+
+    final reflectionWidget = _hasReflection
+        ? _buildReflectionCardBox(palette, isThai, reflectionSize)
+        : null;
+
+    final translationWidget =
+        (_includeTranslation && _translationText.isNotEmpty)
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ThaiTextProtectionProvider.protectSafe(
+                      context,
+                      _translationText,
+                    ),
+                    locale: ThaiTextProtectionProvider.localeForText(
+                      _translationText,
+                      forceThai: isThai,
+                    ),
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: meaningSize,
+                      fontWeight: FontWeight.w500,
+                      height: 1.6,
+                      color: palette.meaningText,
+                    ),
+                  ),
+                  if (cleanLabel.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      cleanLabel,
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: palette.footerText,
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : null;
+
+    final tafsirWidget = _hasTafsir
+        ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: palette.innerCardBg,
+              border: Border.all(color: palette.innerCardBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.auto_stories_outlined,
+                      size: 13,
+                      color: palette.watermark,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        isThai
+                            ? 'ตัฟซีรฉบับย่อ ($_shortTafsirSource)'
+                            : 'Short Tafsir ($_shortTafsirSource)',
+                        style: GoogleFonts.notoSansThai(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: palette.headerText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  ThaiTextProtectionProvider.protectSafe(
+                    context,
+                    _shortTafsir!,
+                  ),
+                  locale: ThaiTextProtectionProvider.localeForText(
+                    _shortTafsir!,
+                    forceThai: isThai,
+                  ),
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: tafsirSize,
+                    height: 1.55,
+                    color: palette.meaningText.withValues(alpha: 0.9),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null;
+
+    final footnotesWidget = _hasFootnotes
+        ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: palette.innerCardBg,
+              border: Border.all(color: palette.innerCardBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.notes_rounded,
+                      size: 13,
+                      color: palette.watermark,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isThai ? 'เชิงอรรถ' : 'Footnotes',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: palette.headerText,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                for (final fn in _footnotes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Text(
+                      '[${fn.origId > 0 ? fn.origId : fn.id}] ${fn.text}',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: footnoteSize,
+                        height: 1.5,
+                        color: palette.meaningText.withValues(alpha: 0.88),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          )
+        : null;
 
     return Container(
       key: const ValueKey('verse_share_card'),
       decoration: BoxDecoration(
         color: palette.containerBg,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: palette.containerBorder, width: 1.2),
       ),
       child: Column(
@@ -1297,7 +1699,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         children: [
           // Card Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: EdgeInsets.symmetric(
+              horizontal: _isLandscape ? 22 : 16,
+              vertical: _isLandscape ? 13 : 14,
+            ),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: palette.divider, width: 1),
@@ -1360,236 +1765,118 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             ),
           ),
 
-          // Card Body
+          // Card Body (2-column spread in Landscape when both sides present, stacked otherwise)
           Padding(
-            padding: EdgeInsets.all(compact ? 16 : 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_hasReflection) ...[
-                  _buildReflectionCardBox(palette, isThai, compact),
-                  SizedBox(height: compact ? 12 : 16),
-                ],
-                if (_includeArabic && _arabicText.isNotEmpty) ...[
-                  Text(
-                    formatArabicAyahText(
-                      _arabicText,
-                      verseNumber: widget.verseId,
-                    ),
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    locale: const Locale('ar'),
-                    style: TextStyle(
-                      fontFamily: 'UthmanicHafs',
-                      fontWeight: FontWeight.w400,
-                      fontSize: compact ? 20 : 24,
-                      height: compact ? 2.0 : 2.15,
-                      letterSpacing: 0,
-                      color: palette.arabicText,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 10 : 14),
-                ],
-                if (_hasWbw) ...[
-                  Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      alignment: WrapAlignment.start,
-                      children: [
-                        for (final word in _wbwWords)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.innerCardBg,
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusSm,
-                              ),
-                              border: Border.all(
-                                color: palette.innerCardBorder,
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _wbwWordArabic(word),
-                                  textDirection: TextDirection.rtl,
-                                  locale: const Locale('ar'),
-                                  style: TextStyle(
-                                    fontFamily: 'UthmanicHafs',
-                                    fontWeight: FontWeight.w400,
-                                    fontSize: 16,
-                                    height: 1.4,
-                                    letterSpacing: 0,
-                                    color: palette.arabicText,
-                                  ),
-                                ),
-                                if (_wbwWordMeaning(word).isNotEmpty) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _wbwWordMeaning(word),
-                                    textDirection: TextDirection.ltr,
-                                    style: GoogleFonts.notoSansThai(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: palette.meaningText.withValues(
-                                        alpha: 0.85,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: compact ? 10 : 14),
-                ],
-                if (_includeTranslation && _translationText.isNotEmpty) ...[
-                  Text(
-                    ThaiTextProtectionProvider.protectSafe(
-                      context,
-                      _translationText,
-                    ),
-                    locale: ThaiTextProtectionProvider.localeForText(
-                      _translationText,
-                      forceThai: isThai,
-                    ),
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: compact ? 12.5 : 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.6,
-                      color: palette.meaningText,
-                    ),
-                  ),
-                  if (cleanLabel.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      cleanLabel,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: palette.footerText,
-                      ),
-                    ),
-                  ],
-                ],
-                if (_hasTafsir) ...[
-                  SizedBox(height: compact ? 10 : 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.innerCardBg,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      border: Border.all(color: palette.innerCardBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.auto_stories_outlined,
-                              size: 13,
-                              color: palette.watermark,
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                isThai
-                                    ? 'ตัฟซีรฉบับย่อ ($_shortTafsirSource)'
-                                    : 'Short Tafsir ($_shortTafsirSource)',
-                                style: GoogleFonts.notoSansThai(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: palette.headerText,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          ThaiTextProtectionProvider.protectSafe(
-                            context,
-                            _shortTafsir!,
-                          ),
-                          locale: ThaiTextProtectionProvider.localeForText(
-                            _shortTafsir!,
-                            forceThai: isThai,
-                          ),
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11.5,
-                            height: 1.55,
-                            color: palette.meaningText.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (_hasFootnotes) ...[
-                  SizedBox(height: compact ? 10 : 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.innerCardBg,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      border: Border.all(color: palette.innerCardBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.notes_rounded,
-                              size: 13,
-                              color: palette.watermark,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              isThai ? 'เชิงอรรถ' : 'Footnotes',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: palette.headerText,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 5),
-                        for (final fn in _footnotes)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 3),
-                            child: Text(
-                              '[${fn.origId > 0 ? fn.origId : fn.id}] ${fn.text}',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 10.5,
-                                height: 1.5,
-                                color: palette.meaningText.withValues(
-                                  alpha: 0.88,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
+            padding: EdgeInsets.symmetric(
+              horizontal: _isLandscape ? 22 : (compact ? 16 : 20),
+              vertical: _isLandscape ? 20 : (compact ? 16 : 20),
             ),
+            child: useTwoColumnLandscape
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 165),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ?reflectionWidget,
+                                    if (reflectionWidget != null &&
+                                        translationWidget != null)
+                                      const SizedBox(height: 12),
+                                    ?translationWidget,
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                ),
+                                color: palette.divider,
+                              ),
+                              Expanded(
+                                flex: 1,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    ?arabicWidget,
+                                    if (arabicWidget != null &&
+                                        wbwWidget != null)
+                                      const SizedBox(height: 10),
+                                    ?wbwWidget,
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (tafsirWidget != null || footnotesWidget != null) ...[
+                        const SizedBox(height: 14),
+                        Divider(height: 1, color: palette.divider),
+                        if (tafsirWidget != null) ...[
+                          const SizedBox(height: 12),
+                          tafsirWidget,
+                        ],
+                        if (footnotesWidget != null) ...[
+                          const SizedBox(height: 10),
+                          footnotesWidget,
+                        ],
+                      ],
+                    ],
+                  )
+                : ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: _isLandscape ? 165 : 0,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: _isLandscape
+                          ? MainAxisAlignment.center
+                          : MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (reflectionWidget != null) ...[
+                          reflectionWidget,
+                          SizedBox(height: compact ? 12 : 16),
+                        ],
+                        if (arabicWidget != null) ...[
+                          arabicWidget,
+                          SizedBox(height: compact ? 10 : 14),
+                        ],
+                        if (wbwWidget != null) ...[
+                          wbwWidget,
+                          SizedBox(height: compact ? 10 : 14),
+                        ],
+                        ?translationWidget,
+                        if (tafsirWidget != null) ...[
+                          SizedBox(height: compact ? 10 : 14),
+                          tafsirWidget,
+                        ],
+                        if (footnotesWidget != null) ...[
+                          SizedBox(height: compact ? 10 : 14),
+                          footnotesWidget,
+                        ],
+                      ],
+                    ),
+                  ),
           ),
 
           // Card Watermark Footer
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            padding: EdgeInsets.symmetric(
+              horizontal: _isLandscape ? 22 : 16,
+              vertical: 11,
+            ),
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(color: palette.divider, width: 1),
@@ -1618,71 +1905,67 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   Widget _buildReflectionCardBox(
     _ShareCardPalette palette,
     bool isThai,
-    bool compact,
+    double reflectionFontSize,
   ) {
     return Container(
       decoration: BoxDecoration(
         color: palette.reflectionBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
         border: Border.all(color: palette.reflectionBorder),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(width: 3.5, color: palette.reflectionAccent),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 3.5, color: palette.reflectionAccent),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isThai
+                          ? 'ข้อคิดตะดับบุร • Tadabbur'
+                          : 'Reflection • Tadabbur',
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: palette.watermark,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      ThaiTextProtectionProvider.protectSafe(
+                        context,
+                        widget.reflectionText!.trim(),
+                      ),
+                      locale: ThaiTextProtectionProvider.localeForText(
+                        widget.reflectionText!,
+                        forceThai: isThai,
+                      ),
+                      style: GoogleFonts.notoSansThai(
+                        fontSize: reflectionFontSize,
+                        fontWeight: FontWeight.w500,
+                        height: 1.6,
+                        color: palette.meaningText,
+                      ),
+                    ),
+                    if (_includeAuthor && _hasAuthorInput) ...[
+                      const SizedBox(height: 6),
                       Text(
-                        isThai
-                            ? 'ข้อคิดตะดับบุร • Tadabbur'
-                            : 'Reflection • Tadabbur',
+                        '— ${widget.reflectionAuthor!.trim()}',
                         style: GoogleFonts.notoSansThai(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: palette.watermark,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: palette.headerSubText,
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        ThaiTextProtectionProvider.protectSafe(
-                          context,
-                          widget.reflectionText!.trim(),
-                        ),
-                        locale: ThaiTextProtectionProvider.localeForText(
-                          widget.reflectionText!,
-                          forceThai: isThai,
-                        ),
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: compact ? 13 : 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.6,
-                          color: palette.meaningText,
-                        ),
-                      ),
-                      if (_includeAuthor && _hasAuthorInput) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          '— ${widget.reflectionAuthor!.trim()}',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: palette.headerSubText,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

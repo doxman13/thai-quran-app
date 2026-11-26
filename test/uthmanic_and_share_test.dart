@@ -427,11 +427,21 @@ void main() {
           expect(cardFinder, findsOneWidget);
           expect(tester.getSize(cardFinder).width, 390.0);
 
-          final boundaryFinder = find.ancestor(
-            of: cardFinder,
-            matching: find.byType(RepaintBoundary),
+          // Outer card has sharp corners (BorderRadius.zero) for clean JPG export
+          final outerContainer = tester.widget<Container>(cardFinder);
+          expect(
+            (outerContainer.decoration as BoxDecoration?)?.borderRadius,
+            BorderRadius.zero,
           );
-          expect(boundaryFinder, findsWidgets);
+
+          // Landscape / Vertical orientation toggle changes graphic width
+          await tester.tap(find.text('แนวนอน'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(cardFinder).width, 640.0);
+
+          await tester.tap(find.text('แนวตั้ง'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(cardFinder).width, 390.0);
 
           // Verify Arabic inside card is sanitized and has no black-circle or pipe
           final cardArabic = tester.widget<Text>(
@@ -444,6 +454,23 @@ void main() {
           expect(cardArabic.data, isNot(contains('|')));
           expect(cardArabic.textDirection, TextDirection.rtl);
           expect(cardArabic.locale, const Locale('ar'));
+
+          // Font size editor increments scale percentage and text size
+          final initialArabicSize = cardArabic.style?.fontSize ?? 0;
+          await tester.tap(find.byKey(const ValueKey('share_font_increase')));
+          await tester.pumpAndSettle();
+          expect(find.text('105%'), findsOneWidget);
+          final scaledArabic = tester.widget<Text>(
+            find.descendant(
+              of: cardFinder,
+              matching: find.textContaining('ٱللَّهُ'),
+            ).first,
+          );
+          expect(scaledArabic.style?.fontSize, greaterThan(initialArabicSize));
+
+          await tester.tap(find.byKey(const ValueKey('share_font_decrease')));
+          await tester.pumpAndSettle();
+          expect(find.text('100%'), findsOneWidget);
 
           // Toggle WBW, Short Tafsir, Footnotes ON
           await tester.tap(find.text('คำต่อคำ (WBW)'));
@@ -595,6 +622,11 @@ void main() {
           );
           await tester.pump();
           expect(mediaCalls.any((c) => c.method == 'saveImage'), isTrue);
+          final saveCall = mediaCalls.firstWhere((c) => c.method == 'saveImage');
+          expect(
+            (saveCall.arguments as Map)['fileName'],
+            'quran_2_255.jpg',
+          );
           expect(find.text('บันทึกรูปภาพลงอัลบั้มสำเร็จ'), findsOneWidget);
         } finally {
           FlutterError.onError = previousOnError;

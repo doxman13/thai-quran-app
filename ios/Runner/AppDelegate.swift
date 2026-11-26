@@ -79,6 +79,8 @@ func OrtGetApiBase() -> UnsafeRawPointer?
         return
       }
       switch call.method {
+      case "encodeJpeg":
+        self.handleEncodeJpeg(call: call, result: result)
       case "copyImage":
         self.handleCopyImage(call: call, result: result)
       case "saveImage":
@@ -89,6 +91,24 @@ func OrtGetApiBase() -> UnsafeRawPointer?
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  private func handleEncodeJpeg(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard
+      let args = call.arguments as? [String: Any],
+      let typedData = args["bytes"] as? FlutterStandardTypedData,
+      let image = UIImage(data: typedData.data)
+    else {
+      result(FlutterError(code: "invalid_args", message: "Missing or invalid image bytes", details: nil))
+      return
+    }
+    let qualityArg = args["quality"] as? Int ?? 95
+    let quality = max(0.1, min(1.0, CGFloat(qualityArg) / 100.0))
+    guard let jpeg = image.jpegData(compressionQuality: quality) else {
+      result(FlutterError(code: "encode_failed", message: "Failed to encode JPEG", details: nil))
+      return
+    }
+    result(FlutterStandardTypedData(bytes: jpeg))
   }
 
   private func handleCopyImage(call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -116,10 +136,17 @@ func OrtGetApiBase() -> UnsafeRawPointer?
       result(FlutterError(code: "invalid_args", message: "Missing or invalid image bytes", details: nil))
       return
     }
+    let fileName = (args["fileName"] as? String ?? "").lowercased()
+    let saveAsJpeg = fileName.hasSuffix(".jpg") || fileName.hasSuffix(".jpeg")
 
     let saveToPhotoLibrary = {
       PHPhotoLibrary.shared().performChanges({
-        PHAssetChangeRequest.creationRequestForAsset(from: image)
+        if saveAsJpeg, let jpegData = image.jpegData(compressionQuality: 0.95) {
+          let request = PHAssetCreationRequest.forAsset()
+          request.addResource(with: .photo, data: jpegData, options: nil)
+        } else {
+          PHAssetChangeRequest.creationRequestForAsset(from: image)
+        }
       }) { success, error in
         DispatchQueue.main.async {
           if success {

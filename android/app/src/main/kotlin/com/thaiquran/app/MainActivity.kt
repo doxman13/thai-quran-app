@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -13,6 +15,7 @@ import android.view.KeyEvent
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 class MainActivity : AudioServiceFragmentActivity() {
@@ -42,16 +45,36 @@ class MainActivity : AudioServiceFragmentActivity() {
         mediaShareChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.thaiquran.app/media_share")
         mediaShareChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
-                "saveImage" -> {
+                "encodeJpeg" -> {
                     val bytes = call.argument<ByteArray>("bytes")
-                    val fileName = call.argument<String>("fileName") ?: "quran_share.png"
+                    val quality = (call.argument<Int>("quality") ?: 95).coerceIn(10, 100)
                     if (bytes == null || bytes.isEmpty()) {
                         result.error("invalid_args", "Missing image bytes", null)
                         return@setMethodCallHandler
                     }
                     Thread {
                         try {
-                            insertPngToMediaStore(bytes, fileName)
+                            val encoded = convertToJpegBytes(bytes, quality)
+                            runOnUiThread { result.success(encoded) }
+                        } catch (e: Exception) {
+                            runOnUiThread {
+                                result.error("encode_failed", e.localizedMessage ?: "Failed to encode JPEG", null)
+                            }
+                        }
+                    }.start()
+                }
+                "saveImage" -> {
+                    val bytes = call.argument<ByteArray>("bytes")
+                    val fileName = call.argument<String>("fileName") ?: "quran_share.jpg"
+                    if (bytes == null || bytes.isEmpty()) {
+                        result.error("invalid_args", "Missing image bytes", null)
+                        return@setMethodCallHandler
+                    }
+                    Thread {
+                        try {
+                            val isJpeg = fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true)
+                            val payload = if (isJpeg) convertToJpegBytes(bytes, 95) else bytes
+                            insertImageToMediaStore(payload, fileName, if (isJpeg) "image/jpeg" else "image/png")
                             runOnUiThread { result.success(true) }
                         } catch (e: Exception) {
                             runOnUiThread {
@@ -69,7 +92,7 @@ class MainActivity : AudioServiceFragmentActivity() {
                     }
                     Thread {
                         try {
-                            val uri = insertPngToMediaStore(bytes, fileName)
+                            val uri = insertImageToMediaStore(bytes, fileName, "image/png")
                             runOnUiThread {
                                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
                                 if (clipboard == null) {
@@ -91,10 +114,23 @@ class MainActivity : AudioServiceFragmentActivity() {
         }
     }
 
-    private fun insertPngToMediaStore(bytes: ByteArray, fileName: String): Uri {
+    private fun convertToJpegBytes(bytes: ByteArray, quality: Int): ByteArray {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IOException("Failed to decode image bytes")
+        return try {
+            ByteArrayOutputStream().use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                out.toByteArray()
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun insertImageToMediaStore(bytes: ByteArray, fileName: String, mimeType: String): Uri {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.MIME_TYPE, mimeType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/ThaiQuran")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
