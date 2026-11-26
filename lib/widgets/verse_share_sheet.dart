@@ -99,7 +99,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFF0E5A4A),
           headerSubText: const Color(0xFF0E5A4A).withValues(alpha: 0.70),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF0E5A4A).withValues(alpha: 0.05),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF0E5A4A).withValues(alpha: 0.06),
@@ -117,7 +117,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFF73531F),
           headerSubText: const Color(0xFF8A6530).withValues(alpha: 0.76),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.78),
+          meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF8A6530).withValues(alpha: 0.06),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF8A6530).withValues(alpha: 0.07),
@@ -135,7 +135,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFFF1F5F9),
           headerSubText: const Color(0xFF94A3B8),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
+          meaningText: const Color(0xFFE2E8F0).withValues(alpha: 0.62),
           innerCardBg: Colors.white.withValues(alpha: 0.055),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF4A9E89).withValues(alpha: 0.12),
@@ -153,7 +153,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFF1C1917),
           headerSubText: const Color(0xFF78716C),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF1C1917).withValues(alpha: 0.04),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF1C1917).withValues(alpha: 0.04),
@@ -171,7 +171,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFFFFFFFF).withValues(alpha: 0.95),
           headerSubText: const Color(0xFFFFFFFF).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF000000).withValues(alpha: 0.25),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF000000).withValues(alpha: 0.25),
@@ -190,7 +190,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFFFFFBEB),
           headerSubText: const Color(0xFFFEF3C7).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF000000).withValues(alpha: 0.25),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF000000).withValues(alpha: 0.25),
@@ -209,7 +209,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFFF1F5F9),
           headerSubText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.65),
           innerCardBg: const Color(0xFF000000).withValues(alpha: 0.30),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
@@ -228,7 +228,7 @@ class _ShareCardPalette {
           headerText: const Color(0xFFFFFFFF),
           headerSubText: const Color(0xFFFFFFFF).withValues(alpha: 0.85),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.85),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.72),
           innerCardBg: const Color(0xFF000000).withValues(alpha: 0.20),
           innerCardBorder: Colors.transparent,
           reflectionBg: const Color(0xFF000000).withValues(alpha: 0.20),
@@ -1632,8 +1632,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
 
     final baseArabic = _isMultiContent ? 21.0 : 25.0;
     final arabicSize = (baseArabic * scale).clamp(15.0, 42.0);
-    final wbwArabicSize = (16.0 * scale).clamp(12.0, 26.0);
-    final wbwMeaningSize = (10.5 * scale).clamp(8.5, 16.0);
+    final wbwArabicSize = (20.0 * scale).clamp(15.0, 32.0);
+    final wbwMeaningSize = (10.0 * scale).clamp(9.0, 15.0);
     final baseMeaning = _isMultiContent ? 13.0 : 14.5;
     final meaningSize = (baseMeaning * scale).clamp(11.0, 24.0);
     final reflectionSize = ((_isMultiContent ? 13.0 : 14.0) * scale).clamp(11.0, 23.0);
@@ -1668,15 +1668,15 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         ? Directionality(
             textDirection: TextDirection.rtl,
             child: Wrap(
-              spacing: 16,
-              runSpacing: 10,
+              spacing: 22,
+              runSpacing: 14,
               alignment: WrapAlignment.center,
               children: [
                 for (final word in _wbwWords)
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
+                      horizontal: 5,
+                      vertical: 3,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1695,7 +1695,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                           ),
                         ),
                         if (_wbwWordMeaning(word).isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             _wbwWordMeaning(word),
                             textDirection: TextDirection.ltr,
@@ -1926,11 +1926,29 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                   children: [
                     if (arabicWidget != null) ...[
                       arabicWidget,
-                      SizedBox(height: compact ? 12 : 16),
+                      if (wbwWidget != null || translationWidget != null) ...[
+                        SizedBox(height: compact ? 16 : 20),
+                        Container(
+                          width: 80,
+                          height: 1,
+                          color: palette.accentLine.withValues(alpha: 0.20),
+                        ),
+                        SizedBox(height: compact ? 16 : 20),
+                      ] else
+                        SizedBox(height: compact ? 14 : 18),
                     ],
                     if (wbwWidget != null) ...[
                       wbwWidget,
-                      SizedBox(height: compact ? 12 : 16),
+                      if (translationWidget != null) ...[
+                        SizedBox(height: compact ? 14 : 18),
+                        Container(
+                          width: 56,
+                          height: 1,
+                          color: palette.accentLine.withValues(alpha: 0.14),
+                        ),
+                        SizedBox(height: compact ? 14 : 18),
+                      ] else
+                        SizedBox(height: compact ? 14 : 18),
                     ],
                     if (translationWidget != null)
                       SizedBox(width: double.infinity, child: translationWidget),
