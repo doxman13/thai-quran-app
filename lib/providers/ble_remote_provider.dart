@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugPrint, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,10 +16,13 @@ class BleRemoteProvider extends ChangeNotifier {
   List<ScanResult> _scanResults = [];
   BluetoothDevice? _connectedDevice;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
+  StreamSubscription<List<ScanResult>>? _scanResultsSubscription;
+  StreamSubscription<bool>? _isScanningSubscription;
   final List<StreamSubscription<List<int>>> _notificationSubscriptions = [];
 
   String? _savedDeviceId;
   String? _savedDeviceName;
+  String? _errorMessage;
 
   int _clickCount = 0;
   int? _lastMode;
@@ -32,19 +37,33 @@ class BleRemoteProvider extends ChangeNotifier {
   int get clickCount => _clickCount;
   String? get savedDeviceId => _savedDeviceId;
   String? get savedDeviceName => _savedDeviceName;
+  String? get errorMessage => _errorMessage;
 
-  BleRemoteProvider() {
-    _autoConnect();
+  static String resolveDeviceName(ScanResult result) {
+    if (result.device.platformName.isNotEmpty) {
+      return result.device.platformName;
+    }
+    if (result.advertisementData.advName.isNotEmpty) {
+      return result.advertisementData.advName;
+    }
+    if (result.device.advName.isNotEmpty) {
+      return result.device.advName;
+    }
+    return '';
   }
 
-  Future<void> _autoConnect() async {
+  BleRemoteProvider({bool autoConnect = true}) {
+    _loadAndMaybeAutoConnect(autoConnect: autoConnect);
+  }
+
+  Future<void> _loadAndMaybeAutoConnect({required bool autoConnect}) async {
     final prefs = await SharedPreferences.getInstance();
     _savedDeviceId = prefs.getString(_bleDevicePrefKey);
     _savedDeviceName = prefs.getString(_bleDeviceNamePrefKey);
     notifyListeners();
-    if (_savedDeviceId != null) {
+    if (autoConnect && !kIsWeb && _savedDeviceId != null) {
       final device = BluetoothDevice.fromId(_savedDeviceId!);
-      await connectToDevice(device);
+      await connectToDevice(device, isAutoConnect: true);
     }
   }
 
@@ -55,90 +74,163 @@ class BleRemoteProvider extends ChangeNotifier {
     }
   }
 
+  Future<BluetoothAdapterState> _waitForAdapterState() async {
+    try {
+      return await FlutterBluePlus.adapterState
+          .where((state) => state != BluetoothAdapterState.unknown)
+          .first
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {
+      try {
+        return await FlutterBluePlus.adapterState.first;
+      } catch (_) {
+        return BluetoothAdapterState.unknown;
+      }
+    }
+  }
+
   Future<void> startScan() async {
     if (_connectionState == BleConnectionState.scanning) return;
 
-    // Ensure Bluetooth is turned on at the system level
-    if (await FlutterBluePlus.adapterState.first != BluetoothAdapterState.on) {
-      try {
-        // Prompt user to enable Bluetooth
-        await FlutterBluePlus.turnOn();
-      } catch (e) {
-        // This can happen if the user denies the request to turn on Bluetooth
-        debugPrint('Error turning on Bluetooth: $e');
+    _errorMessage = null;
+    if (kIsWeb) {
+      _errorMessage = 'Bluetooth scanning is not supported on web.';
+      notifyListeners();
+      return;
+    }
+
+    var adapterState = await _waitForAdapterState();
+    if (adapterState != BluetoothAdapterState.on) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          await FlutterBluePlus.turnOn();
+          adapterState = await _waitForAdapterState();
+        } catch (e) {
+          debugPrint('Error turning on Bluetooth: $e');
+        }
+      }
+      if (adapterState != BluetoothAdapterState.on) {
+        _errorMessage = adapterState == BluetoothAdapterState.unauthorized
+            ? 'Bluetooth permission is required. Please enable it in Settings.'
+            : 'Please turn on Bluetooth to scan for devices.';
+        notifyListeners();
         return;
       }
     }
+
+    await _scanResultsSubscription?.cancel();
+    await _isScanningSubscription?.cancel();
 
     _connectionState = BleConnectionState.scanning;
     _scanResults = [];
     notifyListeners();
 
+    _scanResultsSubscription = FlutterBluePlus.scanResults.listen((results) {
+      final sorted = List<ScanResult>.from(results)
+        ..sort((a, b) {
+          final aNamed = resolveDeviceName(a).isNotEmpty ? 0 : 1;
+          final bNamed = resolveDeviceName(b).isNotEmpty ? 0 : 1;
+          if (aNamed != bNamed) return aNamed.compareTo(bNamed);
+          return b.rssi.compareTo(a.rssi);
+        });
+      _scanResults = sorted;
+      notifyListeners();
+    });
+
+    _isScanningSubscription = FlutterBluePlus.isScanning.listen((scanning) {
+      if (!scanning && _connectionState == BleConnectionState.scanning) {
+        _connectionState = BleConnectionState.disconnected;
+        notifyListeners();
+      }
+    });
+
     try {
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 8),
       );
-
-      FlutterBluePlus.scanResults.listen((results) {
-        _scanResults = results;
-        notifyListeners();
-      });
     } catch (e) {
       debugPrint('Error starting BLE scan: $e');
-    } finally {
-      await Future.delayed(const Duration(seconds: 8));
-      if (_connectionState == BleConnectionState.scanning) {
-        stopScan();
-      }
+      _errorMessage = 'Unable to start Bluetooth scan.';
+      _connectionState = BleConnectionState.disconnected;
+      notifyListeners();
     }
   }
 
   Future<void> stopScan() async {
-    await FlutterBluePlus.stopScan();
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (e) {
+      debugPrint('Error stopping BLE scan: $e');
+    }
     if (_connectionState == BleConnectionState.scanning) {
       _connectionState = BleConnectionState.disconnected;
       notifyListeners();
     }
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async {
-    if (_connectedDevice != null) {
-      await disconnect();
+  Future<void> connectToDevice(
+    BluetoothDevice device, {
+    bool isAutoConnect = false,
+  }) async {
+    _errorMessage = null;
+    if (_connectionState == BleConnectionState.scanning) {
+      await stopScan();
     }
+
+    await _cleanupActiveConnection(clearSaved: false);
 
     _connectionState = BleConnectionState.connecting;
     notifyListeners();
 
+    var hasSeenConnected = false;
     try {
-      await device.connect(autoConnect: false);
       _connectionSubscription = device.connectionState.listen((state) async {
         if (state == BluetoothConnectionState.connected) {
+          hasSeenConnected = true;
           _connectedDevice = device;
           _connectionState = BleConnectionState.connected;
-          
+
           String name = device.platformName;
-          if (name.isEmpty && _savedDeviceName != null && _savedDeviceName!.isNotEmpty) {
-            name = _savedDeviceName!;
+          if (name.isEmpty && device.advName.isNotEmpty) {
+            name = device.advName;
           }
           if (name.isEmpty) {
-            for (var r in _scanResults) {
-              if (r.device.remoteId == device.remoteId && r.device.platformName.isNotEmpty) {
-                name = r.device.platformName;
-                break;
+            for (final r in _scanResults) {
+              if (r.device.remoteId == device.remoteId) {
+                final resolved = resolveDeviceName(r);
+                if (resolved.isNotEmpty) {
+                  name = resolved;
+                  break;
+                }
               }
             }
+          }
+          if (name.isEmpty &&
+              _savedDeviceName != null &&
+              _savedDeviceName!.isNotEmpty) {
+            name = _savedDeviceName!;
           }
 
           await _discoverServicesAndListen(device);
           await _saveDevice(device.remoteId.toString(), name: name);
-        } else if (state == BluetoothConnectionState.disconnected) {
-          await disconnect();
+          notifyListeners();
+        } else if (state == BluetoothConnectionState.disconnected &&
+            hasSeenConnected) {
+          await _cleanupActiveConnection(clearSaved: false);
+          notifyListeners();
         }
-        notifyListeners();
       });
+
+      await device.connect(
+        autoConnect: false,
+        timeout: const Duration(seconds: 12),
+      );
     } catch (e) {
       debugPrint('Error connecting to device: $e');
-      _connectionState = BleConnectionState.disconnected;
+      await _cleanupActiveConnection(clearSaved: false);
+      if (!isAutoConnect) {
+        _errorMessage = 'Could not connect to device. Make sure it is awake and nearby.';
+      }
       notifyListeners();
     }
   }
@@ -258,7 +350,10 @@ class BleRemoteProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> disconnect() async {
+  @visibleForTesting
+  void handleNotificationForTest(List<int> value) => _handleNotification(value);
+
+  Future<void> _cleanupActiveConnection({required bool clearSaved}) async {
     for (var sub in _notificationSubscriptions) {
       await sub.cancel();
     }
@@ -266,7 +361,7 @@ class BleRemoteProvider extends ChangeNotifier {
 
     await _connectionSubscription?.cancel();
     _connectionSubscription = null;
-    
+
     if (_connectedDevice != null) {
       try {
         await _connectedDevice!.disconnect();
@@ -282,7 +377,13 @@ class BleRemoteProvider extends ChangeNotifier {
     _lastNotificationValue = null;
     _lastNotificationTime = null;
     _lastClickTime = null;
-    await _clearSavedDevice();
+    if (clearSaved) {
+      await _clearSavedDevice();
+    }
+  }
+
+  Future<void> disconnect({bool forgetDevice = true}) async {
+    await _cleanupActiveConnection(clearSaved: forgetDevice);
     notifyListeners();
   }
 
@@ -308,6 +409,8 @@ class BleRemoteProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _scanResultsSubscription?.cancel();
+    _isScanningSubscription?.cancel();
     stopScan();
     for (var sub in _notificationSubscriptions) {
       sub.cancel();

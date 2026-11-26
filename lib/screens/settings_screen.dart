@@ -24,7 +24,7 @@ import '../widgets/translation_download_dialog.dart';
 import '../widgets/auth_bottom_sheet.dart';
 import 'bookmarks_screen.dart';
 import 'goals_screen.dart';
-import 'hifz_settings_screen.dart' show BleDeviceManagementUI;
+import 'hifz_settings_screen.dart' show HifzControlsSheet;
 import 'tadabbur_private_screen.dart';
 
 enum SettingsCategoryTab {
@@ -2110,63 +2110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     AppThemeColors colors,
     bool isThai,
   ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.75,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: colors.borderSoft,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isThai
-                            ? 'อุปกรณ์ฮิฟซ์ & รีโมทเปลี่ยนหน้า'
-                            : 'Hifz Remote & BLE Devices',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: colors.textStrong,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Expanded(
-                    child: BleDeviceManagementUI(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    HifzControlsSheet.show(context);
   }
 
   // ── Bottom Sheet: About ────────────────────────────────────────────────────

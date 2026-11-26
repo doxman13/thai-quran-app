@@ -2244,11 +2244,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
     final hasGoal = _isBoundedCreatedProfile(progressProfile);
     final topMenuHeight = hasGoal ? 72.0 : 56.0;
 
-    final systemUiOverlayStyle = SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-    );
+    final systemUiOverlayStyle = AppTheme.statusBarOverlayStyle(isDark: isDark);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: systemUiOverlayStyle,

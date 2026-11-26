@@ -3,14 +3,17 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:thai_quran_app/data/quran_foundation_repository.dart';
 import 'package:thai_quran_app/data/quran_repository.dart';
 import 'package:thai_quran_app/providers/local_reading_provider.dart';
+import 'package:thai_quran_app/providers/mushaf_audio_provider.dart';
 import 'package:thai_quran_app/providers/mushaf_reading_provider.dart';
 import 'package:thai_quran_app/providers/notes_provider.dart';
 import 'package:thai_quran_app/providers/settings_provider.dart';
@@ -18,7 +21,9 @@ import 'package:thai_quran_app/providers/stats_provider.dart';
 import 'package:thai_quran_app/providers/supabase_provider.dart';
 import 'package:thai_quran_app/providers/translation_manager_provider.dart';
 import 'package:thai_quran_app/screens/home_screen.dart';
+import 'package:thai_quran_app/screens/mushaf_reader_screen.dart';
 import 'package:thai_quran_app/screens/welcome_screen.dart';
+import 'package:thai_quran_app/theme/app_theme.dart';
 
 class _StubQuranRepository extends QuranRepository {
   final Future<void> Function() onInit;
@@ -178,6 +183,68 @@ void main() {
         await tester.pump(const Duration(milliseconds: 800));
         await tester.pump(const Duration(milliseconds: 400));
         expect(find.byType(HomeScreen), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'switches status bar style from light splash icons to dark icons on HomeScreen and MushafReaderScreen',
+      (tester) async {
+        final repo = _StubQuranRepository(() async {});
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider(create: (_) => SettingsProvider()),
+              ChangeNotifierProvider(create: (_) => LocalReadingProvider()),
+              ChangeNotifierProvider(create: (_) => MushafReadingProvider()),
+              ChangeNotifierProvider(create: (_) => MushafAudioProvider()),
+              ChangeNotifierProvider(create: (_) => StatsProvider()),
+              ChangeNotifierProvider(create: (_) => SupabaseProvider()),
+              ChangeNotifierProvider(create: (_) => NotesProvider()),
+              ChangeNotifierProvider(create: (_) => TranslationManagerProvider()),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.toThemeData(isDark: false),
+              home: WelcomeScreen(
+                repository: repo,
+                minimumDuration: const Duration(milliseconds: 500),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(SystemChrome.latestStyle, SystemUiOverlayStyle.light);
+
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(HomeScreen), findsOneWidget);
+        expect(SystemChrome.latestStyle?.statusBarBrightness, Brightness.light);
+        expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider(create: (_) => SettingsProvider()),
+              ChangeNotifierProvider(create: (_) => MushafReadingProvider()),
+              ChangeNotifierProvider(create: (_) => MushafAudioProvider()),
+              ChangeNotifierProvider(create: (_) => StatsProvider()),
+              ChangeNotifierProvider(create: (_) => SupabaseProvider()),
+              ChangeNotifierProvider(create: (_) => NotesProvider()),
+              ChangeNotifierProvider(create: (_) => TranslationManagerProvider()),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.toThemeData(isDark: false),
+              home: MushafReaderScreen(
+                quranRepository: repo,
+                foundationRepository: QuranFoundationRepository(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(SystemChrome.latestStyle?.statusBarBrightness, Brightness.light);
+        expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.dark);
       },
     );
   });

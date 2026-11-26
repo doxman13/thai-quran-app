@@ -1261,9 +1261,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final mushafReadingProvider = context.watch<MushafReadingProvider>();
     final statsProvider = context.watch<StatsProvider>();
     final isThai = settings.languageCode == 'th';
+    final statusBarStyle = AppTheme.statusBarOverlayStyle(
+      isDark: Theme.of(context).brightness == Brightness.dark,
+    );
 
     if (!_isInit) {
-      return Scaffold(
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: statusBarStyle,
+        child: Scaffold(
         backgroundColor: appColors.background,
         body: SafeArea(
           child: Center(
@@ -1305,10 +1310,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 : CircularProgressIndicator(color: colorScheme.primary),
           ),
         ),
+        ),
       );
     }
 
-    return PopScope(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: statusBarStyle,
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
@@ -1460,6 +1468,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

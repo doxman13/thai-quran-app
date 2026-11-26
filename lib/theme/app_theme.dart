@@ -173,6 +173,15 @@ class AppTheme {
     }
   }
 
+  /// Returns the status bar overlay style matching the theme brightness.
+  static SystemUiOverlayStyle statusBarOverlayStyle({required bool isDark}) {
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+    );
+  }
+
   /// Returns the theme color tokens.
   static AppThemeColors colors({
     required bool isDark,
@@ -283,6 +292,7 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: statusBarOverlayStyle(isDark: isDark),
         iconTheme: IconThemeData(color: c.textStrong),
         titleTextStyle: isThai
             ? GoogleFonts.notoSansThai(

@@ -29,8 +29,8 @@ import '../widgets/surah_mastery_card.dart';
 import 'hifz_guide_screen.dart';
 import 'hifz_history_screen.dart';
 import 'hifz_memorize_screen.dart';
+import 'hifz_settings_screen.dart';
 import 'hifz_wizard_setup_screen.dart';
-import 'settings_screen.dart';
 
 const _juzSurahStarts = <int>[
   1, 2, 2, 3, 4, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15,
@@ -269,14 +269,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   }
 
   void _openHifzSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SettingsScreen(
-          initialCategory: SettingsCategoryTab.hifz,
-        ),
-      ),
-    );
+    HifzControlsSheet.show(context);
   }
 
   Future<void> _resumeSession() async {
@@ -396,29 +389,17 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isThai
-                                  ? 'ท่องจำอัลกุรอาน (Hifz)'
-                                  : 'Hifz Memorization',
-                              style: GoogleFonts.notoSansThai(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            Text(
-                              isThai
-                                  ? 'ระบบตัครอร 10x ดู + 5x ซ่อน • ทบทวน 2x/2x'
-                                  : '10x Visible + 5x Hidden Takrar • 2x/2x Review',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          isThai
+                              ? 'ท่องจำอัลกุรอาน (Hifz)'
+                              : 'Hifz Memorization',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
                       IconButton(
@@ -458,47 +439,31 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               ),
             ),
 
-            // ── 3. Three Interactive Stat & Control Pills ──────────────────
-            SliverToBoxAdapter(
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: _buildStatAndControlPills(
-                  colorScheme,
-                  textTheme,
-                  settings,
-                  isThai,
-                ),
-              ),
-            ),
-
-            // ── 4. 114-Surah Mastery Header + Filter Chips + Search ────────
+            // ── 3. 114-Surah Mastery Header + Input Mode + Search ──────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Text(
-                          isThai
-                              ? 'ความคืบหน้าทั้ง 114 ซูเราะฮฺ'
-                              : 'Surah Mastery (114 Surahs)',
-                          style: GoogleFonts.notoSansThai(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.onSurface,
+                        Expanded(
+                          child: Text(
+                            isThai
+                                ? 'ความคืบหน้าทั้ง 114 ซูเราะฮฺ'
+                                : 'Surah Mastery (114)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          isThai
-                              ? 'แตะซูเราะฮฺเพื่อเริ่มท่อง/ทบทวน'
-                              : 'Tap any surah to start',
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                        const SizedBox(width: 8),
+                        _buildInputModePill(colorScheme, settings, isThai),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -627,7 +592,17 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
                 sliver: SliverList.separated(
                   itemCount: filteredSurahs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  separatorBuilder: (context, _) => Container(
+                    color: colorScheme.surfaceContainerLow,
+                    child: Divider(
+                      height: 1,
+                      thickness: 0.7,
+                      indent: 60,
+                      endIndent: 14,
+                      color:
+                          colorScheme.outlineVariant.withValues(alpha: 0.35),
+                    ),
+                  ),
                   itemBuilder: (context, index) {
                     final surahNum = filteredSurahs[index];
                     final record = _completionMap[surahNum];
@@ -637,6 +612,16 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                     );
                     final verseCount = qcf.getVerseCount(surahNum);
                     final juz = _juzOfSurah(surahNum);
+                    final isFirst = index == 0;
+                    final isLast = index == filteredSurahs.length - 1;
+                    final groupedRadius = BorderRadius.vertical(
+                      top: isFirst
+                          ? const Radius.circular(AppTheme.radius)
+                          : Radius.zero,
+                      bottom: isLast
+                          ? const Radius.circular(AppTheme.radius)
+                          : Radius.zero,
+                    );
 
                     return SurahMasteryCard(
                       surahNumber: surahNum,
@@ -646,6 +631,8 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                       record: record,
                       summary: _summaries[surahNum],
                       isThai: isThai,
+                      groupedRow: true,
+                      groupedBorderRadius: groupedRadius,
                       onTap: () => _showSurahActionSheet(context, surahNum),
                     );
                   },
@@ -764,7 +751,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
   ) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF0E5A4A),
         borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -775,58 +762,25 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD4A853).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                  border: Border.all(
-                    color: const Color(0xFFD4A853).withValues(alpha: 0.45),
-                  ),
-                ),
-                child: Text(
-                  isThai
-                      ? 'ระบบตัครอร (Takrar Method)'
-                      : 'Takrar Memorization System',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFF3D28A),
-                  ),
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD4A853).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              border: Border.all(
+                color: const Color(0xFFD4A853).withValues(alpha: 0.45),
               ),
-              const Spacer(),
-              InkWell(
-                onTap: _openGuide,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.school_outlined,
-                        size: 14,
-                        color: Colors.white70,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isThai ? 'วิธีท่องจำ' : 'How it works',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            ),
+            child: Text(
+              isThai
+                  ? 'ระบบตัครอร (Takrar Method)'
+                  : 'Takrar Memorization System',
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFFF3D28A),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -834,7 +788,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                 ? 'ท่องจำอายะฮฺใหม่ & ทบทวนความจำ'
                 : 'Memorize New Verses & Protect Retention',
             style: GoogleFonts.notoSansThai(
-              fontSize: 20,
+              fontSize: 19,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
@@ -842,15 +796,15 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           const SizedBox(height: 4),
           Text(
             isThai
-                ? 'อ่านเปิดหน้า 10 รอบ + ทดสอบซ่อนอายะฮฺ 5 รอบ พร้อมเชื่อมโยงลำดับอายะฮฺอัตโนมัติ'
-                : '10x visible reading + 5x hidden active recall with cumulative verse linking.',
+                ? 'อ่านเปิด 10 รอบ + ซ่อนทบทวน 5 รอบ พร้อมเชื่อมโยงอายะฮฺ'
+                : '10x visible + 5x hidden active recall with verse linking.',
             style: GoogleFonts.notoSansThai(
               fontSize: 12.5,
               color: Colors.white.withValues(alpha: 0.8),
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -876,7 +830,7 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: OutlinedButton.icon(
+                child: FilledButton.icon(
                   onPressed: () => _openReview(),
                   icon: const Icon(Icons.replay_rounded, size: 18),
                   label: Text(
@@ -886,12 +840,9 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
                       fontSize: 13.5,
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.35),
-                    ),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFBF9F5),
+                    foregroundColor: const Color(0xFF0E5A4A),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppTheme.radius),
@@ -906,10 +857,9 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     );
   }
 
-  // ── 3. Three Interactive Stat & Control Pills ───────────────────────────────
-  Widget _buildStatAndControlPills(
+  // ── 3. Compact Input Mode Pill ──────────────────────────────────────────────
+  Widget _buildInputModePill(
     ColorScheme colorScheme,
-    TextTheme textTheme,
     SettingsProvider settings,
     bool isThai,
   ) {
@@ -917,49 +867,50 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
     final inputModeLabel = switch (settings.hifzInputMode) {
       HifzInputMode.inAppTally => isThai ? 'ปุ่มบนจอ' : 'On-Screen',
       HifzInputMode.bluetoothShutter => isThai ? 'รีโมทบลูทูธ' : 'BT Shutter',
-      HifzInputMode.bleSmartRing => isThai ? 'แหวน Smart Ring' : 'Smart Ring',
+      HifzInputMode.bleSmartRing => isThai ? 'Smart Ring' : 'Smart Ring',
+    };
+    final inputModeIcon = switch (settings.hifzInputMode) {
+      HifzInputMode.bleSmartRing => Icons.watch_rounded,
+      HifzInputMode.bluetoothShutter => Icons.bluetooth_searching_rounded,
+      HifzInputMode.inAppTally => Icons.touch_app_rounded,
     };
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: _CompactInfoCard(
-              icon: Icons.verified_rounded,
-              iconColor: colors.success,
-              title: '$_masteredCount / 114',
-              subtitle: isThai ? 'จำขึ้นใจแล้ว' : 'Mastered',
-              onTap: () =>
-                  setState(() => _filterMode = _MasteryFilter.mastered),
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: _openHifzSettings,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _CompactInfoCard(
-              icon: Icons.trending_up_rounded,
-              iconColor: colors.mushafGold,
-              title: '$_inProgressCount / 114',
-              subtitle: isThai ? 'กำลังท่องจำ' : 'In Progress',
-              onTap: () =>
-                  setState(() => _filterMode = _MasteryFilter.inProgress),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(inputModeIcon, size: 14, color: colors.primary),
+              const SizedBox(width: 5),
+              Text(
+                inputModeLabel,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 15,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _CompactInfoCard(
-              icon: settings.hifzInputMode == HifzInputMode.bleSmartRing
-                  ? Icons.watch_rounded
-                  : (settings.hifzInputMode == HifzInputMode.bluetoothShutter
-                      ? Icons.bluetooth_searching_rounded
-                      : Icons.touch_app_rounded),
-              iconColor: colors.primary,
-              title: inputModeLabel,
-              subtitle: isThai ? 'วิธีเลื่อนอายะฮฺ ⚙' : 'Input Mode ⚙',
-              onTap: _openHifzSettings,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1210,71 +1161,6 @@ class _HifzLandingScreenState extends State<HifzLandingScreen>
           ),
         );
       },
-    );
-  }
-}
-
-class _CompactInfoCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _CompactInfoCard({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppTheme.radius),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 18, color: iconColor),
-              const SizedBox(height: 6),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.notoSansThai(
-                  fontSize: 10.5,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

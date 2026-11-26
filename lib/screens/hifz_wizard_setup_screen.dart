@@ -1,9 +1,8 @@
 // lib/screens/hifz_wizard_setup_screen.dart
 //
-// Guided 3-Step Setup Wizard for Hifz (Memorization) Mode.
-// Step 1: Goal Selection (New Verses vs Review Mode with clear explanations)
-// Step 2: Portion & Range (Surah Card with QcfSurahName, RangeSlider, Quick Presets, Visual Mushaf)
-// Step 3: Session Plan & Launch (Duration estimate, chunking options, start CTA)
+// Guided 2-Step Setup Wizard for Hifz (Memorization) Mode.
+// Step 1: Portion & Range (Mode toggle + Surah/Page/Review range selection)
+// Step 2: Session Plan & Launch (Duration estimate, chunking options, start CTA)
 //
 // Strictly follows Antigravity UI Refactoring Rules:
 // - Zero business logic alteration (launches HifzMemorizeScreen with exact standard config)
@@ -19,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/offline_surah_names.dart';
 import '../data/quran_foundation_repository.dart';
 import '../data/quran_repository.dart';
-import '../database/hifz_repository.dart';
 import '../models/hifz_session_config.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/surah_picker_sheet.dart';
@@ -108,12 +106,12 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   // Session Preferences
   bool _chunkLongVerses = true;
 
-  ActiveSessionSnapshot? _resumableSession;
-
   @override
   void initState() {
     super.initState();
-    _currentStep = widget.initialStep.clamp(0, 2);
+    // Legacy step 1 (mode selection) was removed; callers passing 0 or 1 land on
+    // Range Selection (step 0), and step >= 2 opens Summary (step 1).
+    _currentStep = widget.initialStep >= 2 ? 1 : 0;
     _selectedMode = widget.initialMode ?? HifzSessionType.newVerses;
     _isNewVerses = _selectedMode == HifzSessionType.newVerses;
 
@@ -145,7 +143,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     }
 
     _loadSavedPreferences();
-    _checkForResumableSession();
   }
 
   void _initFromPage(int page) {
@@ -281,21 +278,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
     });
   }
 
-  Future<void> _checkForResumableSession() async {
-    final repo = HifzRepository();
-    final allSessions = await repo.getAllActiveSessions();
-    for (final s in allSessions) {
-      if (s.sessionType == _selectedMode) {
-        if (mounted) {
-          setState(() {
-            _resumableSession = s;
-          });
-        }
-        break;
-      }
-    }
-  }
-
   int get _totalVersesInSurah => qcf.getVerseCount(_surah);
 
   int _getJuzForPage(int page) {
@@ -311,7 +293,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   }
 
   void _nextStep() {
-    if (_currentStep < 2) {
+    if (_currentStep < 1) {
       setState(() => _currentStep++);
       _persistWizardSelection();
     } else {
@@ -638,15 +620,15 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
   Widget _buildStepIndicator(
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     final stepLabels = isThai
-        ? ['1. เลือกโหมด', '2. กำหนดช่วง', '3. สรุป & เริ่ม']
-        : ['1. Goal', '2. Portion', '3. Confirm'];
+        ? ['1. กำหนดช่วง', '2. สรุป & เริ่ม']
+        : ['1. Portion', '2. Confirm'];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
         children: [
           Row(
-            children: List.generate(3, (index) {
+            children: List.generate(2, (index) {
               final isPassed = index < _currentStep;
               final isCurrent = index == _currentStep;
 
@@ -670,7 +652,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(3, (index) {
+            children: List.generate(2, (index) {
               final isCurrent = index == _currentStep;
               return Text(
                 stepLabels[index],
@@ -696,180 +678,118 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
     switch (_currentStep) {
       case 0:
-        return _buildStep1ModeSelection(colorScheme, textTheme, isThai);
-      case 1:
         return _buildStep2RangeSelection(colorScheme, textTheme, isThai);
-      case 2:
+      case 1:
       default:
         return _buildStep3Summary(colorScheme, textTheme, isThai);
     }
   }
 
   // ===========================================================================
-  // STEP 1: Mode Selection
-  // ===========================================================================
-
-  Widget _buildStep1ModeSelection(
-      ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
-    return ListView(
-      key: const ValueKey(0),
-      padding: const EdgeInsets.all(24),
-      children: [
-        Text(
-          isThai ? 'วันนี้คุณต้องการทำอะไร?' : 'What is your goal today?',
-          style: textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          isThai
-              ? 'เลือกรูปแบบการท่องจำที่เหมาะกับความพร้อมและเป้าหมายของคุณ'
-              : 'Choose the memorization style suited for your session.',
-          style: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        if (widget.initialSurah != null) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.25),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.menu_book_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    widget.initialStartVerse != null && widget.initialStartVerse! > 1
-                        ? (isThai
-                            ? 'ซูเราะฮฺ ${surahDisplayName(_nvSurah.toString(), isThai: isThai)} (อายะฮฺ $_nvStartVerse–$_nvEndVerse)'
-                            : 'Surah ${surahDisplayName(_nvSurah.toString(), isThai: isThai)} (Verses $_nvStartVerse–$_nvEndVerse)')
-                        : (isThai
-                            ? 'ซูเราะฮฺ ${surahDisplayName(_nvSurah.toString(), isThai: isThai)}'
-                            : 'Surah ${surahDisplayName(_nvSurah.toString(), isThai: isThai)}'),
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isThai ? 'เลือกไว้แล้ว' : 'Selected',
-                    style: textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-
-        // Option 1: New Verses (Takrar)
-        _ModeSelectionCard(
-          isSelected: _selectedMode == HifzSessionType.newVerses,
-          icon: Icons.menu_book_rounded,
-          accentColor: colorScheme.primary,
-          title: isThai ? 'ท่องจำอายะฮฺใหม่ (Takrar)' : 'Memorize New Verses (Takrar)',
-          subtitle: isThai
-              ? 'เน้นเจาะลึกทีละอายะฮฺ ซ้ำ 15 รอบ (แสดง 10× + ซ่อน 5×) เพื่อปลูกฝังความจำลงสมอง แล้วเชื่อมโยงต่อเนื่อง'
-              : 'Deep micro-learning: 15 repetitions per verse (10 visible + 5 hidden recall), followed by linked sequence.',
-          badge: isThai ? '🌟 แนะนำ 3–5 อายะฮฺ' : '🌟 3–5 Verses Recommended',
-          features: isThai
-              ? ['ฝึกทีละอายะฮฺอย่างประณีต', 'แบ่งย่อยอายะฮฺยาวตามวักฟ์', 'เชื่อมต่ออายะฮฺเป็นชุด']
-              : ['Precision verse drilling', 'Waqf chunking for long verses', 'Sequence linking drills'],
-          colorScheme: colorScheme,
-          textTheme: textTheme,
-          onTap: () {
-            setState(() {
-              _selectedMode = HifzSessionType.newVerses;
-              _isNewVerses = true;
-            });
-            _checkForResumableSession();
-          },
-        ),
-
-        const SizedBox(height: 16),
-
-        // Option 2: Review (Muraja'ah)
-        _ModeSelectionCard(
-          isSelected: _selectedMode == HifzSessionType.review,
-          icon: Icons.replay_circle_filled_rounded,
-          accentColor: colorScheme.tertiary,
-          title: isThai ? 'ทบทวนความจำ (Muraja\'ah)' : 'Review & Test (Muraja\'ah)',
-          subtitle: isThai
-              ? 'รักษาสิ่งที่เคยท่องได้แล้วไม่ให้เลือนหาย ท่องต่อเนื่องทั้งหน้าหรือทั้งซูเราะฮฺ พร้อมตรวจจับคำผิด'
-              : 'Protect what you have memorized from fading. Recite full passages with real-time speech verification.',
-          badge: isThai ? '🔄 หัวใจของการฮิฟซ์ 80%' : '🔄 80% of Memorization',
-          features: isThai
-              ? ['ท่องต่อเนื่องทั้งหน้า/ซูเราะฮฺ', 'โหมดซ่อนตัวอักษรเพื่อทดสอบ', 'ประเมินความแม่นยำ']
-              : ['Continuous passage recitation', 'Hidden text recall test', 'Real-time accuracy scoring'],
-          colorScheme: colorScheme,
-          textTheme: textTheme,
-          onTap: () {
-            setState(() {
-              _selectedMode = HifzSessionType.review;
-              _isNewVerses = false;
-            });
-            _checkForResumableSession();
-          },
-        ),
-
-        if (_resumableSession != null) ...[
-          const SizedBox(height: 24),
-          _ResumeBanner(
-            snapshot: _resumableSession!,
-            colorScheme: colorScheme,
-            textTheme: textTheme,
-            isThai: isThai,
-            onResume: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HifzMemorizeScreen(
-                    quranRepository: widget.quranRepository,
-                    foundationRepository: widget.foundationRepository,
-                    resumeSessionSnapshot: _resumableSession!,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ],
-    );
-  }
-
-  // ===========================================================================
-  // STEP 2: Portion & Range Selection
+  // STEP 1: Portion & Range Selection (with inline Mode Switch)
   // ===========================================================================
 
   Widget _buildStep2RangeSelection(
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
-    if (_selectedMode == HifzSessionType.review) {
-      return _buildReviewStep2RangeSelection(colorScheme, textTheme, isThai);
-    }
-    return _buildNewVersesStep2RangeSelection(colorScheme, textTheme, isThai);
+    return Column(
+      key: ValueKey('range_step_$_selectedMode'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+          child: Material(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  for (final option in [
+                    (
+                      HifzSessionType.newVerses,
+                      Icons.menu_book_rounded,
+                      isThai ? 'ท่องอายะฮฺใหม่' : 'New Verses',
+                      colorScheme.primary,
+                      colorScheme.onPrimary,
+                    ),
+                    (
+                      HifzSessionType.review,
+                      Icons.replay_rounded,
+                      isThai ? 'ทบทวนความจำ' : 'Review',
+                      colorScheme.tertiary,
+                      colorScheme.onTertiary,
+                    ),
+                  ])
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () {
+                          if (_selectedMode == option.$1) return;
+                          setState(() {
+                            _selectedMode = option.$1;
+                            _isNewVerses =
+                                _selectedMode == HifzSessionType.newVerses;
+                          });
+                          _persistWizardSelection();
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _selectedMode == option.$1
+                                ? option.$4
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                option.$2,
+                                size: 17,
+                                color: _selectedMode == option.$1
+                                    ? option.$5
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  option.$3,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: _selectedMode == option.$1
+                                        ? option.$5
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _selectedMode == HifzSessionType.review
+              ? _buildReviewStep2RangeSelection(colorScheme, textTheme, isThai)
+              : _buildNewVersesStep2RangeSelection(colorScheme, textTheme, isThai),
+        ),
+      ],
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -2172,7 +2092,7 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
 
   Widget _buildBottomBar(
       ColorScheme colorScheme, TextTheme textTheme, bool isThai) {
-    final isLast = _currentStep == 2;
+    final isLast = _currentStep == 1;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
@@ -2227,239 +2147,6 @@ class _HifzWizardSetupScreenState extends State<HifzWizardSetupScreen> {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Helper Subcomponents
-// =============================================================================
-
-class _ModeSelectionCard extends StatelessWidget {
-  final bool isSelected;
-  final IconData icon;
-  final Color accentColor;
-  final String title;
-  final String subtitle;
-  final String badge;
-  final List<String> features;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
-  final VoidCallback onTap;
-
-  const _ModeSelectionCard({
-    required this.isSelected,
-    required this.icon,
-    required this.accentColor,
-    required this.title,
-    required this.subtitle,
-    required this.badge,
-    required this.features,
-    required this.colorScheme,
-    required this.textTheme,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accentColor.withValues(alpha: 0.08)
-              : colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected
-                ? accentColor
-                : colorScheme.outlineVariant.withValues(alpha: 0.5),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? accentColor
-                        : accentColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 24,
-                    color: isSelected ? Colors.white : accentColor,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          badge,
-                          style: textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected ? accentColor : colorScheme.outlineVariant,
-                      width: 2,
-                    ),
-                    color: isSelected ? accentColor : Colors.transparent,
-                  ),
-                  child: isSelected
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              subtitle,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: features.map((f) {
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colorScheme.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check_circle_rounded,
-                          size: 14, color: accentColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        f,
-                        style: textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ResumeBanner extends StatelessWidget {
-  final ActiveSessionSnapshot snapshot;
-  final ColorScheme colorScheme;
-  final TextTheme textTheme;
-  final bool isThai;
-  final VoidCallback onResume;
-
-  const _ResumeBanner({
-    required this.snapshot,
-    required this.colorScheme,
-    required this.textTheme,
-    required this.isThai,
-    required this.onResume,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isNew = snapshot.sessionType == HifzSessionType.newVerses;
-    final typeLabel = isNew
-        ? (isThai ? 'ท่องจำอายะฮฺใหม่' : 'New Verses')
-        : (isThai ? 'ทบทวนความจำ' : 'Review');
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.history_rounded, color: colorScheme.primary, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isThai ? 'มีเซสชันค้างอยู่' : 'Active Session Found',
-                  style: textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                Text(
-                  '$typeLabel · ${isThai ? 'งานที่' : 'Task'} ${snapshot.currentStepIndex + 1}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton.tonal(
-            onPressed: onResume,
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-            child: Text(isThai ? 'ท่องต่อ' : 'Resume'),
           ),
         ],
       ),

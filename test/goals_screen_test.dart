@@ -13,6 +13,11 @@ import 'package:thai_quran_app/providers/supabase_provider.dart';
 import 'package:thai_quran_app/screens/goals_screen.dart';
 import 'package:thai_quran_app/shared/shared.dart';
 
+class _LoggedInSupabaseProvider extends SupabaseProvider {
+  @override
+  bool get isLoggedIn => true;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -34,6 +39,7 @@ void main() {
     required LocalReadingProvider localReading,
     required MushafReadingProvider mushafReading,
     required SettingsProvider settings,
+    SupabaseProvider? supabase,
   }) {
     return MultiProvider(
       providers: [
@@ -43,7 +49,7 @@ void main() {
           value: mushafReading,
         ),
         ChangeNotifierProvider<SupabaseProvider>.value(
-          value: SupabaseProvider(),
+          value: supabase ?? SupabaseProvider(),
         ),
       ],
       child: MaterialApp(
@@ -87,6 +93,7 @@ void main() {
               localReading: localReading,
               mushafReading: mushafReading,
               settings: settings,
+              supabase: _LoggedInSupabaseProvider(),
             ),
           );
           await tester.pump(const Duration(milliseconds: 50));
@@ -136,6 +143,73 @@ void main() {
             scrollable: find.byType(Scrollable).first,
           );
           expect(find.text('My Mushaf Plan'), findsOneWidget);
+        } finally {
+          FlutterError.onError = previousOnError;
+        }
+
+        expect(overflowErrors, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'decluttered goal creation modal uses segmented toggle and collapses preset range on 360px phone',
+      (tester) async {
+        final overflowErrors = <FlutterErrorDetails>[];
+        final previousOnError = FlutterError.onError;
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        FlutterError.onError = (details) {
+          if (details.exceptionAsString().contains('RenderFlex overflowed')) {
+            overflowErrors.add(details);
+          } else {
+            previousOnError?.call(details);
+          }
+        };
+
+        SharedPreferences.setMockInitialValues({'languageCode': 'th'});
+        final settings = SettingsProvider();
+        final localReading = LocalReadingProvider();
+        final mushafReading = MushafReadingProvider();
+
+        try {
+          await tester.pumpWidget(
+            buildGoalsHarness(
+              localReading: localReading,
+              mushafReading: mushafReading,
+              settings: settings,
+              supabase: _LoggedInSupabaseProvider(),
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 50));
+
+          await tester.tap(find.text('ตั้งเป้าหมายใหม่').first);
+          await tester.pumpAndSettle();
+
+          // Numbered prefixes & header subtitle removed; segmented mode labels visible
+          expect(find.text('รูปแบบการอ่าน'), findsOneWidget);
+          expect(find.text('ฉบับแปลความหมาย'), findsOneWidget);
+          expect(find.text('มุศหัฟ 604 หน้า'), findsOneWidget);
+          expect(find.text('1. เลือกรูปแบบการอ่าน'), findsNothing);
+
+          // Switch to Mushaf mode via segmented toggle
+          await tester.tap(find.text('มุศหัฟ 604 หน้า'));
+          await tester.pumpAndSettle();
+
+          // Tap Mushaf preset -> custom range collapses to summary row
+          await tester.tap(find.text('ค็อตม์มุศหัฟ 604 หน้า').last);
+          await tester.pumpAndSettle();
+          expect(find.text('ขอบเขต: หน้า 1 – 604'), findsOneWidget);
+          expect(find.text('รูปแบบการคำนวณหน้ามุศหัฟ'), findsNothing);
+
+          // Expand custom range via 'ปรับเอง'
+          await tester.tap(find.text('ปรับเอง'));
+          await tester.pumpAndSettle();
+          expect(find.text('รูปแบบการคำนวณหน้ามุศหัฟ'), findsOneWidget);
         } finally {
           FlutterError.onError = previousOnError;
         }

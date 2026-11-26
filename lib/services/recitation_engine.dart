@@ -639,6 +639,13 @@ class RecitationEngine {
       if (opSeq != _listenOpSeq) return false;
     }
 
+    if (_inferenceFuture != null) {
+      try {
+        await _inferenceFuture;
+      } catch (_) {}
+      if (opSeq != _listenOpSeq) return false;
+    }
+
     if (!_isInitialized) {
       await initialize();
       if (opSeq != _listenOpSeq) return false;
@@ -1218,18 +1225,22 @@ class RecitationEngine {
   }
 
   Future<void> _runDrainStreamingWindows() async {
+    final opSeq = _listenOpSeq;
     _isInferring = true;
 
     try {
-      while (_fbankFeats.length - _fbankConsumed >= _window && _isListening) {
+      while (_fbankFeats.length - _fbankConsumed >= _window &&
+          _isListening &&
+          opSeq == _listenOpSeq) {
         final windowTokens = await _stepWindow(_packWindow(_fbankConsumed));
+        if (opSeq != _listenOpSeq || !_isListening) break;
         _fbankConsumed += _shift;
         if (windowTokens.isNotEmpty) {
           await _handleNewTokens(windowTokens, isFlush: false);
         }
       }
 
-      if (_fbankConsumed > 4 * _window) {
+      if (opSeq == _listenOpSeq && _fbankConsumed > 4 * _window) {
         _fbankFeats.removeRange(0, _fbankConsumed);
         _fbankConsumed = 0;
       }
@@ -1237,18 +1248,20 @@ class RecitationEngine {
       debugPrint('[RecitationEngine] Streaming inference error: $e\n$st');
     } finally {
       _isInferring = false;
-      if (_pendingFlush && _isListening && !_speechActive) {
-        _pendingFlush = false;
-        unawaited(_flushTrailingSilence());
-      } else {
-        if (_isListening) {
-          _onEvent?.call(RecitationStatusEvent(
-            status: RecitationStatus.listening,
-            audioLevel: 0.0,
-            currentExpectedAyah: _expectedAyah,
-          ));
+      if (opSeq == _listenOpSeq) {
+        if (_pendingFlush && _isListening && !_speechActive) {
+          _pendingFlush = false;
+          unawaited(_flushTrailingSilence());
+        } else {
+          if (_isListening) {
+            _onEvent?.call(RecitationStatusEvent(
+              status: RecitationStatus.listening,
+              audioLevel: 0.0,
+              currentExpectedAyah: _expectedAyah,
+            ));
+          }
+          _scheduleStaleBufferReset();
         }
-        _scheduleStaleBufferReset();
       }
     }
   }
@@ -1269,32 +1282,37 @@ class RecitationEngine {
   }
 
   Future<void> _runFlushTrailingSilence() async {
+    final opSeq = _listenOpSeq;
     _isInferring = true;
 
     try {
       final flushTokens = await _stepUnconsumedWithPadding();
 
-      if ((flushTokens.isNotEmpty || _accumulatedTokens.isNotEmpty) && _isListening) {
+      if (opSeq == _listenOpSeq &&
+          (flushTokens.isNotEmpty || _accumulatedTokens.isNotEmpty) &&
+          _isListening) {
         await _handleNewTokens(flushTokens, isFlush: true);
       }
     } catch (e, st) {
       debugPrint('[RecitationEngine] Flush error: $e\n$st');
     } finally {
       _isInferring = false;
-      if (_pendingSearchStop) {
-        _pendingSearchStop = false;
-        unawaited(stopListening());
-      } else if (_isListening && _fbankFeats.length - _fbankConsumed >= _window) {
-        unawaited(_drainStreamingWindows());
-      } else {
-        if (_isListening) {
-          _onEvent?.call(RecitationStatusEvent(
-            status: RecitationStatus.listening,
-            audioLevel: 0.0,
-            currentExpectedAyah: _expectedAyah,
-          ));
+      if (opSeq == _listenOpSeq) {
+        if (_pendingSearchStop) {
+          _pendingSearchStop = false;
+          unawaited(stopListening());
+        } else if (_isListening && _fbankFeats.length - _fbankConsumed >= _window) {
+          unawaited(_drainStreamingWindows());
+        } else {
+          if (_isListening) {
+            _onEvent?.call(RecitationStatusEvent(
+              status: RecitationStatus.listening,
+              audioLevel: 0.0,
+              currentExpectedAyah: _expectedAyah,
+            ));
+          }
+          _scheduleStaleBufferReset();
         }
-        _scheduleStaleBufferReset();
       }
     }
   }

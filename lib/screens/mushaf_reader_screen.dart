@@ -818,11 +818,19 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final provider = Provider.of<MushafReadingProvider>(context);
     final profile = _getProfile();
     final audioProvider = context.watch<MushafAudioProvider>();
+    final canvasColor = _mushafCanvasColor(context);
+    final statusBarStyle = AppTheme.statusBarOverlayStyle(
+      isDark: ThemeData.estimateBrightnessForColor(canvasColor) ==
+          Brightness.dark,
+    );
 
     if (profile == null) {
-      return Scaffold(
-        backgroundColor: colors.background,
-        body: const Center(child: Text('Mushaf profile not found.')),
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: statusBarStyle,
+        child: Scaffold(
+          backgroundColor: colors.background,
+          body: const Center(child: Text('Mushaf profile not found.')),
+        ),
       );
     }
 
@@ -860,7 +868,9 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
     final topMenuInset = _isMenuVisible ? 56.0 : (isLandscape ? 8.0 : 36.0);
     final bottomMenuInset = _isMenuVisible ? 64.0 : 8.0;
 
-    return PopScope(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: statusBarStyle,
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
@@ -868,7 +878,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: _mushafCanvasColor(context),
+        backgroundColor: canvasColor,
         body: Listener(
           onPointerDown: (_) {
             if (_isMenuVisible) {
@@ -1352,6 +1362,7 @@ class _MushafReaderScreenState extends State<MushafReaderScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

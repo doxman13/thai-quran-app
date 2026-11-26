@@ -42,7 +42,7 @@ export const STATIC_SURAH_NAMES_THAI: Record<string, string> = {
   "38": "ศอด ดาวูด",
   "39": "อัซซุมัร ที่อยู่อาศัย",
   "40": "ฆอฟิร ผู้ศรัทธา",
-  "41": "ฟุศศิลัต สุยูดแห่งฮา มีม",
+  "41": "ฟุศศิลัต สุญูดแห่งฮา มีม",
   "42": "อัซซูรอ ฮา มีม ไอน ซีน กอฟ",
   "43": "อัซซุครุฟ",
   "44": "อัดดุคอน",
@@ -72,7 +72,7 @@ export const STATIC_SURAH_NAMES_THAI: Record<string, string> = {
   "68": "อัลก้อลัม",
   "69": "อัลหากเกาะฮฺ",
   "70": "อัลมาอาริจญ์ เรื่องที่กำลังจะเกิดขึ้น",
-  "71": "นูหฺ",
+  "71": "นูฮฺ",
   "72": "อัลญิน",
   "73": "อัลมุซซัมมิล",
   "74": "อัลมุดดัซซิร",
@@ -409,7 +409,7 @@ export const STATIC_SURAH_METADATA: Record<string, { thai: string; english: stri
     "type": "มักกียะฮฺ"
   },
   "41": {
-    "thai": "ฟุศศิลัต สุยูดแห่งฮา มีม",
+    "thai": "ฟุศศิลัต สุญูดแห่งฮา มีม",
     "english": "Expounded Ha Meem Prostration, Lamps, Means of Sustenance",
     "arabic": "فصلت حم سجدة، المصابيح، الأقوات",
     "verses": 54,
@@ -619,7 +619,7 @@ export const STATIC_SURAH_METADATA: Record<string, { thai: string; english: stri
     "type": "มักกียะฮฺ"
   },
   "71": {
-    "thai": "นูหฺ",
+    "thai": "นูฮฺ",
     "english": "Noah",
     "arabic": "نوح",
     "verses": 28,

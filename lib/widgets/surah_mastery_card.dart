@@ -24,6 +24,8 @@ class SurahMasteryCard extends StatelessWidget {
   final SurahCompletionRecord? record;
   final SurahMasterySummary? summary;
   final bool isThai;
+  final bool groupedRow;
+  final BorderRadius? groupedBorderRadius;
   final VoidCallback? onTap;
 
   const SurahMasteryCard({
@@ -35,6 +37,8 @@ class SurahMasteryCard extends StatelessWidget {
     required this.record,
     this.summary,
     required this.isThai,
+    this.groupedRow = false,
+    this.groupedBorderRadius,
     this.onTap,
   });
 
@@ -91,24 +95,31 @@ class SurahMasteryCard extends StatelessWidget {
             ? (isThai ? 'กำลังท่อง' : 'In Progress')
             : (isThai ? 'เริ่มท่อง' : 'Start'));
 
+    final radius = groupedRow
+        ? (groupedBorderRadius ?? BorderRadius.zero)
+        : BorderRadius.circular(AppTheme.radius);
+
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppTheme.radius),
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTheme.radius),
+        borderRadius: radius,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radius),
-            border: Border.all(
-              color: isMastered
-                  ? colors.success.withValues(alpha: 0.4)
-                  : (isInProgress
-                      ? colors.mushafGold.withValues(alpha: 0.45)
-                      : colorScheme.outlineVariant.withValues(alpha: 0.3)),
-            ),
-          ),
+          decoration: groupedRow
+              ? null
+              : BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppTheme.radius),
+                  border: Border.all(
+                    color: isMastered
+                        ? colors.success.withValues(alpha: 0.4)
+                        : (isInProgress
+                            ? colors.mushafGold.withValues(alpha: 0.45)
+                            : colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                  ),
+                ),
           child: Row(
             children: [
               Container(

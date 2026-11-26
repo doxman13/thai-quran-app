@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:qcf_quran/qcf_quran.dart' as qcf;
+import 'package:volume_key_board/volume_key_board.dart';
 import '../data/medina_mushaf_pages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,10 +29,7 @@ import '../providers/settings_provider.dart';
 import 'hifz_new_verses_setup_screen.dart';
 import 'hifz_review_setup_screen.dart';
 import '../providers/ble_remote_provider.dart';
-import 'hifz_mastery_list_screen.dart';
 import 'hifz_settings_screen.dart';
-import 'hifz_guide_screen.dart';
-import 'settings_screen.dart';
 
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../providers/translation_manager_provider.dart';
@@ -88,6 +86,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   static const _channel = MethodChannel('com.thaiquran.app/key_events');
   int _lastBleClickCount = 0;
   bool _isBleListenerAttached = false;
+  bool _isVolumeListenerAttached = false;
   DateTime? _lastShutterClickTime;
   late HifzSessionProvider _hifzProvider;
   bool _chunkLongVerses = true;
@@ -114,6 +113,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   final Set<int> _weakOrAssistedVerses = {};
   int? _lastSkippedVerse;
   int? _hintedVerse;
+  bool _isCompletingRevealedRound = false;
+  DateTime? _suppressShutterUntil;
 
   // Controls whether the top/bottom UI chrome is visible
   bool _chromeVisible = true;
@@ -127,6 +128,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   // Audio recitation tracking for page/list synchronization
   MushafAudioProvider? _audioProvider;
+  RecitationTrackerProvider? _trackerProvider;
+  BleRemoteProvider? _bleProvider;
   String? _lastObservedAudioVerseKey;
 
   GlobalKey _keyForVerse(int surah, int verse) {
@@ -684,11 +687,60 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
   }
 
+  void _handleRemoteShutterTrigger() {
+    final audio = Provider.of<MushafAudioProvider>(context, listen: false);
+    if (audio.isPlaying) return;
+    if (_suppressShutterUntil != null &&
+        DateTime.now().isBefore(_suppressShutterUntil!)) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastShutterClickTime != null &&
+        now.difference(_lastShutterClickTime!).inMilliseconds < 450) {
+      return;
+    }
+    _lastShutterClickTime = now;
+    if (mounted && !_hifzProvider.isSessionCompleted) {
+      _handleIncrementOrAdvance();
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  KeyEventResult _handleHardwareKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    if (settings.hifzInputMode != HifzInputMode.bluetoothShutter) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final isShutterKey = key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.pageDown ||
+        key == LogicalKeyboardKey.mediaPlayPause ||
+        key == LogicalKeyboardKey.audioVolumeUp ||
+        key == LogicalKeyboardKey.audioVolumeDown;
+    if (!isShutterKey) return KeyEventResult.ignored;
+    _handleRemoteShutterTrigger();
+    return KeyEventResult.handled;
+  }
+
+  void _detachVolumeKeyBoard() {
+    if (!_isVolumeListenerAttached) return;
+    _isVolumeListenerAttached = false;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      VolumeKeyBoard.instance.removeListener().catchError((Object _) {});
+    }
+  }
+
   void _applyInputModeSettings() {
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     final inputMode = settings.hifzInputMode;
 
-    // 1. Sync input mode to native channel (hardware key interception on Android only)
+    // 1. Sync input mode to native channel (Android hardware key interception & iOS VolumeKeyBoard)
     final isShutter = inputMode == HifzInputMode.bluetoothShutter;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _channel.invokeMethod<void>('setInputMode', {
@@ -696,27 +748,29 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       }).catchError((Object _) {});
     }
 
-    // 2. Configure method call handler for hardware/volume keys
+    // 2. Configure method call handler & iOS volume shutter listener
     if (isShutter) {
       _channel.setMethodCallHandler((call) async {
         if (call.method == "keyClick") {
-          final audio = Provider.of<MushafAudioProvider>(context, listen: false);
-          if (audio.isPlaying) return;
-
-          final now = DateTime.now();
-          if (_lastShutterClickTime != null &&
-              now.difference(_lastShutterClickTime!).inMilliseconds < 450) {
-            return;
-          }
-          _lastShutterClickTime = now;
-          if (mounted && !_hifzProvider.isSessionCompleted) {
-            _handleIncrementOrAdvance();
-            HapticFeedback.lightImpact();
-          }
+          _handleRemoteShutterTrigger();
         }
       });
+      if (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.iOS &&
+          !_isVolumeListenerAttached) {
+        _isVolumeListenerAttached = true;
+        VolumeKeyBoard.instance.addListener((_) {
+          if (mounted) {
+            _handleRemoteShutterTrigger();
+          }
+        }).catchError((Object e) {
+          _isVolumeListenerAttached = false;
+          debugPrint('Unable to attach iOS VolumeKeyBoard listener: $e');
+        });
+      }
     } else {
       _channel.setMethodCallHandler(null);
+      _detachVolumeKeyBoard();
     }
 
     // 3. Dynamically attach or detach BLE Smart Ring listener
@@ -754,6 +808,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
   void _toggleVoiceRecitationMic(RecitationTrackerProvider tracker) async {
     if (tracker.isListening) {
+      _suppressShutterUntil =
+          DateTime.now().add(const Duration(milliseconds: 1500));
       await tracker.stopTracking();
       _hintedVerse = null;
       _updateWakelockState();
@@ -779,44 +835,22 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       return;
     }
 
-    final isReview = _hifzProvider.sessionType == HifzSessionType.review;
-    final int surahNumber;
-    final int startAyah;
-    final int endAyah;
-    final int totalNeeded;
+    final bounds = _resolveActiveTrackingBounds(_hifzProvider);
+    if (bounds == null) return;
+    final int surahNumber = bounds.surahNumber;
+    final int startAyah = bounds.startAyah;
+    final int endAyah = bounds.endAyah;
+    final int totalNeeded = bounds.totalNeeded;
 
-    if (isReview) {
-      final step = _hifzProvider.currentReviewStep;
-      surahNumber = _hifzProvider.currentSurahNumber;
-      startAyah = step?.verseStart ?? 1;
-      endAyah = step?.verseEnd ?? qcf.getVerseCount(surahNumber);
-      totalNeeded = endAyah - startAyah + 1;
-    } else if (_hifzProvider.currentTask != null) {
-      final task = _hifzProvider.currentTask!;
-      surahNumber = _hifzProvider.currentSurahNumber;
-      startAyah = task.verseNumbers.first;
-      endAyah = task.verseNumbers.last;
-      totalNeeded = task.verseNumbers.length;
-    } else {
-      surahNumber = _hifzProvider.currentSurahNumber;
-      startAyah = _selectedRepeatStart;
-      endAyah = _selectedEndVerse;
-      totalNeeded = _selectedEndVerse - _selectedRepeatStart + 1;
-    }
-
-    final bool isMidSessionResume = _voiceRevealedVerses.isNotEmpty &&
-        _voiceRevealedVerses.length < totalNeeded;
+    final int? firstUnrevealed = _nextUnrevealedVerse(_hifzProvider);
+    final int revealedCount = _revealedCountInBounds(bounds);
+    final bool isMidSessionResume = revealedCount > 0 &&
+        revealedCount < totalNeeded &&
+        firstUnrevealed != null;
 
     final int initialExpectedAyah;
     if (isMidSessionResume) {
-      int? firstUnrevealed;
-      for (int v = startAyah; v <= endAyah; v++) {
-        if (!_voiceRevealedVerses.contains(v)) {
-          firstUnrevealed = v;
-          break;
-        }
-      }
-      initialExpectedAyah = firstUnrevealed ?? startAyah;
+      initialExpectedAyah = firstUnrevealed;
       _lastSkippedVerse = null;
       _hintedVerse = null;
     } else {
@@ -825,6 +859,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
       _hintedVerse = null;
       initialExpectedAyah = startAyah;
     }
+
+    // Suppress OS volume/route-change callbacks emitted while iOS switches AVAudioSession
+    // into PlayAndRecord mode so shutter listeners cannot fire a false tally on mic start.
+    _suppressShutterUntil =
+        DateTime.now().add(const Duration(milliseconds: 1800));
 
     try {
       final settings = Provider.of<SettingsProvider>(context, listen: false);
@@ -837,7 +876,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         sensitivity: settings.voiceRecitationSensitivity,
         adaptiveNoise: settings.voiceRecitationAdaptiveNoise,
         onVerseMatched: (ayah) {
-          if (!mounted) return;
+          if (!mounted || _isCompletingRevealedRound) return;
           setState(() {
             _voiceRevealedVerses.add(ayah);
             _lastSkippedVerse = null;
@@ -847,21 +886,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
           });
           HapticFeedback.lightImpact();
 
-          if (_voiceRevealedVerses.length >= totalNeeded) {
-            _handleIncrementOrAdvance(clearVoiceImmediately: false);
-            Future.delayed(const Duration(milliseconds: 1000), () {
-              if (!mounted) return;
-              if (!_isTransitioningStep) {
-                setState(() {
-                  _voiceRevealedVerses.clear();
-                  _hintedVerse = null;
-                });
-                if (tracker.isListening) {
-                  tracker.setExpectedAyah(startAyah);
-                }
-                _handleRoundRestartOrStepChange(surahNumber, startAyah);
-              }
-            });
+          if (_revealedCountInBounds(bounds) >= totalNeeded) {
+            _completeRevealedRound(
+              surahNumber: surahNumber,
+              startAyah: startAyah,
+              tracker: tracker,
+            );
           } else {
             final nextAyah = ayah + 1;
             if (nextAyah <= endAyah) {
@@ -889,6 +919,9 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         },
       );
 
+      _suppressShutterUntil =
+          DateTime.now().add(const Duration(milliseconds: 800));
+
       if (isMidSessionResume && _isMushafView) {
         final resumePage = getMedinaMushafPageNumber(surahNumber, initialExpectedAyah);
         if (resumePage != _currentPage) {
@@ -907,6 +940,141 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     if (mounted) setState(() {});
   }
 
+  ({int surahNumber, int startAyah, int endAyah, int totalNeeded})?
+      _resolveActiveTrackingBounds(HifzSessionProvider provider) {
+    if (provider.sessionType == HifzSessionType.review) {
+      final step = provider.currentReviewStep;
+      if (provider.reviewGranularity == ReviewGranularity.byPage &&
+          step != null) {
+        final pageData = getMedinaMushafPageData(step.primaryIndex);
+        if (pageData.length != 1) return null;
+        final item = pageData.first;
+        final s = item['surah']!;
+        final start = item['start']!;
+        final end = item['end']!;
+        return (
+          surahNumber: s,
+          startAyah: start,
+          endAyah: end,
+          totalNeeded: (end - start + 1).clamp(1, 300),
+        );
+      }
+      final surahNumber = step?.surahNumber ?? provider.currentSurahNumber;
+      final startAyah = step?.verseStart ?? 1;
+      final endAyah = step?.verseEnd ?? qcf.getVerseCount(surahNumber);
+      return (
+        surahNumber: surahNumber,
+        startAyah: startAyah,
+        endAyah: endAyah,
+        totalNeeded: (endAyah - startAyah + 1).clamp(1, 300),
+      );
+    }
+
+    final surahNumber = provider.currentSurahNumber;
+    final task = provider.currentTask;
+    if (task != null) {
+      final startAyah = task.verseNumbers.first;
+      final endAyah = task.verseNumbers.last;
+      return (
+        surahNumber: surahNumber,
+        startAyah: startAyah,
+        endAyah: endAyah,
+        totalNeeded: task.verseNumbers.length,
+      );
+    }
+    return (
+      surahNumber: surahNumber,
+      startAyah: _selectedRepeatStart,
+      endAyah: _selectedEndVerse,
+      totalNeeded: (_selectedEndVerse - _selectedRepeatStart + 1).clamp(1, 300),
+    );
+  }
+
+  int? _nextUnrevealedVerse(HifzSessionProvider provider) {
+    final bounds = _resolveActiveTrackingBounds(provider);
+    if (bounds == null) return null;
+    for (int v = bounds.startAyah; v <= bounds.endAyah; v++) {
+      if (!_voiceRevealedVerses.contains(v)) {
+        return v;
+      }
+    }
+    return null;
+  }
+
+  int _revealedCountInBounds(
+    ({int surahNumber, int startAyah, int endAyah, int totalNeeded}) bounds,
+  ) {
+    int count = 0;
+    for (int v = bounds.startAyah; v <= bounds.endAyah; v++) {
+      if (_voiceRevealedVerses.contains(v)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  void _completeRevealedRound({
+    required int surahNumber,
+    required int startAyah,
+    RecitationTrackerProvider? tracker,
+    Duration resetDelay = const Duration(milliseconds: 950),
+  }) {
+    if (_isCompletingRevealedRound) return;
+    setState(() => _isCompletingRevealedRound = true);
+    _handleIncrementOrAdvance(clearVoiceImmediately: false);
+    Future.delayed(resetDelay, () {
+      if (!mounted) return;
+      _isCompletingRevealedRound = false;
+      if (!_isTransitioningStep) {
+        setState(() {
+          _voiceRevealedVerses.clear();
+          _hintedVerse = null;
+        });
+        if (tracker != null && tracker.isListening) {
+          tracker.setExpectedAyah(startAyah);
+        }
+        _handleRoundRestartOrStepChange(surahNumber, startAyah);
+      }
+    });
+  }
+
+  void _revealNextHiddenVerse(HifzSessionProvider provider) {
+    if (_isTransitioningStep || _isCompletingRevealedRound) return;
+    final bounds = _resolveActiveTrackingBounds(provider);
+    if (bounds == null) return;
+    final nextVerse = _nextUnrevealedVerse(provider);
+    if (nextVerse == null) return;
+
+    setState(() {
+      _voiceRevealedVerses.add(nextVerse);
+      if (_hintedVerse == nextVerse) {
+        _hintedVerse = null;
+      }
+    });
+    HapticFeedback.lightImpact();
+
+    if (_revealedCountInBounds(bounds) >= bounds.totalNeeded) {
+      // Revealing the final verse in the range completes 1 repetition round.
+      _completeRevealedRound(
+        surahNumber: bounds.surahNumber,
+        startAyah: bounds.startAyah,
+      );
+      return;
+    }
+
+    final lookaheadVerse =
+        nextVerse < bounds.endAyah ? nextVerse + 1 : nextVerse;
+    final targetPage =
+        getMedinaMushafPageNumber(bounds.surahNumber, lookaheadVerse);
+    if (_isMushafView) {
+      if (targetPage != _currentPage) {
+        _animateToMushafPage(targetPage, animate: true);
+      }
+    } else {
+      _scrollToVerse(bounds.surahNumber, lookaheadVerse, animate: true);
+    }
+  }
+
   void _handleHintCurrentVerse(RecitationTrackerProvider tracker) {
     if (!tracker.isListening) return;
     final stuckAyah = tracker.currentExpectedAyah;
@@ -918,31 +1086,15 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   }
 
   void _handleSkipCurrentVerse(RecitationTrackerProvider tracker) {
-    if (!tracker.isListening) return;
+    if (!tracker.isListening || _isCompletingRevealedRound) return;
 
     final stuckAyah = tracker.currentExpectedAyah;
-    final isReview = _hifzProvider.sessionType == HifzSessionType.review;
-    final int surahNumber = _hifzProvider.currentSurahNumber;
-
-    final int startAyah;
-    final int endAyah;
-    final int totalNeeded;
-
-    if (isReview) {
-      final step = _hifzProvider.currentReviewStep;
-      startAyah = step?.verseStart ?? 1;
-      endAyah = step?.verseEnd ?? qcf.getVerseCount(surahNumber);
-      totalNeeded = endAyah - startAyah + 1;
-    } else if (_hifzProvider.currentTask != null) {
-      final task = _hifzProvider.currentTask!;
-      startAyah = task.verseNumbers.first;
-      endAyah = task.verseNumbers.last;
-      totalNeeded = task.verseNumbers.length;
-    } else {
-      startAyah = _selectedRepeatStart;
-      endAyah = _selectedEndVerse;
-      totalNeeded = _selectedEndVerse - _selectedRepeatStart + 1;
-    }
+    final bounds = _resolveActiveTrackingBounds(_hifzProvider);
+    if (bounds == null) return;
+    final int surahNumber = bounds.surahNumber;
+    final int startAyah = bounds.startAyah;
+    final int endAyah = bounds.endAyah;
+    final int totalNeeded = bounds.totalNeeded;
 
     // Full reveal, mark as assisted/weakness, and advance the tracker.
     setState(() {
@@ -960,21 +1112,12 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     }
 
     // If all verses in the set are revealed, advance repetition round
-    if (_voiceRevealedVerses.length >= totalNeeded) {
-      _handleIncrementOrAdvance(clearVoiceImmediately: false);
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (!mounted) return;
-        if (!_isTransitioningStep) {
-          setState(() {
-            _voiceRevealedVerses.clear();
-            _hintedVerse = null;
-          });
-          if (tracker.isListening) {
-            tracker.setExpectedAyah(startAyah);
-          }
-          _handleRoundRestartOrStepChange(surahNumber, startAyah);
-        }
-      });
+    if (_revealedCountInBounds(bounds) >= totalNeeded) {
+      _completeRevealedRound(
+        surahNumber: surahNumber,
+        startAyah: startAyah,
+        tracker: tracker,
+      );
     } else {
       final nextAyah = stuckAyah + 1;
       if (nextAyah <= endAyah) {
@@ -997,6 +1140,8 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _trackerProvider = Provider.of<RecitationTrackerProvider>(context, listen: false);
+    _bleProvider = Provider.of<BleRemoteProvider>(context, listen: false);
     _applyInputModeSettings();
 
     final audio = Provider.of<MushafAudioProvider>(context);
@@ -1062,17 +1207,17 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     unawaited(HifzRepository.instance.flushPendingActiveSessionSync());
     WidgetsBinding.instance.removeObserver(this);
     _audioProvider?.removeListener(_onAudioStateChanged);
-    final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
-    if (tracker.isListening) {
+    final tracker = _trackerProvider;
+    if (tracker != null && tracker.isListening) {
       tracker.stopTracking();
     }
 
     if (_isBleListenerAttached) {
-      Provider.of<BleRemoteProvider>(context, listen: false)
-          .removeListener(_onBleClick);
+      _bleProvider?.removeListener(_onBleClick);
       _isBleListenerAttached = false;
     }
     // Always disable volume/hardware key interception when leaving Hifz session
+    _detachVolumeKeyBoard();
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       _channel
           .invokeMethod<void>('setInputMode', {'mode': 'none'})
@@ -2253,17 +2398,505 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
     );
   }
 
-  PopupMenuItem<String> _buildPopupItem(
-      String value, IconData icon, String label) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 20),
-          const SizedBox(width: 12),
-          Text(label),
-        ],
+  Future<void> _showQuickSettingsSheet(
+    BuildContext hostContext,
+    HifzSessionProvider provider,
+  ) async {
+    final isReview = provider.sessionType == HifzSessionType.review;
+
+    await showModalBottomSheet<void>(
+      context: hostContext,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(hostContext).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheetState) {
+            final settings = Provider.of<SettingsProvider>(sheetCtx);
+            final bleProvider = Provider.of<BleRemoteProvider>(sheetCtx);
+            final colorScheme = Theme.of(sheetCtx).colorScheme;
+            final isThai = settings.languageCode == 'th';
+            final maxHeight = MediaQuery.sizeOf(sheetCtx).height * 0.85;
+
+            Widget sectionLabel(String text) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    text,
+                    style: GoogleFonts.notoSansThai(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                );
+
+            Widget toggleRow({
+              required IconData icon,
+              required String title,
+              required bool value,
+              required ValueChanged<bool> onChanged,
+            }) {
+              return SwitchListTile.adaptive(
+                dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                secondary: Icon(icon, size: 20, color: colorScheme.primary),
+                title: Text(
+                  title,
+                  style: GoogleFonts.notoSansThai(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                value: value,
+                onChanged: onChanged,
+              );
+            }
+
+            Widget actionChipTile({
+              required IconData icon,
+              required String label,
+              required VoidCallback onTap,
+              Color? iconColor,
+            }) {
+              return Material(
+                color: colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 19,
+                          color: iconColor ?? colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            Widget viewSegment({
+              required IconData icon,
+              required String label,
+              required bool selected,
+              required VoidCallback onTap,
+            }) {
+              return Expanded(
+                child: Material(
+                  color: selected ? colorScheme.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 17,
+                            color: selected
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.notoSansThai(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: selected
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            Widget inputSegment({
+              required HifzInputMode mode,
+              required IconData icon,
+              required String label,
+            }) {
+              final selected = settings.hifzInputMode == mode;
+              return Expanded(
+                child: Material(
+                  color: selected
+                      ? colorScheme.primaryContainer
+                      : colorScheme.surfaceContainerLow,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant.withValues(alpha: 0.35),
+                      width: selected ? 1.5 : 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () async {
+                      await settings.setHifzInputMode(mode);
+                      if (mounted) {
+                        _applyInputModeSettings();
+                        setState(() {});
+                      }
+                      setSheetState(() {});
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 6,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 18,
+                            color: selected
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 11.5,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w600,
+                              color: selected
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final bleConnected =
+                bleProvider.connectionState == BleConnectionState.connected;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        decoration: BoxDecoration(
+                          color: colorScheme.outlineVariant
+                              .withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.tune_rounded,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isThai ? 'ตั้งค่าด่วน' : 'Quick Settings',
+                            style: GoogleFonts.notoSansThai(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () => Navigator.pop(sheetCtx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // ── View Mode Switcher ──
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  viewSegment(
+                                    icon: Icons.menu_book_rounded,
+                                    label: isThai ? 'มุศหัฟ' : 'Mushaf',
+                                    selected: _isMushafView,
+                                    onTap: () {
+                                      if (!_isMushafView) {
+                                        _toggleMushafListView();
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                  ),
+                                  viewSegment(
+                                    icon: Icons.view_list_rounded,
+                                    label: isThai ? 'รายการ' : 'List',
+                                    selected: !_isMushafView,
+                                    onTap: () {
+                                      if (_isMushafView) {
+                                        _toggleMushafListView();
+                                        setSheetState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // ── Display Toggles ──
+                            sectionLabel(
+                              isThai ? 'การแสดงผล' : 'DISPLAY & READING',
+                            ),
+                            Material(
+                              color: colorScheme.surfaceContainerLow,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: colorScheme.outlineVariant
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children: [
+                                  toggleRow(
+                                    icon: Icons.dark_mode_rounded,
+                                    title: isThai ? 'โหมดมืด' : 'Dark Mode',
+                                    value: settings.isDarkMode,
+                                    onChanged: (val) =>
+                                        settings.toggleDarkMode(val),
+                                  ),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  toggleRow(
+                                    icon: Icons.color_lens_outlined,
+                                    title: isThai
+                                        ? 'มุศหัฟตัจญ์วีด'
+                                        : 'Tajweed Mushaf',
+                                    value: _isTajweedMushaf,
+                                    onChanged: (val) {
+                                      setState(() => _isTajweedMushaf = val);
+                                      setSheetState(() {});
+                                    },
+                                  ),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  toggleRow(
+                                    icon: Icons.translate_rounded,
+                                    title: isThai
+                                        ? 'แสดงคำแปล'
+                                        : 'Show Translation',
+                                    value: settings.showTranslationText,
+                                    onChanged: (val) {
+                                      settings
+                                          .toggleAlwaysShowTranslation(val);
+                                      setState(() {});
+                                    },
+                                  ),
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  toggleRow(
+                                    icon: Icons.spellcheck_rounded,
+                                    title: isThai
+                                        ? 'คำแปลทีละคำ (WBW)'
+                                        : 'Word by Word (WBW)',
+                                    value: _showWbw,
+                                    onChanged: (val) {
+                                      setState(() => _showWbw = val);
+                                      settings.toggleShowWordByWord(val);
+                                      setSheetState(() {});
+                                    },
+                                  ),
+                                  if (!isReview) ...[
+                                    Divider(
+                                      height: 1,
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.2),
+                                    ),
+                                    toggleRow(
+                                      icon: Icons.auto_stories_rounded,
+                                      title: isThai
+                                          ? 'แบ่งย่อยอายะฮฺยาว'
+                                          : 'Chunk Long Verses',
+                                      value: _chunkLongVerses,
+                                      onChanged: (val) async {
+                                        setState(() => _chunkLongVerses = val);
+                                        setSheetState(() {});
+                                        final prefs = await SharedPreferences
+                                            .getInstance();
+                                        await prefs.setBool(
+                                          'hifz_chunk_long_verses',
+                                          val,
+                                        );
+                                        await _loadVerseChunks(
+                                          regenerate: true,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                  Divider(
+                                    height: 1,
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  toggleRow(
+                                    icon: Icons.brightness_high_rounded,
+                                    title: isThai
+                                        ? 'เปิดหน้าจอค้างไว้'
+                                        : 'Keep Screen Awake',
+                                    value: settings.keepAwake,
+                                    onChanged: (val) {
+                                      settings.toggleKeepAwake(val);
+                                      _updateWakelockState();
+                                      setSheetState(() {});
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // ── Input Mode & Remote Control ──
+                            sectionLabel(
+                              isThai
+                                  ? 'วิธีนับรอบ & รีโมทบลูทูธ'
+                                  : 'INPUT & BLUETOOTH REMOTE',
+                            ),
+                            Row(
+                              children: [
+                                inputSegment(
+                                  mode: HifzInputMode.inAppTally,
+                                  icon: Icons.touch_app_rounded,
+                                  label: isThai ? 'ปุ่มบนจอ' : 'On-Screen',
+                                ),
+                                const SizedBox(width: 8),
+                                inputSegment(
+                                  mode: HifzInputMode.bluetoothShutter,
+                                  icon: Icons.bluetooth_searching_rounded,
+                                  label: isThai ? 'รีโมทชัตเตอร์' : 'BT Remote',
+                                ),
+                                const SizedBox(width: 8),
+                                inputSegment(
+                                  mode: HifzInputMode.bleSmartRing,
+                                  icon: Icons.watch_rounded,
+                                  label: 'Smart Ring',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            actionChipTile(
+                              icon: bleConnected
+                                  ? Icons.bluetooth_connected_rounded
+                                  : Icons.devices_rounded,
+                              label: bleConnected
+                                  ? (isThai
+                                      ? 'เชื่อมต่อ Smart Ring แล้ว • จัดการอุปกรณ์'
+                                      : 'Smart Ring Connected • Manage Devices')
+                                  : (isThai
+                                      ? 'สแกนและตั้งค่าอุปกรณ์บลูทูธ'
+                                      : 'Scan & Configure Bluetooth Devices'),
+                              onTap: () async {
+                                Navigator.pop(sheetCtx);
+                                await HifzControlsSheet.show(hostContext);
+                                if (mounted) {
+                                  _applyInputModeSettings();
+                                  setState(() {});
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -2271,8 +2904,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final statusBarStyle = AppTheme.statusBarOverlayStyle(
+      isDark: Theme.of(context).brightness == Brightness.dark,
+    );
 
-    return ChangeNotifierProvider<HifzSessionProvider>.value(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: statusBarStyle,
+      child: ChangeNotifierProvider<HifzSessionProvider>.value(
       value: _hifzProvider,
       child: Consumer<HifzSessionProvider>(
         builder: (context, provider, child) {
@@ -2288,6 +2926,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               focusNode: _focusNode,
               autofocus: true,
               canRequestFocus: true,
+              onKeyEvent: _handleHardwareKeyEvent,
               child: Scaffold(
               body: Stack(
                 children: [
@@ -2300,7 +2939,6 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       height: 1,
                       child: TextField(
                         focusNode: _hiddenInputFocusNode,
-                        autofocus: true,
                         readOnly: true,
                         showCursor: false,
                         enableInteractiveSelection: false,
@@ -2552,6 +3190,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
         );
       },
     ),
+    ),
   );
 }
 
@@ -2725,195 +3364,11 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             color: colorScheme.onSurfaceVariant,
             onPressed: () => _showResetDialog(context),
           ),
-          Consumer<SettingsProvider>(
-            builder: (context, menuSettings, _) {
-              return PopupMenuButton<String>(
-                icon: const Icon(Icons.settings_rounded, size: 20),
-                padding: EdgeInsets.zero,
-                iconSize: 20,
-                tooltip: menuSettings.languageCode == 'th'
-                    ? 'ตั้งค่าด่วน'
-                    : 'Quick settings',
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                onSelected: (val) async {
-                  switch (val) {
-                    case 'switch_mode':
-                      await _confirmExit(context);
-                      break;
-                    case 'view_toggle':
-                      _toggleMushafListView();
-                      break;
-                    case 'translation':
-                      menuSettings.toggleAlwaysShowTranslation(
-                          !menuSettings.showTranslationText);
-                      setState(() {});
-                      break;
-                    case 'wbw':
-                      final nextWbw = !_showWbw;
-                      setState(() {
-                        _showWbw = nextWbw;
-                      });
-                      menuSettings.toggleShowWordByWord(nextWbw);
-                      break;
-                    case 'dark_mode':
-                      menuSettings.toggleDarkMode(!menuSettings.isDarkMode);
-                      break;
-                    case 'range':
-                      _openNewVersesSetup(context);
-                      break;
-                    case 'report':
-                      _showRepetitionReportModal(context, provider);
-                      break;
-                    case 'mastery':
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => HifzMasteryListScreen(
-                              quranRepository: widget.quranRepository),
-                        ),
-                      );
-                      break;
-                    case 'tajweed':
-                      setState(() {
-                        _isTajweedMushaf = !_isTajweedMushaf;
-                      });
-                      break;
-                    case 'ble_settings':
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const HifzSettingsScreen(),
-                        ),
-                      );
-                      if (mounted) {
-                        _applyInputModeSettings();
-                        setState(() {});
-                      }
-                      break;
-                    case 'main_settings':
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const SettingsScreen(),
-                        ),
-                      );
-                      if (mounted) setState(() {});
-                      break;
-                    case 'guide':
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const HifzGuideScreen(),
-                        ),
-                      );
-                      break;
-                    case 'chunk_toggle':
-                      final newChunkVal = !_chunkLongVerses;
-                      setState(() {
-                        _chunkLongVerses = newChunkVal;
-                      });
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool(
-                          'hifz_chunk_long_verses', newChunkVal);
-                      await _loadVerseChunks(regenerate: true);
-                      if (context.mounted) {
-                        final isThaiMenu = Localizations.localeOf(context)
-                                .languageCode ==
-                            'th';
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(newChunkVal
-                                ? (isThaiMenu
-                                    ? 'เปิดการแบ่งย่อยอายะฮฺยาวแล้ว'
-                                    : 'Chunk long verses enabled')
-                                : (isThaiMenu
-                                    ? 'ปิดการแบ่งย่อยอายะฮฺยาวแล้ว'
-                                    : 'Chunk long verses disabled')),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                      break;
-                  }
-                },
-                itemBuilder: (_) => [
-                  _buildPopupItem(
-                    'translation',
-                    Icons.translate_rounded,
-                    menuSettings.showTranslationText
-                        ? (isThai ? 'ซ่อนคำแปล' : 'Hide Translation')
-                        : (isThai ? 'แสดงคำแปล' : 'Show Translation'),
-                  ),
-                  _buildPopupItem(
-                    'wbw',
-                    _showWbw
-                        ? Icons.spellcheck_rounded
-                        : Icons.spellcheck_outlined,
-                    _showWbw
-                        ? (isThai ? 'ซ่อนคำต่อคำ' : 'Hide Word by Word')
-                        : (isThai ? 'แสดงคำต่อคำ' : 'Word by Word (WBW)'),
-                  ),
-                  _buildPopupItem('tajweed', Icons.color_lens_outlined,
-                      _isTajweedMushaf
-                          ? (isThai ? 'มุศหัฟมาตรฐาน' : 'Standard Mushaf')
-                          : (isThai ? 'มุศหัฟตัจญ์วีด' : 'Tajweed Mushaf')),
-                  _buildPopupItem(
-                    'dark_mode',
-                    menuSettings.isDarkMode
-                        ? Icons.light_mode_rounded
-                        : Icons.dark_mode_rounded,
-                    menuSettings.isDarkMode
-                        ? (isThai ? 'โหมดสว่าง' : 'Light Mode')
-                        : (isThai ? 'โหมดมืด' : 'Dark Mode'),
-                  ),
-                  _buildPopupItem(
-                      'ble_settings',
-                      Icons.bluetooth_connected_rounded,
-                      isThai
-                          ? 'ตั้งค่าฮิฟซ์และรีโมต'
-                          : 'Hifz & Remote Options'),
-                  if (!isReview)
-                    _buildPopupItem(
-                      'chunk_toggle',
-                      Icons.auto_stories_rounded,
-                      _chunkLongVerses
-                          ? (isThai
-                              ? 'แบ่งอายะฮฺยาว (เปิด)'
-                              : 'Chunk Long Verses (ON)')
-                          : (isThai
-                              ? 'แบ่งอายะฮฺยาว (ปิด)'
-                              : 'Chunk Long Verses (OFF)'),
-                    ),
-                  if (!isReview)
-                    _buildPopupItem(
-                        'range',
-                        Icons.tune_rounded,
-                        isThai ? 'เลือกช่วงอายะฮฺ' : 'Select Range'),
-                  _buildPopupItem(
-                      'report',
-                      Icons.analytics_outlined,
-                      isThai ? 'รายงานการท่อง' : 'Repetition Report'),
-                  _buildPopupItem(
-                      'mastery',
-                      Icons.workspace_premium_outlined,
-                      isThai ? 'รายการที่แม่นยำ' : 'Mastery List'),
-                  _buildPopupItem(
-                      'main_settings',
-                      Icons.settings_outlined,
-                      isThai ? 'ตั้งค่าหลัก' : 'Main Settings'),
-                  _buildPopupItem(
-                      'guide',
-                      Icons.menu_book_outlined,
-                      isThai ? 'วิธีท่องจำ (คู่มือ)' : 'How to Hifz (Guide)'),
-                  _buildPopupItem(
-                      'switch_mode',
-                      Icons.logout_rounded,
-                      isThai ? 'ออกจากรอบนี้' : 'Exit Session'),
-                ],
-              );
-            },
+          compactIcon(
+            icon: const Icon(Icons.tune_rounded, size: 20),
+            tooltip: isThai ? 'ตั้งค่าด่วน' : 'Quick settings',
+            color: colorScheme.onSurface,
+            onPressed: () => _showQuickSettingsSheet(context, provider),
           ),
         ],
           ),
@@ -2922,9 +3377,20 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
             builder: (context, tracker, _) {
               final showVoiceHintOrSkip =
                   tracker.isListening && provider.isVoiceTrackingEligible;
+              final activeBounds = _resolveActiveTrackingBounds(provider);
+              final showManualStepReveal = !showVoiceHintOrSkip &&
+                  !provider.isSessionCompleted &&
+                  provider.isTargetHidden &&
+                  activeBounds != null &&
+                  activeBounds.totalNeeded > 1;
+              final nextRevealAyah = showManualStepReveal
+                  ? _nextUnrevealedVerse(provider)
+                  : null;
               final isCurrentHinted =
                   _hintedVerse == tracker.currentExpectedAyah;
-              final gapWidth = showVoiceHintOrSkip ? 6.0 : 8.0;
+              final useCompactRail =
+                  showVoiceHintOrSkip || showManualStepReveal;
+              final gapWidth = useCompactRail ? 6.0 : 8.0;
               return Row(
                 children: [
                   railButton(
@@ -2945,7 +3411,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                         : (_isMushafView
                             ? 'Switch to List View'
                             : 'Switch to Mushaf View'),
-                    compact: showVoiceHintOrSkip,
+                    compact: useCompactRail,
                     onPressed: _toggleMushafListView,
                   ),
                   if (!provider.isSessionCompleted &&
@@ -2970,7 +3436,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                               ? 'Show Verse'
                               : 'Hide Verse'),
                       active: provider.isVisibilityOverridden,
-                      compact: showVoiceHintOrSkip,
+                      compact: useCompactRail,
                       onPressed: () => provider.toggleVisibilityOverride(),
                     ),
                   ],
@@ -2998,7 +3464,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                             ? 'Loading audio...'
                             : (isThai ? 'เสียงอ่าน' : 'Audio Recitation'),
                         active: audio.isPlaying,
-                        compact: showVoiceHintOrSkip,
+                        compact: useCompactRail,
                         onPressed: () {
                           if (isReview) {
                             _showReviewAudioOptionsDialog(context, provider);
@@ -3009,6 +3475,39 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                       );
                     },
                   ),
+                  if (showManualStepReveal) ...[
+                    SizedBox(width: gapWidth),
+                    railButton(
+                      icon: Icon(
+                        nextRevealAyah != null
+                            ? Icons.read_more_rounded
+                            : Icons.check_circle_rounded,
+                        size: 16,
+                        color: nextRevealAyah == null ||
+                                _voiceRevealedVerses.isNotEmpty
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                      label: nextRevealAyah != null
+                          ? (isThai
+                              ? 'ดู A.$nextRevealAyah'
+                              : 'Ayah $nextRevealAyah')
+                          : (isThai ? 'ครบแล้ว' : 'Done'),
+                      tooltip: nextRevealAyah != null
+                          ? (isThai
+                              ? 'เปิดดูอายะฮฺที่ $nextRevealAyah'
+                              : 'Reveal Ayah $nextRevealAyah')
+                          : (isThai ? 'จบรอบแล้ว' : 'Round complete'),
+                      active: nextRevealAyah == null ||
+                          _voiceRevealedVerses.isNotEmpty,
+                      compact: true,
+                      onPressed: () {
+                        if (nextRevealAyah != null) {
+                          _revealNextHiddenVerse(provider);
+                        }
+                      },
+                    ),
+                  ],
                   if (showVoiceHintOrSkip) ...[
                     SizedBox(width: gapWidth),
                     railButton(
@@ -4132,7 +4631,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               ),
               padding: EdgeInsets.symmetric(
                 vertical: compact ? 9 : 12,
-                horizontal: compact ? 10 : 14,
+                horizontal: compact ? 10 : 12,
               ),
               minimumSize: Size(0, compact ? 46 : 56),
               textStyle: const TextStyle(fontWeight: FontWeight.w700),
@@ -4145,7 +4644,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                   color: color,
                   onFilled: true,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: compact ? 6 : 8),
                 Expanded(
                   child: Text(
                     taskLabel,
@@ -4158,18 +4657,29 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${isThai ? 'นับ' : 'Tally'}  $value',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: compact ? 13 : 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
-                    color: Colors.white,
+                SizedBox(width: compact ? 6 : 8),
+                Flexible(
+                  flex: 0,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${isThai ? 'นับ' : 'Tally'}  $value',
+                          style: GoogleFonts.notoSansThai(
+                            fontSize: compact ? 13 : 15,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.1,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.add_rounded, size: compact ? 17 : 20),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(width: 5),
-                Icon(Icons.add_rounded, size: compact ? 17 : 20),
               ],
             ),
           ),
@@ -4190,6 +4700,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
   }) {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    final compact = isLandscape || provider.isVoiceTrackingEligible;
     return Padding(
       padding: EdgeInsets.only(bottom: isLandscape ? 6 : 10),
       child: Row(
@@ -4201,7 +4712,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
               stateLabel: stateLabel,
               stateIcon: stateIcon,
               taskLabel: taskLabel,
-              compact: isLandscape,
+              compact: compact,
             ),
           ),
           if (provider.isVoiceTrackingEligible) ...[
@@ -4853,12 +5364,7 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
                           : 'Input mode, Bluetooth remote and voice settings.',
                       onTap: () async {
                         Navigator.of(sheetContext).pop();
-                        await Navigator.push(
-                          hostContext,
-                          MaterialPageRoute(
-                            builder: (_) => const HifzSettingsScreen(),
-                          ),
-                        );
+                        await HifzControlsSheet.show(hostContext);
                         if (mounted) {
                           _applyInputModeSettings();
                           setState(() {});
@@ -4904,18 +5410,13 @@ class _HifzMemorizeScreenState extends State<HifzMemorizeScreen>
 
     // When advancing round via tally click, immediately clear revealed verses so the new round hides the range again
     if (clearVoiceImmediately) {
-      final int startAyah;
-      if (isNewVerses) {
-        final task = _hifzProvider.currentTask;
-        startAyah = task != null ? task.verseNumbers.first : _selectedRepeatStart;
-      } else {
-        final step = _hifzProvider.currentReviewStep;
-        startAyah = step?.verseStart ?? 1;
-      }
+      final bounds = _resolveActiveTrackingBounds(_hifzProvider);
+      final int startAyah = bounds?.startAyah ?? 1;
       setState(() {
         _voiceRevealedVerses.clear();
         _lastSkippedVerse = null;
         _hintedVerse = null;
+        _isCompletingRevealedRound = false;
       });
       final tracker = Provider.of<RecitationTrackerProvider>(context, listen: false);
       if (tracker.isListening) {
