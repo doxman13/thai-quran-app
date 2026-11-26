@@ -22,20 +22,34 @@ import '../shared/share_formatter.dart';
 import '../shared/translation_constants.dart';
 import '../theme/app_theme.dart';
 
-enum ShareCardTheme { emerald, parchment, midnight, minimal }
+enum ShareCardTheme {
+  emerald,
+  parchment,
+  midnight,
+  minimal,
+  mist,
+  dusk,
+  night,
+}
 
 enum ShareCardAspectRatio {
-  square1x1('1:1', 450, 450),
-  portrait3x4('3:4', 420, 560),
-  portrait4x5('4:5', 440, 550),
-  story9x16('9:16', 405, 720),
-  landscape16x9('16:9', 640, 360);
+  square('1:1', '1:1', 480, 480),
+  portrait('แนวตั้ง', 'Portrait', 420, 525),
+  landscape('แนวนอน', 'Landscape', 640, 360);
 
-  final String label;
+  final String labelTh;
+  final String labelEn;
   final double width;
   final double minHeight;
 
-  const ShareCardAspectRatio(this.label, this.width, this.minHeight);
+  const ShareCardAspectRatio(
+    this.labelTh,
+    this.labelEn,
+    this.width,
+    this.minHeight,
+  );
+
+  String labelFor(bool isThai) => isThai ? labelTh : labelEn;
 }
 
 class _ShareCardPalette {
@@ -43,9 +57,6 @@ class _ShareCardPalette {
   final Color containerBorder;
   final Color headerText;
   final Color headerSubText;
-  final Color badgeBg;
-  final Color badgeText;
-  final Color badgeBorder;
   final Color arabicText;
   final Color meaningText;
   final Color innerCardBg;
@@ -56,15 +67,14 @@ class _ShareCardPalette {
   final Color divider;
   final Color footerText;
   final Color watermark;
+  final Color accentLine;
+  final String? backgroundAsset;
 
   const _ShareCardPalette({
     required this.containerBg,
     required this.containerBorder,
     required this.headerText,
     required this.headerSubText,
-    required this.badgeBg,
-    required this.badgeText,
-    required this.badgeBorder,
     required this.arabicText,
     required this.meaningText,
     required this.innerCardBg,
@@ -75,6 +85,8 @@ class _ShareCardPalette {
     required this.divider,
     required this.footerText,
     required this.watermark,
+    required this.accentLine,
+    this.backgroundAsset,
   });
 
   static _ShareCardPalette of(ShareCardTheme theme) {
@@ -82,14 +94,11 @@ class _ShareCardPalette {
       case ShareCardTheme.emerald:
         return _ShareCardPalette(
           containerBg: const Color(0xFFFDFBF7),
-          containerBorder: const Color(0xFF0E5A4A).withValues(alpha: 0.30),
+          containerBorder: const Color(0xFF0E5A4A).withValues(alpha: 0.25),
           headerText: const Color(0xFF0E5A4A),
-          headerSubText: const Color(0xFF0E5A4A).withValues(alpha: 0.75),
-          badgeBg: const Color(0xFF0E5A4A).withValues(alpha: 0.12),
-          badgeText: const Color(0xFF0E5A4A),
-          badgeBorder: const Color(0xFF0E5A4A).withValues(alpha: 0.25),
+          headerSubText: const Color(0xFF0E5A4A).withValues(alpha: 0.70),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF57534E).withValues(alpha: 0.85),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
           innerCardBg: const Color(0xFFFAFAF9),
           innerCardBorder: const Color(0xFFE7E5E4),
           reflectionBg: const Color(0xFFF2F7F5),
@@ -98,18 +107,16 @@ class _ShareCardPalette {
           divider: const Color(0xFF0E5A4A).withValues(alpha: 0.12),
           footerText: const Color(0xFF78716C),
           watermark: const Color(0xFF0E5A4A),
+          accentLine: const Color(0xFF0E5A4A),
         );
       case ShareCardTheme.parchment:
         return _ShareCardPalette(
           containerBg: const Color(0xFFFAF6EE),
           containerBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.50),
           headerText: const Color(0xFF73531F),
-          headerSubText: const Color(0xFF8A6530).withValues(alpha: 0.82),
-          badgeBg: const Color(0xFFCBAD5F).withValues(alpha: 0.25),
-          badgeText: const Color(0xFF73531F),
-          badgeBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.40),
+          headerSubText: const Color(0xFF8A6530).withValues(alpha: 0.76),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.85),
+          meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.78),
           innerCardBg: const Color(0xFFF5EFE1),
           innerCardBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.35),
           reflectionBg: const Color(0xFFF5EFE1),
@@ -118,26 +125,25 @@ class _ShareCardPalette {
           divider: const Color(0xFF8A6530).withValues(alpha: 0.14),
           footerText: const Color(0xFF57534E),
           watermark: const Color(0xFF8A6530),
+          accentLine: const Color(0xFF8A6530),
         );
       case ShareCardTheme.midnight:
         return _ShareCardPalette(
-          containerBg: const Color(0xFF0B131E),
-          containerBorder: const Color(0xFF1E293B),
+          containerBg: const Color(0xFF131210),
+          containerBorder: const Color(0xFF2E2C27),
           headerText: const Color(0xFFF1F5F9),
           headerSubText: const Color(0xFF94A3B8),
-          badgeBg: const Color(0xFF064E3B).withValues(alpha: 0.55),
-          badgeText: const Color(0xFF34D399),
-          badgeBorder: const Color(0xFF065F46).withValues(alpha: 0.65),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFCBD5E1).withValues(alpha: 0.78),
-          innerCardBg: const Color(0xFF0F172A),
-          innerCardBorder: const Color(0xFF1E293B),
-          reflectionBg: const Color(0xFF0F172A),
-          reflectionBorder: const Color(0xFF1E293B),
-          reflectionAccent: const Color(0xFF34D399),
-          divider: const Color(0xFF1E293B),
+          meaningText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
+          innerCardBg: const Color(0xFF1C1B18),
+          innerCardBorder: const Color(0xFF2E2C27),
+          reflectionBg: const Color(0xFF162420),
+          reflectionBorder: const Color(0xFF233A33),
+          reflectionAccent: const Color(0xFF4A9E89),
+          divider: const Color(0xFFFFFFFF).withValues(alpha: 0.10),
           footerText: const Color(0xFF94A3B8),
-          watermark: const Color(0xFF34D399),
+          watermark: const Color(0xFF7ABFAE),
+          accentLine: const Color(0xFF4A9E89),
         );
       case ShareCardTheme.minimal:
         return _ShareCardPalette(
@@ -145,11 +151,8 @@ class _ShareCardPalette {
           containerBorder: const Color(0xFFE7E5E4),
           headerText: const Color(0xFF1C1917),
           headerSubText: const Color(0xFF78716C),
-          badgeBg: const Color(0xFFF5F5F4),
-          badgeText: const Color(0xFF44403C),
-          badgeBorder: const Color(0xFFE7E5E4),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF57534E).withValues(alpha: 0.85),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.78),
           innerCardBg: const Color(0xFFFAFAF9),
           innerCardBorder: const Color(0xFFE7E5E4),
           reflectionBg: const Color(0xFFFAFAF9),
@@ -158,6 +161,64 @@ class _ShareCardPalette {
           divider: const Color(0xFFE7E5E4),
           footerText: const Color(0xFF78716C),
           watermark: const Color(0xFF44403C),
+          accentLine: const Color(0xFF78716C),
+        );
+      case ShareCardTheme.mist:
+        return _ShareCardPalette(
+          containerBg: const Color(0xFF1E2D2F),
+          containerBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.15),
+          headerText: const Color(0xFFFFFFFF).withValues(alpha: 0.95),
+          headerSubText: const Color(0xFFFFFFFF).withValues(alpha: 0.75),
+          arabicText: const Color(0xFFFFFFFF),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.35),
+          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
+          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionAccent: const Color(0xFFA7F3D0),
+          divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
+          watermark: const Color(0xFFA7F3D0),
+          accentLine: const Color(0xFFFFFFFF),
+          backgroundAsset: 'assets/images/share/scenic-mist.jpg',
+        );
+      case ShareCardTheme.dusk:
+        return _ShareCardPalette(
+          containerBg: const Color(0xFF241C18),
+          containerBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.15),
+          headerText: const Color(0xFFFFFBEB),
+          headerSubText: const Color(0xFFFEF3C7).withValues(alpha: 0.75),
+          arabicText: const Color(0xFFFFFFFF),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.35),
+          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.30),
+          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionAccent: const Color(0xFFFDE68A),
+          divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
+          watermark: const Color(0xFFFDE68A),
+          accentLine: const Color(0xFFFDE68A),
+          backgroundAsset: 'assets/images/share/scenic-dusk.jpg',
+        );
+      case ShareCardTheme.night:
+        return _ShareCardPalette(
+          containerBg: const Color(0xFF0D1321),
+          containerBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.15),
+          headerText: const Color(0xFFF1F5F9),
+          headerSubText: const Color(0xFFE2E8F0).withValues(alpha: 0.75),
+          arabicText: const Color(0xFFFFFFFF),
+          meaningText: const Color(0xFFFFFFFF).withValues(alpha: 0.78),
+          innerCardBg: const Color(0xFF000000).withValues(alpha: 0.40),
+          innerCardBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionBg: const Color(0xFF000000).withValues(alpha: 0.35),
+          reflectionBorder: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          reflectionAccent: const Color(0xFFA7F3D0),
+          divider: const Color(0xFFFFFFFF).withValues(alpha: 0.20),
+          footerText: const Color(0xFFFFFFFF).withValues(alpha: 0.70),
+          watermark: const Color(0xFFA7F3D0),
+          accentLine: const Color(0xFFA7F3D0),
+          backgroundAsset: 'assets/images/share/scenic-night.jpg',
         );
     }
   }
@@ -273,7 +334,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool _includeTafsir = false;
   bool _includeFootnotes = false;
   ShareCardTheme _theme = ShareCardTheme.emerald;
-  ShareCardAspectRatio _aspectRatio = ShareCardAspectRatio.portrait3x4;
+  ShareCardAspectRatio _aspectRatio = ShareCardAspectRatio.portrait;
+  bool _precachedScenic = false;
   double _fontScale = 1.0;
   bool _isGenerating = false;
   bool _isCopyingImage = false;
@@ -317,6 +379,21 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
 
     _readProviderContext();
     _hydrateMissingData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_precachedScenic) {
+      _precachedScenic = true;
+      for (final asset in const [
+        'assets/images/share/scenic-mist.jpg',
+        'assets/images/share/scenic-dusk.jpg',
+        'assets/images/share/scenic-night.jpg',
+      ]) {
+        unawaited(precacheImage(AssetImage(asset), context).catchError((_) {}));
+      }
+    }
   }
 
   @override
@@ -611,7 +688,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool get _hasFootnotes => _includeFootnotes && _footnotes.isNotEmpty;
   bool get _hasWbw => _includeWbw && _wbwWords.isNotEmpty;
 
-  bool get _isWidescreen => _aspectRatio == ShareCardAspectRatio.landscape16x9;
+  bool get _isWidescreen => _aspectRatio == ShareCardAspectRatio.landscape;
   double get _cardWidth => _aspectRatio.width;
   double get _cardMinHeight => _aspectRatio.minHeight;
   int get _fontScalePercent => (_fontScale * 100).round();
@@ -987,9 +1064,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     final title = _hasReflectionInput
         ? (isThai ? 'แชร์ข้อคิดตะดับบุร' : 'Share Reflection')
         : (isThai ? 'แชร์อายะฮฺ' : 'Share Verse');
-    final subtitle = isThai
-        ? '${widget.surahName} • อายะฮฺที่ ${widget.verseId} ($_verseKey)'
-        : '${widget.surahName} • Ayah ${widget.verseId} ($_verseKey)';
+    final subtitle = '${widget.surahName} · $_verseKey';
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1171,7 +1246,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                isThai ? 'โทนสี:' : 'Theme:',
+                isThai ? 'พื้นหลัง:' : 'Style:',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1198,9 +1273,9 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 colors: colors,
                 theme: ShareCardTheme.midnight,
                 label: isThai ? 'ราตรี' : 'Midnight',
-                swatchColor: const Color(0xFF0B131E),
-                activeBg: const Color(0xFF0B131E),
-                activeFg: const Color(0xFF34D399),
+                swatchColor: const Color(0xFF131210),
+                activeBg: const Color(0xFF131210),
+                activeFg: const Color(0xFF4A9E89),
               ),
               _buildThemePill(
                 colors: colors,
@@ -1209,6 +1284,33 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 swatchColor: const Color(0xFF44403C),
                 activeBg: const Color(0xFF1C1917),
                 activeFg: const Color(0xFFFFFFFF),
+              ),
+              _buildThemePill(
+                colors: colors,
+                theme: ShareCardTheme.mist,
+                label: isThai ? 'ขุนเขาหมอก' : 'Mist',
+                swatchColor: const Color(0xFF1E2D2F),
+                activeBg: const Color(0xFF0E5A4A),
+                activeFg: const Color(0xFFFFFFFF),
+                thumbnailAsset: 'assets/images/share/scenic-mist.jpg',
+              ),
+              _buildThemePill(
+                colors: colors,
+                theme: ShareCardTheme.dusk,
+                label: isThai ? 'ทะเลทราย' : 'Dusk',
+                swatchColor: const Color(0xFF8A6530),
+                activeBg: const Color(0xFF0E5A4A),
+                activeFg: const Color(0xFFFFFFFF),
+                thumbnailAsset: 'assets/images/share/scenic-dusk.jpg',
+              ),
+              _buildThemePill(
+                colors: colors,
+                theme: ShareCardTheme.night,
+                label: isThai ? 'ฟ้าราตรี' : 'Night',
+                swatchColor: const Color(0xFF0D1321),
+                activeBg: const Color(0xFF0E5A4A),
+                activeFg: const Color(0xFFFFFFFF),
+                thumbnailAsset: 'assets/images/share/scenic-night.jpg',
               ),
             ],
           ),
@@ -1221,7 +1323,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                isThai ? 'สัดส่วน:' : 'Ratio:',
+                isThai ? 'ขนาด:' : 'Size:',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1232,7 +1334,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 _buildRatioPill(
                   colors: colors,
                   ratio: ratio,
-                  label: ratio.label,
+                  label: ratio.labelFor(isThai),
                 ),
             ],
           ),
@@ -1289,6 +1391,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     required Color swatchColor,
     required Color activeBg,
     required Color activeFg,
+    String? thumbnailAsset,
   }) {
     final isSelected = _theme == theme;
     return InkWell(
@@ -1306,19 +1409,35 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: isSelected ? activeFg : swatchColor,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? activeFg.withValues(alpha: 0.4)
-                      : colors.borderSoft,
+            if (thumbnailAsset != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: Image.asset(
+                  thumbnailAsset,
+                  width: 14,
+                  height: 14,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: 14,
+                    height: 14,
+                    color: swatchColor,
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: isSelected ? activeFg : swatchColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? activeFg.withValues(alpha: 0.4)
+                        : colors.borderSoft,
+                  ),
                 ),
               ),
-            ),
             const SizedBox(width: 5),
             Text(
               label,
@@ -1344,7 +1463,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
       onTap: () => setState(() => _aspectRatio = ratio),
       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? colors.primary : colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
@@ -1354,7 +1473,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSans(
+          style: GoogleFonts.notoSansThai(
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: isSelected ? colors.textInverse : colors.foreground,
@@ -1490,24 +1609,27 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     final reflectionSize = ((_isMultiContent ? 13.0 : 14.0) * scale).clamp(11.0, 23.0);
     final tafsirSize = (11.5 * scale).clamp(10.0, 19.0);
     final footnoteSize = (10.5 * scale).clamp(9.0, 17.0);
-    final bodyMinHeight = (_cardMinHeight - 108).clamp(200.0, 900.0);
+    final bodyMinHeight = (_cardMinHeight - 96).clamp(180.0, 900.0);
 
     final arabicWidget = (_includeArabic && _arabicText.isNotEmpty)
-        ? Text(
-            formatArabicAyahText(
-              _arabicText,
-              verseNumber: widget.verseId,
-            ),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-            locale: const Locale('ar'),
-            style: TextStyle(
-              fontFamily: 'UthmanicHafs',
-              fontWeight: FontWeight.w400,
-              fontSize: arabicSize,
-              height: scale > 1.2 ? 2.0 : 2.15,
-              letterSpacing: 0,
-              color: palette.arabicText,
+        ? SizedBox(
+            width: double.infinity,
+            child: Text(
+              formatArabicAyahText(
+                _arabicText,
+                verseNumber: widget.verseId,
+              ),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              locale: const Locale('ar'),
+              style: TextStyle(
+                fontFamily: 'UthmanicHafs',
+                fontWeight: FontWeight.w400,
+                fontSize: arabicSize,
+                height: scale > 1.2 ? 2.0 : 2.15,
+                letterSpacing: 0,
+                color: palette.arabicText,
+              ),
             ),
           )
         : null;
@@ -1662,9 +1784,11 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
               ),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.notes_rounded,
@@ -1673,7 +1797,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      isThai ? 'เชิงอรรถ' : 'Footnotes',
+                      isThai ? 'เชิงอรรถทั้งหมด' : 'Footnotes',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.notoSansThai(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
@@ -1688,6 +1813,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                     padding: const EdgeInsets.only(bottom: 3),
                     child: Text(
                       '[${fn.origId > 0 ? fn.origId : fn.id}] ${fn.text}',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.notoSansThai(
                         fontSize: footnoteSize,
                         height: 1.5,
@@ -1700,159 +1826,168 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
           )
         : null;
 
+    final foregroundColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Minimal Centered Top Reference
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            _isWidescreen ? 32 : 28,
+            _isWidescreen ? 22 : 26,
+            _isWidescreen ? 32 : 28,
+            6,
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${widget.surahName} · $_verseKey',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.notoSansThai(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                  color: palette.headerSubText,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 1,
+                    color: palette.accentLine.withValues(alpha: 0.35),
+                  ),
+                  const SizedBox(width: 8),
+                  Transform.rotate(
+                    angle: 0.785398,
+                    child: Container(
+                      width: 5,
+                      height: 5,
+                      color: palette.accentLine.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 32,
+                    height: 1,
+                    color: palette.accentLine.withValues(alpha: 0.35),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Card Body: 100% Centered Alignment, Top Quran, Bottom Translation + Centered Footnotes
+        ConstrainedBox(
+          constraints: BoxConstraints(minHeight: bodyMinHeight),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: _isWidescreen ? 34 : (compact ? 24 : 28),
+              vertical: _isWidescreen ? 16 : (compact ? 18 : 22),
+            ),
+            child: Column(
+              mainAxisAlignment: footnotesWidget != null
+                  ? MainAxisAlignment.spaceBetween
+                  : MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (arabicWidget != null) ...[
+                      arabicWidget,
+                      SizedBox(height: compact ? 12 : 16),
+                    ],
+                    if (wbwWidget != null) ...[
+                      wbwWidget,
+                      SizedBox(height: compact ? 12 : 16),
+                    ],
+                    if (translationWidget != null)
+                      SizedBox(width: double.infinity, child: translationWidget),
+                    if (reflectionWidget != null) ...[
+                      SizedBox(height: compact ? 12 : 16),
+                      reflectionWidget,
+                    ],
+                    if (tafsirWidget != null) ...[
+                      SizedBox(height: compact ? 12 : 16),
+                      tafsirWidget,
+                    ],
+                  ],
+                ),
+                if (footnotesWidget != null) ...[
+                  SizedBox(height: compact ? 14 : 18),
+                  footnotesWidget,
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // Quiet Centered Bottom Watermark
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            _isWidescreen ? 32 : 28,
+            6,
+            _isWidescreen ? 32 : 28,
+            _isWidescreen ? 18 : 22,
+          ),
+          child: Text(
+            'quran-th.com',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.notoSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.6,
+              color: palette.footerText.withValues(alpha: 0.70),
+            ),
+          ),
+        ),
+      ],
+    );
+
     return Container(
       key: const ValueKey('verse_share_card'),
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: palette.containerBg,
         borderRadius: BorderRadius.zero,
-        border: Border.all(color: palette.containerBorder, width: 1.2),
+        border: Border.all(color: palette.containerBorder, width: 1),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Card Header
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isWidescreen ? 26 : 18,
-              vertical: _isWidescreen ? 13 : 14,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: palette.divider, width: 1),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      child: palette.backgroundAsset != null
+          ? Stack(
               children: [
-                _buildBrandIcon(size: 32, radius: AppTheme.radiusSm),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.surahName,
-                        softWrap: true,
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          height: 1.35,
-                          color: palette.headerText,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        isThai
-                            ? 'อายะฮฺที่ ${widget.verseId} ($_verseKey)'
-                            : 'Ayah ${widget.verseId} ($_verseKey)',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: palette.headerSubText,
-                        ),
-                      ),
-                    ],
+                Positioned.fill(
+                  child: Image.asset(
+                    palette.backgroundAsset!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.badgeBg,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                    border: Border.all(color: palette.badgeBorder),
-                  ),
-                  child: Text(
-                    _verseKey,
-                    style: GoogleFonts.notoSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: palette.badgeText,
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.48, 1.0],
+                        colors: [
+                          const Color(0xFF0A0E12).withValues(alpha: 0.60),
+                          const Color(0xFF0A0E12).withValues(alpha: 0.48),
+                          const Color(0xFF0A0E12).withValues(alpha: 0.75),
+                        ],
+                      ),
                     ),
                   ),
                 ),
+                foregroundColumn,
               ],
-            ),
-          ),
-
-          // Card Body: Centered Alignment, Top Quran, Bottom Translation (Slightly Faded) + Footnotes List at Bottom
-          ConstrainedBox(
-            constraints: BoxConstraints(minHeight: bodyMinHeight),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: _isWidescreen ? 28 : (compact ? 20 : 24),
-                vertical: _isWidescreen ? 18 : (compact ? 18 : 22),
-              ),
-              child: Column(
-                mainAxisAlignment: footnotesWidget != null
-                    ? MainAxisAlignment.spaceBetween
-                    : MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (arabicWidget != null) ...[
-                        arabicWidget,
-                        SizedBox(height: compact ? 10 : 14),
-                      ],
-                      if (wbwWidget != null) ...[
-                        wbwWidget,
-                        SizedBox(height: compact ? 10 : 14),
-                      ],
-                      ?translationWidget,
-                      if (reflectionWidget != null) ...[
-                        SizedBox(height: compact ? 12 : 16),
-                        reflectionWidget,
-                      ],
-                      if (tafsirWidget != null) ...[
-                        SizedBox(height: compact ? 10 : 14),
-                        tafsirWidget,
-                      ],
-                    ],
-                  ),
-                  if (footnotesWidget != null) ...[
-                    SizedBox(height: compact ? 12 : 16),
-                    footnotesWidget,
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // Card Watermark Footer
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isWidescreen ? 26 : 18,
-              vertical: 11,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: palette.divider, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                _buildBrandIcon(size: 18, radius: 4),
-                const SizedBox(width: 7),
-                Text(
-                  'Thai Quran • quran-th.com',
-                  style: GoogleFonts.notoSansThai(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: palette.watermark,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+            )
+          : foregroundColumn,
     );
   }
 
@@ -1913,31 +2048,6 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildBrandIcon({required double size, required double radius}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: Image.asset(
-        'assets/icons/playstore-icon.png',
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: size,
-            height: size,
-            color: const Color(0xFF0E5A4A),
-            alignment: Alignment.center,
-            child: Icon(
-              Icons.menu_book_rounded,
-              size: size * 0.6,
-              color: Colors.white,
-            ),
-          );
-        },
       ),
     );
   }

@@ -80,6 +80,7 @@ flutter:
     - assets/Tajweed/
     - assets/quran_offline.db
     - assets/footnotes/
+    - assets/images/share/
     - assets/en_hilali_khan.json
     - assets/en_bridges.json
     - assets/en_saheeh.json

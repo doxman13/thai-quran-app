@@ -418,15 +418,27 @@ void main() {
           await tester.tap(find.text('Open Share'));
           await tester.pumpAndSettle();
 
-          // Header, watermark, and fixed 390px vertical card inside RepaintBoundary
+          // Minimal centered reference, watermark, and portrait card inside RepaintBoundary
           expect(find.text('แชร์อายะฮฺ'), findsOneWidget);
-          expect(find.text('Thai Quran • quran-th.com'), findsOneWidget);
-          expect(find.text('2:255'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('verse_share_card')),
+              matching: find.text('quran-th.com'),
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('verse_share_card')),
+              matching: find.text('อัลบะเกาะเราะฮฺ · 2:255'),
+            ),
+            findsOneWidget,
+          );
 
           final cardFinder = find.byKey(const ValueKey('verse_share_card'));
           expect(cardFinder, findsOneWidget);
           expect(tester.getSize(cardFinder).width, 420.0);
-          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(560.0));
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(525.0));
 
           // Outer card has sharp corners (BorderRadius.zero) for clean JPG export
           final outerContainer = tester.widget<Container>(cardFinder);
@@ -435,30 +447,25 @@ void main() {
             BorderRadius.zero,
           );
 
-          // Aspect ratio selector switches across 1:1, 4:5, 9:16, 16:9, and 3:4
-          await tester.tap(find.text('1:1'));
-          await tester.pumpAndSettle();
-          expect(tester.getSize(cardFinder).width, 450.0);
-          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(450.0));
+          Future<void> tapChip(Finder finder) async {
+            await tester.ensureVisible(finder);
+            await tester.pumpAndSettle();
+            await tester.tap(finder);
+            await tester.pumpAndSettle();
+          }
 
-          await tester.tap(find.text('4:5'));
-          await tester.pumpAndSettle();
-          expect(tester.getSize(cardFinder).width, 440.0);
-          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(550.0));
+          // Aspect ratio selector switches across 1:1, แนวนอน (Landscape), and แนวตั้ง (Portrait)
+          await tapChip(find.text('1:1'));
+          expect(tester.getSize(cardFinder).width, 480.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(480.0));
 
-          await tester.tap(find.text('9:16'));
-          await tester.pumpAndSettle();
-          expect(tester.getSize(cardFinder).width, 405.0);
-          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(720.0));
-
-          await tester.tap(find.text('16:9'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('แนวนอน'));
           expect(tester.getSize(cardFinder).width, 640.0);
           expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(360.0));
 
-          await tester.tap(find.text('3:4'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('แนวตั้ง'));
           expect(tester.getSize(cardFinder).width, 420.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(525.0));
 
           // Verify Arabic inside card is centered, sanitized, and placed above translation
           final cardArabicFinder = find.descendant(
@@ -485,8 +492,7 @@ void main() {
 
           // Font size editor increments scale percentage and text size
           final initialArabicSize = cardArabic.style?.fontSize ?? 0;
-          await tester.tap(find.byKey(const ValueKey('share_font_increase')));
-          await tester.pumpAndSettle();
+          await tapChip(find.byKey(const ValueKey('share_font_increase')));
           expect(find.text('105%'), findsOneWidget);
           final scaledArabic = tester.widget<Text>(
             find.descendant(
@@ -496,20 +502,17 @@ void main() {
           );
           expect(scaledArabic.style?.fontSize, greaterThan(initialArabicSize));
 
-          await tester.tap(find.byKey(const ValueKey('share_font_decrease')));
-          await tester.pumpAndSettle();
+          await tapChip(find.byKey(const ValueKey('share_font_decrease')));
           expect(find.text('100%'), findsOneWidget);
 
           // Toggle WBW, Short Tafsir, All Footnotes ON
-          await tester.tap(find.text('คำต่อคำ (WBW)'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('คำต่อคำ (WBW)'));
           expect(
             find.descendant(of: cardFinder, matching: find.text('อัลลอฮฺ')),
             findsOneWidget,
           );
 
-          await tester.tap(find.text('ตัฟซีรสั้น'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('ตัฟซีรสั้น'));
           expect(
             find.descendant(
               of: cardFinder,
@@ -518,19 +521,19 @@ void main() {
             findsOneWidget,
           );
 
-          await tester.tap(find.text('เชิงอรรถทั้งหมด (1)'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('เชิงอรรถทั้งหมด (1)'));
           final footnoteFinder = find.descendant(
             of: cardFinder,
             matching: find.text('[1] หมายถึงผู้ทรงดำรงอยู่ด้วยพระองค์เอง'),
           );
           expect(footnoteFinder, findsOneWidget);
+          expect(tester.widget<Text>(footnoteFinder).textAlign, TextAlign.center);
           expect(
             tester.getTopLeft(footnoteFinder).dy,
             greaterThan(tester.getTopLeft(cardTranslationFinder).dy),
           );
 
-          // Switch across all 4 themes and verify exact background colors
+          // Switch across all 7 solid + scenic themes and verify exact background colors
           Color? cardColor() {
             final container = tester.widget<Container>(cardFinder);
             return (container.decoration as BoxDecoration?)?.color;
@@ -538,20 +541,25 @@ void main() {
 
           expect(cardColor(), const Color(0xFFFDFBF7));
 
-          await tester.tap(find.text('ครีมทอง'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('ครีมทอง'));
           expect(cardColor(), const Color(0xFFFAF6EE));
 
-          await tester.tap(find.text('ราตรี'));
-          await tester.pumpAndSettle();
-          expect(cardColor(), const Color(0xFF0B131E));
+          await tapChip(find.text('ราตรี'));
+          expect(cardColor(), const Color(0xFF131210));
 
-          await tester.tap(find.text('มินิมอล'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('มินิมอล'));
           expect(cardColor(), const Color(0xFFFFFFFF));
 
-          await tester.tap(find.text('มรกต'));
-          await tester.pumpAndSettle();
+          await tapChip(find.text('ขุนเขาหมอก'));
+          expect(cardColor(), const Color(0xFF1E2D2F));
+
+          await tapChip(find.text('ทะเลทราย'));
+          expect(cardColor(), const Color(0xFF241C18));
+
+          await tapChip(find.text('ฟ้าราตรี'));
+          expect(cardColor(), const Color(0xFF0D1321));
+
+          await tapChip(find.text('มรกต'));
           expect(cardColor(), const Color(0xFFFDFBF7));
 
           // 4-button action bar includes Copy Text, Copy Image, Save Image, and Share
@@ -837,7 +845,13 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(VerseShareSheet), findsOneWidget);
-        expect(find.text('Thai Quran • quran-th.com'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('verse_share_card')),
+            matching: find.text('quran-th.com'),
+          ),
+          findsOneWidget,
+        );
         await tester.pump(const Duration(seconds: 2));
       },
     );
