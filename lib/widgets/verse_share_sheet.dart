@@ -1629,6 +1629,11 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     final compact = _useCompactMode;
     final scale = _fontScale;
     final translationDisplay = _displayTranslationText;
+    final hasFullVerseStack = _includeArabic &&
+        _arabicText.isNotEmpty &&
+        _hasWbw &&
+        _includeTranslation &&
+        translationDisplay.isNotEmpty;
 
     final baseArabic = _isMultiContent ? 21.0 : 25.0;
     final arabicSize = (baseArabic * scale).clamp(15.0, 42.0);
@@ -1656,7 +1661,9 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 fontFamily: 'UthmanicHafs',
                 fontWeight: FontWeight.w400,
                 fontSize: arabicSize,
-                height: scale > 1.2 ? 2.0 : 2.15,
+                height: hasFullVerseStack
+                    ? (scale > 1.2 ? 1.85 : 1.95)
+                    : (scale > 1.2 ? 2.0 : 2.15),
                 letterSpacing: 0,
                 color: palette.arabicText,
               ),
@@ -1668,15 +1675,15 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         ? Directionality(
             textDirection: TextDirection.rtl,
             child: Wrap(
-              spacing: 22,
-              runSpacing: 14,
+              spacing: hasFullVerseStack ? 16 : 22,
+              runSpacing: hasFullVerseStack ? 8 : 14,
               alignment: WrapAlignment.center,
               children: [
                 for (final word in _wbwWords)
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 3,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: hasFullVerseStack ? 4 : 5,
+                      vertical: hasFullVerseStack ? 1 : 3,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1695,7 +1702,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                           ),
                         ),
                         if (_wbwWordMeaning(word).isNotEmpty) ...[
-                          const SizedBox(height: 4),
+                          SizedBox(height: hasFullVerseStack ? 2 : 4),
                           Text(
                             _wbwWordMeaning(word),
                             textDirection: TextDirection.ltr,
@@ -1858,10 +1865,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         // Minimal Centered Top Reference
         Padding(
           padding: EdgeInsets.fromLTRB(
-            _isWidescreen ? 32 : 28,
-            _isWidescreen ? 22 : 26,
-            _isWidescreen ? 32 : 28,
-            6,
+            _isWidescreen ? 32 : (hasFullVerseStack ? 24 : 28),
+            hasFullVerseStack ? 16 : (_isWidescreen ? 22 : 26),
+            _isWidescreen ? 32 : (hasFullVerseStack ? 24 : 28),
+            hasFullVerseStack ? 4 : 6,
           ),
           child: Column(
             children: [
@@ -1875,7 +1882,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                   color: palette.headerSubText,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: hasFullVerseStack ? 6 : 8),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1911,8 +1918,12 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
           constraints: BoxConstraints(minHeight: bodyMinHeight),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: _isWidescreen ? 34 : (compact ? 24 : 28),
-              vertical: _isWidescreen ? 16 : (compact ? 18 : 22),
+              horizontal: _isWidescreen
+                  ? (hasFullVerseStack ? 28 : 34)
+                  : (hasFullVerseStack ? 20 : (compact ? 24 : 28)),
+              vertical: hasFullVerseStack
+                  ? 10
+                  : (_isWidescreen ? 16 : (compact ? 18 : 22)),
             ),
             child: Column(
               mainAxisAlignment: footnotesWidget != null
@@ -1927,26 +1938,34 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                     if (arabicWidget != null) ...[
                       arabicWidget,
                       if (wbwWidget != null || translationWidget != null) ...[
-                        SizedBox(height: compact ? 16 : 20),
+                        SizedBox(
+                          height: hasFullVerseStack ? 9 : (compact ? 16 : 20),
+                        ),
                         Container(
                           width: 80,
                           height: 1,
                           color: palette.accentLine.withValues(alpha: 0.20),
                         ),
-                        SizedBox(height: compact ? 16 : 20),
+                        SizedBox(
+                          height: hasFullVerseStack ? 9 : (compact ? 16 : 20),
+                        ),
                       ] else
                         SizedBox(height: compact ? 14 : 18),
                     ],
                     if (wbwWidget != null) ...[
                       wbwWidget,
                       if (translationWidget != null) ...[
-                        SizedBox(height: compact ? 14 : 18),
+                        SizedBox(
+                          height: hasFullVerseStack ? 8 : (compact ? 14 : 18),
+                        ),
                         Container(
                           width: 56,
                           height: 1,
                           color: palette.accentLine.withValues(alpha: 0.14),
                         ),
-                        SizedBox(height: compact ? 14 : 18),
+                        SizedBox(
+                          height: hasFullVerseStack ? 8 : (compact ? 14 : 18),
+                        ),
                       ] else
                         SizedBox(height: compact ? 14 : 18),
                     ],
@@ -1974,10 +1993,10 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         // Quiet Centered Bottom Watermark
         Padding(
           padding: EdgeInsets.fromLTRB(
-            _isWidescreen ? 32 : 28,
-            6,
-            _isWidescreen ? 32 : 28,
-            _isWidescreen ? 18 : 22,
+            _isWidescreen ? 32 : (hasFullVerseStack ? 24 : 28),
+            hasFullVerseStack ? 2 : 6,
+            _isWidescreen ? 32 : (hasFullVerseStack ? 24 : 28),
+            hasFullVerseStack ? 14 : (_isWidescreen ? 18 : 22),
           ),
           child: Text(
             'quran-th.com',
