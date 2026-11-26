@@ -24,7 +24,19 @@ import '../theme/app_theme.dart';
 
 enum ShareCardTheme { emerald, parchment, midnight, minimal }
 
-enum ShareCardLayout { vertical, landscape }
+enum ShareCardAspectRatio {
+  square1x1('1:1', 450, 450),
+  portrait3x4('3:4', 420, 560),
+  portrait4x5('4:5', 440, 550),
+  story9x16('9:16', 405, 720),
+  landscape16x9('16:9', 640, 360);
+
+  final String label;
+  final double width;
+  final double minHeight;
+
+  const ShareCardAspectRatio(this.label, this.width, this.minHeight);
+}
 
 class _ShareCardPalette {
   final Color containerBg;
@@ -77,7 +89,7 @@ class _ShareCardPalette {
           badgeText: const Color(0xFF0E5A4A),
           badgeBorder: const Color(0xFF0E5A4A).withValues(alpha: 0.25),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF292524),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.85),
           innerCardBg: const Color(0xFFFAFAF9),
           innerCardBorder: const Color(0xFFE7E5E4),
           reflectionBg: const Color(0xFFF2F7F5),
@@ -97,7 +109,7 @@ class _ShareCardPalette {
           badgeText: const Color(0xFF73531F),
           badgeBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.40),
           arabicText: const Color(0xFF1C1917),
-          meaningText: const Color(0xFF292524),
+          meaningText: const Color(0xFF5A4D3C).withValues(alpha: 0.85),
           innerCardBg: const Color(0xFFF5EFE1),
           innerCardBorder: const Color(0xFFCBAD5F).withValues(alpha: 0.35),
           reflectionBg: const Color(0xFFF5EFE1),
@@ -117,7 +129,7 @@ class _ShareCardPalette {
           badgeText: const Color(0xFF34D399),
           badgeBorder: const Color(0xFF065F46).withValues(alpha: 0.65),
           arabicText: const Color(0xFFFFFFFF),
-          meaningText: const Color(0xFFE2E8F0),
+          meaningText: const Color(0xFFCBD5E1).withValues(alpha: 0.78),
           innerCardBg: const Color(0xFF0F172A),
           innerCardBorder: const Color(0xFF1E293B),
           reflectionBg: const Color(0xFF0F172A),
@@ -128,24 +140,24 @@ class _ShareCardPalette {
           watermark: const Color(0xFF34D399),
         );
       case ShareCardTheme.minimal:
-        return const _ShareCardPalette(
-          containerBg: Color(0xFFFFFFFF),
-          containerBorder: Color(0xFFE7E5E4),
-          headerText: Color(0xFF1C1917),
-          headerSubText: Color(0xFF78716C),
-          badgeBg: Color(0xFFF5F5F4),
-          badgeText: Color(0xFF44403C),
-          badgeBorder: Color(0xFFE7E5E4),
-          arabicText: Color(0xFF1C1917),
-          meaningText: Color(0xFF292524),
-          innerCardBg: Color(0xFFFAFAF9),
-          innerCardBorder: Color(0xFFE7E5E4),
-          reflectionBg: Color(0xFFFAFAF9),
-          reflectionBorder: Color(0xFFE7E5E4),
-          reflectionAccent: Color(0xFF78716C),
-          divider: Color(0xFFE7E5E4),
-          footerText: Color(0xFF78716C),
-          watermark: Color(0xFF44403C),
+        return _ShareCardPalette(
+          containerBg: const Color(0xFFFFFFFF),
+          containerBorder: const Color(0xFFE7E5E4),
+          headerText: const Color(0xFF1C1917),
+          headerSubText: const Color(0xFF78716C),
+          badgeBg: const Color(0xFFF5F5F4),
+          badgeText: const Color(0xFF44403C),
+          badgeBorder: const Color(0xFFE7E5E4),
+          arabicText: const Color(0xFF1C1917),
+          meaningText: const Color(0xFF57534E).withValues(alpha: 0.85),
+          innerCardBg: const Color(0xFFFAFAF9),
+          innerCardBorder: const Color(0xFFE7E5E4),
+          reflectionBg: const Color(0xFFFAFAF9),
+          reflectionBorder: const Color(0xFFE7E5E4),
+          reflectionAccent: const Color(0xFF78716C),
+          divider: const Color(0xFFE7E5E4),
+          footerText: const Color(0xFF78716C),
+          watermark: const Color(0xFF44403C),
         );
     }
   }
@@ -250,6 +262,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   String? _shortTafsir;
   late String _shortTafsirSource;
   List<FootnoteItem> _footnotes = const [];
+  String? _annotatedTranslationText;
   List<Map<String, dynamic>> _wbwWords = const [];
 
   late bool _includeReflection;
@@ -260,7 +273,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool _includeTafsir = false;
   bool _includeFootnotes = false;
   ShareCardTheme _theme = ShareCardTheme.emerald;
-  ShareCardLayout _layout = ShareCardLayout.vertical;
+  ShareCardAspectRatio _aspectRatio = ShareCardAspectRatio.portrait3x4;
   double _fontScale = 1.0;
   bool _isGenerating = false;
   bool _isCopyingImage = false;
@@ -469,12 +482,19 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
 
   Future<void> _fetchFootnotes() async {
     try {
-      final fns = await FootnoteService().getVerseFootnotes(
+      final service = FootnoteService();
+      final fns = await service.getVerseFootnotes(
         _verseKey,
         translationId: _primaryTranslationId,
       );
-      if (mounted && fns.isNotEmpty) {
-        setState(() => _footnotes = fns);
+      final entry = service.getEntry(_verseKey, _primaryTranslationId);
+      if (mounted && (fns.isNotEmpty || entry != null)) {
+        setState(() {
+          if (fns.isNotEmpty) _footnotes = fns;
+          if (entry != null && entry.annotated.trim().isNotEmpty) {
+            _annotatedTranslationText = _cleanPlainTranslation(entry.annotated);
+          }
+        });
       }
     } catch (_) {}
   }
@@ -591,9 +611,20 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   bool get _hasFootnotes => _includeFootnotes && _footnotes.isNotEmpty;
   bool get _hasWbw => _includeWbw && _wbwWords.isNotEmpty;
 
-  bool get _isLandscape => _layout == ShareCardLayout.landscape;
-  double get _cardWidth => _isLandscape ? 640.0 : 390.0;
+  bool get _isWidescreen => _aspectRatio == ShareCardAspectRatio.landscape16x9;
+  double get _cardWidth => _aspectRatio.width;
+  double get _cardMinHeight => _aspectRatio.minHeight;
   int get _fontScalePercent => (_fontScale * 100).round();
+
+  String get _displayTranslationText {
+    if (_hasFootnotes &&
+        _annotatedTranslationText != null &&
+        _annotatedTranslationText!.isNotEmpty &&
+        !RegExp(r'\[\d+\]').hasMatch(_translationText)) {
+      return _annotatedTranslationText!;
+    }
+    return _translationText;
+  }
 
   bool get _isMultiContent =>
       (_hasTafsir && _hasFootnotes) ||
@@ -1123,8 +1154,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                 _buildTogglePill(
                   colors: colors,
                   label: isThai
-                      ? 'เชิงอรรถ (${_footnotes.length})'
-                      : 'Footnotes (${_footnotes.length})',
+                      ? 'เชิงอรรถทั้งหมด (${_footnotes.length})'
+                      : 'All Footnotes (${_footnotes.length})',
                   selected: _includeFootnotes,
                   onTap: () =>
                       setState(() => _includeFootnotes = !_includeFootnotes),
@@ -1184,28 +1215,25 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
           const SizedBox(height: 10),
           Divider(height: 1, color: colors.borderSoft),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                isThai ? 'รูปแบบ:' : 'Layout:',
+                isThai ? 'สัดส่วน:' : 'Ratio:',
                 style: GoogleFonts.notoSansThai(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: colors.textMuted,
                 ),
               ),
-              const SizedBox(width: 6),
-              _buildLayoutPill(
-                colors: colors,
-                layout: ShareCardLayout.vertical,
-                label: isThai ? 'แนวตั้ง' : 'Vertical',
-              ),
-              const SizedBox(width: 6),
-              _buildLayoutPill(
-                colors: colors,
-                layout: ShareCardLayout.landscape,
-                label: isThai ? 'แนวนอน' : 'Landscape',
-              ),
+              for (final ratio in ShareCardAspectRatio.values)
+                _buildRatioPill(
+                  colors: colors,
+                  ratio: ratio,
+                  label: ratio.label,
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -1306,17 +1334,17 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     );
   }
 
-  Widget _buildLayoutPill({
+  Widget _buildRatioPill({
     required AppThemeColors colors,
-    required ShareCardLayout layout,
+    required ShareCardAspectRatio ratio,
     required String label,
   }) {
-    final isSelected = _layout == layout;
+    final isSelected = _aspectRatio == ratio;
     return InkWell(
-      onTap: () => setState(() => _layout = layout),
+      onTap: () => setState(() => _aspectRatio = ratio),
       borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? colors.primary : colors.surface,
           borderRadius: BorderRadius.circular(AppTheme.radiusSm),
@@ -1326,9 +1354,9 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSansThai(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
+          style: GoogleFonts.notoSans(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
             color: isSelected ? colors.textInverse : colors.foreground,
           ),
         ),
@@ -1451,9 +1479,9 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
   }) {
     final compact = _useCompactMode;
     final scale = _fontScale;
-    final cleanLabel = _translationLabel.replaceAll('(ปรับปรุง)', '').trim();
+    final translationDisplay = _displayTranslationText;
 
-    final baseArabic = _isMultiContent ? 21.0 : 24.0;
+    final baseArabic = _isMultiContent ? 21.0 : 25.0;
     final arabicSize = (baseArabic * scale).clamp(15.0, 42.0);
     final wbwArabicSize = (16.0 * scale).clamp(12.0, 26.0);
     final wbwMeaningSize = (10.5 * scale).clamp(8.5, 16.0);
@@ -1462,12 +1490,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     final reflectionSize = ((_isMultiContent ? 13.0 : 14.0) * scale).clamp(11.0, 23.0);
     final tafsirSize = (11.5 * scale).clamp(10.0, 19.0);
     final footnoteSize = (10.5 * scale).clamp(9.0, 17.0);
-
-    final hasArabicSide = (_includeArabic && _arabicText.isNotEmpty) || _hasWbw;
-    final hasMeaningSide =
-        _hasReflection || (_includeTranslation && _translationText.isNotEmpty);
-    final useTwoColumnLandscape =
-        _isLandscape && hasArabicSide && hasMeaningSide;
+    final bodyMinHeight = (_cardMinHeight - 108).clamp(200.0, 900.0);
 
     final arabicWidget = (_includeArabic && _arabicText.isNotEmpty)
         ? Text(
@@ -1475,7 +1498,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
               _arabicText,
               verseNumber: widget.verseId,
             ),
-            textAlign: TextAlign.right,
+            textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
             locale: const Locale('ar'),
             style: TextStyle(
@@ -1495,7 +1518,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             child: Wrap(
               spacing: 6,
               runSpacing: 6,
-              alignment: WrapAlignment.start,
+              alignment: WrapAlignment.center,
               children: [
                 for (final word in _wbwWords)
                   Container(
@@ -1530,12 +1553,11 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                           Text(
                             _wbwWordMeaning(word),
                             textDirection: TextDirection.ltr,
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.notoSansThai(
                               fontSize: wbwMeaningSize,
                               fontWeight: FontWeight.w500,
-                              color: palette.meaningText.withValues(
-                                alpha: 0.85,
-                              ),
+                              color: palette.meaningText,
                             ),
                           ),
                         ],
@@ -1547,57 +1569,45 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
           )
         : null;
 
+    final translationWidget =
+        (_includeTranslation && translationDisplay.isNotEmpty)
+            ? Text(
+                ThaiTextProtectionProvider.protectSafe(
+                  context,
+                  translationDisplay,
+                ),
+                textAlign: TextAlign.center,
+                locale: ThaiTextProtectionProvider.localeForText(
+                  translationDisplay,
+                  forceThai: isThai,
+                ),
+                style: GoogleFonts.notoSansThai(
+                  fontSize: meaningSize,
+                  fontWeight: FontWeight.w500,
+                  height: 1.6,
+                  color: palette.meaningText,
+                ),
+              )
+            : null;
+
     final reflectionWidget = _hasReflection
         ? _buildReflectionCardBox(palette, isThai, reflectionSize)
         : null;
 
-    final translationWidget =
-        (_includeTranslation && _translationText.isNotEmpty)
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ThaiTextProtectionProvider.protectSafe(
-                      context,
-                      _translationText,
-                    ),
-                    locale: ThaiTextProtectionProvider.localeForText(
-                      _translationText,
-                      forceThai: isThai,
-                    ),
-                    style: GoogleFonts.notoSansThai(
-                      fontSize: meaningSize,
-                      fontWeight: FontWeight.w500,
-                      height: 1.6,
-                      color: palette.meaningText,
-                    ),
-                  ),
-                  if (cleanLabel.isNotEmpty) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      cleanLabel,
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: palette.footerText,
-                      ),
-                    ),
-                  ],
-                ],
-              )
-            : null;
-
     final tafsirWidget = _hasTafsir
         ? Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: palette.innerCardBg,
               border: Border.all(color: palette.innerCardBorder),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.auto_stories_outlined,
@@ -1605,11 +1615,12 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                       color: palette.watermark,
                     ),
                     const SizedBox(width: 5),
-                    Expanded(
+                    Flexible(
                       child: Text(
                         isThai
                             ? 'ตัฟซีรฉบับย่อ ($_shortTafsirSource)'
                             : 'Short Tafsir ($_shortTafsirSource)',
+                        textAlign: TextAlign.center,
                         style: GoogleFonts.notoSansThai(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -1625,6 +1636,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                     context,
                     _shortTafsir!,
                   ),
+                  textAlign: TextAlign.center,
                   locale: ThaiTextProtectionProvider.localeForText(
                     _shortTafsir!,
                     forceThai: isThai,
@@ -1632,7 +1644,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                   style: GoogleFonts.notoSansThai(
                     fontSize: tafsirSize,
                     height: 1.55,
-                    color: palette.meaningText.withValues(alpha: 0.9),
+                    color: palette.meaningText,
                   ),
                 ),
               ],
@@ -1642,10 +1654,12 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
 
     final footnotesWidget = _hasFootnotes
         ? Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.only(top: 12),
             decoration: BoxDecoration(
-              color: palette.innerCardBg,
-              border: Border.all(color: palette.innerCardBorder),
+              border: Border(
+                top: BorderSide(color: palette.divider, width: 1),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1661,7 +1675,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                     Text(
                       isThai ? 'เชิงอรรถ' : 'Footnotes',
                       style: GoogleFonts.notoSansThai(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                         color: palette.headerText,
                       ),
@@ -1677,7 +1691,7 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
                       style: GoogleFonts.notoSansThai(
                         fontSize: footnoteSize,
                         height: 1.5,
-                        color: palette.meaningText.withValues(alpha: 0.88),
+                        color: palette.meaningText,
                       ),
                     ),
                   ),
@@ -1700,8 +1714,8 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
           // Card Header
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: _isLandscape ? 22 : 16,
-              vertical: _isLandscape ? 13 : 14,
+              horizontal: _isWidescreen ? 26 : 18,
+              vertical: _isWidescreen ? 13 : 14,
             ),
             decoration: BoxDecoration(
               border: Border(
@@ -1765,116 +1779,56 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
             ),
           ),
 
-          // Card Body (2-column spread in Landscape when both sides present, stacked otherwise)
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: _isLandscape ? 22 : (compact ? 16 : 20),
-              vertical: _isLandscape ? 20 : (compact ? 16 : 20),
-            ),
-            child: useTwoColumnLandscape
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+          // Card Body: Centered Alignment, Top Quran, Bottom Translation (Slightly Faded) + Footnotes List at Bottom
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: bodyMinHeight),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: _isWidescreen ? 28 : (compact ? 20 : 24),
+                vertical: _isWidescreen ? 18 : (compact ? 18 : 22),
+              ),
+              child: Column(
+                mainAxisAlignment: footnotesWidget != null
+                    ? MainAxisAlignment.spaceBetween
+                    : MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 165),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                flex: 1,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ?reflectionWidget,
-                                    if (reflectionWidget != null &&
-                                        translationWidget != null)
-                                      const SizedBox(height: 12),
-                                    ?translationWidget,
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                ),
-                                color: palette.divider,
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    ?arabicWidget,
-                                    if (arabicWidget != null &&
-                                        wbwWidget != null)
-                                      const SizedBox(height: 10),
-                                    ?wbwWidget,
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (tafsirWidget != null || footnotesWidget != null) ...[
-                        const SizedBox(height: 14),
-                        Divider(height: 1, color: palette.divider),
-                        if (tafsirWidget != null) ...[
-                          const SizedBox(height: 12),
-                          tafsirWidget,
-                        ],
-                        if (footnotesWidget != null) ...[
-                          const SizedBox(height: 10),
-                          footnotesWidget,
-                        ],
+                      if (arabicWidget != null) ...[
+                        arabicWidget,
+                        SizedBox(height: compact ? 10 : 14),
+                      ],
+                      if (wbwWidget != null) ...[
+                        wbwWidget,
+                        SizedBox(height: compact ? 10 : 14),
+                      ],
+                      ?translationWidget,
+                      if (reflectionWidget != null) ...[
+                        SizedBox(height: compact ? 12 : 16),
+                        reflectionWidget,
+                      ],
+                      if (tafsirWidget != null) ...[
+                        SizedBox(height: compact ? 10 : 14),
+                        tafsirWidget,
                       ],
                     ],
-                  )
-                : ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: _isLandscape ? 165 : 0,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: _isLandscape
-                          ? MainAxisAlignment.center
-                          : MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (reflectionWidget != null) ...[
-                          reflectionWidget,
-                          SizedBox(height: compact ? 12 : 16),
-                        ],
-                        if (arabicWidget != null) ...[
-                          arabicWidget,
-                          SizedBox(height: compact ? 10 : 14),
-                        ],
-                        if (wbwWidget != null) ...[
-                          wbwWidget,
-                          SizedBox(height: compact ? 10 : 14),
-                        ],
-                        ?translationWidget,
-                        if (tafsirWidget != null) ...[
-                          SizedBox(height: compact ? 10 : 14),
-                          tafsirWidget,
-                        ],
-                        if (footnotesWidget != null) ...[
-                          SizedBox(height: compact ? 10 : 14),
-                          footnotesWidget,
-                        ],
-                      ],
-                    ),
                   ),
+                  if (footnotesWidget != null) ...[
+                    SizedBox(height: compact ? 12 : 16),
+                    footnotesWidget,
+                  ],
+                ],
+              ),
+            ),
           ),
 
           // Card Watermark Footer
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: _isLandscape ? 22 : 16,
+              horizontal: _isWidescreen ? 26 : 18,
               vertical: 11,
             ),
             decoration: BoxDecoration(
@@ -1908,65 +1862,57 @@ class _VerseShareSheetState extends State<VerseShareSheet> {
     double reflectionFontSize,
   ) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: palette.reflectionBg,
-        border: Border.all(color: palette.reflectionBorder),
+        border: Border.symmetric(
+          horizontal: BorderSide(color: palette.reflectionBorder),
+        ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(width: 3.5, color: palette.reflectionAccent),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isThai
-                          ? 'ข้อคิดตะดับบุร • Tadabbur'
-                          : 'Reflection • Tadabbur',
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: palette.watermark,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      ThaiTextProtectionProvider.protectSafe(
-                        context,
-                        widget.reflectionText!.trim(),
-                      ),
-                      locale: ThaiTextProtectionProvider.localeForText(
-                        widget.reflectionText!,
-                        forceThai: isThai,
-                      ),
-                      style: GoogleFonts.notoSansThai(
-                        fontSize: reflectionFontSize,
-                        fontWeight: FontWeight.w500,
-                        height: 1.6,
-                        color: palette.meaningText,
-                      ),
-                    ),
-                    if (_includeAuthor && _hasAuthorInput) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '— ${widget.reflectionAuthor!.trim()}',
-                        style: GoogleFonts.notoSansThai(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: palette.headerSubText,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            isThai ? 'ข้อคิดตะดับบุร • Tadabbur' : 'Reflection • Tadabbur',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.notoSansThai(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: palette.watermark,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            ThaiTextProtectionProvider.protectSafe(
+              context,
+              widget.reflectionText!.trim(),
+            ),
+            textAlign: TextAlign.center,
+            locale: ThaiTextProtectionProvider.localeForText(
+              widget.reflectionText!,
+              forceThai: isThai,
+            ),
+            style: GoogleFonts.notoSansThai(
+              fontSize: reflectionFontSize,
+              fontWeight: FontWeight.w500,
+              height: 1.6,
+              color: palette.meaningText,
+            ),
+          ),
+          if (_includeAuthor && _hasAuthorInput) ...[
+            const SizedBox(height: 6),
+            Text(
+              '— ${widget.reflectionAuthor!.trim()}',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.notoSansThai(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: palette.headerSubText,
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

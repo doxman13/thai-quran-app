@@ -425,7 +425,8 @@ void main() {
 
           final cardFinder = find.byKey(const ValueKey('verse_share_card'));
           expect(cardFinder, findsOneWidget);
-          expect(tester.getSize(cardFinder).width, 390.0);
+          expect(tester.getSize(cardFinder).width, 420.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(560.0));
 
           // Outer card has sharp corners (BorderRadius.zero) for clean JPG export
           final outerContainer = tester.widget<Container>(cardFinder);
@@ -434,26 +435,53 @@ void main() {
             BorderRadius.zero,
           );
 
-          // Landscape / Vertical orientation toggle changes graphic width
-          await tester.tap(find.text('แนวนอน'));
+          // Aspect ratio selector switches across 1:1, 4:5, 9:16, 16:9, and 3:4
+          await tester.tap(find.text('1:1'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(cardFinder).width, 450.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(450.0));
+
+          await tester.tap(find.text('4:5'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(cardFinder).width, 440.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(550.0));
+
+          await tester.tap(find.text('9:16'));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(cardFinder).width, 405.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(720.0));
+
+          await tester.tap(find.text('16:9'));
           await tester.pumpAndSettle();
           expect(tester.getSize(cardFinder).width, 640.0);
+          expect(tester.getSize(cardFinder).height, greaterThanOrEqualTo(360.0));
 
-          await tester.tap(find.text('แนวตั้ง'));
+          await tester.tap(find.text('3:4'));
           await tester.pumpAndSettle();
-          expect(tester.getSize(cardFinder).width, 390.0);
+          expect(tester.getSize(cardFinder).width, 420.0);
 
-          // Verify Arabic inside card is sanitized and has no black-circle or pipe
-          final cardArabic = tester.widget<Text>(
-            find.descendant(
-              of: cardFinder,
-              matching: find.textContaining('ٱللَّهُ'),
-            ).first,
-          );
+          // Verify Arabic inside card is centered, sanitized, and placed above translation
+          final cardArabicFinder = find.descendant(
+            of: cardFinder,
+            matching: find.textContaining('ٱللَّهُ'),
+          ).first;
+          final cardArabic = tester.widget<Text>(cardArabicFinder);
           expect(cardArabic.data, isNot(contains('\u06DF')));
           expect(cardArabic.data, isNot(contains('|')));
           expect(cardArabic.textDirection, TextDirection.rtl);
           expect(cardArabic.locale, const Locale('ar'));
+          expect(cardArabic.textAlign, TextAlign.center);
+
+          final cardTranslationFinder = find.descendant(
+            of: cardFinder,
+            matching: find.textContaining('ไม่มีผู้ใดที่ควรได้รับการเคารพภักดี'),
+          ).first;
+          final cardTranslation = tester.widget<Text>(cardTranslationFinder);
+          expect(cardTranslation.textAlign, TextAlign.center);
+          expect(
+            tester.getTopLeft(cardArabicFinder).dy,
+            lessThan(tester.getTopLeft(cardTranslationFinder).dy),
+          );
 
           // Font size editor increments scale percentage and text size
           final initialArabicSize = cardArabic.style?.fontSize ?? 0;
@@ -472,7 +500,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('100%'), findsOneWidget);
 
-          // Toggle WBW, Short Tafsir, Footnotes ON
+          // Toggle WBW, Short Tafsir, All Footnotes ON
           await tester.tap(find.text('คำต่อคำ (WBW)'));
           await tester.pumpAndSettle();
           expect(
@@ -490,14 +518,16 @@ void main() {
             findsOneWidget,
           );
 
-          await tester.tap(find.text('เชิงอรรถ (1)'));
+          await tester.tap(find.text('เชิงอรรถทั้งหมด (1)'));
           await tester.pumpAndSettle();
+          final footnoteFinder = find.descendant(
+            of: cardFinder,
+            matching: find.text('[1] หมายถึงผู้ทรงดำรงอยู่ด้วยพระองค์เอง'),
+          );
+          expect(footnoteFinder, findsOneWidget);
           expect(
-            find.descendant(
-              of: cardFinder,
-              matching: find.text('[1] หมายถึงผู้ทรงดำรงอยู่ด้วยพระองค์เอง'),
-            ),
-            findsOneWidget,
+            tester.getTopLeft(footnoteFinder).dy,
+            greaterThan(tester.getTopLeft(cardTranslationFinder).dy),
           );
 
           // Switch across all 4 themes and verify exact background colors
